@@ -1,0 +1,19 @@
+{
+ "gaps": [],
+ "outcome": "answered",
+ "readings": [
+  {
+   "checked": "Examined: commitments where commitments.supplier_id = 'S-040' · limited to the records you hold",
+   "columns": [
+    "po_id",
+    "part_id"
+   ],
+   "label": "supplied",
+   "notice": "No records matched.",
+   "result": "empty_no_match",
+   "row_count": 0,
+   "rows": [],
+   "total": 0
+  }
+ ]
+}

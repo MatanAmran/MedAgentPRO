@@ -1,0 +1,7 @@
+{
+ "gaps": [],
+ "notice": "This asks for a cause, which an investigation determines.",
+ "offer_investigation": true,
+ "outcome": "referred_to_investigation",
+ "readings": []
+}
