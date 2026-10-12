@@ -246,24 +246,49 @@ def test_the_config_repr_holds_no_key():
     assert FAKE_KEY not in repr(b.BudgetConfig.from_env(env)) and "SECRET" not in str(b.BudgetConfig.from_env(env))
 
 
-@pytest.mark.xfail(strict=True, reason="G3: a provider error that quotes part of the API key reaches the audit "
-                   "entry (rejection_reason) and the exchange document (failure). Open in 00_STATUS. Remove this "
-                   "mark once fixed")
 def test_no_secret_reaches_a_log_a_record_or_an_answer(db_path, caplog):
-    """The provider's error quotes part of the key, as some do on a bad key. Neither key may surface."""
+    """G3. The provider's error quotes part of the key, as some do on a bad key, and another key-shaped
+    string. Neither key may surface: not in any log (LiteLLM's own loggers included), the audit, the
+    exchange document or the answer."""
+    other = "sk-ant-api03-SOMEONEELSE_xyz"
+
     def completion(**kw):
-        raise _Unauthorised(f"invalid x-api-key: {kw['api_key'][:24]}...")
+        raise _Unauthorised(f"invalid x-api-key: {kw['api_key'][:24]}... (also seen: {other})")
     gw = LiteLLMGateway(CircuitBreaker("model_provider", MemoryStore()), completion=completion, api_key=FAKE_KEY)
     storage = MemoryStorage()
     d = pl.Deps(gw, "m", CAT, pl.connect_readonly(db_path),
                 AuditRepository(storage, CircuitBreaker("s", MemoryStore()), FAKE_CHAIN.encode()),
                 p.load(seed.HERE / "intent_analysis.md"))
     with caplog.at_level(logging.DEBUG):
+        for name in ("LiteLLM", "LiteLLM Router", "LiteLLM Proxy"):
+            caplog.set_level(logging.DEBUG, logger=name)
         out = pl.run("Which suppliers were late?", [], APPROVER, d)
     assert out.response["outcome"] == "request_not_completed"
     surfaces = caplog.text + _dump(storage) + json.dumps(out.response)
-    for secret in (FAKE_KEY, FAKE_KEY[:24], FAKE_CHAIN):
+    for secret in (FAKE_KEY, FAKE_KEY[:24], FAKE_KEY[:8], FAKE_CHAIN, other):
         assert secret not in surfaces, f"{secret[:12]}... surfaced"
+    # the audit holds structured fields only; the operational channel holds the provider's text, masked
+    failed = [e for e in storage.audit_log if e["event_type"] == "model_call_failed"][0]
+    assert failed["rejection_reason"] == "client_error: _Unauthorised, HTTP 401"
+    assert "invalid x-api-key: [redacted]" in caplog.text and "also seen: [redacted]" in caplog.text
+
+
+@pytest.mark.parametrize("text, key, shown", [
+    ("key sk-ant-test-0123456789abcdefSECRET here", FAKE_KEY, "key [redacted] here"),
+    ("prefix sk-ant-te only", FAKE_KEY, "prefix [redacted] only"),
+    ("another sk-ant-api03-ab_CD-ef9 seen", None, "another [redacted] seen"),
+    ("nothing to hide", FAKE_KEY, "nothing to hide"),
+])
+def test_redact(text, key, shown):
+    from model_client.client import redact
+    assert redact(text, key) == shown
+
+
+def test_litellms_own_logging_is_off():
+    """G3: suppress_debug_info on, set_verbose off, once the real completion is loaded."""
+    import litellm
+    LiteLLMGateway(CircuitBreaker("m", MemoryStore()))._litellm()
+    assert litellm.suppress_debug_info is True and not litellm.set_verbose
 
 
 # --------------------------------------------------------------------------

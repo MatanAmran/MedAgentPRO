@@ -25,6 +25,7 @@ from dataclasses import dataclass
 from typing import Any, Callable
 
 from shared.circuit_breaker import CircuitBreaker
+from shared.circuit_breaker import log
 
 # PROVISIONAL (review R4, P7). LiteLLM's own default is 6000 seconds. 120 is enough for the output cap,
 # and response time is measured to the first token anyway (Table 15).
@@ -135,27 +136,48 @@ def _never_connected(e: BaseException) -> bool:
                for x in _chain(e))
 
 
+_KEY_PATTERN = re.compile(r"sk-ant-[A-Za-z0-9_-]+")
+
+
+def redact(text: str, key: str | None = None) -> str:
+    """G3: the configured key, any prefix of it of 8 characters or more, and anything shaped like an
+    Anthropic key, masked. For the operational channel only; the audit never holds provider text."""
+    if key:
+        for n in range(len(key), 7, -1):
+            text = text.replace(key[:n], "[redacted]")
+    return _KEY_PATTERN.sub("[redacted]", text)
+
+
+def _structured(e: Exception) -> str:
+    """G3: what a failure records in the audit and the exchange document. The exception type and the
+    HTTP status only, never the provider's text, which may quote the key and is kept for good (NFR 2)."""
+    status = getattr(e, "status_code", None)
+    return type(e).__name__ + (f", HTTP {status}" if isinstance(status, int) else "")
+
+
 def classify(e: Exception) -> Exception:
-    """The provider's exception, as BudgetExceeded or ModelCallError. Read from types and status codes."""
+    """The provider's exception, as BudgetExceeded or ModelCallError. Read from types and status codes.
+    The result carries structured fields only (G3)."""
     if isinstance(e, (BudgetExceeded, ModelCallError)):
         return e
+    what = _structured(e)
     if is_money_refusal(e):
-        return BudgetExceeded(f"provider refused for credit or spend limit: {e}", scope="provider")
+        return BudgetExceeded(f"provider refused for credit or spend limit ({what})", scope="provider")
     names = {cls.__name__ for cls in type(e).__mro__}
     status = getattr(e, "status_code", None)
     if "UnsupportedParamsError" in names:
-        return ModelCallError("client_error", str(e), reached_provider=False)
+        return ModelCallError("client_error", what, reached_provider=False)
     if names & {"Timeout", "APITimeoutError", "TimeoutError", "ReadTimeout"}:
-        return ModelCallError("timeout", str(e), outage=True)
+        return ModelCallError("timeout", what, outage=True)
     if names & {"APIConnectionError", "ConnectionError", "ConnectError"}:
-        return ModelCallError("connection", str(e), reached_provider=not _never_connected(e), outage=True)
+        return ModelCallError("connection", what, reached_provider=not _never_connected(e), outage=True)
     if status == 429:
-        return ModelCallError("rate_limited", str(e), outage=True)
+        return ModelCallError("rate_limited", what, outage=True)
     if isinstance(status, int) and status >= 500:
-        return ModelCallError("server_error", str(e), outage=True)
+        return ModelCallError("server_error", what, outage=True)
     if isinstance(status, int) and 400 <= status < 500:
-        return ModelCallError("client_error", str(e))
-    return ModelCallError("unexpected", f"{type(e).__name__}: {e}")
+        return ModelCallError("client_error", what)
+    return ModelCallError("unexpected", what)
 
 
 class ScriptedModelGateway(ModelGateway):
@@ -204,6 +226,9 @@ class LiteLLMGateway(ModelGateway):
     def _litellm(self):
         if self._completion is None:
             import litellm  # imported on first use, so tests never need it
+            # G3: LiteLLM's own logging stays quiet, so a request or an error never reaches a log through it
+            litellm.suppress_debug_info = True
+            litellm.set_verbose = False
             self._completion = litellm.completion
         return self._completion
 
@@ -228,12 +253,13 @@ class LiteLLMGateway(ModelGateway):
                 return self._litellm()(**kwargs)
             except Exception as e:
                 err = classify(e)
+                # G3: the provider's own text goes to the operational channel, masked, and nowhere else.
+                # The classified error carries structured fields only, and not the original as its cause
+                log.warning("model provider error: %s; %s", err, redact(str(e), self._api_key))
                 if getattr(err, "outage", False):   # the breaker counts it
                     if err is e:
                         raise
-                    raise err from e
-                if err is not e:
-                    err.__cause__ = e
+                    raise err from None
                 return _Passed(err)
         resp = self.breaker.call(op)
         if isinstance(resp, _Passed):

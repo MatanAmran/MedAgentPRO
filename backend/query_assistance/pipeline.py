@@ -37,7 +37,7 @@ from typing import Any, Callable
 from jsonschema import Draft202012Validator
 
 from model_client.budget import estimate_input_tokens
-from model_client.client import BudgetExceeded, ModelGateway, RateLimited
+from model_client.client import BudgetExceeded, ModelGateway, RateLimited, redact
 from persistence.audit_repository import AuditEntry, AuditRepository
 from shared.circuit_breaker import CircuitBreaker, CircuitOpen, MemoryStore
 from shared.circuit_breaker import log as operational_log
@@ -319,7 +319,7 @@ def run(question: str, history: list[prompts.Exchange], user: dict, deps: Deps,
                            for r in response["readings"] if r.get("answer")],
                "rating": None}
         if failure:
-            doc["failure"] = failure
+            doc["failure"] = redact(failure)   # G3: in depth, should provider text ever reach it
         if spent:
             doc["cost"] = spent
         try:
@@ -453,7 +453,7 @@ def run(question: str, history: list[prompts.Exchange], user: dict, deps: Deps,
         return finish(contract.request_not_completed(understood), failure=f"cancelled: {e}")
     except Exception as e:        # R6: whatever escapes ends as request_not_completed, recorded
         operational_log.error("exchange failed: attempt=%s user=%s error=%s: %s",
-                              eid, user.get("user_id"), type(e).__name__, e)
+                              eid, user.get("user_id"), type(e).__name__, redact(str(e)))
         return finish(contract.request_not_completed(understood), failure=f"unexpected: {type(e).__name__}: {e}")
     finally:
         stack.close()
