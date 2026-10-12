@@ -378,14 +378,16 @@ def test_empty_with_unknown_identifier_names_it(db):
     p = plan(WHERE={"EQ": [{"col": "commitments.supplier_id"}, {"value": "S-777"}]})
     res, = run(intent(p), db, question="Which commitments does S-777 hold?")
     assert res.outcome == "empty_unknown_entity"
-    assert res.missing == [{"column": "commitments.supplier_id", "value": "S-777"}]
+    assert res.missing == [{"column": "commitments.supplier_id", "value": "S-777",
+                            "checked_in": "suppliers.supplier_id"}]
 
 
 def test_in_list_reports_only_the_absent_identifier(db):
     p = plan(WHERE={"AND": [{"IN": [{"col": "commitments.po_id"}, [{"value": "PO-1"}, {"value": "PO-404"}]]},
                             {"EQ": [{"col": "commitments.week"}, {"value": 13}]}]})
     res, = run(intent(p), db, question="Were PO-1 and PO-404 late in week 13?")
-    assert res.missing == [{"column": "commitments.po_id", "value": "PO-404"}]
+    assert res.missing == [{"column": "commitments.po_id", "value": "PO-404",
+                            "checked_in": "commitments.po_id"}]
 
 
 def test_identifier_under_or_is_not_probed():
@@ -399,6 +401,44 @@ def test_probe_respects_entitlement(db):
     p = plan(WHERE={"EQ": [{"col": "commitments.commitment_id"}, {"value": "C-99"}]})
     res, = run(intent(p), db, question="What is the status of C-99?")
     assert res.outcome == "empty_unknown_entity"
+
+
+def test_held_identifier_with_no_lines_is_no_match(db):
+    """S-040 is a supplier, held in suppliers. u-17 holds no line of it. Checked where the
+    supplier is held, so the answer is that nothing matched, not that S-040 is absent."""
+    p = plan(WHERE={"EQ": [{"col": "commitments.supplier_id"}, {"value": "S-040"}]})
+    res, = run(intent(p), db, question="Which commitments does S-040 hold?")
+    assert res.outcome == "empty_no_match" and res.missing == []
+
+
+def test_reference_target_is_checked_within_entitlement():
+    p = plan(WHERE={"EQ": [{"col": "commitments.supplier_id"}, {"value": "S-040"}]})
+    probe, = compile_(intent(p), question="Which commitments does S-040 hold?").readings[0].probes
+    assert probe.checked_in == "suppliers.supplier_id" and '"suppliers"' in probe.sql
+
+
+def test_unreadable_reference_falls_back_to_the_column(db):
+    """Where the role may not read the referenced table, the column itself is checked,
+    as it was before references were declared."""
+    import copy, json
+    schema = json.loads((c.HERE / "schema.json").read_text(encoding="utf-8"))
+    rel = json.loads((c.HERE / "relations.json").read_text(encoding="utf-8"))
+    del schema["entities"]["suppliers"]["entitlement"]["PLANNER"]
+    cat = c.Catalog(copy.deepcopy(schema), rel)
+    p = plan(WHERE={"EQ": [{"col": "commitments.supplier_id"}, {"value": "S-040"}]})
+    r, = c.compile_intent(intent(p), "Which commitments does S-040 hold?", PLANNER, cat, VALIDATOR).readings
+    assert r.probes[0].checked_in == "commitments.supplier_id"
+    assert c.execute(r, db).outcome == "empty_unknown_entity"
+
+
+@pytest.mark.parametrize("bad", ["suppliers.name", "suppliers.nope"])
+def test_reference_must_name_an_identifier(bad):
+    import json
+    schema = json.loads((c.HERE / "schema.json").read_text(encoding="utf-8"))
+    rel = json.loads((c.HERE / "relations.json").read_text(encoding="utf-8"))
+    schema["entities"]["commitments"]["columns"]["supplier_id"]["references"] = bad
+    with pytest.raises(ValueError):
+        c.Catalog(schema, rel)
 
 
 def test_rows_returned(db):

@@ -1,0 +1,328 @@
+{
+  "$comment": "DEMO ONLY. A synthetic supply-chain store for demonstrating the query assistance pipeline. Not the company inventory, which has not been received. Columns that exist but are sparsely filled (notes, bin_location, promised_date, delay_reason) are deliberate: they let the demo show record-level gaps.",
+  "entities": {
+    "suppliers": {
+      "columns": {
+        "supplier_id": {
+          "type": "text",
+          "identifier": true
+        },
+        "name": {
+          "type": "text"
+        },
+        "region": {
+          "type": "text",
+          "values": [
+            "EMEA",
+            "AMER",
+            "APAC"
+          ]
+        },
+        "country": {
+          "type": "text"
+        }
+      },
+      "entitlement": {
+        "PLANNER": {
+          "all": true
+        },
+        "APPROVER": {
+          "all": true
+        }
+      }
+    },
+    "parts": {
+      "columns": {
+        "part_id": {
+          "type": "text",
+          "identifier": true
+        },
+        "description": {
+          "type": "text"
+        },
+        "category": {
+          "type": "text",
+          "values": [
+            "Catheter components",
+            "Guidewires",
+            "Tubing",
+            "Electronics",
+            "Mechanical",
+            "Packaging",
+            "Consumables"
+          ]
+        },
+        "planner_id": {
+          "type": "text"
+        },
+        "on_hand": {
+          "type": "integer"
+        },
+        "reorder_point": {
+          "type": "integer"
+        },
+        "bin_location": {
+          "type": "text"
+        }
+      },
+      "entitlement": {
+        "PLANNER": {
+          "all": true
+        },
+        "APPROVER": {
+          "all": true
+        }
+      }
+    },
+    "purchase_orders": {
+      "columns": {
+        "po_id": {
+          "type": "text",
+          "identifier": true
+        },
+        "supplier_id": {
+          "type": "text",
+          "identifier": true,
+          "references": "suppliers.supplier_id"
+        },
+        "planner_id": {
+          "type": "text"
+        },
+        "order_date": {
+          "type": "date"
+        },
+        "status": {
+          "type": "text",
+          "values": [
+            "open",
+            "closed",
+            "cancelled"
+          ]
+        },
+        "notes": {
+          "type": "text"
+        }
+      },
+      "entitlement": {
+        "PLANNER": {
+          "col": "planner_id",
+          "equals": "user_id"
+        },
+        "APPROVER": {
+          "all": true
+        }
+      }
+    },
+    "commitments": {
+      "$comment": "One purchase order line. supplier_id and planner_id are carried from the order, as an ERP line view does.",
+      "columns": {
+        "commitment_id": {
+          "type": "text",
+          "identifier": true
+        },
+        "po_id": {
+          "type": "text",
+          "identifier": true,
+          "references": "purchase_orders.po_id"
+        },
+        "supplier_id": {
+          "type": "text",
+          "identifier": true,
+          "references": "suppliers.supplier_id"
+        },
+        "part_id": {
+          "type": "text",
+          "identifier": true,
+          "references": "parts.part_id"
+        },
+        "planner_id": {
+          "type": "text"
+        },
+        "week": {
+          "type": "integer"
+        },
+        "quantity": {
+          "type": "integer"
+        },
+        "unit_price": {
+          "type": "real"
+        },
+        "line_value": {
+          "type": "real"
+        },
+        "due_date": {
+          "type": "date"
+        },
+        "promised_date": {
+          "type": "date"
+        },
+        "delivered_at": {
+          "type": "date"
+        },
+        "received_qty": {
+          "type": "integer"
+        },
+        "delay_reason": {
+          "type": "text"
+        }
+      },
+      "entitlement": {
+        "PLANNER": {
+          "col": "planner_id",
+          "equals": "user_id"
+        },
+        "APPROVER": {
+          "all": true
+        }
+      }
+    },
+    "receipts": {
+      "columns": {
+        "receipt_id": {
+          "type": "text",
+          "identifier": true
+        },
+        "commitment_id": {
+          "type": "text",
+          "identifier": true,
+          "references": "commitments.commitment_id"
+        },
+        "received_on": {
+          "type": "date"
+        },
+        "quantity": {
+          "type": "integer"
+        }
+      },
+      "entitlement": {
+        "PLANNER": {
+          "all": true
+        },
+        "APPROVER": {
+          "all": true
+        }
+      }
+    },
+    "forecast": {
+      "columns": {
+        "part_id": {
+          "type": "text",
+          "identifier": true,
+          "references": "parts.part_id"
+        },
+        "week": {
+          "type": "integer"
+        },
+        "demand": {
+          "type": "integer"
+        }
+      },
+      "entitlement": {
+        "PLANNER": {
+          "all": true
+        },
+        "APPROVER": {
+          "all": true
+        }
+      }
+    }
+  },
+  "metrics": {
+    "late_by_delivery": {
+      "entity": "commitments",
+      "type": "boolean",
+      "expr": {
+        "op": "GT",
+        "args": [
+          {
+            "col": "commitments.delivered_at"
+          },
+          {
+            "col": "commitments.due_date"
+          }
+        ]
+      },
+      "description": "Delivered after the requested date."
+    },
+    "late_by_promise": {
+      "entity": "commitments",
+      "type": "boolean",
+      "expr": {
+        "op": "GT",
+        "args": [
+          {
+            "col": "commitments.promised_date"
+          },
+          {
+            "col": "commitments.due_date"
+          }
+        ]
+      },
+      "description": "The supplier committed to a date after the requested date."
+    },
+    "missed_promise": {
+      "entity": "commitments",
+      "type": "boolean",
+      "expr": {
+        "op": "GT",
+        "args": [
+          {
+            "col": "commitments.delivered_at"
+          },
+          {
+            "col": "commitments.promised_date"
+          }
+        ]
+      },
+      "description": "Delivered after the date the supplier committed to."
+    },
+    "days_late": {
+      "entity": "commitments",
+      "type": "real",
+      "expr": {
+        "op": "DAYS_BETWEEN",
+        "args": [
+          {
+            "col": "commitments.due_date"
+          },
+          {
+            "col": "commitments.delivered_at"
+          }
+        ]
+      },
+      "description": "Days between the requested date and the delivery."
+    },
+    "short_received": {
+      "entity": "commitments",
+      "type": "boolean",
+      "expr": {
+        "op": "LT",
+        "args": [
+          {
+            "col": "commitments.received_qty"
+          },
+          {
+            "col": "commitments.quantity"
+          }
+        ]
+      },
+      "description": "Less received so far than ordered on the line."
+    },
+    "below_reorder_point": {
+      "entity": "parts",
+      "type": "boolean",
+      "expr": {
+        "op": "LT",
+        "args": [
+          {
+            "col": "parts.on_hand"
+          },
+          {
+            "col": "parts.reorder_point"
+          }
+        ]
+      },
+      "description": "Stock on hand is below the reorder point."
+    }
+  }
+}

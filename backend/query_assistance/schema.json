@@ -13,11 +13,13 @@
         },
         "supplier_id": {
           "type": "text",
-          "identifier": true
+          "identifier": true,
+          "references": "suppliers.supplier_id"
         },
         "part_id": {
           "type": "text",
-          "identifier": true
+          "identifier": true,
+          "references": "parts.part_id"
         },
         "planner_id": {
           "type": "text"
@@ -97,7 +99,8 @@
       "columns": {
         "part_id": {
           "type": "text",
-          "identifier": true
+          "identifier": true,
+          "references": "parts.part_id"
         },
         "week": {
           "type": "integer"

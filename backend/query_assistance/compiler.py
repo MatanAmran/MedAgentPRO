@@ -13,7 +13,7 @@ What it does, in order:
   5. Rejects an identifier the conversation never named (NFR 27, Test 45).
   6. Builds, per reading, the main query, a count query that tells whether the
      result was cut by LIMIT, and existence probes for the identifiers the plan
-     names (Test 35).
+     names (Test 35), checked where each identifier is held (its declared references).
 
 Every rejection raises CompileError with a code and a reason. The caller records
 it and tells the user the request could not be completed (Test 13).
@@ -60,11 +60,17 @@ class CompileError(Exception):
 
 @dataclass
 class Probe:
-    """Checks whether an identifier the plan names is held at all."""
+    """Checks whether an identifier the plan names is held at all.
+
+    column      the column the plan filtered on
+    checked_in  where existence is checked: the column's declared reference where there
+                is one the user may read, otherwise the column itself
+    """
     column: str
     value: Any
     sql: str
     params: list
+    checked_in: str = ""
 
 
 @dataclass
@@ -122,6 +128,15 @@ class Catalog:
         self.entities = schema["entities"]
         self.metrics = schema.get("metrics", {})
         self.relations = relations["relations"]
+        for table, ent in self.entities.items():
+            for col, spec in ent["columns"].items():
+                ref = spec.get("references")
+                if ref is None:
+                    continue
+                target = self.column(ref)
+                if not spec.get("identifier") or target is None or not target.get("identifier"):
+                    raise ValueError(f"schema.json: {table}.{col} references '{ref}', which must be "
+                                     f"an identifier column, and so must {table}.{col}")
 
     @classmethod
     def load(cls, schema_path=HERE / "schema.json", relations_path=HERE / "relations.json"):
@@ -486,19 +501,34 @@ class _ReadingCompiler:
         return CompiledReading(self.label, sql, params + [limit], count_sql, list(params),
                                limit, limit_injected, self._probes())
 
+    def _probe_target(self, column: str) -> tuple[str, tuple[str, list] | None]:
+        """Where an identifier's existence is checked, and the entitlement condition there.
+
+        A column that declares references (commitments.supplier_id -> suppliers.supplier_id)
+        is checked where the identifier is held, so a supplier with no lines reads as held
+        with nothing matching, not as absent. The reference is used only where the user may
+        read its table. Otherwise the column itself is checked, as before."""
+        ref = self.cat.column(column).get("references")
+        if ref:
+            try:
+                return ref, self.entitlement(ref.split(".")[0])
+            except CompileError:
+                pass
+        return column, self.entitlement(column.split(".")[0])
+
     def _probes(self) -> list[Probe]:
         """One probe per identifier value: is it held at all, within what the user may see."""
         out = []
         for column, value in self.identities:
-            table, _, col = column.partition(".")
+            target, ent = self._probe_target(column)
+            table, _, col = target.partition(".")
             where = [f"{_q(table)}.{_q(col)} = ?"]
             params = [value]
-            ent = self.entitlement(table)
             if ent:
                 where.append(ent[0])
                 params += ent[1]
             sql = f"SELECT 1 FROM {_q(table)} WHERE {' AND '.join(where)} LIMIT 1"
-            out.append(Probe(column, value, sql, params))
+            out.append(Probe(column, value, sql, params, target))
         return out
 
 
@@ -598,7 +628,7 @@ def execute(reading: CompiledReading, conn: sqlite3.Connection) -> RetrievalResu
     total = conn.execute(reading.count_sql, reading.count_params).fetchone()[0]
     if rows:
         return RetrievalResult(reading.label, "rows_returned", rows, total, total > len(rows))
-    missing = [{"column": p.column, "value": p.value}
+    missing = [{"column": p.column, "value": p.value, "checked_in": p.checked_in}
                for p in reading.probes if conn.execute(p.sql, p.params).fetchone() is None]
     outcome = "empty_unknown_entity" if missing else "empty_no_match"
     return RetrievalResult(reading.label, outcome, [], 0, False, missing)

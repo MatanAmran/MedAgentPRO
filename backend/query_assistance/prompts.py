@@ -78,13 +78,23 @@ def visible_tables(cat: Catalog, role: str) -> list[str]:
     return [t for t, e in cat.entities.items() if role in (e.get("entitlement") or {})]
 
 
+def _column_note(spec: dict) -> str:
+    """What the model needs to know about a column beyond its type. Where a text column takes
+    a closed set of values, the set is shown, so a filter is not written as 'Open' for 'open'."""
+    notes = []
+    if spec.get("identifier"):
+        notes.append("identifier")
+    if spec.get("values"):
+        notes.append("one of: " + ", ".join(spec["values"]))
+    return ("  -- " + "; ".join(notes)) if notes else ""
+
+
 def render_schema(cat: Catalog, role: str) -> str:
     tables = visible_tables(cat, role)
     out = []
     for t in tables:
         cols = cat.entities[t]["columns"]
-        lines = [f"  {c} {SQL_TYPES[s['type']]}" + ("  -- identifier" if s.get("identifier") else "")
-                 for c, s in cols.items()]
+        lines = [f"  {c} {SQL_TYPES[s['type']]}" + _column_note(s) for c, s in cols.items()]
         out.append(f"CREATE TABLE {t} (\n" + ",\n".join(lines) + "\n);")
     for name, r in cat.relations.items():
         if r["from"] in tables and r["to"] in tables:
@@ -102,10 +112,18 @@ def render_schema(cat: Catalog, role: str) -> str:
 
 @dataclass
 class Exchange:
+    """One earlier exchange, as the rewriting call and the identifier check see it.
+
+    answer     the answer after the gate, with every free-text value left as its reference
+               (synthesis.Draft.answer(..., for_history=True)). Text held in a record must not
+               reach the rewriting call or count as a source of identifiers (NFR 21)
+    presented  identifiers from identifier columns only (synthesis.Draft.presented_identifiers),
+               in the order shown
+    """
     posed: str
     understood: str | None = None      # the rewritten question, where there was one
-    answer: str | None = None          # as presented, after the gate
-    presented: list[str] = field(default_factory=list)   # identifiers, in the order shown
+    answer: str | None = None
+    presented: list[str] = field(default_factory=list)
 
 
 @dataclass

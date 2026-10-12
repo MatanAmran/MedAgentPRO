@@ -7,3 +7,4 @@ frontend/.env.local
 .env
 __pycache__/
 .pytest_cache/
+backend/demo_data/demo.db

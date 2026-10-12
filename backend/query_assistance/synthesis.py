@@ -1,0 +1,257 @@
+"""
+MedAgentPro - query assistance pipeline. Synthesis (schema 5).
+
+The synthesis model drafts the answer from the rows retrieved under each reading
+(4.9, Table 12). It does not write values. It writes text with symbolic references,
+{label.alias#row}, and code fills each one from the row it names (2.6, [25]). So a value
+in an answer is the value in the record by construction (NFR 6), and every sentence
+references the records it rests on (NFR 4).
+
+What code decides, structurally and without reading meaning:
+  - every reference names a reading that returned rows, an alias in it and a row that exists
+  - no reference points at an empty field
+  - no digit stands outside a reference unless the question itself holds that token,
+    so a count, a sum or an identifier the model typed is rejected (NFR 6)
+What code does not decide: whether the words around the references are true, for example
+"had the most". That is the gate's (4.9, NFR 19). The ordering itself is shown by code
+beside the answer, from the plan's ORDER_BY.
+
+NFR 21: content held in a record must not alter which retrievals run. A value of a free-text
+field (a text column that is neither an identifier nor a closed set of values) reaches the
+person in the answer, but the conversation history receives the answer with that value
+replaced by its reference, and only identifier columns supply presented identifiers.
+
+STATUS: schema 5 is "demo" in medagentpro_schemas.json. The book keeps it blocked until the
+company data structure arrives. The approach is in the book (4.9, [25]). The exact syntax
+{label.alias#row} is decided here.
+"""
+
+from __future__ import annotations
+
+import json
+import re
+from dataclasses import dataclass, field
+from typing import Any
+
+from jsonschema import Draft202012Validator
+
+from model_client.client import ModelConfig, ModelGateway, ModelResponse
+
+from . import prompts
+from .compiler import HERE, Catalog
+
+# PROVISIONAL. Table 15, "Model call attempts": how often a failed call is retried before
+# the stage fails. The book names the row and no value.
+MODEL_CALL_ATTEMPTS = 2
+
+REF_RE = re.compile(r"\{([a-z][a-z0-9_]{0,39})\.([a-z][a-z0-9_]{0,39})#(\d+)\}")
+TOKEN_RE = re.compile(r"[^\s,;:()\[\]\"']+")
+
+
+class SynthesisOutputError(Exception):
+    """The draft breaks a rule. Treated as a failed call, not as an answer."""
+
+
+@dataclass
+class Material:
+    """What one reading retrieved, as synthesis and its checks see it.
+
+    columns    alias -> the column it selects, or None for a count, a sum or a metric.
+               Decides which values are free text (NFR 21) and which are identifiers
+    """
+    label: str
+    rows: list[dict[str, Any]]
+    columns: dict[str, str | None] = field(default_factory=dict)
+    order_by: list[dict] = field(default_factory=list)
+    truncated: bool = False
+
+
+def material(label: str, plan: dict, rows: list[dict], truncated: bool = False) -> Material:
+    """Builds a Material from a reading's plan, so the alias -> column map comes from what ran."""
+    cols = {i["as"]: i["expr"].get("col") for i in plan["SELECT"]}
+    return Material(label, rows, cols, plan.get("ORDER_BY", []), truncated)
+
+
+@dataclass
+class Sentence:
+    template: str                  # as the model wrote it, with references
+    refs: list[tuple[str, str, int]]
+
+    @property
+    def evidence(self) -> list[str]:
+        """label.alias for each field the sentence rests on, for the gate and the audit entry."""
+        return list(dict.fromkeys(f"{lab}.{alias}" for lab, alias, _ in self.refs))
+
+
+@dataclass
+class Draft:
+    sentences: dict[str, list[Sentence]]
+    materials: dict[str, Material]
+    responses: list[ModelResponse]          # every call made, for the audit entry (NFR 3)
+
+    def answer(self, label: str, cat: Catalog | None = None, for_history: bool = False) -> str:
+        """The text of a reading: references filled from their rows. The gate examines this.
+        With for_history, values of free-text fields stay as references (NFR 21)."""
+        m = self.materials[label]
+        masked = free_text_aliases(m, cat) if for_history else set()
+        return " ".join(fill(s.template, self.materials, masked_aliases={label: masked})
+                        for s in self.sentences.get(label, []))
+
+    def presented_identifiers(self, cat: Catalog) -> list[str]:
+        """Identifiers the answer presents, in order. Only identifier columns supply them,
+        never a free-text value that happens to look like one (NFR 21, NFR 27)."""
+        out = []
+        for label, ss in self.sentences.items():
+            m = self.materials[label]
+            for s in ss:
+                for lab, alias, row in s.refs:
+                    col = m.columns.get(alias)
+                    if col and (cat.column(col) or {}).get("identifier"):
+                        v = str(m.rows[row - 1][alias])
+                        if v not in out:
+                            out.append(v)
+        return out
+
+
+def validator() -> Draft202012Validator:
+    bundle = json.loads((HERE / "medagentpro_schemas.json").read_text(encoding="utf-8"))
+    return Draft202012Validator(bundle["schemas"]["synthesis"]["schema"])
+
+
+# --------------------------------------------------------------------------
+# filling references
+# --------------------------------------------------------------------------
+
+def format_value(v: Any) -> str:
+    if isinstance(v, float):
+        return str(int(v)) if v.is_integer() else f"{v:.2f}".rstrip("0").rstrip(".")
+    return str(v)
+
+
+def free_text_aliases(m: Material, cat: Catalog | None) -> set[str]:
+    """Aliases whose values are free text: a text column that is not an identifier and
+    declares no closed set of values. Without a catalog, every text column counts."""
+    out = set()
+    for alias, col in m.columns.items():
+        if not col:
+            continue
+        spec = cat.column(col) if cat else None
+        if spec is None:
+            out.add(alias)
+        elif spec["type"] == "text" and not spec.get("identifier") and not spec.get("values"):
+            out.add(alias)
+    return out
+
+
+def fill(template: str, materials: dict[str, Material],
+         masked_aliases: dict[str, set[str]] | None = None) -> str:
+    masked_aliases = masked_aliases or {}
+
+    def sub(mt):
+        label, alias, row = mt.group(1), mt.group(2), int(mt.group(3))
+        if alias in masked_aliases.get(label, set()):
+            return f"[{label}.{alias}]"
+        return format_value(materials[label].rows[row - 1][alias])
+    return REF_RE.sub(sub, template)
+
+
+# --------------------------------------------------------------------------
+# the checks
+# --------------------------------------------------------------------------
+
+def _tokens_with_digits(text: str) -> list[str]:
+    return [t.strip(".!?").casefold() for t in TOKEN_RE.findall(text) if any(ch.isdigit() for ch in t)]
+
+
+def check(output: dict, materials: list[Material], question: str) -> dict[str, list[Sentence]]:
+    """Schema validation runs before this. Returns the parsed sentences per label."""
+    by_label = {m.label: m for m in materials if m.rows}
+    question_tokens = set(_tokens_with_digits(question))
+    result: dict[str, list[Sentence]] = {}
+    for r in output["readings"]:
+        label = r["label"]
+        if label in result:
+            raise SynthesisOutputError(f"reading {label} appears twice")
+        if label not in by_label:
+            raise SynthesisOutputError(f"reading {label} returned no rows or was not retrieved")
+        m = by_label[label]
+        sentences = []
+        for s in r["sentences"]:
+            text = s["text"]
+            refs = [(a, b, int(n)) for a, b, n in REF_RE.findall(text)]
+            if not refs:
+                raise SynthesisOutputError(f"'{text}' references no field (NFR 4)")
+            for lab, alias, row in refs:
+                if lab != label:
+                    raise SynthesisOutputError(f"'{text}' references reading {lab} from reading {label}")
+                if alias not in m.rows[0]:
+                    raise SynthesisOutputError(f"{{{lab}.{alias}#{row}}}: no field {alias} in reading {label}")
+                if not 1 <= row <= len(m.rows):
+                    raise SynthesisOutputError(f"{{{lab}.{alias}#{row}}}: reading {label} has {len(m.rows)} row(s)")
+                if m.rows[row - 1][alias] is None:
+                    raise SynthesisOutputError(f"{{{lab}.{alias}#{row}}} points at an empty field")
+            outside = REF_RE.sub(" ", text)
+            if "{" in outside or "}" in outside:
+                raise SynthesisOutputError(f"'{text}' holds a malformed reference")
+            stray = [t for t in _tokens_with_digits(outside) if t not in question_tokens]
+            if stray:
+                raise SynthesisOutputError(f"'{text}' writes {stray[0]!r} outside a reference. Values, counts "
+                                           f"and identifiers come from the records (NFR 6)")
+            sentences.append(Sentence(text, refs))
+        result[label] = sentences
+    missing = set(by_label) - set(result)
+    if missing:   # [proposal]
+        raise SynthesisOutputError(f"no sentence for reading(s) {sorted(missing)}, which returned rows")
+    return result
+
+
+# --------------------------------------------------------------------------
+# rendering and the calls
+# --------------------------------------------------------------------------
+
+def _records(materials: list[Material]) -> str:
+    return prompts.render_records([(m.label, m.rows) for m in materials if m.rows])
+
+
+def render(question: str, materials: list[Material], prompt: prompts.Prompt | None = None) -> str:
+    return prompts.fill(prompt or prompts.load("synthesis.md"), question=question, records=_records(materials))
+
+
+def render_redraft(question: str, materials: list[Material], kept: dict[str, list[str]],
+                   prompt: prompts.Prompt | None = None) -> str:
+    lines = [f"[{label}] {t}" for label, ts in kept.items() for t in ts]
+    return prompts.fill(prompt or prompts.load("synthesis_redraft.md"), question=question,
+                        records=_records(materials), kept="\n".join(lines))
+
+
+def _call(gateway: ModelGateway, text: str, prompt: prompts.Prompt, model: str,
+          materials: list[Material], question: str, attempts: int) -> Draft:
+    v = validator()
+    responses, last = [], None
+    for _ in range(attempts):
+        resp = gateway.invoke(text, ModelConfig(model=model, prompt_identity=prompt.identity))
+        responses.append(resp)
+        try:
+            out = resp.json()
+            errors = list(v.iter_errors(out))
+            if errors:
+                raise SynthesisOutputError(errors[0].message)
+            return Draft(check(out, materials, question), {m.label: m for m in materials}, responses)
+        except (ValueError, SynthesisOutputError) as e:   # ValueError covers unparsable JSON
+            last = e
+    raise SynthesisOutputError(f"rejected after {attempts} attempt(s): {last}")
+
+
+def draft(gateway: ModelGateway, question: str, materials: list[Material], model: str,
+          attempts: int = MODEL_CALL_ATTEMPTS) -> Draft:
+    pr = prompts.load("synthesis.md")
+    return _call(gateway, render(question, materials, pr), pr, model, materials, question, attempts)
+
+
+def redraft(gateway: ModelGateway, question: str, materials: list[Material], kept: dict[str, list[str]],
+            model: str, attempts: int = MODEL_CALL_ATTEMPTS) -> Draft:
+    """NFR 19: regenerated at most once, from the assertions the gate kept. The caller runs
+    the gate on the result once more and does not redraft again (Test 17)."""
+    pr = prompts.load("synthesis_redraft.md")
+    keep = [m for m in materials if m.label in kept]
+    return _call(gateway, render_redraft(question, keep, kept, pr), pr, model, keep, question, attempts)

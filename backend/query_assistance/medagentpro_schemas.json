@@ -4,7 +4,8 @@
   "status_legend": {
     "complete": "written and validated against instances",
     "blocked": "cannot be written until the blocker is resolved",
-    "open": "no blocker, not yet written"
+    "open": "no blocker, not yet written",
+    "demo": "written against the demo store only; not in the book"
   },
   "placeholders": [
     {
@@ -710,20 +711,89 @@
       "schema": null
     },
     "synthesis": {
-      "status": "blocked",
-      "stage": "Synthesis, both pipelines (Table 12).",
+      "status": "demo",
+      "status_note": "Written against demo_data/schema.json for the Phase B demo. The book keeps this schema blocked until the company data structure arrives (the fields a reference may resolve to). The approach is in the book: 4.9 states that the answer is drafted with symbolic references resolved into values in code [25]. The exact reference syntax {label.alias#row} is decided here, not in the book.",
+      "stage": "Synthesis, query assistance pipeline (4.9, Table 12). Drafts the answer from the rows retrieved under each reading. Also used for the single redraft after the gate (NFR 19).",
       "requirements": [
         "NFR 4",
-        "NFR 6"
+        "NFR 6",
+        "NFR 19",
+        "NFR 20",
+        "NFR 21"
       ],
       "tests": [
         "Test 4",
-        "Test 16"
+        "Test 16",
+        "Test 17"
       ],
-      "blocked_by": [
-        "Same as summarization: the set of fields a reference may resolve to."
+      "post_model_checks": [
+        "[book NFR 6] Output that does not conform to the schema is rejected.",
+        "[book NFR 4, NFR 6] Every sentence carries at least one reference {label.alias#row}. Every reference names a reading that returned rows, an alias in it and a row that exists, and points at a field that is not empty. Code fills each reference from that row, so every value presented is the value in the record.",
+        "[book NFR 6] No digit stands outside a reference unless the question holds the same token. A count, a sum or an identifier the model typed is rejected before the gate sees it.",
+        "[book NFR 6, NFR 19] Whether the words around the references are true, for example a first place that contradicts the retrieval's ordering, is not decided in code. It is the gate's. Code presents the ordering beside the answer, from the plan's ORDER_BY.",
+        "[proposal] Every reading that returned rows carries at least one sentence. Readings that returned no rows carry none: their answer is assembled in code.",
+        "[proposal] A rejected output is retried within the model call attempts of Table 15, then the exchange returns request_not_completed.",
+        "[book NFR 19, Test 17] Where no assertion survives the gate, after the single redraft, the whole answer is replaced by a request for input, including the records retrieved for it."
       ],
-      "schema": null
+      "notes": [
+        "The model writes no value. A sentence such as '{late.supplier_id#1} had the most late lines, {late.late_lines#1}.' is filled in code. The answer the gate examines is the filled sentences of a reading, in order.",
+        "At most 6 sentences per reading and 3 readings, so at most 18 assertions reach the gate, within 'Assertions examined by the gate' (Table 15, schema 4 maxItems 20).",
+        "NFR 21. The conversation history receives the answer with every free-text value (a text column that is neither an identifier nor a closed set of values) left as its reference. Only identifier columns supply the identifiers presented (NFR 27). So text held in a record cannot reach the rewriting call or the identifier check.",
+        "A recorded reason (demo: commitments.delay_reason) is quoted as recorded, never stated as the cause. A demo decision, the book does not mention such a field."
+      ],
+      "schema": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "$id": "medagentpro/synthesis.schema.json",
+        "title": "Synthesis",
+        "description": "The drafted answer, one entry per reading that returned rows. Sentences carry symbolic references to fields, which code fills.",
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "readings"
+        ],
+        "properties": {
+          "readings": {
+            "type": "array",
+            "minItems": 1,
+            "maxItems": 3,
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "label",
+                "sentences"
+              ],
+              "properties": {
+                "label": {
+                  "type": "string",
+                  "pattern": "^[a-z][a-z0-9_]{0,39}$"
+                },
+                "sentences": {
+                  "type": "array",
+                  "minItems": 1,
+                  "maxItems": 6,
+                  "items": {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "required": [
+                      "text"
+                    ],
+                    "properties": {
+                      "text": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 400,
+                        "pattern": "\\{[a-z][a-z0-9_]*\\.[a-z][a-z0-9_]*#[0-9]+\\}",
+                        "$comment": "Text with symbolic references {label.alias#row}, filled in code. At least one."
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
     },
     "support_scoring": {
       "status": "complete",
@@ -842,7 +912,8 @@
         "An empty retrieval with no matching rows is outcome answered, not a failure. Emptiness is evidence.",
         "gaps carry no cause. The interface renders each from a template keyed on missing.kind.",
         "missing.entity is required for every kind except unspecified, which must carry none.",
-        "Where outcome is referred_to_investigation, readings and gaps are empty and offer_investigation is true."
+        "Where outcome is referred_to_investigation, readings and gaps are empty and offer_investigation is true.",
+        "[demo extension] Each reading carries its records, their total and ordering, assembled in code (query_assistance/contract.py). Where outcome is no_supported_assertion, readings is empty and request_for_input names the readings with what was examined under each (NFR 19 strict reading, Test 17)."
       ],
       "templates": {
         "no_such_column": "On {asked} there is no data. No column in {entity} records it.",
@@ -907,6 +978,68 @@
                   "items": {
                     "$ref": "#/$defs/reference"
                   }
+                },
+                "result": {
+                  "enum": [
+                    "rows_returned",
+                    "empty_no_match",
+                    "empty_unknown_entity"
+                  ],
+                  "$comment": "[demo extension] The retrieval outcome classification, in code (Test 35)."
+                },
+                "columns": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  },
+                  "$comment": "[demo extension] The SELECT aliases, in order."
+                },
+                "rows": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "additionalProperties": {
+                      "type": [
+                        "string",
+                        "number",
+                        "null"
+                      ]
+                    }
+                  },
+                  "$comment": "[demo extension] The records retrieved, as returned. Presented by code, not by a model (NFR 6)."
+                },
+                "total": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "$comment": "[demo extension] Rows the query matches before LIMIT. Shown as 'N of total' where it exceeds row_count."
+                },
+                "ordered_by": {
+                  "type": "string",
+                  "$comment": "[demo extension] Rendered from ORDER_BY. Lets the person see which row is first, which code cannot verify in the wording (synthesis)."
+                },
+                "not_held": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "required": [
+                      "value",
+                      "checked_in"
+                    ],
+                    "properties": {
+                      "value": {
+                        "type": "string"
+                      },
+                      "checked_in": {
+                        "type": "string"
+                      }
+                    }
+                  },
+                  "$comment": "[demo extension] Identifiers the existence check did not find, and where it looked (4.9)."
+                },
+                "notice": {
+                  "type": "string",
+                  "$comment": "[demo extension] A fixed sentence from code: no match, not held, or N of total."
                 }
               }
             }
@@ -928,6 +1061,10 @@
                 },
                 "missing": {
                   "$ref": "#/$defs/missing"
+                },
+                "text": {
+                  "type": "string",
+                  "$comment": "[demo extension] The template filled in code."
                 }
               }
             }
@@ -940,6 +1077,43 @@
             "type": "string",
             "maxLength": 400,
             "$comment": "FR 25. The rewritten question, present only where the conversation had earlier exchanges. Copied in code from the rewriting stage, never written by the synthesis model."
+          },
+          "notice": {
+            "type": "string",
+            "$comment": "[demo extension] A fixed sentence from code for referral, unreachable source or request not completed."
+          },
+          "request_for_input": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "text",
+              "readings"
+            ],
+            "properties": {
+              "text": {
+                "type": "string"
+              },
+              "readings": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "label",
+                    "checked"
+                  ],
+                  "properties": {
+                    "label": {
+                      "type": "string"
+                    },
+                    "checked": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            },
+            "$comment": "[demo extension] NFR 19 strict reading, NFR 20: where no assertion survives, the answer and its records are replaced by this. It names the readings under which the question was taken, and no cause."
           }
         },
         "$defs": {
@@ -1030,7 +1204,7 @@
     }
   },
   "retrieval_outcome_classification": {
-    "$comment": "Determined in code after retrieval, before the gate. Four outcomes, only the third of which the judge sees. An identifier is a column marked identifier in schema.json, compared with EQ or IN at the top level of WHERE or under AND. Under OR it does not restrict the result and is not checked. The check replaces an earlier design that re-ran the plan without its identity predicate, which reported a held identifier as absent whenever other rows met the remaining conditions.",
+    "$comment": "Determined in code after retrieval, before the gate. Four outcomes, only the third of which the judge sees. An identifier is a column marked identifier in schema.json, compared with EQ or IN at the top level of WHERE or under AND. Under OR it does not restrict the result and is not checked. The check replaces an earlier design that re-ran the plan without its identity predicate, which reported a held identifier as absent whenever other rows met the remaining conditions. Checking where the identifier is held, rather than in the filtered column, replaces a later one that reported a supplier with no lines as absent.",
     "outcomes": [
       {
         "name": "not_plannable",
@@ -1040,13 +1214,13 @@
       },
       {
         "name": "empty_no_match",
-        "when": "The plan ran and returned no rows, and every identifier the plan names is held in its column.",
+        "when": "The plan ran and returned no rows, and every identifier the plan names is held. An identifier is checked where it is held: the column its schema.json entry declares under references (commitments.supplier_id is held in suppliers.supplier_id), or its own column where none is declared or the user may not read the referenced table.",
         "known": "In code, one existence check per identifier the plan names, within the user's entitlement. No model call.",
         "response": "A valid answer. Nothing matched. This is evidence, not a failure."
       },
       {
         "name": "empty_unknown_entity",
-        "when": "The plan returned no rows, and an identifier the plan names is not held in its column.",
+        "when": "The plan returned no rows, and an identifier the plan names is not held, checked as above.",
         "known": "In code, same existence checks. The response names each identifier not held.",
         "response": "The identifier the question named is not present in the data."
       },
