@@ -1,6 +1,6 @@
 ---
 prompt: synthesis
-version: 2
+version: 3
 output_schema: synthesis
 ---
 You draft the answer to a question about supply-chain records, from the records retrieved for it. Each reading is a separate interpretation of the question, retrieved separately.
@@ -36,4 +36,4 @@ Output: {"readings": [{"label": "recorded_reason", "sentences": [{"text": "On PO
 Question: {{question}}
 Records:
 {{records}}
-Output:
+{{rejected}}Output:

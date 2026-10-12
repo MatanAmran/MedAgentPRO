@@ -49,7 +49,14 @@ TOKEN_RE = re.compile(r"[^\s,;:()\[\]\"']+")
 
 
 class SynthesisOutputError(Exception):
-    """The draft breaks a rule. Treated as a failed call, not as an answer."""
+    """The draft breaks a rule. Treated as a failed call, not as an answer.
+    Raised after the attempts, it carries every call made and why each was rejected (NFR 3)."""
+
+    def __init__(self, message: str, responses: list[ModelResponse] | None = None,
+                 rejections: list[str] | None = None):
+        super().__init__(message)
+        self.responses = responses or []
+        self.rejections = rejections or []
 
 
 @dataclass
@@ -88,6 +95,18 @@ class Draft:
     sentences: dict[str, list[Sentence]]
     materials: dict[str, Material]
     responses: list[ModelResponse]          # every call made, for the audit entry (NFR 3)
+    rejections: list[str] = field(default_factory=list)   # why each earlier call was rejected
+
+    def filled(self) -> list[tuple[str, str]]:
+        """(label, sentence with references filled), in order. What the gate examines."""
+        return [(label, fill(s.template, self.materials)) for label, ss in self.sentences.items() for s in ss]
+
+    def only(self, keep: list[bool]) -> "Draft":
+        """The draft with only the sentences marked True, in the order of filled()."""
+        flags = iter(keep)
+        kept = {label: [s for s in ss if next(flags)] for label, ss in self.sentences.items()}
+        return Draft({label: ss for label, ss in kept.items() if ss}, self.materials, self.responses,
+                     self.rejections)
 
     def answer(self, label: str, cat: Catalog | None = None, for_history: bool = False) -> str:
         """The text of a reading: references filled from their rows. The gate examines this.
@@ -213,8 +232,20 @@ def _records(materials: list[Material]) -> str:
     return prompts.render_records([(m.label, m.rows) for m in materials if m.rows])
 
 
-def render(question: str, materials: list[Material], prompt: prompts.Prompt | None = None) -> str:
-    return prompts.fill(prompt or prompts.load("synthesis.md"), question=question, records=_records(materials))
+def _rejected(rejected: list[str] | None) -> str:
+    """[proposal, decision 4 of 12.10] A fresh draft after nothing survived the gate is told what
+    was rejected. Without it, the same input at temperature 0 returns the same answer."""
+    if not rejected:
+        return ""
+    lines = "\n".join(f"- {t}" for t in rejected)
+    return ("Rejected. A check found these statements unsupported by the records. "
+            f"Do not state them again, in any wording:\n{lines}\n")
+
+
+def render(question: str, materials: list[Material], prompt: prompts.Prompt | None = None,
+           rejected: list[str] | None = None) -> str:
+    return prompts.fill(prompt or prompts.load("synthesis.md"), question=question, records=_records(materials),
+                        rejected=_rejected(rejected))
 
 
 def render_redraft(question: str, materials: list[Material], kept: dict[str, list[str]],
@@ -227,7 +258,7 @@ def render_redraft(question: str, materials: list[Material], kept: dict[str, lis
 def _call(gateway: ModelGateway, text: str, prompt: prompts.Prompt, model: str,
           materials: list[Material], question: str, attempts: int) -> Draft:
     v = validator()
-    responses, last = [], None
+    responses, rejections = [], []
     for _ in range(attempts):
         resp = gateway.invoke(text, ModelConfig(model=model, prompt_identity=prompt.identity))
         responses.append(resp)
@@ -236,22 +267,27 @@ def _call(gateway: ModelGateway, text: str, prompt: prompts.Prompt, model: str,
             errors = list(v.iter_errors(out))
             if errors:
                 raise SynthesisOutputError(errors[0].message)
-            return Draft(check(out, materials, question), {m.label: m for m in materials}, responses)
+            return Draft(check(out, materials, question), {m.label: m for m in materials}, responses, rejections)
         except (ValueError, SynthesisOutputError) as e:   # ValueError covers unparsable JSON
-            last = e
-    raise SynthesisOutputError(f"rejected after {attempts} attempt(s): {last}")
+            rejections.append(str(e))
+    raise SynthesisOutputError(f"rejected after {attempts} attempt(s): {rejections[-1]}", responses, rejections)
 
 
 def draft(gateway: ModelGateway, question: str, materials: list[Material], model: str,
-          attempts: int = MODEL_CALL_ATTEMPTS) -> Draft:
+          attempts: int = MODEL_CALL_ATTEMPTS, rejected: list[str] | None = None,
+          posed: str | None = None) -> Draft:
+    """question is what the prompt shows (the rewritten question where there is one). posed is what
+    a digit outside a reference may come from: the question as the person wrote it, since the
+    rewritten question is model text (NFR 6, NFR 27). It defaults to question."""
     pr = prompts.load("synthesis.md")
-    return _call(gateway, render(question, materials, pr), pr, model, materials, question, attempts)
+    return _call(gateway, render(question, materials, pr, rejected), pr, model, materials,
+                 posed or question, attempts)
 
 
 def redraft(gateway: ModelGateway, question: str, materials: list[Material], kept: dict[str, list[str]],
-            model: str, attempts: int = MODEL_CALL_ATTEMPTS) -> Draft:
+            model: str, attempts: int = MODEL_CALL_ATTEMPTS, posed: str | None = None) -> Draft:
     """NFR 19: regenerated at most once, from the assertions the gate kept. The caller runs
     the gate on the result once more and does not redraft again (Test 17)."""
     pr = prompts.load("synthesis_redraft.md")
     keep = [m for m in materials if m.label in kept]
-    return _call(gateway, render_redraft(question, keep, kept, pr), pr, model, keep, question, attempts)
+    return _call(gateway, render_redraft(question, keep, kept, pr), pr, model, keep, posed or question, attempts)

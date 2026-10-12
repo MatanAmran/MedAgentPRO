@@ -76,11 +76,13 @@ def test_rewrite_examples_validate_and_name_no_new_identifier():
 def test_gate_example_validates_and_evaluates():
     pr = p.load("gate.md")
     (inp, out), = examples(pr)
+    assert pr.version == "2"
     assert not list(validator("support_scoring").iter_errors(out))
-    answer = re.search(r"Answer: (.*)", inp).group(1)
-    res = gate.evaluate(out, answer, {"late_suppliers": {"supplier_id", "late_count"}}, True)
+    sentences = [(m.group(1), m.group(2)) for m in re.finditer(r"^\d+\. \[(\w+)\] (.*)$", inp, re.M)]
+    assert gate.render_answer(sentences) in inp
+    res = gate.evaluate(out, sentences, {"late_suppliers": {"supplier_id", "late_count"}})
     assert res.decision == "keep" and len(res.kept) == 1 and len(res.removed) == 1
-
+    assert res.supported == [True, False]
 
 # --------------------------------------------------------------------------
 # rendering
@@ -185,45 +187,78 @@ def test_rewrite_blank_rejected():
 # --------------------------------------------------------------------------
 
 ALIASES = {"late": {"supplier_id", "late_count"}}
-ANSWER = "S-031 had 7 late commitments. S-044 had 2."
+SENTENCES = [("late", "S-031 had 7 late commitments."), ("late", "S-044 had 2.")]
 
 
 def claims(*cs):
-    return {"claims": [{"text": t, "verdict": v, "evidence": e} for t, v, e in cs]}
+    return {"claims": [{"sentence": n, "text": t, "verdict": v, "evidence": e} for n, t, v, e in cs]}
+
+
+S1 = (1, "S-031 had 7 late commitments.", "supported", ["late.late_count"])
 
 
 def test_paraphrase_rejected():
-    with pytest.raises(gate.GateOutputError):
-        gate.evaluate(claims(("S-031 was late seven times.", "supported", ["late.late_count"])), ANSWER, ALIASES, True)
+    with pytest.raises(gate.GateOutputError, match="verbatim"):
+        gate.evaluate(claims((1, "S-031 was late seven times.", "supported", ["late.late_count"]),
+                             (2, "S-044 had 2.", "uncovered", [])), SENTENCES, ALIASES)
+
+
+def test_claim_in_another_sentence_rejected():
+    with pytest.raises(gate.GateOutputError, match="verbatim in sentence 2"):
+        gate.evaluate(claims(S1, (2, "S-031 had 7 late commitments.", "supported", ["late.late_count"])),
+                      SENTENCES, ALIASES)
+
+
+def test_sentence_number_out_of_range_rejected():
+    with pytest.raises(gate.GateOutputError, match="sentence 3"):
+        gate.evaluate(claims(S1, (2, "S-044 had 2.", "uncovered", []), (3, "x", "uncovered", [])),
+                      SENTENCES, ALIASES)
+
+
+def test_skipped_sentence_rejected():
+    """Decision 12 (12.10): nothing unexamined reaches presentation."""
+    with pytest.raises(gate.GateOutputError, match=r"\[2\] not examined"):
+        gate.evaluate(claims(S1), SENTENCES, ALIASES)
 
 
 def test_unknown_reference_rejected():
     with pytest.raises(gate.GateOutputError):
-        gate.evaluate(claims(("S-031 had 7 late commitments.", "supported", ["late.nope"])), ANSWER, ALIASES, True)
+        gate.evaluate(claims((1, "S-031 had 7 late commitments.", "supported", ["late.nope"]),
+                             (2, "S-044 had 2.", "uncovered", [])), SENTENCES, ALIASES)
 
 
 def test_supported_without_reference_rejected():
     with pytest.raises(gate.GateOutputError):
-        gate.evaluate(claims(("S-031 had 7 late commitments.", "supported", [])), ANSWER, ALIASES, True)
+        gate.evaluate(claims((1, "S-031 had 7 late commitments.", "supported", []),
+                             (2, "S-044 had 2.", "uncovered", [])), SENTENCES, ALIASES)
 
 
 def test_uncovered_with_reference_rejected():
     with pytest.raises(gate.GateOutputError):
-        gate.evaluate(claims(("S-044 had 2.", "uncovered", ["late.late_count"])), ANSWER, ALIASES, True)
+        gate.evaluate(claims(S1, (2, "S-044 had 2.", "uncovered", ["late.late_count"])), SENTENCES, ALIASES)
 
 
-def test_one_contradiction_fells_the_answer():
-    r = gate.evaluate(claims(("S-031 had 7 late commitments.", "supported", ["late.late_count"]),
-                             ("S-044 had 2.", "contradicted", ["late.late_count"])), ANSWER, ALIASES, True)
-    assert r.decision == "answer_falls" and r.kept == []
+def test_contradiction_is_removed_like_an_unsupported_assertion():
+    """Decision 3 (12.10): contradicted no longer brings the whole answer down."""
+    r = gate.evaluate(claims(S1, (2, "S-044 had 2.", "contradicted", ["late.late_count"])), SENTENCES, ALIASES)
+    assert r.decision == "keep" and r.kept == ["S-031 had 7 late commitments."] and r.removed == ["S-044 had 2."]
+    assert r.supported == [True, False]
 
 
 def test_unsupported_removed_rest_kept():
-    r = gate.evaluate(claims(("S-031 had 7 late commitments.", "supported", ["late.late_count"]),
-                             ("S-044 had 2.", "uncovered", [])), ANSWER, ALIASES, True)
+    r = gate.evaluate(claims(S1, (2, "S-044 had 2.", "uncovered", [])), SENTENCES, ALIASES)
     assert r.decision == "keep" and r.kept == ["S-031 had 7 late commitments."] and r.removed == ["S-044 had 2."]
+    assert r.kept_by_sentence == {1: ["S-031 had 7 late commitments."]}
 
 
-def test_nothing_kept_with_rows_is_a_request_for_input():
-    r = gate.evaluate(claims(("S-044 had 2.", "uncovered", [])), ANSWER, ALIASES, True)
-    assert r.decision == "request_input"
+def test_sentence_with_one_unsupported_claim_is_not_supported():
+    sentences = [("late", "S-031 had 7 late commitments, more than anyone.")]
+    r = gate.evaluate(claims((1, "S-031 had 7 late commitments", "supported", ["late.late_count"]),
+                             (1, "more than anyone", "uncovered", [])), sentences, ALIASES)
+    assert r.decision == "keep" and r.supported == [False]
+
+
+def test_nothing_kept_is_a_request_for_input():
+    r = gate.evaluate(claims((1, "S-031 had 7 late commitments.", "uncovered", []),
+                             (2, "S-044 had 2.", "uncovered", [])), SENTENCES, ALIASES)
+    assert r.decision == "request_input" and r.supported == [False, False]

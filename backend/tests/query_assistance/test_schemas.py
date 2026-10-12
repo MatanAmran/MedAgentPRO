@@ -226,14 +226,14 @@ case("intent_analysis", "kind left over from the two-retrieval design",
 
 case("support_scoring", "supported and uncovered claims",
      {"claims": [
-         {"text": "three suppliers were late",
+         {"sentence": 1, "text": "three suppliers were late",
           "verdict": "supported", "evidence": ["late.late_count"]},
-         {"text": "the delays come from a raw material shortage",
+         {"sentence": 2, "text": "the delays come from a raw material shortage",
           "verdict": "uncovered", "evidence": []}]}, True,
      "A verdict per assertion. uncovered carries no evidence by definition.")
 
 case("support_scoring", "contradicted claim cites the field that refutes it",
-     {"claims": [{"text": "SUP-114 was late 5 times",
+     {"claims": [{"sentence": 1, "text": "SUP-114 was late 5 times",
                   "verdict": "contradicted",
                   "evidence": ["late.late_count"]}]}, True,
      "Altering material seen is distinct from asserting material absent.")
@@ -243,18 +243,22 @@ case("support_scoring", "model returns a score",
      "The score is computed in code. A model that scores itself is not a gate.")
 
 case("support_scoring", "reasoning field smuggled in",
-     {"claims": [{"text": "x", "verdict": "supported",
+     {"claims": [{"sentence": 1, "text": "x", "verdict": "supported",
                   "evidence": ["a.b"], "reason": "likely supply chain"}]}, False,
      "NFR 20 begins here. A reason field leaks into the redraft.")
 
 case("support_scoring", "unrecognised verdict",
-     {"claims": [{"text": "x", "verdict": "partly", "evidence": []}]}, False,
+     {"claims": [{"sentence": 1, "text": "x", "verdict": "partly", "evidence": []}]}, False,
      "Three categories, because 34 measured calls showed a number does not separate.")
 
 case("support_scoring", "malformed reference",
-     {"claims": [{"text": "x", "verdict": "supported",
+     {"claims": [{"sentence": 1, "text": "x", "verdict": "supported",
                   "evidence": ["late_count"]}]}, False,
      "A reference is label.alias. A bare name resolves to nothing.")
+
+case("support_scoring", "claim names no sentence",
+     {"claims": [{"text": "x", "verdict": "uncovered", "evidence": []}]}, False,
+     "[demo extension] Without the sentence number code cannot check that no sentence was skipped.")
 
 case("support_scoring", "no claims at all",
      {"claims": []}, False,

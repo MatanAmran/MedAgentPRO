@@ -78,7 +78,7 @@ def test_sentence_without_reference_fails_the_schema():
 @pytest.mark.parametrize("file", ["synthesis.md", "synthesis_redraft.md"])
 def test_prompt_has_version_schema_and_no_dashes(file):
     pr = p.load(file)
-    assert pr.output_schema == "synthesis" and pr.version == "2"
+    assert pr.output_schema == "synthesis" and pr.version == {"synthesis.md": "3", "synthesis_redraft.md": "2"}[file]
     assert "—" not in pr.body and "–" not in pr.body
 
 
@@ -116,6 +116,17 @@ def test_render_fills_question_and_records_only_for_readings_with_rows():
     text = s.render(Q, [LATE, EMPTY])
     assert f"Question: {Q}" in text and "[late] row 1: late.supplier_id = S-038" in text
     assert "[other]" not in text and text.rstrip().endswith("Output:")
+
+
+def test_first_draft_has_no_rejected_block():
+    text = s.render(Q, [LATE])
+    assert "Rejected" not in text and "{{" not in text and text.rstrip().endswith("Output:")
+
+
+def test_fresh_draft_is_told_what_was_rejected():
+    """Decision 4 (12.10), a proposal: otherwise temperature 0 returns the same answer."""
+    text = s.render(Q, [LATE], rejected=["S-038 was the worst supplier."])
+    assert "Do not state them again" in text and "- S-038 was the worst supplier.\nOutput:" in text
 
 
 def test_render_redraft_lists_kept_assertions():
@@ -267,7 +278,7 @@ def test_draft_fills_and_records_the_call():
     gw = ScriptedModelGateway([GOOD])
     d = s.draft(gw, Q, [LATE], model="demo")
     assert d.answer("late") == "S-038 had the most late lines, 6."
-    assert len(gw.calls) == 1 and d.responses[0].prompt_identity == "synthesis@2"
+    assert len(gw.calls) == 1 and d.responses[0].prompt_identity == "synthesis@3"
 
 
 def test_rejected_draft_is_retried_once_then_accepted():
@@ -294,3 +305,32 @@ def test_redraft_uses_its_own_prompt_and_only_readings_with_kept_assertions():
     prompt, cfg = gw.calls[0]
     assert cfg.prompt_identity == "synthesis_redraft@2"
     assert "[other]" not in prompt and d.answer("late")
+
+
+def test_failed_draft_carries_every_call_and_why():
+    gw = ScriptedModelGateway([COUNTED, "not json"])
+    with pytest.raises(s.SynthesisOutputError) as e:
+        s.draft(gw, Q, [LATE], model="demo")
+    assert len(e.value.responses) == 2 and len(e.value.rejections) == 2
+    assert "outside a reference" in e.value.rejections[0]
+
+
+def test_accepted_draft_carries_the_earlier_rejection():
+    d = s.draft(ScriptedModelGateway([COUNTED, GOOD]), Q, [LATE], model="demo")
+    assert len(d.responses) == 2 and len(d.rejections) == 1
+
+
+def test_digit_allowed_from_the_question_as_posed_only():
+    """The rewritten question is model text, so a digit in it does not license a digit in the answer."""
+    seven = out(("late", ["In week 7, {late.supplier_id#1} had {late.late_lines#1}."]))
+    with pytest.raises(s.SynthesisOutputError):
+        s.draft(ScriptedModelGateway([seven, seven]), "Which suppliers were late in week 7?", [LATE],
+                model="demo", posed="And the week before?")
+    assert s.draft(ScriptedModelGateway([seven]), "Late in week 7?", [LATE], model="demo").answer("late")
+
+
+def test_filled_and_only_keep_sentence_order():
+    d = draft_of(("late", ["{late.supplier_id#1} had {late.late_lines#1}.", "{late.supplier_id#2} followed."]))
+    assert d.filled() == [("late", "S-038 had 6."), ("late", "S-014 followed.")]
+    assert d.only([False, True]).answer("late") == "S-014 followed."
+    assert d.only([False, False]).sentences == {}

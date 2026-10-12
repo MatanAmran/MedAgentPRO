@@ -175,29 +175,42 @@ class AuditRepository:
                     step_output: Any = None) -> dict:
         """One transaction: audit entry, investigation state, step output (NFR 5).
         Raises CircuitOpen without writing when the database is treated as down."""
-        record = entry.to_record()
+        return self._write([entry], investigation_update, step_output)[0]
+
+    def write_run(self, entries: list[AuditEntry], run_update: dict | None = None) -> list[dict]:
+        """Every entry of a run and its operational record in one transaction (NFR 5). Used by
+        a query assistance exchange, which is recorded only once it ends (4.9, Test 23)."""
+        if not entries or len({e.investigation_id for e in entries}) != 1:
+            raise ValueError("a run is written as entries of one run")
+        return self._write(entries, run_update, None)
+
+    def _write(self, entries: list[AuditEntry], update: dict | None, step_output: Any) -> list[dict]:
+        records = [e.to_record() for e in entries]
+        run_id = entries[0].investigation_id
 
         def do():
             with self.storage.transaction() as tx:
-                inv = self.storage.get_investigation(entry.investigation_id, tx) or {
-                    "investigation_id": entry.investigation_id, "audit_head": GENESIS, "audit_seq": 0}
-                record["seq"] = inv["audit_seq"] + 1
-                record["prev_hash"] = inv["audit_head"]
-                record["hash"] = chain_hash(self.key, record)
-                self.storage.append_audit(record, tx)
-                inv.update(investigation_update or {})
-                if entry.status_after:
-                    inv["status"] = entry.status_after
-                inv["audit_head"], inv["audit_seq"] = record["hash"], record["seq"]
-                inv["updated_at"] = record["timestamp"]
+                inv = self.storage.get_investigation(run_id, tx) or {
+                    "investigation_id": run_id, "audit_head": GENESIS, "audit_seq": 0}
+                inv.update(update or {})
+                for entry, record in zip(entries, records):
+                    record["seq"] = inv["audit_seq"] + 1
+                    record["prev_hash"] = inv["audit_head"]
+                    record["hash"] = chain_hash(self.key, record)
+                    self.storage.append_audit(record, tx)
+                    if entry.status_after:
+                        inv["status"] = entry.status_after
+                    inv["audit_head"], inv["audit_seq"] = record["hash"], record["seq"]
+                    inv["updated_at"] = record["timestamp"]
                 self.storage.put_investigation(inv, tx)
                 if step_output is not None:
-                    self.storage.put_step_output(entry.investigation_id, entry.step_ordinal, step_output, tx)
-            return record
+                    self.storage.put_step_output(run_id, entries[0].step_ordinal, step_output, tx)
+            return records
 
         written = self.breaker.call(do)
         if self.on_written:
-            self.on_written(written)
+            for record in written:
+                self.on_written(record)
         return written
 
     def completed_output(self, investigation_id: str, step_ordinal: int) -> Any:

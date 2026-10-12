@@ -808,12 +808,13 @@
         "Test 17"
       ],
       "post_model_checks": [
-        "Every claim.text appears verbatim in the drafted answer, after whitespace normalization. A paraphrase lets a weak assertion be softened and then approved, so a claim not found in the answer rejects the gate output.",
+        "Every claim.text appears verbatim in the sentence its claim.sentence names, after whitespace normalization. A paraphrase lets a weak assertion be softened and then approved, so a claim not found there rejects the gate output.",
+        "[demo extension, 12.10] Every sentence of the answer is named by at least one claim. Output that leaves a sentence uncovered is rejected and the call is retried like any rejected output, so nothing unexamined reaches presentation.",
         "Every reference resolves to an existing reading label and to an alias that was in that reading's SELECT. Otherwise the output is rejected (NFR 6).",
         "supported or contradicted with no reference: rejected.",
         "uncovered with one or more references: rejected.",
-        "One or more contradicted: the whole answer falls, regardless of how many assertions were supported. A contradiction is the model altering material it saw, not material it lacked.",
-        "Otherwise: assertions verdicted supported are kept, the rest are discarded, and the answer is redrafted once from those kept (NFR 19).",
+        "[12.10] contradicted is treated as unsupported (NFR 19). With symbolic references a contradiction can come only from the words around references, not from a wrong value, so it no longer brings the whole answer down.",
+        "Otherwise: assertions verdicted supported are kept, the rest are discarded, and the answer is regenerated once (NFR 19). A sentence is presented only if every claim naming it is supported.",
         "Where no assertion is kept AND the retrieval returned rows, the exchange returns a request for input. An empty retrieval is handled before the gate and is not a failure."
       ],
       "notes": [
@@ -847,11 +848,18 @@
             "type": "object",
             "additionalProperties": false,
             "required": [
+              "sentence",
               "text",
               "verdict",
               "evidence"
             ],
             "properties": {
+              "sentence": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 20,
+                "$comment": "[demo extension, 12.10] The number of the answer sentence the claim comes from. The gate receives the sentences numbered, so code can check that none was skipped."
+              },
               "text": {
                 "type": "string",
                 "maxLength": 300,
@@ -1081,6 +1089,10 @@
           "notice": {
             "type": "string",
             "$comment": "[demo extension] A fixed sentence from code for referral, unreachable source or request not completed."
+          },
+          "withheld": {
+            "type": "string",
+            "$comment": "[demo extension, 12.10] A fixed sentence from code, present where the gate removed a statement and something remains. Never says what was removed."
           },
           "request_for_input": {
             "type": "object",

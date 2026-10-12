@@ -212,6 +212,38 @@ def test_open_circuit_writes_nothing(clock):
     assert st.audit_log == []
 
 
+def test_write_run_lands_every_entry_and_the_record_together(clock):
+    st = A.MemoryStorage()
+    r = repo(clock, st)
+    written = r.write_run([entry(1), entry(2), entry(3)], {"outcome": "answered"})
+    assert [w["seq"] for w in written] == [1, 2, 3] and len(st.audit_log) == 3
+    assert st.investigations["INV-1"]["outcome"] == "answered"
+    assert r.verify_chain("INV-1") == 3
+    r.write_event(entry(4, event_type="answer_rated"), {"rating": "up"})
+    assert r.verify_chain("INV-1") == 4 and st.investigations["INV-1"]["rating"] == "up"
+
+
+def test_write_run_failure_leaves_nothing(clock):
+    st = A.MemoryStorage()
+    original = st.append_audit
+    calls = []
+
+    def flaky(record, tx):
+        calls.append(1)
+        if len(calls) == 2:
+            raise IOError("disk")
+        original(record, tx)
+    st.append_audit = flaky
+    with pytest.raises(IOError):
+        repo(clock, st).write_run([entry(1), entry(2)], {"outcome": "answered"})
+    assert st.audit_log == [] and st.investigations == {}
+
+
+def test_write_run_takes_entries_of_one_run(clock):
+    with pytest.raises(ValueError):
+        repo(clock).write_run([entry(1), entry(2, investigation_id="INV-2")])
+
+
 def test_chain_verifies(clock):
     r = repo(clock)
     for i in range(1, 5):

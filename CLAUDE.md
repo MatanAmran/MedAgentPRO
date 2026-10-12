@@ -39,7 +39,7 @@ When a decision is made in a session, record it in the relevant note (and here, 
 | 1 | Synthetic store `backend/demo_data/` (schema, relations, `seed.py`) | done |
 | 2 | Synthesis with symbolic references (`query_assistance/synthesis.py`) | done |
 | 3 | Output contract in code (`query_assistance/contract.py`) | done |
-| 4 | Pipeline orchestration: rewrite, intent, compile, retrieve, synthesis, gate, contract. Retry within attempts, one redraft (NFR 19), exchange record and rating (FR 12, FR 13) | **next** |
+| 4 | Pipeline orchestration: rewrite, intent, compile, retrieve, synthesis, gate, contract. Retry within attempts, one redraft (NFR 19), exchange record and rating (FR 12, FR 13). `query_assistance/pipeline.py` | done |
 | 5 | Model gateway configuration: LiteLLM for a real model, scripted fallback. The API key comes from Evyatar, kept in `backend/.env` | open |
 | 6 | FastAPI endpoint for the chat | open |
 | 7 | Chat screen in Next.js, after Figure 15 of the book | open |
@@ -85,7 +85,7 @@ Task 4 adds `query_assistance/pipeline.py`: rewrite (only with history), intent 
 ## Layout
 
 - **`backend/`** — run everything from here (`pytest.ini` puts it on `pythonpath`).
-  - `query_assistance/` — `compiler.py`, `prompts.py` + `templates/`, `gate.py`, `synthesis.py`, `contract.py`. `schema.json`/`relations.json` are the compiler tests' placeholder and stay unchanged. `medagentpro_schemas.json` holds every JSON Schema.
+  - `query_assistance/` — `compiler.py`, `prompts.py` + `templates/`, `gate.py`, `synthesis.py`, `contract.py`, `pipeline.py` (one exchange end to end: `run`, `rate`). `schema.json`/`relations.json` are the compiler tests' placeholder and stay unchanged. `medagentpro_schemas.json` holds every JSON Schema.
   - `demo_data/` — the demo store: `schema.json`, `relations.json`, `seed.py` (deterministic), `intent_analysis.md` (the demo intent prompt). `demo.db` is generated, not committed.
   - `model_client/client.py` — `ModelGateway`, `ScriptedModelGateway`, `LiteLLMGateway`.
   - `shared/circuit_breaker.py`, `persistence/audit_repository.py` — engine pieces from Phase A design.
@@ -103,7 +103,7 @@ On Evyatar's machine an Application Control policy blocks `.exe` files in the ve
 # Backend (from backend\, venv active)
 python -m pip install -r requirements.txt
 python -m demo_data.seed          # builds demo_data\demo.db
-python -m pytest -q               # all tests; 267 at the end of task 3
+python -m pytest -q               # all tests; 302 at the end of task 4
 
 # Frontend (from frontend\)
 npm run dev

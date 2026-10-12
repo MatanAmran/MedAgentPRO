@@ -193,9 +193,17 @@ def _finish(resp: dict, understood_as: str | None) -> dict:
     return resp
 
 
-def answered(readings: list[dict], gaps: list[dict] | None = None, understood_as: str | None = None) -> dict:
-    return _finish({"outcome": "answered", "readings": readings,
-                    "gaps": [render_gap(g) for g in gaps or []]}, understood_as)
+WITHHELD = "Some statements were withheld because the records do not support them."
+
+
+def answered(readings: list[dict], gaps: list[dict] | None = None, understood_as: str | None = None,
+             withheld: bool = False) -> dict:
+    """withheld: the gate removed a statement and something remains. The notice is fixed and never
+    says what was removed ([demo extension], decisions 6 and 13 of 12.10)."""
+    resp = {"outcome": "answered", "readings": readings, "gaps": [render_gap(g) for g in gaps or []]}
+    if withheld:
+        resp["withheld"] = WITHHELD
+    return _finish(resp, understood_as)
 
 
 def referred(understood_as: str | None = None) -> dict:
