@@ -41,7 +41,7 @@ When a decision is made in a session, record it in the relevant note (and here, 
 | 2 | Synthesis with symbolic references (`query_assistance/synthesis.py`) | done |
 | 3 | Output contract in code (`query_assistance/contract.py`) | done |
 | 4 | Pipeline orchestration: rewrite, intent, compile, retrieve, synthesis, gate, contract. Retry within attempts, one redraft (NFR 19), exchange record and rating (FR 12, FR 13). `query_assistance/pipeline.py` | done |
-| 5 | Model gateway configuration: LiteLLM for a real model, scripted fallback. The API key comes from Evyatar, kept in `backend/.env` | built (`model_client/budget.py`); **T4 open**: Claude 5 models reject `temperature=0`, so a real call fails until decided |
+| 5 | Model gateway configuration: LiteLLM for a real model, scripted fallback. The API key comes from Evyatar, kept in `backend/.env` | built (`model_client/budget.py`); review R1–R9 and P1–P10 settled (see "Task 5 review"), R1–R7 to implement |
 | 6 | FastAPI endpoint for the chat | open |
 | 7 | Chat screen in Next.js, after Figure 15 of the book | open |
 | 8 | Demo question set covering each behaviour | open |
@@ -115,6 +115,39 @@ Evyatar pays for the model himself, with a total budget of **USD 10**. The code 
 - **A dry run before the real one**: a command that prints what one exchange would cost at the configured prices from a scripted run, without calling the model.
 - **Tests never call a real model** (book 6.1). Tests: a call that would cross the total cap is not sent; the exchange cap; spend survives a restart; a missing `.env` value refuses to start; a provider money refusal is not retried; the rate limit.
 - **Model**: Anthropic through `LiteLLMGateway` (book 3.1.4). Recommended Claude Sonnet 5.5 (USD 2 in / 10 out per million, official pricing page, 12.10), about 4 cents a typical exchange. Haiku 5.5 (0.10 / 0.50) as a cheaper alternative. Opus 5.5 (4 / 20) not needed for the demo.
+
+## Task 5 review (Claude chat, 12.10, revised after an independent check)
+
+**Principle: no retry without a change in input.** A call repeated with the same prompt is a paid bet: a model does not improve on a bare "try again" (Huang et al., ICLR 2024), it improves on specific external feedback. Today `pipeline._ask` (rewriting, intent, gate) and `synthesis._call` (synthesis, redraft) resend the identical prompt: up to 12 calls per exchange, 6 of them identical repeats. The NFR 19 redraft is fine (its input changes).
+
+- **R1 Temperature (was T4).** Send `temperature` only if `MODEL_TEMPERATURE` is set in `.env`; unset, the audit records "provider default". Never `drop_params`. The audit records what was sent, not what was configured. Verified in LiteLLM 1.105's model map: `claude-sonnet-5-5` and `claude-opus-5-5` have `supports_sampling_params: false`; LiteLLM raises `UnsupportedParamsError` client side, before sending (no charge). `claude-haiku-5-5` is **not in** LiteLLM 1.105's map: do not use it.
+- **R2 Structured outputs ON (reverses T6).** LiteLLM 1.105 maps `response_format` to Anthropic's native structured output for models with `supports_native_structured_output` (Sonnet 5.5: true), not to forced tool use (Sonnet 5.5: `supports_forced_tool_use: false`; never send tools). Each stage sends its schema reduced to the subset Anthropic accepts; the full schema is still validated in code (rule 3). If the provider rejects a schema, the stage fails without retry and says so. Checked in the smoke test.
+- **R3 Fence strip (was T5)** stays as a fallback: one fence enclosing the whole text, nothing else.
+- **R4 Classify every failure, then act:**
+  - client errors (4xx, `UnsupportedParamsError`), a refusal, empty content: system fault, `request_not_completed`, no retry, **not counted by the model breaker** (it counts timeout, connection failure, 429, 5xx/529 only).
+  - `finish_reason == "length"`: no retry; recorded as truncated. `ModelResponse` must carry the finish reason.
+  - timeout: an explicit request timeout in code (LiteLLM's default is 6000 s); no retry; the reservation stays charged (unknown whether billed).
+  - format failure after R2 and R3: no retry.
+  - content failure (`check`, `CompileError`, `GateOutputError`, `RewriteError`): **one more attempt whose prompt carries the specific rejection message** ("Your previous output was rejected: …"), as a new template version `[proposal, not in the book; Table 15 names "Model call attempts" only]`. The message holds model-written text and names only, never a record value (NFR 21): test it.
+  - record per call whether it was a feedback attempt and whether it succeeded; `dry_run` and the smoke test report the rate. If feedback attempts rarely succeed, set attempts to 1.
+- **R5 Ledger:** release the reservation when a call failed before reaching the provider (client-side error, connection refused). Keep it on timeout.
+- **R6 Input and robustness bugs found in the check:**
+  - `prompts.fill` replaces placeholders one after another, so a value holding `{{name}}` (the question, or record text) is filled by a later key or trips "unfilled". Fill in one pass over the template only; values are never rescanned. Tests: question `{{records}}`, record text `{{kept}}`.
+  - `ModelResponse.json()` on `None` text raises `TypeError`, which is not in `REJECTED`, so it escapes.
+  - `UnsupportedParamsError` and any other unexpected exception escape `run()`. Every exception ends as `request_not_completed`, recorded. Test: a gateway that raises an arbitrary exception.
+- **R7 Size caps:** confirm (and report) the cap on history turns sent to rewriting and on rows sent to synthesis.
+- **R8 For tasks 6 and 7 (requirements now, code later):** one exchange per client request id (the server refuses a repeated id); the send button is locked while a request runs; no fetch retry; no `uvicorn --reload` with the real key; `real_gateway()` refuses to build under pytest.
+- **R9 Smoke test before the demo:** one exchange against the real model, asking before sending; then compare the recorded cost with Usage in the Console, and check that R2's reduced schemas are accepted.
+- Prices from LiteLLM's map, for reference: Sonnet 5.5 $2/$10, Sonnet 4.6 $3/$15, Haiku 4.5 $1/$5 per million tokens. The studies ran Sonnet 4.5 at temperature 0; the demo does not claim comparability with them.
+
+**Settled on Code's proposals (Claude chat, 12.10 evening; details in `docs/notes/00_STATUS.md`, "R7 ו-P1–P10 — הוכרע"):**
+- **Structured outputs only for rewriting, synthesis and the gate.** Intent analysis sends no `response_format`: LiteLLM 1.105 inlines every `$ref` and the intent schema then exceeds Anthropic's limits (24 optional properties, 16 `anyOf`). No reducer of our own: LiteLLM's `filter_anthropic_output_schema` applies anyway. Pin `litellm==1.105.0` and snapshot-test the reduced schema of each of the three stages.
+- **Format vs content (replaces P3).** Unparseable JSON or a breach of what the provider enforced: format failure, no retry. A breach of the full schema checked in code: content failure, one feedback attempt. In intent analysis every `schema_violation` is a content failure.
+- **R7.** `ROW_LIMIT = 30` (provisional). Before synthesis, reserve the whole path (synthesis, gate, redraft, second gate, no feedback attempts); if it exceeds the per-exchange cap, stop before the first synthesis call, with its own fixed notice (R7b). Presented identifiers in history trimmed in display order (R7c).
+- **P1 plus:** `real_gateway()` also refuses to start if a `.env` price is lower than LiteLLM's price for the model.
+- **P9:** 429 (non-monetary), 5xx and 529: no retry, `request_not_completed`, counted by the breaker.
+- **P10:** a refusal is `finish_reason == "content_filter"` in LiteLLM; it is billed and recorded.
+- P4–P8 approved as proposed; P5 after the R6 `fill` fix; P6 is `[demo extension]`.
 
 ## Decisions in force (details in `docs/notes/40_CHAT.md`)
 
