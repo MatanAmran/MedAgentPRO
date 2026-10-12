@@ -41,7 +41,7 @@ When a decision is made in a session, record it in the relevant note (and here, 
 | 2 | Synthesis with symbolic references (`query_assistance/synthesis.py`) | done |
 | 3 | Output contract in code (`query_assistance/contract.py`) | done |
 | 4 | Pipeline orchestration: rewrite, intent, compile, retrieve, synthesis, gate, contract. Retry within attempts, one redraft (NFR 19), exchange record and rating (FR 12, FR 13). `query_assistance/pipeline.py` | done |
-| 5 | Model gateway configuration: LiteLLM for a real model, scripted fallback. The API key comes from Evyatar, kept in `backend/.env` | open |
+| 5 | Model gateway configuration: LiteLLM for a real model, scripted fallback. The API key comes from Evyatar, kept in `backend/.env` | built (`model_client/budget.py`); **T4 open**: Claude 5 models reject `temperature=0`, so a real call fails until decided |
 | 6 | FastAPI endpoint for the chat | open |
 | 7 | Chat screen in Next.js, after Figure 15 of the book | open |
 | 8 | Demo question set covering each behaviour | open |
@@ -109,8 +109,9 @@ Evyatar pays for the model himself, with a total budget of **USD 10**. The code 
 - **No hidden retries.** LiteLLM's own retries are turned off (`num_retries=0`); the only retries are `MODEL_CALL_ATTEMPTS`, already counted. The number of model calls in one exchange is bounded by design (at most 12).
 - **Provider refusals for money** (credit too low, spend limit reached: HTTP 400 `invalid_request_error` about usage limits or credit, or 429 with `error_code` `enforced_spend_limit_reached`) are treated as `BudgetExceeded`: not retried, not an outage.
 - **Rate limit**: at most `MODEL_MAX_EXCHANGES_PER_MINUTE` exchanges per minute, across users, so a loop in the interface cannot burn the budget. Beyond it, the exchange is refused before any model call.
-- **Prompt caching** (cost, recommended): the fixed head of each prompt (rules, schema, examples) is marked for caching, so repeated questions read it at the cache price (on Opus 5.5 the card shows USD 0.20 read against 4 input per million). Do it only if LiteLLM supports it simply for Anthropic; otherwise record it as not done. Cached tokens are priced from `.env` too (`MODEL_PRICE_CACHE_READ`, `MODEL_PRICE_CACHE_WRITE`, optional; without them the budget counts cached tokens at the input price, which overestimates and is safe).
-- **Transparency**: each exchange reports its cost and the budget remaining, for the screen (task 7) and the operational log.
+- **Prompt caching: not in the demo (T1).** On Anthropic a cache write costs more than a plain input token (on the Opus 5.5 card, 5 against 4 per million) and the cache lives about five minutes. Demo questions are spread out, so most calls would write, not read, and cost more. Recorded as not done. Any cached tokens the provider reports are counted at the cache write price if set, else at twice the input price, never at the input price, so the budget never undercounts.
+- **Transparency (T3)**: cost and budget remaining are **outside `exchange_response`**: on `Outcome` and in the exchange record, and task 6 passes them in the API response beside the answer. The answer contract is unchanged.
+- **One server process (T2).** The cap holds only if all spend goes through one counter: task 6 runs `uvicorn` without workers, and `BudgetedGateway` refuses to start if it detects more than one process using the spend file. **Within the process**, checking the cap, reserving the worst case and recording the actual cost happen under one lock, since retrievals run on threads and FastAPI serves requests concurrently: two calls must never both pass on the same remaining amount.
 - **A dry run before the real one**: a command that prints what one exchange would cost at the configured prices from a scripted run, without calling the model.
 - **Tests never call a real model** (book 6.1). Tests: a call that would cross the total cap is not sent; the exchange cap; spend survives a restart; a missing `.env` value refuses to start; a provider money refusal is not retried; the rate limit.
 - **Model**: Anthropic through `LiteLLMGateway` (book 3.1.4). Recommended Claude Sonnet 5.5 (USD 2 in / 10 out per million, official pricing page, 12.10), about 4 cents a typical exchange. Haiku 5.5 (0.10 / 0.50) as a cheaper alternative. Opus 5.5 (4 / 20) not needed for the demo.
@@ -134,7 +135,7 @@ Evyatar pays for the model himself, with a total budget of **USD 10**. The code 
 - **`backend/`** — run everything from here (`pytest.ini` puts it on `pythonpath`).
   - `query_assistance/` — `compiler.py`, `prompts.py` + `templates/`, `gate.py`, `synthesis.py`, `contract.py`, `pipeline.py` (one exchange end to end: `run`, `rate`). `schema.json`/`relations.json` are the compiler tests' placeholder and stay unchanged. `medagentpro_schemas.json` holds every JSON Schema.
   - `demo_data/` — the demo store: `schema.json`, `relations.json`, `seed.py` (deterministic), `intent_analysis.md` (the demo intent prompt). `demo.db` is generated, not committed.
-  - `model_client/client.py` — `ModelGateway`, `ScriptedModelGateway`, `LiteLLMGateway`.
+  - `model_client/client.py` — `ModelGateway`, `ScriptedModelGateway`, `LiteLLMGateway`. `model_client/budget.py` — `BudgetedGateway`, `SpendLedger`, `real_gateway()` (task 5).
   - `shared/circuit_breaker.py`, `persistence/audit_repository.py` — engine pieces from Phase A design.
   - `tests/` — pytest. Model calls in tests always go through `ScriptedModelGateway`.
   - `main.py`, `api/`, `reasoning/`, `tools/` — still empty.
@@ -150,7 +151,8 @@ On Evyatar's machine an Application Control policy blocks `.exe` files in the ve
 # Backend (from backend\, venv active)
 python -m pip install -r requirements.txt
 python -m demo_data.seed          # builds demo_data\demo.db
-python -m pytest -q               # all tests; 316 after the second task 4 review
+python -m pytest -q               # all tests; 351 after task 5
+python -m query_assistance.dry_run   # prices two scripted exchanges at the .env prices, no model call, no key
 
 # Frontend (from frontend\)
 npm run dev

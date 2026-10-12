@@ -33,6 +33,8 @@ class ModelResponse:
     input_tokens: int | None
     output_tokens: int | None
     prompt_identity: str = ""
+    cache_read_tokens: int | None = None      # reported by the provider; prompt caching is not used (T1)
+    cache_write_tokens: int | None = None
 
     def json(self) -> Any:
         return json.loads(self.text)
@@ -41,6 +43,27 @@ class ModelResponse:
 class ModelGateway(ABC):
     @abstractmethod
     def invoke(self, prompt: str, config: ModelConfig) -> ModelResponse: ...
+
+
+class BudgetExceeded(Exception):
+    """The call was not sent, or the provider refused it for money (task 5). Not retried,
+    and not an outage: the circuit breaker does not count it."""
+
+
+class RateLimited(Exception):
+    """Too many exchanges in the last minute (task 5). Refused before any model call."""
+
+
+def is_money_refusal(e: Exception) -> bool:
+    """The provider refuses for credit or a spend limit: HTTP 400 about credit or usage limits,
+    or 429 with enforced_spend_limit_reached. Read from the provider's error, never from model text."""
+    status = getattr(e, "status_code", None)
+    text = f"{e} {getattr(e, 'body', '')}".casefold()
+    if status == 429:
+        return "enforced_spend_limit_reached" in text
+    if status == 400:
+        return any(k in text for k in ("credit balance", "usage limit", "spend limit", "spending limit"))
+    return False
 
 
 class ScriptedModelGateway(ModelGateway):
@@ -61,10 +84,22 @@ class ScriptedModelGateway(ModelGateway):
                              config.prompt_identity)
 
 
+class _Refused:
+    def __init__(self, error: Exception):
+        self.error = error
+
+
 class LiteLLMGateway(ModelGateway):
-    def __init__(self, breaker: CircuitBreaker, completion: Callable[..., Any] | None = None):
+    """No hidden retries: LiteLLM's own are off, so the only retries are MODEL_CALL_ATTEMPTS,
+    which are counted (task 5). A refusal for money leaves the breaker as a value, so it is not
+    counted as an outage, and becomes BudgetExceeded."""
+
+    def __init__(self, breaker: CircuitBreaker, completion: Callable[..., Any] | None = None,
+                 api_key: str | None = None, provider: str | None = None):
         self.breaker = breaker
         self._completion = completion
+        self._api_key = api_key
+        self._provider = provider   # prefixed to a model id that names none, e.g. anthropic/
 
     def _litellm(self):
         if self._completion is None:
@@ -73,16 +108,30 @@ class LiteLLMGateway(ModelGateway):
         return self._completion
 
     def invoke(self, prompt, config):
-        kwargs: dict[str, Any] = {"model": config.model, "temperature": config.temperature,
-                                  "messages": [{"role": "user", "content": prompt}]}
+        model = config.model if "/" in config.model or not self._provider else f"{self._provider}/{config.model}"
+        kwargs: dict[str, Any] = {"model": model, "temperature": config.temperature,
+                                  "messages": [{"role": "user", "content": prompt}],
+                                  "num_retries": 0, "max_retries": 0}
+        if self._api_key:
+            kwargs["api_key"] = self._api_key
         if config.max_tokens:
             kwargs["max_tokens"] = config.max_tokens
         if config.output_schema:
             kwargs["response_format"] = {"type": "json_schema",
                                          "json_schema": {"name": config.prompt_identity.split("@")[0] or "output",
                                                          "schema": config.output_schema}}
-        resp = self.breaker.call(lambda: self._litellm()(**kwargs))
+        def op():
+            try:
+                return self._litellm()(**kwargs)
+            except Exception as e:
+                if is_money_refusal(e):
+                    return _Refused(e)
+                raise
+        resp = self.breaker.call(op)
+        if isinstance(resp, _Refused):
+            raise BudgetExceeded(f"provider refused for credit or spend limit: {resp.error}") from resp.error
         usage = getattr(resp, "usage", None) or {}
         get = (lambda k: usage.get(k)) if isinstance(usage, dict) else (lambda k: getattr(usage, k, None))
         return ModelResponse(resp.choices[0].message.content, getattr(resp, "model", config.model),
-                             get("prompt_tokens"), get("completion_tokens"), config.prompt_identity)
+                             get("prompt_tokens"), get("completion_tokens"), config.prompt_identity,
+                             get("cache_read_input_tokens"), get("cache_creation_input_tokens"))

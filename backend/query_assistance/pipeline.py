@@ -28,6 +28,7 @@ import json
 import sqlite3
 import uuid
 from concurrent.futures import ThreadPoolExecutor
+from contextlib import ExitStack
 from pathlib import Path
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
@@ -35,7 +36,7 @@ from typing import Any, Callable
 
 from jsonschema import Draft202012Validator
 
-from model_client.client import ModelConfig, ModelGateway, ModelResponse
+from model_client.client import BudgetExceeded, ModelConfig, ModelGateway, ModelResponse, RateLimited
 from persistence.audit_repository import AuditEntry, AuditRepository
 from shared.circuit_breaker import CircuitBreaker, CircuitOpen, MemoryStore
 from shared.circuit_breaker import log as operational_log
@@ -89,6 +90,7 @@ class Outcome:
     exchange: prompts.Exchange           # what the next question's rewriting and NFR 27 check see
     exchange_id: str
     recorded: bool
+    cost: dict | None = None             # exchange_usd, remaining_usd. Outside exchange_response (T3)
 
 
 class _Rejected(Exception):
@@ -174,6 +176,9 @@ def _synthesize(deps: Deps, rec: _Record, ordinal: int, call: Callable[[], Draft
     except SynthesisOutputError as e:
         rec.calls(ordinal, e.responses, e.rejections, deps.model)
         raise _Rejected(str(e)) from e
+    except Exception as e:
+        rec.calls(ordinal, *getattr(e, "calls_made", ([], [])), deps.model)
+        raise
     rec.calls(ordinal, d.responses, d.rejections, deps.model)
     return d
 
@@ -270,11 +275,23 @@ def run(question: str, history: list[prompts.Exchange], user: dict, deps: Deps,
     cat, role = deps.catalog, user["role"]
     understood: str | None = None
     rewritten: str | None = None
+    spend = None          # this exchange's spend, where the gateway keeps a budget (task 5)
+    stack = ExitStack()
+
+    def cost() -> dict | None:
+        """Task 5, transparency: what this exchange cost and what remains (T3: not in the response)."""
+        if spend is None:
+            return None
+        c = {"exchange_usd": round(spend.spent, 6), "remaining_usd": round(deps.gateway.remaining(), 6)}
+        operational_log.info("exchange cost: attempt=%s usd=%.6f remaining=%.6f",
+                             eid, c["exchange_usd"], c["remaining_usd"])
+        return c
 
     def finish(response: dict, answer: Draft | None = None, failure: str | None = None,
                presented: list[str] | None = None) -> Outcome:
         stage("contract")
         rec.step(CONTRACT)
+        spent = cost()
         doc = {"kind": "exchange", "user_id": user.get("user_id"), "role": role, "posed": question,
                "understood_as": understood, "outcome": response["outcome"], "response": response,
                "sources": [{"label": r["label"], "checked": r["checked"], "evidence": r["evidence"]}
@@ -282,20 +299,26 @@ def run(question: str, history: list[prompts.Exchange], user: dict, deps: Deps,
                "rating": None}
         if failure:
             doc["failure"] = failure
+        if spent:
+            doc["cost"] = spent
         try:
             deps.audit.write_run(rec.entries, doc)
         except Exception as e:   # R1, decision 9: an answer that was not recorded is not presented
             operational_log.error("exchange record not written: attempt=%s user=%s error=%r",
                                   eid, user.get("user_id"), e)
             return Outcome(contract.request_not_completed(understood), prompts.Exchange(question, understood),
-                           eid, recorded=False)
+                           eid, recorded=False, cost=spent)
         ex = prompts.Exchange(question, understood, presented=list(presented or []))
         if answer is not None and answer.sentences:
             ex.answer = "\n".join(f"[{label}] {answer.answer(label, cat, for_history=True)}"
                                   for label in answer.sentences)
-        return Outcome(response, ex, eid, recorded=True)
+        return Outcome(response, ex, eid, recorded=True, cost=spent)
 
     try:
+        # task 5: the rate across users, and this exchange's own cap, before any model call
+        if hasattr(deps.gateway, "exchange"):
+            spend = stack.enter_context(deps.gateway.exchange())
+
         # rewriting, only with earlier exchanges. Layer 3 drops the oldest with no summary (decision 7)
         if history:
             stage("rewriting")
@@ -330,7 +353,7 @@ def run(question: str, history: list[prompts.Exchange], user: dict, deps: Deps,
             operational_log.error("source unreachable: attempt=%s user=%s source=%s error=%s",
                                   eid, user.get("user_id"), deps.source, e)
             return Outcome(contract.source_unreachable(deps.source, understood),
-                           prompts.Exchange(question, understood), eid, recorded=False)
+                           prompts.Exchange(question, understood), eid, recorded=False, cost=cost())
         rec.step(RETRIEVAL, [{"label": res.label, "result": res.outcome, "row_count": len(res.rows),
                               "total": res.total, "started": s, "finished": f} for res, s, f in retrieved])
 
@@ -386,6 +409,14 @@ def run(question: str, history: list[prompts.Exchange], user: dict, deps: Deps,
 
     except _Rejected as e:
         return finish(contract.request_not_completed(understood), failure=str(e))
+    except RateLimited as e:
+        operational_log.warning("exchange refused: attempt=%s user=%s reason=%s", eid, user.get("user_id"), e)
+        return finish(contract.request_not_completed(understood, contract.RATE_LIMITED), failure=f"rate: {e}")
+    except BudgetExceeded as e:   # not retried, not an outage
+        operational_log.warning("model call refused: attempt=%s user=%s reason=%s", eid, user.get("user_id"), e)
+        return finish(contract.request_not_completed(understood, contract.BUDGET_USED_UP), failure=f"budget: {e}")
+    finally:
+        stack.close()
 
 
 # --------------------------------------------------------------------------

@@ -9,3 +9,5 @@ __pycache__/
 .pytest_cache/
 backend/demo_data/demo.db
 backend/.model_spend.json
+backend/.model_spend.lock
+backend/.model_spend.tmp

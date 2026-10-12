@@ -230,8 +230,15 @@ def source_unreachable(source: str, understood_as: str | None = None) -> dict:
                     "notice": f"{source} could not be reached. The question was not answered."}, understood_as)
 
 
-def request_not_completed(understood_as: str | None = None) -> dict:
+NOT_COMPLETED = "The request could not be completed."
+BUDGET_USED_UP = "The demo budget for the model is used up. The question was not answered."
+RATE_LIMITED = "Too many questions in the last minute. The question was not answered. Try again shortly."
+
+
+def request_not_completed(understood_as: str | None = None, notice: str = NOT_COMPLETED) -> dict:
     """Test 13: a rejected retrieval parameter set, or a model output rejected within its attempts.
-    A system fault, not a request for input."""
+    A system fault, not a request for input. Task 5: the budget or the rate, with its own fixed notice."""
+    if notice not in (NOT_COMPLETED, BUDGET_USED_UP, RATE_LIMITED):
+        raise ContractError("a notice is one of the fixed sentences, never free text")
     return _finish({"outcome": "request_not_completed", "readings": [], "gaps": [],
-                    "notice": "The request could not be completed."}, understood_as)
+                    "notice": notice}, understood_as)

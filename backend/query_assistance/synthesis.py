@@ -299,7 +299,11 @@ def _call(gateway: ModelGateway, text: str, prompt: prompts.Prompt, model: str,
     v = validator()
     responses, rejections = [], []
     for _ in range(attempts):
-        resp = gateway.invoke(text, ModelConfig(model=model, prompt_identity=prompt.identity))
+        try:
+            resp = gateway.invoke(text, ModelConfig(model=model, prompt_identity=prompt.identity))
+        except Exception as e:   # e.g. the budget refused the call: the earlier calls are still recorded
+            e.calls_made = (responses, rejections)
+            raise
         responses.append(resp)
         try:
             out = resp.json()
