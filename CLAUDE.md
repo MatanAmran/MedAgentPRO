@@ -62,6 +62,12 @@ Task 4 adds `query_assistance/pipeline.py`: rewrite (only with history), intent 
 7. **History layer 3.** For the demo, the oldest exchanges are dropped with no summary. Layers 1 and 2 stay as built. NFR 27 still sees the whole conversation. A deviation from 4.9 ("then summarized"), recorded in `docs/notes/00_STATUS.md`.
 8. **Streaming.** Stream stage progress only. The answer is sent once, after the gate.
 
+9. **R1, recording fails.** If `write_run` fails, the answer is not presented: `request_not_completed` (FR 13, NFR 5). The failure is logged on the independent channel, the breaker's stdout logger (NFR 11).
+10. **R2, what is recorded.** In the audit log (the exchange record): every outcome except `source_unreachable` (Test 23), including `request_not_completed`. **A source that could not be reached is still logged on the operational channel** (the breaker's stdout logger, separate from the store): time, user, which source, the error, and an attempt id. Not the question text, which may hold business data (a proposal). Test 23 forbids recording the attempt as an exchange, not logging the failure; `30_ARCHITECTURE` 3.4 requires every failure to be logged.
+11. **R3, granularity.** One entry per model call, rejected attempts included (`attempt_number` > 1, `superseded_reason`). One entry, without tokens, for each stage with no model.
+12. **R4, the gate cannot skip a sentence.** Every synthesis sentence holds a reference, so every sentence asserts something and must be examined. The gate receives the sentences numbered, and every claim in its output names the sentence it comes from (a new field in `support_scoring`, and the gate prompt numbers the sentences). `gate.py` rejects gate output that leaves a sentence uncovered, and the call is retried within `MODEL_CALL_ATTEMPTS` like any rejected model output. If every attempt skips, the outcome is `request_not_completed`. This replaces filtering unexamined sentences: nothing unexamined can reach the presentation step.
+13. **R5.** The withheld notice is a new top-level field `withheld` in `exchange_response`, separate from `notice`. `[demo extension]`.
+
 ## Decisions in force (details in `docs/notes/40_CHAT.md`)
 
 - **The model never writes a query.** It fills a plan (schema 1); `compiler.py` validates it, injects entitlement and LIMIT, and builds parameterised SQL.
