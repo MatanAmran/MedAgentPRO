@@ -359,6 +359,20 @@ def test_rating_is_held_with_the_recorded_exchange(db_path, storage):
     assert d.audit.verify_chain(out.exchange_id) == before + 1
 
 
+def test_rating_again_the_last_one_counts_and_each_stays_in_the_trail(db_path, storage):
+    """Decided 13.10: a rating is per answer (FR 12, Test 16). Rated again, the last one is what the
+    exchange holds; every rating stays in the audit trail, which is never altered."""
+    gw = model(intent_analysis_demo=[INTENT], synthesis=[SYN], support_scoring=[gate_says("supported")])
+    d = deps(gw, db_path, storage)
+    out = pl.run(Q, [], APPROVER, d)
+    pl.rate(out.exchange_id, "up", APPROVER, d.audit)
+    pl.rate(out.exchange_id, "down", APPROVER, d.audit)
+    assert storage.investigations[out.exchange_id]["rating"] == "down"
+    rated = [e for e in trail(storage, out.exchange_id) if e["event_type"] == "answer_rated"]
+    assert len(rated) == 2
+    assert d.audit.verify_chain(out.exchange_id) == len(trail(storage, out.exchange_id))
+
+
 def test_rating_rules(db_path, storage):
     gw = model(intent_analysis_demo=[INTENT, {"disposition": "refer_to_investigation"}], synthesis=[SYN],
                support_scoring=[gate_says("supported")])
