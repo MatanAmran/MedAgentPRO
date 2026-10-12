@@ -1,0 +1,130 @@
+# MedAgentPro — מפת המסלולים וההיתכנות
+
+**נוצר אוטומטית** ב-`python -m tools.path_map` (מתוך `backend\`), 13.10.2026 00:53. **לא לערוך ידנית** — המקור הוא `backend\tests\paths\registry.py` ו-`backend\tests\feasibility\constraints.py`.
+
+**איך זה גדל:** `tests\paths\branches.py` קורא מהקוד ומהסכמות כל הסתעפות (מצב סיום, שלב, סוג כשל, `except`, הודעה, נקודת קצה, קוד HTTP, סוג פער, תפקיד). **הסתעפות בלי מסלול מפילה את `pytest`.** מגבלה שמתגלה (כמו הטמפרטורה) נכנסת כשורה ב-`constraints.py`, ושורה בלי בדיקה מפילה את `pytest`.
+
+**תוצאות:** 63 עוברים · 0 נכשלים · 0 פער ידוע · 0 דולגו
+
+## מסלולים
+
+| | מסלול | מכסה | דרישה / הכרעה | הערה |
+|---|---|---|---|---|
+| ✅ | `answered_all_supported` | `outcome:answered`, `disposition:retrieve`, `verdict:supported`, `stage:intent_analysis`, `stage:compilation`, `stage:retrieval`, `stage:synthesis`, `stage:support_gate`, `stage:output_contract`, `role:APPROVER` | 4.9 · Test 21 · NFR 3, NFR 5 |  |
+| ✅ | `answered_two_readings` | `outcome:answered` | FR 11 · FR 16 · Test 32, 34 |  |
+| ✅ | `planner_sees_own_rows_only` | `role:PLANNER` | NFR 17 · Test 18 |  |
+| ✅ | `referred` | `outcome:referred_to_investigation`, `disposition:refer_to_investigation` | FR 14 · Test 22 |  |
+| ✅ | `empty_result_no_synthesis` | — | Test 35 |  |
+| ✅ | `identifier_not_held` | — | Test 35 · 40_CHAT §6 |  |
+| ✅ | `redraft_from_kept` | `verdict:uncovered`, `stage:regeneration`, `notice:WITHHELD` | NFR 19 · decision 4, 6 |  |
+| ✅ | `contradicted_like_unsupported` | `verdict:contradicted` | decision 3 |  |
+| ✅ | `fresh_draft_then_supported` | — | NFR 19 · decision 4 |  |
+| ✅ | `fresh_draft_then_nothing` | `outcome:no_supported_assertion` | NFR 19 strict · Test 17 |  |
+| ✅ | `redraft_then_nothing` | — | NFR 19 strict · Test 17 |  |
+| ✅ | `intent_fixed_by_feedback` | — | R4 feedback attempt · Test 13 |  |
+| ✅ | `intent_schema_breach_fixed_by_feedback` | — | R4 · P3 (intent breach = content) |  |
+| ✅ | `intent_rejected_twice` | `outcome:request_not_completed`, `handler:run._Rejected`, `notice:NOT_COMPLETED` | Test 13 |  |
+| ✅ | `intent_not_json` | — | R4 format |  |
+| ✅ | `synthesis_fixed_by_feedback` | — | R4 · F7, F11 |  |
+| ✅ | `synthesis_rejected_twice` | — | R4 |  |
+| ✅ | `synthesis_format_failure_not_retried` | — | R4 · P3 |  |
+| ✅ | `gate_skips_then_covers` | — | decision 12 (R4 of task 4) |  |
+| ✅ | `gate_skips_twice` | — | decision 12 |  |
+| ✅ | `refusal_not_retried` | — | R4 · P10 |  |
+| ✅ | `truncated_not_retried` | — | R4 |  |
+| ✅ | `empty_not_retried` | — | R4 |  |
+| ✅ | `fenced_json_accepted` | — | R3 |  |
+| ✅ | `timeout_not_retried` | — | R4 |  |
+| ✅ | `client_error_not_retried` | — | R4 |  |
+| ✅ | `unexpected_exception` | — | R6 |  |
+| ✅ | `gate_raises_after_synthesis` | — | R6 · NFR 3 |  |
+| ✅ | `follow_up_rewritten` | `stage:question_rewriting` | FR 25 · Test 44 |  |
+| ✅ | `follow_up_unchanged_no_understood_as` | — | K6 |  |
+| ✅ | `follow_up_rewrite_rejected_twice` | — | 4.9 rewriting · R4 |  |
+| ✅ | `follow_up_identifier_not_in_conversation` | — | NFR 27 · Test 45 |  |
+| ✅ | `feedback_recorded` | — | R4 · P6 |  |
+| ✅ | `long_conversation` | — | 4.9 history layers · decision 7 · R7c |  |
+| ✅ | `continues_after_every_ending` | — | 4.9 conversation |  |
+| ✅ | `raw_exception` | `handler:run.Exception` | R6 |  |
+| ✅ | `source_missing` | `outcome:source_unreachable`, `handler:run._Unreachable` | FR 15 · Test 23 · decision 10 |  |
+| ✅ | `source_breaker_open` | — | NFR 9 · F9 |  |
+| ✅ | `one_reading_unreachable` | — | FR 15, FR 16 |  |
+| ✅ | `retrieval_system_fault` | `handler:run._SystemFault` | F1 |  |
+| ✅ | `record_not_written` | `handler:finish.Exception` | FR 13 · NFR 5 · decision 9 |  |
+| ✅ | `every_failure_kind` | `failure:client_error`, `failure:connection`, `failure:empty`, `failure:format`, `failure:rate_limited`, `failure:refusal`, `failure:server_error`, `failure:timeout`, `failure:truncated`, `failure:unexpected` | R4 · P9 · P10 | one case per kind, generated |
+| ✅ | `every_failure_kind_late` | — | R4 · NFR 3 |  |
+| ✅ | `every_gap_kind` | `gap:no_such_column`, `gap:no_such_table`, `gap:source_outside_system`, `gap:unspecified`, `gap:value_not_present` | FR 11 · NFR 20 | one case per kind, generated |
+| ✅ | `real_answers_with_cost` | — | task 5 · T3 |  |
+| ✅ | `budget_used_up` | `budget:total`, `notice:BUDGET_USED_UP`, `handler:run.BudgetExceeded` | task 5 |  |
+| ✅ | `exchange_cap` | `budget:exchange`, `notice:EXCHANGE_CAP` | R7a · R7b |  |
+| ✅ | `budget_provider` | `budget:provider` | task 5 · NFR 3 | G1 closed (13.10): the refused call is recorded as model_call_failed |
+| ✅ | `budget_model` | `budget:model` | task 5 | open: shows the budget notice, though the budget is not used up |
+| ✅ | `rate_limit` | `handler:run.RateLimited`, `notice:RATE_LIMITED` | task 5 rate |  |
+| ✅ | `ledger_timeout_and_release` | — | R4 · R5 |  |
+| ✅ | `cancelled_before_synthesis` | `handler:run.ExchangeCancelled` | S1 |  |
+| ✅ | `concurrent_budget` | — | T2 lock |  |
+| ✅ | `server_each_ending_then_goes_on` | `endpoint:POST /api/conversations`, `endpoint:POST /api/conversations/{conversation_id}/exchanges`, `endpoint:GET /api/conversations/{conversation_id}`, `http:200`, `http:201` | S1 · S3 · decision 8 |  |
+| ✅ | `server_unreachable_then_goes_on` | — | FR 15 · S3 |  |
+| ✅ | `server_worker_bug` | — | S1 |  |
+| ✅ | `server_gateway_build_fails` | — | B1 |  |
+| ✅ | `server_stream_never_read` | — | B1 |  |
+| ✅ | `server_disconnect_mid_exchange` | — | S1 |  |
+| ✅ | `server_refusals` | `http:401`, `http:403`, `http:404`, `http:409`, `http:422` | S2 · S3 · R8 |  |
+| ✅ | `server_rating` | `endpoint:POST /api/exchanges/{exchange_id}/rating`, `stage:rating` | FR 12 · K4 · Test 16 |  |
+| ✅ | `server_one_at_a_time` | — | task 6 |  |
+| ✅ | `server_listing_and_health` | `endpoint:GET /api/conversations`, `endpoint:GET /api/health` | S3 |  |
+
+## הסתעפויות בקוד, ומי מכסה כל אחת
+
+**outcome** — `answered` (answered_all_supported, answered_two_readings) · `no_supported_assertion` (fresh_draft_then_nothing) · `referred_to_investigation` (referred) · `request_not_completed` (intent_rejected_twice) · `source_unreachable` (source_missing)
+
+**disposition** — `refer_to_investigation` (referred) · `retrieve` (answered_all_supported)
+
+**verdict** — `contradicted` (contradicted_like_unsupported) · `supported` (answered_all_supported) · `uncovered` (redraft_from_kept)
+
+**gap** — `no_such_column` (every_gap_kind) · `no_such_table` (every_gap_kind) · `source_outside_system` (every_gap_kind) · `unspecified` (every_gap_kind) · `value_not_present` (every_gap_kind)
+
+**stage** — `compilation` (answered_all_supported) · `intent_analysis` (answered_all_supported) · `output_contract` (answered_all_supported) · `question_rewriting` (follow_up_rewritten) · `rating` (server_rating) · `regeneration` (redraft_from_kept) · `retrieval` (answered_all_supported) · `support_gate` (answered_all_supported) · `synthesis` (answered_all_supported)
+
+**handler** — `finish.Exception` (record_not_written) · `run.BudgetExceeded` (budget_used_up) · `run.Exception` (raw_exception) · `run.ExchangeCancelled` (cancelled_before_synthesis) · `run.RateLimited` (rate_limit) · `run._Rejected` (intent_rejected_twice) · `run._SystemFault` (retrieval_system_fault) · `run._Unreachable` (source_missing)
+
+**failure** — `client_error` (every_failure_kind) · `connection` (every_failure_kind) · `empty` (every_failure_kind) · `format` (every_failure_kind) · `rate_limited` (every_failure_kind) · `refusal` (every_failure_kind) · `server_error` (every_failure_kind) · `timeout` (every_failure_kind) · `truncated` (every_failure_kind) · `unexpected` (every_failure_kind)
+
+**budget** — `exchange` (exchange_cap) · `model` (budget_model) · `provider` (budget_provider) · `total` (budget_used_up)
+
+**notice** — `BUDGET_USED_UP` (budget_used_up) · `EXCHANGE_CAP` (exchange_cap) · `NOT_COMPLETED` (intent_rejected_twice) · `RATE_LIMITED` (rate_limit) · `WITHHELD` (redraft_from_kept)
+
+**endpoint** — `GET /api/conversations` (server_listing_and_health) · `GET /api/conversations/{conversation_id}` (server_each_ending_then_goes_on) · `GET /api/health` (server_listing_and_health) · `POST /api/conversations` (server_each_ending_then_goes_on) · `POST /api/conversations/{conversation_id}/exchanges` (server_each_ending_then_goes_on) · `POST /api/exchanges/{exchange_id}/rating` (server_rating)
+
+**http** — `200` (server_each_ending_then_goes_on) · `201` (server_each_ending_then_goes_on) · `401` (server_refusals) · `403` (server_refusals) · `404` (server_refusals) · `409` (server_refusals) · `422` (server_refusals)
+
+**role** — `APPROVER` (answered_all_supported) · `PLANNER` (planner_sees_own_rows_only)
+
+## היתכנות
+
+| | # | סוג | מה נבדק | מקור |
+|---|---|---|---|---|
+| ✅ | T01 | technical | The configured model is in the local map of the pinned LiteLLM, with prices. | LiteLLM 1.105 local map (H1, 12.10) |
+| ✅ | T02 | technical | No temperature is configured for a model that takes none. | Claude 5: supports_sampling_params false (R1, 12.10) |
+| ✅ | T03 | technical | The model supports native structured output, which rewriting, synthesis and the gate use. | LiteLLM map supports_native_structured_output (R2) |
+| ✅ | T04 | technical | MODEL_MAX_OUTPUT_TOKENS is within the model's own output limit. | LiteLLM map max_output_tokens |
+| ✅ | T05 | technical | The largest prompt the pipeline can build fits the model's context window. | LiteLLM map max_input_tokens · ROW_LIMIT · history budget |
+| ✅ | T06 | technical | Every schema sent to the provider, as LiteLLM reduces it, is within Anthropic's limits: at most 24 optional properties, at most 16 anyOf or type arrays, no recursion, additionalProperties false on every object. | Anthropic docs, Structured outputs, complexity limits |
+| ✅ | T07 | technical | Regex patterns sent to the provider use only supported features: no lookaround, no backreferences, no \b. | Anthropic docs, Structured outputs, pattern support |
+| ✅ | T08 | technical | No enum in a schema sent to the provider holds two values that differ only in case. | Anthropic docs: enum casing is not guaranteed |
+| ✅ | T09 | technical | The intent schema is not sent as structured output while it exceeds the limits. | Review of 12.10 (P2): unpacked it exceeds 24 / 16 |
+| ✅ | T10 | technical | LiteLLM is pinned to the version the checks were made against, and uses its local map. | H1, 12.10 · requirements.txt |
+| ✅ | T11 | technical | The worst path after intent (synthesis, gate, redraft, gate) fits the per-exchange cap at the model's prices, for the largest material the pipeline can retrieve. | R7a |
+| ✅ | T12 | technical | The total budget covers at least 10 exchanges each spending its whole cap. | Task 5 budget (USD 10 total) |
+| ✅ | T13 | technical | Every metric and every table compiles to SQL the installed SQLite runs. | compiler.py · sqlite3 |
+| ✅ | T14 | technical | LiteLLM's own retries are off; the only retries are counted ones. | Task 5 'no hidden retries' |
+| ✅ | L01 | logical | Every scripted demo question runs through the real checks to the outcome its script means. | S5 |
+| ✅ | L02 | logical | Every table a role is shown in the intent prompt is one it may read, and every table it may read is shown. | NFR 17 · prompts.visible_tables |
+| ✅ | L03 | logical | Every metric in schema.json compiles for every role, with entitlement applied. | NFR 17 · 40_CHAT §7 |
+| ✅ | L04 | logical | Every example in the intent prompt passes the same checks as real output. | 40_CHAT §15 · tests/demo_data/test_demo_prompt.py |
+| ⏳ | V01 | live | The provider accepts the three reduced schemas (no 400). | R2 · R9 |
+| ⏳ | V02 | live | The provider accepts a request with no temperature and the configured max_tokens. | R1 · R9 |
+| ⏳ | V03 | live | The cost recorded for one exchange matches Usage in the Console. | R9 |
+| ⏳ | V04 | live | Real outputs pass the checks often enough: the feedback attempt rate is measured. | R4 · R9 |
+
+✅ עובר · ❌ נכשל · ⚠️ פער ידוע (xfail) · ⏭️ דולג (חסרה הטבלה של LiteLLM בסביבה) · ⏳ רק מול המודל האמיתי, בבדיקת העשן (R9)

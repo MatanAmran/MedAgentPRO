@@ -26,6 +26,7 @@ from typing import AsyncIterator, Callable
 from fastapi import APIRouter, Depends, Header, HTTPException, Request
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
+from starlette.background import BackgroundTask
 
 from query_assistance import pipeline
 from shared.circuit_breaker import log as operational_log
@@ -43,6 +44,21 @@ class AskBody(BaseModel):
 
 class RatingBody(BaseModel):
     rating: str = Field(pattern=r"^(up|down)$")
+
+
+class _Claim:
+    """Taken once, by whichever comes first (B1)."""
+
+    def __init__(self):
+        self._lock = threading.Lock()
+        self._taken = False
+
+    def take(self) -> bool:
+        with self._lock:
+            if self._taken:
+                return False
+            self._taken = True
+            return True
 
 
 def _sse(event: str, data: dict) -> str:
@@ -132,21 +148,40 @@ def router(state: AppState) -> APIRouter:
             history = state.begin(conv, body.request_id)
         except ConflictError as e:
             raise HTTPException(409, str(e)) from None
-        cancelled = threading.Event()
-        deps = state.deps_for(body.question, cancelled)
+        # B1: the conversation is never left busy. Whichever comes first claims the exchange: the worker,
+        # which then runs it and frees the conversation when done, or the response's end, which frees it
+        # without running anything. Starlette runs the background task after the body ends, even where the
+        # client left before the first event and the generator never started (an unstarted async
+        # generator runs no finally)
+        claim = _Claim()
+        try:
+            cancelled = threading.Event()
+            deps = state.deps_for(body.question, cancelled)
 
-        def work(on_stage):
-            outcome = None
-            try:
-                outcome = pipeline.run(body.question, history, user, deps, on_stage)
-                return {"exchange_id": outcome.exchange_id, "recorded": outcome.recorded,
-                        "response": outcome.response, "cost": outcome.cost}
-            finally:
-                state.finish(conv, body.question, outcome)
+            def work(on_stage):
+                if not claim.take():
+                    return {}                  # the response already ended: nothing runs, nothing is paid
+                outcome = None
+                try:
+                    outcome = pipeline.run(body.question, history, user, deps, on_stage)
+                    return {"exchange_id": outcome.exchange_id, "recorded": outcome.recorded,
+                            "response": outcome.response, "cost": outcome.cost}
+                finally:
+                    state.finish(conv, body.question, outcome)
 
-        return StreamingResponse(exchange_events(work, request.is_disconnected, cancelled),
-                                 media_type="text/event-stream",
-                                 headers={"Cache-Control": "no-store", "X-Accel-Buffering": "no"})
+            def release_if_unstarted():
+                if claim.take():
+                    cancelled.set()
+                    state.finish(conv, body.question, None)
+
+            return StreamingResponse(exchange_events(work, request.is_disconnected, cancelled),
+                                     media_type="text/event-stream",
+                                     headers={"Cache-Control": "no-store", "X-Accel-Buffering": "no"},
+                                     background=BackgroundTask(release_if_unstarted))
+        except Exception:
+            if claim.take():
+                state.finish(conv, body.question, None)
+            raise
 
     @r.post("/exchanges/{exchange_id}/rating")
     def rate(exchange_id: str, body: RatingBody, user: dict = Depends(demo_user)):

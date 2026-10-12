@@ -1,0 +1,76 @@
+"""
+What the system can actually do, as opposed to what it is designed to do.
+
+Each constraint is a limit of the provider, a library or the data that the design must fit inside,
+with where it was learned. test_feasibility.py checks each one without the network and without a
+model call; "live" constraints can only be confirmed against the real model, in the smoke test (R9),
+and are listed so the map shows them as not yet confirmed.
+
+When a limit surprises us (as Claude 5 refusing temperature did), it becomes a row here first, then a
+check. test_feasibility fails if a row has no check or a check has no row.
+
+kind:  technical  a provider or library limit
+       logical    the design holding together on the demo data
+       live       only the real model can confirm it (R9)
+needs: map        needs LiteLLM's local model map of the pinned version (skipped where it is absent)
+"""
+
+from __future__ import annotations
+
+from dataclasses import dataclass
+
+
+@dataclass(frozen=True)
+class Constraint:
+    id: str
+    kind: str
+    statement: str
+    source: str
+    needs: str = ""
+
+
+CONSTRAINTS: list[Constraint] = [
+    # --- technical: the model and the provider ------------------------------------------------
+    Constraint("T01", "technical", "The configured model is in the local map of the pinned LiteLLM, with prices.",
+               "LiteLLM 1.105 local map (H1, 12.10)", "map"),
+    Constraint("T02", "technical", "No temperature is configured for a model that takes none.",
+               "Claude 5: supports_sampling_params false (R1, 12.10)", "map"),
+    Constraint("T03", "technical", "The model supports native structured output, which rewriting, synthesis and the gate use.",
+               "LiteLLM map supports_native_structured_output (R2)", "map"),
+    Constraint("T04", "technical", "MODEL_MAX_OUTPUT_TOKENS is within the model's own output limit.",
+               "LiteLLM map max_output_tokens", "map"),
+    Constraint("T05", "technical", "The largest prompt the pipeline can build fits the model's context window.",
+               "LiteLLM map max_input_tokens · ROW_LIMIT · history budget", "map"),
+    Constraint("T06", "technical", "Every schema sent to the provider, as LiteLLM reduces it, is within Anthropic's "
+               "limits: at most 24 optional properties, at most 16 anyOf or type arrays, no recursion, "
+               "additionalProperties false on every object.", "Anthropic docs, Structured outputs, complexity limits"),
+    Constraint("T07", "technical", "Regex patterns sent to the provider use only supported features: no lookaround, "
+               "no backreferences, no \\b.", "Anthropic docs, Structured outputs, pattern support"),
+    Constraint("T08", "technical", "No enum in a schema sent to the provider holds two values that differ only in case.",
+               "Anthropic docs: enum casing is not guaranteed"),
+    Constraint("T09", "technical", "The intent schema is not sent as structured output while it exceeds the limits.",
+               "Review of 12.10 (P2): unpacked it exceeds 24 / 16"),
+    Constraint("T10", "technical", "LiteLLM is pinned to the version the checks were made against, and uses its local map.",
+               "H1, 12.10 · requirements.txt"),
+    Constraint("T11", "technical", "The worst path after intent (synthesis, gate, redraft, gate) fits the per-exchange cap "
+               "at the model's prices, for the largest material the pipeline can retrieve.", "R7a", "map"),
+    Constraint("T12", "technical", "The total budget covers at least 10 exchanges each spending its whole cap.",
+               "Task 5 budget (USD 10 total)"),
+    Constraint("T13", "technical", "Every metric and every table compiles to SQL the installed SQLite runs.",
+               "compiler.py · sqlite3"),
+    Constraint("T14", "technical", "LiteLLM's own retries are off; the only retries are counted ones.", "Task 5 'no hidden retries'"),
+    # --- logical: the design on the demo data ------------------------------------------------------
+    Constraint("L01", "logical", "Every scripted demo question runs through the real checks to the outcome its script means.",
+               "S5"),
+    Constraint("L02", "logical", "Every table a role is shown in the intent prompt is one it may read, and every "
+               "table it may read is shown.", "NFR 17 · prompts.visible_tables"),
+    Constraint("L03", "logical", "Every metric in schema.json compiles for every role, with entitlement applied.",
+               "NFR 17 · 40_CHAT §7"),
+    Constraint("L04", "logical", "Every example in the intent prompt passes the same checks as real output.",
+               "40_CHAT §15 · tests/demo_data/test_demo_prompt.py"),
+    # --- live: only the real model can confirm (R9) -------------------------------------------
+    Constraint("V01", "live", "The provider accepts the three reduced schemas (no 400).", "R2 · R9"),
+    Constraint("V02", "live", "The provider accepts a request with no temperature and the configured max_tokens.", "R1 · R9"),
+    Constraint("V03", "live", "The cost recorded for one exchange matches Usage in the Console.", "R9"),
+    Constraint("V04", "live", "Real outputs pass the checks often enough: the feedback attempt rate is measured.", "R4 · R9"),
+]

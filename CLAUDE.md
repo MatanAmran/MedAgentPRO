@@ -149,6 +149,13 @@ Evyatar pays for the model himself, with a total budget of **USD 10**. The code 
 - **P10:** a refusal is `finish_reason == "content_filter"` in LiteLLM; it is billed and recorded.
 - P4–P8 approved as proposed; P5 after the R6 `fill` fix; P6 is `[demo extension]`.
 
+## Path map and feasibility (Claude chat, 13.10): a standing rule
+
+- `tests/paths/branches.py` reads every branch from the code and the schemas (outcomes, stages, model failure kinds, `except` clauses in `pipeline.run`, notices, endpoints, HTTP codes, gap kinds, roles). **`tests/paths/test_registry.py` fails when a branch has no path in `tests/paths/registry.py`, or a path names a test or branch that does not exist.** Adding a branch means adding its test and its registry entry in the same change.
+- `tests/feasibility/constraints.py` lists the limits the design must fit (provider, LiteLLM, SQLite, the demo data), each with its source; `test_feasibility.py` checks each one offline. **Every limit discovered from now on (like temperature on Claude 5) becomes a row and a check first.** Rows of kind `live` are confirmed only in the smoke test (R9).
+- Known gaps are `xfail(strict=True)` with the gap id in the reason, so fixing one forces removing the mark.
+- `python -m tools.path_map` (from `backend\`) runs both suites and regenerates `docs/notes/60_PATHS.md`. Run it before handing a task back to the chat.
+
 ## Decisions in force (details in `docs/notes/40_CHAT.md`)
 
 - **The model never writes a query.** It fills a plan (schema 1); `compiler.py` validates it, injects entitlement and LIMIT, and builds parameterised SQL.
@@ -187,6 +194,7 @@ On Evyatar's machine an Application Control policy blocks `.exe` files in the ve
 python -m pip install -r requirements.txt
 python -m demo_data.seed          # builds demo_data\demo.db
 python -m pytest -q               # all tests; 432 after task 6
+python -m tools.path_map          # runs tests/paths and tests/feasibility, writes docs/notes/60_PATHS.md
 python -m query_assistance.dry_run   # prices two scripted exchanges at the .env prices, no model call, no key
 python -m query_assistance.dry_run --model claude-sonnet-5-5   # the same, prices from LiteLLM's local map, no .env
 python -m main                    # the chat server on the scripted model, http://127.0.0.1:8000/api/health

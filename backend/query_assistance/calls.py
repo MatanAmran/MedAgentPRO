@@ -26,7 +26,7 @@ from typing import Any, Callable
 
 from jsonschema import Draft202012Validator
 
-from model_client.client import ModelCallError, ModelConfig, ModelGateway, ModelResponse
+from model_client.client import BudgetExceeded, ModelCallError, ModelConfig, ModelGateway, ModelResponse
 
 # PROVISIONAL. Table 15, "Model call attempts": the first, and one feedback attempt on a content failure.
 MODEL_CALL_ATTEMPTS = 2
@@ -121,7 +121,11 @@ def ask(gateway: ModelGateway, model: str, prompt_identity: str, render: Callabl
         except ModelCallError as e:
             calls.append(Call(prompt_identity, None, is_feedback, str(e)))
             raise StageFailed(e.kind, str(e), calls) from e
-        except Exception as e:      # the budget, an open breaker, anything else: nothing to add
+        except Exception as e:
+            # G1: a refusal for money came back from the provider, so the call reached it and is
+            # recorded (NFR 3). The budget's own refusals, an open breaker and a cancellation sent nothing
+            if isinstance(e, BudgetExceeded) and e.scope == "provider":
+                calls.append(Call(prompt_identity, None, is_feedback, f"budget: {e}"))
             e.calls_made = calls
             raise
         problem = resp.problem()
