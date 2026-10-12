@@ -71,7 +71,7 @@ Task 4 adds `query_assistance/pipeline.py`: rewrite (only with history), intent 
 
 ## Task 4 review (Claude chat, 12.10) — fixes before task 5
 
-The seven points marked "לבדיקה" in `docs/notes/00_STATUS.md` and three more found in review. Details and reasoning there.
+The seven points marked "לבדיקה" in `docs/notes/00_STATUS.md` and three more found in review. Details and reasoning there. **F1, F3, F5, F7, F8 and F9 are done (12.10).**
 
 **Fix:**
 - **F1, retrieval errors.** Only a failure to reach the source (connection fails, database locked, file missing, breaker open) is `source_unreachable`. Any other `sqlite3` error during execution is a system fault: `request_not_completed`, recorded, and logged on the operational channel.
@@ -124,7 +124,7 @@ On Evyatar's machine an Application Control policy blocks `.exe` files in the ve
 # Backend (from backend\, venv active)
 python -m pip install -r requirements.txt
 python -m demo_data.seed          # builds demo_data\demo.db
-python -m pytest -q               # all tests; 302 at the end of task 4
+python -m pytest -q               # all tests; 311 after the task 4 review
 
 # Frontend (from frontend\)
 npm run dev

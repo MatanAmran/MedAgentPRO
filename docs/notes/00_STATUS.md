@@ -308,6 +308,8 @@ workflow ב-GitHub Actions · בדיקות Playwright, **על שלושת המנ�
 | 9 | **(נמצא בסקירה)** השליפה לא עוברת דרך המפסק | **לתקן** (NFR 9, מפסק לכל תלות). מאפשר גם להדגים "מקור לא זמין" |
 | 10 | **(נמצא בסקירה)** שיחות באוסף `investigations` עם `kind: "exchange"` | **להשאיר לדמו, החלטה זמנית.** כמה אוספים — שאלה 24 |
 
+**התיקונים בוצעו (12.10), 311 בדיקות עוברות.** 1 — `UNREACHABLE_CODES` ב-`pipeline.py` (BUSY, LOCKED, CANTOPEN, וכשל חיבור), ו-`connect_readonly` כך שקובץ חסר נכשל בפתיחה במקום ליצור מסד ריק. תקלת מערכת **אינה נספרת במפסק של המקור** · 3 — `synthesis.md` גרסה 4, `synthesis_redraft.md` גרסה 3, `prompts.question_block` משותף לכוונה ולסינתזה · 5 — `_presented` ב-`pipeline.py` · 7 — `Material.literals` ב-`synthesis.py` · 8 — `actor_id` ב-`AuditEntry` · 9 — `Deps.source_breaker`, תלות `company_store`
+
 **שאלה ללקוח (חדשה):** האם מקובל שהיומן של המערכת ישמור עותק של הרשומות שהוצגו בכל תשובה. **מה זה חוסם:** אופן הרישום בשלב ב׳ (FR 13).
 
 ## מה שנסגר בסבב האחרון

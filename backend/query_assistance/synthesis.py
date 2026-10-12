@@ -10,8 +10,10 @@ references the records it rests on (NFR 4).
 What code decides, structurally and without reading meaning:
   - every reference names a reading that returned rows, an alias in it and a row that exists
   - no reference points at an empty field
-  - no digit stands outside a reference unless the question itself holds that token,
-    so a count, a sum or an identifier the model typed is rejected (NFR 6)
+  - no digit stands outside a reference unless the question as posed holds that token, or a
+    literal value of the plan that ran under that reading (WHERE, HAVING), which the compiler
+    validated and "Examined" shows. So a count, a sum or an identifier the model typed is
+    rejected (NFR 6), and "in week 5" for a plan on week 5 is not (review F7 of 12.10)
 What code does not decide: whether the words around the references are true, for example
 "had the most". That is the gate's (4.9, NFR 19). The ordering itself is shown by code
 beside the answer, from the plan's ORDER_BY.
@@ -65,18 +67,35 @@ class Material:
 
     columns    alias -> the column it selects, or None for a count, a sum or a metric.
                Decides which values are free text (NFR 21) and which are identifiers
+    literals   tokens holding a digit among the literal values of the plan (WHERE, HAVING).
+               A sentence of this reading may write them outside a reference
     """
     label: str
     rows: list[dict[str, Any]]
     columns: dict[str, str | None] = field(default_factory=dict)
     order_by: list[dict] = field(default_factory=list)
     truncated: bool = False
+    literals: set[str] = field(default_factory=set)
+
+
+def _plan_values(node: Any) -> list[Any]:
+    """Every {"value": v} under a WHERE or HAVING node."""
+    if isinstance(node, dict):
+        if "value" in node and not isinstance(node["value"], (dict, list)):
+            return [node["value"]] + [v for k, n in node.items() if k != "value" for v in _plan_values(n)]
+        return [v for n in node.values() for v in _plan_values(n)]
+    if isinstance(node, list):
+        return [v for n in node for v in _plan_values(n)]
+    return []
 
 
 def material(label: str, plan: dict, rows: list[dict], truncated: bool = False) -> Material:
-    """Builds a Material from a reading's plan, so the alias -> column map comes from what ran."""
+    """Builds a Material from a reading's plan, so the alias -> column map and the literals
+    come from what ran."""
     cols = {i["as"]: i["expr"].get("col") for i in plan["SELECT"]}
-    return Material(label, rows, cols, plan.get("ORDER_BY", []), truncated)
+    values = _plan_values(plan.get("WHERE")) + _plan_values(plan.get("HAVING", []))
+    literals = {t for v in values if not isinstance(v, bool) for t in _tokens_with_digits(format_value(v))}
+    return Material(label, rows, cols, plan.get("ORDER_BY", []), truncated, literals)
 
 
 @dataclass
@@ -185,7 +204,7 @@ def _tokens_with_digits(text: str) -> list[str]:
 def check(output: dict, materials: list[Material], question: str) -> dict[str, list[Sentence]]:
     """Schema validation runs before this. Returns the parsed sentences per label."""
     by_label = {m.label: m for m in materials if m.rows}
-    question_tokens = set(_tokens_with_digits(question))
+    question_tokens = set(_tokens_with_digits(question))   # the question as posed, never the rewrite
     result: dict[str, list[Sentence]] = {}
     for r in output["readings"]:
         label = r["label"]
@@ -212,7 +231,7 @@ def check(output: dict, materials: list[Material], question: str) -> dict[str, l
             outside = REF_RE.sub(" ", text)
             if "{" in outside or "}" in outside:
                 raise SynthesisOutputError(f"'{text}' holds a malformed reference")
-            stray = [t for t in _tokens_with_digits(outside) if t not in question_tokens]
+            stray = [t for t in _tokens_with_digits(outside) if t not in question_tokens and t not in m.literals]
             if stray:
                 raise SynthesisOutputError(f"'{text}' writes {stray[0]!r} outside a reference. Values, counts "
                                            f"and identifiers come from the records (NFR 6)")
@@ -243,15 +262,17 @@ def _rejected(rejected: list[str] | None) -> str:
 
 
 def render(question: str, materials: list[Material], prompt: prompts.Prompt | None = None,
-           rejected: list[str] | None = None) -> str:
-    return prompts.fill(prompt or prompts.load("synthesis.md"), question=question, records=_records(materials),
-                        rejected=_rejected(rejected))
+           rejected: list[str] | None = None, rewritten: str | None = None) -> str:
+    return prompts.fill(prompt or prompts.load("synthesis.md"),
+                        question_block=prompts.question_block(question, rewritten),
+                        records=_records(materials), rejected=_rejected(rejected))
 
 
 def render_redraft(question: str, materials: list[Material], kept: dict[str, list[str]],
-                   prompt: prompts.Prompt | None = None) -> str:
+                   prompt: prompts.Prompt | None = None, rewritten: str | None = None) -> str:
     lines = [f"[{label}] {t}" for label, ts in kept.items() for t in ts]
-    return prompts.fill(prompt or prompts.load("synthesis_redraft.md"), question=question,
+    return prompts.fill(prompt or prompts.load("synthesis_redraft.md"),
+                        question_block=prompts.question_block(question, rewritten),
                         records=_records(materials), kept="\n".join(lines))
 
 
@@ -275,19 +296,19 @@ def _call(gateway: ModelGateway, text: str, prompt: prompts.Prompt, model: str,
 
 def draft(gateway: ModelGateway, question: str, materials: list[Material], model: str,
           attempts: int = MODEL_CALL_ATTEMPTS, rejected: list[str] | None = None,
-          posed: str | None = None) -> Draft:
-    """question is what the prompt shows (the rewritten question where there is one). posed is what
-    a digit outside a reference may come from: the question as the person wrote it, since the
-    rewritten question is model text (NFR 6, NFR 27). It defaults to question."""
+          rewritten: str | None = None) -> Draft:
+    """question is the question as posed. The prompt carries both forms where it was rewritten
+    (4.9). A digit outside a reference may come from the question as posed, never from the
+    rewrite, which is model text (NFR 6, NFR 27), or from the plan's literals."""
     pr = prompts.load("synthesis.md")
-    return _call(gateway, render(question, materials, pr, rejected), pr, model, materials,
-                 posed or question, attempts)
+    return _call(gateway, render(question, materials, pr, rejected, rewritten), pr, model, materials,
+                 question, attempts)
 
 
 def redraft(gateway: ModelGateway, question: str, materials: list[Material], kept: dict[str, list[str]],
-            model: str, attempts: int = MODEL_CALL_ATTEMPTS, posed: str | None = None) -> Draft:
+            model: str, attempts: int = MODEL_CALL_ATTEMPTS, rewritten: str | None = None) -> Draft:
     """NFR 19: regenerated at most once, from the assertions the gate kept. The caller runs
     the gate on the result once more and does not redraft again (Test 17)."""
     pr = prompts.load("synthesis_redraft.md")
     keep = [m for m in materials if m.label in kept]
-    return _call(gateway, render_redraft(question, keep, kept, pr), pr, model, keep, posed or question, attempts)
+    return _call(gateway, render_redraft(question, keep, kept, pr, rewritten), pr, model, keep, question, attempts)

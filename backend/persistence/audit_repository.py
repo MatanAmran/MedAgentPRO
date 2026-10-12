@@ -35,7 +35,8 @@ class AuditEntry:
     role: str
     attempt_number: int = 1
     timestamp: str = field(default_factory=lambda: datetime.now(timezone.utc).isoformat())
-    on_behalf_of: str | None = None
+    actor_id: str | None = None             # who acted (review F8 of 12.10)
+    on_behalf_of: str | None = None         # an internal user entering for an external party (30_ARCHITECTURE 2)
     reasoning_steps: list | None = None
     evidence_reviewed: list | None = None
     confidence: float | None = None

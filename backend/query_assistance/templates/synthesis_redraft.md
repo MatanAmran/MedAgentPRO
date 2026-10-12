@@ -1,6 +1,6 @@
 ---
 prompt: synthesis_redraft
-version: 2
+version: 3
 output_schema: synthesis
 ---
 You rewrite the answer to a question about supply-chain records. A check has removed every assertion the records did not support. Write the answer again from the assertions that were kept, and from nothing else.
@@ -14,6 +14,7 @@ Rules:
 4. Every sentence holds at least one reference. Every identifier, number, date and text value comes from a reference. Never type a digit yourself, except one the question itself contains.
 5. Do not judge whether a value is unusual, do not give a cause and do not recommend anything. A recorded reason is quoted as recorded.
 6. Write in the language the question was posed in.
+7. Where the question is given both as posed and as rewritten from the conversation, answer the rewritten one. Use the question as posed only to read what the person meant.
 
 Examples:
 
@@ -25,7 +26,7 @@ Kept:
 [late_by_delivery] S-038 had the most lines delivered after the requested date, 6.
 Output: {"readings": [{"label": "late_by_delivery", "sentences": [{"text": "{late_by_delivery.supplier_id#1} had the most lines delivered after the requested date, {late_by_delivery.late_lines#1}."}]}]}
 
-Question: {{question}}
+{{question_block}}
 Records:
 {{records}}
 Kept:

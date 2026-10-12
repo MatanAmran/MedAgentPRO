@@ -78,7 +78,7 @@ def test_sentence_without_reference_fails_the_schema():
 @pytest.mark.parametrize("file", ["synthesis.md", "synthesis_redraft.md"])
 def test_prompt_has_version_schema_and_no_dashes(file):
     pr = p.load(file)
-    assert pr.output_schema == "synthesis" and pr.version == {"synthesis.md": "3", "synthesis_redraft.md": "2"}[file]
+    assert pr.output_schema == "synthesis" and pr.version == {"synthesis.md": "4", "synthesis_redraft.md": "3"}[file]
     assert "—" not in pr.body and "–" not in pr.body
 
 
@@ -278,7 +278,7 @@ def test_draft_fills_and_records_the_call():
     gw = ScriptedModelGateway([GOOD])
     d = s.draft(gw, Q, [LATE], model="demo")
     assert d.answer("late") == "S-038 had the most late lines, 6."
-    assert len(gw.calls) == 1 and d.responses[0].prompt_identity == "synthesis@3"
+    assert len(gw.calls) == 1 and d.responses[0].prompt_identity == "synthesis@4"
 
 
 def test_rejected_draft_is_retried_once_then_accepted():
@@ -303,7 +303,7 @@ def test_redraft_uses_its_own_prompt_and_only_readings_with_kept_assertions():
     gw = ScriptedModelGateway([GOOD])
     d = s.redraft(gw, Q, [LATE, other], {"late": ["S-038 had the most late lines, 6."]}, model="demo")
     prompt, cfg = gw.calls[0]
-    assert cfg.prompt_identity == "synthesis_redraft@2"
+    assert cfg.prompt_identity == "synthesis_redraft@3"
     assert "[other]" not in prompt and d.answer("late")
 
 
@@ -320,14 +320,38 @@ def test_accepted_draft_carries_the_earlier_rejection():
     assert len(d.responses) == 2 and len(d.rejections) == 1
 
 
-def test_digit_allowed_from_the_question_as_posed_only():
+def test_digit_from_the_rewrite_is_not_allowed():
     """The rewritten question is model text, so a digit in it does not license a digit in the answer."""
     seven = out(("late", ["In week 7, {late.supplier_id#1} had {late.late_lines#1}."]))
     with pytest.raises(s.SynthesisOutputError):
-        s.draft(ScriptedModelGateway([seven, seven]), "Which suppliers were late in week 7?", [LATE],
-                model="demo", posed="And the week before?")
+        s.draft(ScriptedModelGateway([seven, seven]), "And the week before?", [LATE], model="demo",
+                rewritten="Which suppliers were late in week 7?")
     assert s.draft(ScriptedModelGateway([seven]), "Late in week 7?", [LATE], model="demo").answer("late")
 
+
+def test_digit_from_the_plan_literals_is_allowed():
+    """Review F7: a literal of the plan that ran, validated by the compiler and shown in Examined."""
+    plan = dict(LATE_PLAN, WHERE={"AND": [{"EQ": [{"col": "commitments.week"}, {"value": 7}]},
+                                          {"EQ": [{"col": "commitments.supplier_id"}, {"value": "S-038"}]}]},
+                HAVING=[{"agg": "late_lines", "op": "GT", "value": 3}])
+    m = s.material("late", plan, LATE.rows)
+    assert m.literals == {"7", "s-038", "3"}
+    seven = out(("late", ["In week 7, {late.supplier_id#1} had {late.late_lines#1}."]))
+    assert s.draft(ScriptedModelGateway([seven]), "And the week before?", [m], model="demo",
+                   rewritten="Which suppliers were late in week 7?").answer("late")
+    counted = out(("late", ["2 suppliers in week 7, led by {late.supplier_id#1}."]))
+    with pytest.raises(s.SynthesisOutputError, match="'2'"):
+        s.draft(ScriptedModelGateway([counted, counted]), "And the week before?", [m], model="demo")
+
+
+def test_both_forms_of_the_question_reach_synthesis():
+    """Review F3, 4.9: later stages receive both forms."""
+    text = s.render("And in October?", [LATE], rewritten="Which suppliers were late in October?")
+    assert "Question as posed: And in October?\nQuestion: Which suppliers were late in October?" in text
+    text = s.render_redraft("And in October?", [LATE], {"late": ["S-038 had 6."]},
+                            rewritten="Which suppliers were late in October?")
+    assert "Question as posed: And in October?" in text
+    assert "Question as posed" not in s.render(Q, [LATE], rewritten=Q)
 
 def test_filled_and_only_keep_sentence_order():
     d = draft_of(("late", ["{late.supplier_id#1} had {late.late_lines#1}.", "{late.supplier_id#2} followed."]))

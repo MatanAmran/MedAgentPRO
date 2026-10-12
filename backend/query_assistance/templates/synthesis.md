@@ -1,6 +1,6 @@
 ---
 prompt: synthesis
-version: 3
+version: 4
 output_schema: synthesis
 ---
 You draft the answer to a question about supply-chain records, from the records retrieved for it. Each reading is a separate interpretation of the question, retrieved separately.
@@ -17,6 +17,7 @@ Rules:
 7. Where the rows are ordered, a sentence that names a first or highest place references row 1.
 8. Do not judge whether a value is unusual, do not give a cause and do not recommend anything. Where a field records a reason, quote it as recorded, as in: Reason recorded: {r.delay_reason#1}.
 9. Write in the language the question was posed in.
+10. Where the question is given both as posed and as rewritten from the conversation, answer the rewritten one. Use the question as posed only to read what the person meant.
 
 Examples:
 
@@ -33,7 +34,7 @@ Records:
 [recorded_reason] row 2: recorded_reason.po_id = PO-87006, recorded_reason.part_id = P-12405, recorded_reason.delivered_at = 2026-02-11, recorded_reason.delay_reason = None
 Output: {"readings": [{"label": "recorded_reason", "sentences": [{"text": "On PO-87006, {recorded_reason.part_id#1} was delivered on {recorded_reason.delivered_at#1}. Reason recorded: {recorded_reason.delay_reason#1}."}, {"text": "For {recorded_reason.part_id#2}, delivered on {recorded_reason.delivered_at#2}, no reason is recorded."}]}]}
 
-Question: {{question}}
+{{question_block}}
 Records:
 {{records}}
 {{rejected}}Output:

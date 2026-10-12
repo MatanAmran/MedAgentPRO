@@ -191,13 +191,18 @@ def render_rewrite(history: History, question: str, prompt: Prompt | None = None
     return fill(prompt or load("rewrite.md"), history=history.text, question=question)
 
 
+def question_block(posed: str, rewritten: str | None = None) -> str:
+    """Both forms where the question was rewritten, so a later stage can correct a wrong rewrite
+    (4.9, "later stages receive both forms")."""
+    if rewritten and _norm(rewritten) != _norm(posed):
+        return f"Question as posed: {posed}\nQuestion: {rewritten}"
+    return f"Question: {posed}"
+
+
 def render_intent(cat: Catalog, role: str, posed: str, rewritten: str | None = None,
                   prompt: Prompt | None = None) -> str:
-    if rewritten and _norm(rewritten) != _norm(posed):
-        block = f"Question as posed: {posed}\nQuestion: {rewritten}"
-    else:
-        block = f"Question: {posed}"
-    return fill(prompt or load("intent_analysis.md"), schema=render_schema(cat, role), question_block=block)
+    return fill(prompt or load("intent_analysis.md"), schema=render_schema(cat, role),
+                question_block=question_block(posed, rewritten))
 
 
 def render_records(results: list[tuple[str, list[dict[str, Any]]]]) -> str:

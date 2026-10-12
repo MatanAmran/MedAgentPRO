@@ -4,8 +4,10 @@ MedAgentPro - query assistance pipeline. Orchestration of one exchange (4.9, Fig
   rewriting          model, only where the conversation has earlier exchanges (FR 25)
   intent analysis    model, schema 1. A plan that fails compilation is a rejected output (Test 13)
   compilation        code: entitlement, LIMIT, identifier provenance (NFR 17, NFR 27)
-  retrieval          code, every reading at once (FR 16). A source that cannot be reached ends
-                     the exchange, which is not recorded (FR 15, Test 23)
+  retrieval          code, every reading at once (FR 16), through the source's circuit breaker
+                     (NFR 9). A source that cannot be reached ends the exchange, which is not
+                     recorded (FR 15, Test 23). Any other database error is a system fault:
+                     request_not_completed, recorded (review F1 and F9 of 12.10)
   synthesis          model, schema 5 (demo), over the readings that returned rows
   gate               model, schema 4, one call over the whole answer (Test 17)
   regeneration       at most once (NFR 19), then the gate once more
@@ -26,6 +28,7 @@ import json
 import sqlite3
 import uuid
 from concurrent.futures import ThreadPoolExecutor
+from pathlib import Path
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from typing import Any, Callable
@@ -34,6 +37,7 @@ from jsonschema import Draft202012Validator
 
 from model_client.client import ModelConfig, ModelGateway, ModelResponse
 from persistence.audit_repository import AuditEntry, AuditRepository
+from shared.circuit_breaker import CircuitBreaker, CircuitOpen, MemoryStore
 from shared.circuit_breaker import log as operational_log
 
 from . import contract, gate, prompts, synthesis
@@ -54,6 +58,17 @@ STAGE_NAMES = {REWRITING: "question_rewriting", INTENT: "intent_analysis", COMPI
 
 REJECTED = (ValueError, prompts.RewriteError, CompileError, gate.GateOutputError, SynthesisOutputError)
 
+# SQLite primary result codes that mean the source cannot be reached, not that the query is wrong
+# (review F1): busy, locked, cannot open. A failed connection counts as well.
+UNREACHABLE_CODES = {5: "SQLITE_BUSY", 6: "SQLITE_LOCKED", 14: "SQLITE_CANTOPEN"}
+
+
+def connect_readonly(path, timeout: float = 5.0) -> Callable[[], sqlite3.Connection]:
+    """The chat only reads the company store. Read-only mode also makes a missing file a failure
+    to open, where a plain connect() would create an empty database."""
+    uri = f"file:{Path(path).as_posix()}?mode=ro"
+    return lambda: sqlite3.connect(uri, uri=True, timeout=timeout)
+
 
 @dataclass
 class Deps:
@@ -63,6 +78,7 @@ class Deps:
     connect: Callable[[], sqlite3.Connection]   # a new connection per call, one per retrieval thread
     audit: AuditRepository
     intent_prompt: prompts.Prompt | None = None   # defaults to templates/intent_analysis.md
+    source_breaker: CircuitBreaker = field(default_factory=lambda: CircuitBreaker("company_store", MemoryStore()))
     attempts: int = MODEL_CALL_ATTEMPTS
     source: str = "The company database"
 
@@ -83,6 +99,10 @@ class _Unreachable(Exception):
     pass
 
 
+class _SystemFault(Exception):
+    """A database error that is not a failure to reach the source, such as a malformed query."""
+
+
 def _now() -> str:
     return datetime.now(timezone.utc).isoformat()
 
@@ -99,7 +119,7 @@ class _Record:
 
     def _entry(self, ordinal: int, event_type: str, **kw) -> AuditEntry:
         e = AuditEntry(self.exchange_id, ordinal, STAGE_NAMES[ordinal], event_type, self.user["role"],
-                       on_behalf_of=self.user.get("user_id"), **kw)
+                       actor_id=self.user.get("user_id"), **kw)
         self.entries.append(e)
         return e
 
@@ -171,24 +191,70 @@ def _gate(deps: Deps, rec: _Record, ordinal: int, d: Draft) -> gate.GateResult:
 # retrieval, every reading at once (FR 16)
 # --------------------------------------------------------------------------
 
-def _retrieve(readings: list[CompiledReading], connect: Callable[[], sqlite3.Connection]
-              ) -> list[tuple[RetrievalResult, str, str]]:
-    def one(r: CompiledReading):
-        started = _now()
-        conn = connect()
+def _cannot_reach(e: sqlite3.Error) -> bool:
+    code = getattr(e, "sqlite_errorcode", None)
+    return code is not None and (code & 0xFF) in UNREACHABLE_CODES
+
+
+def _retrieve(readings: list[CompiledReading], connect: Callable[[], sqlite3.Connection],
+              breaker: CircuitBreaker) -> list[tuple[RetrievalResult, str, str]]:
+    """Only a failure to reach the source counts against the breaker. A system fault leaves the
+    breaker as a value, so a malformed query does not mark the source as down."""
+    def op(r: CompiledReading):
         try:
-            res = execute(r, conn)
+            conn = connect()
+        except Exception as e:
+            raise _Unreachable(repr(e)) from e
+        try:
+            return execute(r, conn)
+        except sqlite3.Error as e:
+            if _cannot_reach(e):
+                raise _Unreachable(repr(e)) from e
+            return _SystemFault(repr(e))
         finally:
             conn.close()
+
+    def one(r: CompiledReading):
+        started = _now()
+        try:
+            res = breaker.call(lambda: op(r))
+        except CircuitOpen as e:
+            raise _Unreachable(f"circuit open for {e}") from e
+        if isinstance(res, _SystemFault):
+            raise res
         return res, started, _now()
 
     if not readings:
         return []
-    try:
-        with ThreadPoolExecutor(max_workers=len(readings)) as pool:
-            return [f.result() for f in [pool.submit(one, r) for r in readings]]
-    except sqlite3.Error as e:
-        raise _Unreachable(repr(e)) from e
+    with ThreadPoolExecutor(max_workers=len(readings)) as pool:
+        futures = [pool.submit(one, r) for r in readings]
+    out, errors = [], []
+    for f in futures:
+        try:
+            out.append(f.result())
+        except (_Unreachable, _SystemFault) as e:
+            errors.append(e)
+    unreachable = [e for e in errors if isinstance(e, _Unreachable)]
+    if unreachable or errors:   # a source that cannot be reached ends the exchange first (FR 15)
+        raise (unreachable or errors)[0]
+    return out
+
+
+def _presented(response: dict, plans: dict[str, dict], cat: Catalog, answer: Draft | None) -> list[str]:
+    """NFR 27: the identifier-column values of the rows shown, in display order, then any in the
+    answer text. Never a free-text value (NFR 21, review F5)."""
+    out: list[str] = []
+    for view in response["readings"]:
+        cols = {i["as"]: i["expr"].get("col") for i in plans[view["label"]]["SELECT"]}
+        ids = [a for a in view["columns"] if cols.get(a) and (cat.column(cols[a]) or {}).get("identifier")]
+        for row in view["rows"]:
+            for a in ids:
+                if row.get(a) is not None and str(row[a]) not in out:
+                    out.append(str(row[a]))
+    for v in answer.presented_identifiers(cat) if answer is not None else []:
+        if v not in out:
+            out.append(v)
+    return out
 
 
 # --------------------------------------------------------------------------
@@ -205,7 +271,8 @@ def run(question: str, history: list[prompts.Exchange], user: dict, deps: Deps,
     understood: str | None = None
     rewritten: str | None = None
 
-    def finish(response: dict, answer: Draft | None = None, failure: str | None = None) -> Outcome:
+    def finish(response: dict, answer: Draft | None = None, failure: str | None = None,
+               presented: list[str] | None = None) -> Outcome:
         stage("contract")
         rec.step(CONTRACT)
         doc = {"kind": "exchange", "user_id": user.get("user_id"), "role": role, "posed": question,
@@ -222,11 +289,10 @@ def run(question: str, history: list[prompts.Exchange], user: dict, deps: Deps,
                                   eid, user.get("user_id"), e)
             return Outcome(contract.request_not_completed(understood), prompts.Exchange(question, understood),
                            eid, recorded=False)
-        ex = prompts.Exchange(question, understood)
+        ex = prompts.Exchange(question, understood, presented=list(presented or []))
         if answer is not None and answer.sentences:
             ex.answer = "\n".join(f"[{label}] {answer.answer(label, cat, for_history=True)}"
                                   for label in answer.sentences)
-            ex.presented = answer.presented_identifiers(cat)
         return Outcome(response, ex, eid, recorded=True)
 
     try:
@@ -253,7 +319,11 @@ def run(question: str, history: list[prompts.Exchange], user: dict, deps: Deps,
         # retrieval
         stage("retrieval")
         try:
-            retrieved = _retrieve(compiled.readings, deps.connect)
+            retrieved = _retrieve(compiled.readings, deps.connect, deps.source_breaker)
+        except _SystemFault as e:   # review F1: our fault, not the source's
+            operational_log.error("retrieval fault: attempt=%s user=%s source=%s error=%s",
+                                  eid, user.get("user_id"), deps.source, e)
+            return finish(contract.request_not_completed(understood), failure=f"retrieval: {e}")
         except _Unreachable as e:
             # R2, decision 10: not an exchange in the audit log, but logged on the operational
             # channel, without the question text
@@ -280,14 +350,13 @@ def run(question: str, history: list[prompts.Exchange], user: dict, deps: Deps,
             return out
 
         if not any(m.rows for m in materials):   # an empty result is a finding (Test 35), no model call
-            return finish(contract.answered(views(), gaps, understood))
+            return finish(contract.answered(views(), gaps, understood), presented=[])
 
-        # synthesis, the gate, and the single regeneration (NFR 19, decisions 3 to 5)
-        posed_for_digits = question
-        ask = rewritten or question
+        # synthesis, the gate, and the single regeneration (NFR 19, decisions 3 to 5).
+        # Synthesis receives both forms of the question (4.9, review F3)
         stage("synthesis")
         first = _synthesize(deps, rec, SYNTHESIS, lambda: synthesis.draft(
-            deps.gateway, ask, materials, deps.model, deps.attempts, posed=posed_for_digits))
+            deps.gateway, question, materials, deps.model, deps.attempts, rewritten=rewritten))
         stage("gate")
         g1 = _gate(deps, rec, GATE, first)
 
@@ -301,18 +370,19 @@ def run(question: str, history: list[prompts.Exchange], user: dict, deps: Deps,
                 for n, texts in sorted(g1.kept_by_sentence.items()):
                     kept.setdefault(labels[n - 1], []).extend(texts)
                 second = _synthesize(deps, rec, REGENERATION, lambda: synthesis.redraft(
-                    deps.gateway, ask, materials, kept, deps.model, deps.attempts, posed=posed_for_digits))
+                    deps.gateway, question, materials, kept, deps.model, deps.attempts, rewritten=rewritten))
             else:
                 second = _synthesize(deps, rec, REGENERATION, lambda: synthesis.draft(
-                    deps.gateway, ask, materials, deps.model, deps.attempts, rejected=g1.removed,
-                    posed=posed_for_digits))
+                    deps.gateway, question, materials, deps.model, deps.attempts, rejected=g1.removed,
+                    rewritten=rewritten))
             stage("gate")
             g2 = _gate(deps, rec, REGATE, second)
             final, withheld = second.only(g2.supported), True
 
         if not final.sentences:   # NFR 19, strict reading: records included are replaced (Test 17)
             return finish(contract.no_supported_assertion(views(), understood))
-        return finish(contract.answered(views(final), gaps, understood, withheld), final)
+        response = contract.answered(views(final), gaps, understood, withheld)
+        return finish(response, final, presented=_presented(response, plans, cat, final))
 
     except _Rejected as e:
         return finish(contract.request_not_completed(understood), failure=str(e))
@@ -335,4 +405,4 @@ def rate(exchange_id: str, rating: str, user: dict, audit: AuditRepository) -> d
     if doc["outcome"] != "answered":
         raise ValueError("only an answer is rated")
     return audit.write_event(AuditEntry(exchange_id, RATING, STAGE_NAMES[RATING], "answer_rated", user["role"],
-                                        on_behalf_of=user.get("user_id")), {"rating": rating})
+                                        actor_id=user.get("user_id")), {"rating": rating})

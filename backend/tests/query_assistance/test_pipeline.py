@@ -47,7 +47,7 @@ SYN = {"readings": [{"label": "late", "sentences": [{"text": ONE}, {"text": TWO_
 SYN_ONE = {"readings": [{"label": "late", "sentences": [{"text": ONE}]}]}
 
 
-def gate_says(*verdicts):
+def gate_says(*verdicts, alias="supplier_id"):
     """Verdict per sentence, in order. The last one repeats. Every sentence is covered."""
     def answer(prompt):
         body = prompt.split("Answer:\n")[-1].split("\nRecords:")[0]
@@ -55,7 +55,7 @@ def gate_says(*verdicts):
         for i, (n, label, text) in enumerate(re.findall(r"^(\d+)\. \[(\w+)\] (.*)$", body, re.M)):
             v = verdicts[min(i, len(verdicts) - 1)]
             claims.append({"sentence": int(n), "text": text, "verdict": v,
-                           "evidence": [] if v == "uncovered" else [f"{label}.supplier_id"]})
+                           "evidence": [] if v == "uncovered" else [f"{label}.{alias}"]})
         return {"claims": claims}
     return answer
 
@@ -127,7 +127,7 @@ def test_exchange_record_follows_the_declared_stage_order(db_path, storage):
                                        "support_gate", "output_contract"]
     assert [e["step_ordinal"] for e in t] == sorted(e["step_ordinal"] for e in t)
     for e in t:
-        assert e["timestamp"] and e["role"] == "APPROVER" and e["on_behalf_of"] == "AP-01"
+        assert e["timestamp"] and e["role"] == "APPROVER" and e["actor_id"] == "AP-01" and "on_behalf_of" not in e
         if e["event_type"].startswith("model_output"):
             assert "scripted:demo" in e["model_identity"] and "temperature 0" in e["model_identity"]
             assert e["input_tokens"] and e["output_tokens"]
@@ -152,7 +152,8 @@ def test_history_form_of_the_answer(db_path, storage):
     out = pl.run(Q, [], APPROVER, deps(gw, db_path, storage))
     rows = out.response["readings"][0]["rows"]
     assert out.exchange.answer.startswith("[late] " + rows[0]["supplier_id"])
-    assert out.exchange.presented == [rows[0]["supplier_id"], rows[1]["supplier_id"]]
+    # review F5: every identifier in the table, in display order, not only those in the answer text
+    assert len(rows) == 5 and out.exchange.presented == [r["supplier_id"] for r in rows]
 
 
 # --------------------------------------------------------------------------
@@ -372,3 +373,95 @@ def test_rating_rules(db_path, storage):
         pl.rate(referred.exchange_id, "up", APPROVER, d.audit)
     with pytest.raises(LookupError):
         pl.rate("EX-none", "up", APPROVER, d.audit)
+
+
+# --------------------------------------------------------------------------
+# review of 12.10: F1, F3, F5, F7, F9
+# --------------------------------------------------------------------------
+
+def test_malformed_query_is_a_system_fault_not_an_unreachable_source(db_path, storage, caplog):
+    """F1: our fault. request_not_completed, recorded, logged, and not counted against the source."""
+    d = deps(model(intent_analysis_demo=[INTENT]), db_path, storage, connect=lambda: sqlite3.connect(":memory:"))
+    with caplog.at_level(logging.ERROR, logger="medagentpro.breaker"):
+        out = pl.run(Q, [], APPROVER, d)
+    assert out.response["outcome"] == "request_not_completed" and out.recorded
+    assert "no such table" in storage.investigations[out.exchange_id]["failure"]
+    assert "retrieval fault" in caplog.text and Q not in caplog.text
+    assert d.source_breaker.failure_count == 0
+
+
+def test_missing_store_is_unreachable(db_path, storage, tmp_path):
+    """F1: read-only connection, so a missing file fails to open instead of creating an empty store."""
+    d = deps(model(intent_analysis_demo=[INTENT]), db_path, storage,
+             connect=pl.connect_readonly(tmp_path / "gone.db"))
+    out = pl.run(Q, [], APPROVER, d)
+    assert out.response["outcome"] == "source_unreachable" and not out.recorded
+    assert not (tmp_path / "gone.db").exists() and d.source_breaker.failure_count == 1
+
+
+def test_locked_store_is_unreachable(db_path, storage, tmp_path):
+    copy = tmp_path / "locked.db"
+    copy.write_bytes(db_path.read_bytes())
+    holder = sqlite3.connect(copy, isolation_level=None)
+    holder.execute("BEGIN EXCLUSIVE")
+    try:
+        out = pl.run(Q, [], APPROVER, deps(model(intent_analysis_demo=[INTENT]), db_path, storage,
+                                           connect=pl.connect_readonly(copy, timeout=0)))
+    finally:
+        holder.execute("ROLLBACK")
+        holder.close()
+    assert out.response["outcome"] == "source_unreachable"
+
+
+def test_open_breaker_on_the_source_is_unreachable_without_trying(db_path, storage):
+    """F9: the company source goes through its own breaker (NFR 9)."""
+    tried = []
+
+    def connect():
+        tried.append(1)
+        return sqlite3.connect(db_path)
+    d = deps(model(intent_analysis_demo=[INTENT]), db_path, storage, connect=connect)
+    d.source_breaker = CircuitBreaker("company_store", MemoryStore(), threshold=1)
+    d.source_breaker.record_failure()
+    out = pl.run(Q, [], APPROVER, d)
+    assert out.response["outcome"] == "source_unreachable" and tried == [] and not out.recorded
+
+
+def test_read_only_connection_answers(db_path, storage):
+    gw = model(intent_analysis_demo=[INTENT], synthesis=[SYN], support_scoring=[gate_says("supported")])
+    out = pl.run(Q, [], APPROVER, deps(gw, db_path, storage, connect=pl.connect_readonly(db_path)))
+    assert out.response["outcome"] == "answered"
+
+
+def test_follow_up_can_name_an_identifier_shown_only_in_the_table(db_path, storage):
+    """F5: the third supplier in the table was never in the answer text, and was presented."""
+    gw = model(intent_analysis_demo=[INTENT], synthesis=[SYN], support_scoring=[gate_says("supported")])
+    first = pl.run(Q, [], APPROVER, deps(gw, db_path, storage))
+    third = first.response["readings"][0]["rows"][2]["supplier_id"]
+    assert third not in first.response["readings"][0]["answer"]
+    plan = {"disposition": "retrieve", "readings": [{"label": "r", "plan": {
+        "SELECT": [{"expr": {"col": "commitments.po_id"}, "as": "po_id"}], "FROM": "commitments",
+        "WHERE": {"EQ": [{"col": "commitments.supplier_id"}, {"value": third}]}, "LIMIT": 3}}]}
+    syn = {"readings": [{"label": "r", "sentences": [{"text": "One order is {r.po_id#1}."}]}]}
+    gw2 = model(question_rewriting=[{"question": f"Which orders did {third} have?", "carried_from_history": True}],
+                intent_analysis_demo=[plan], synthesis=[syn], support_scoring=[gate_says("supported", alias="po_id")])
+    out = pl.run("And the third one in the table?", [first.exchange], APPROVER, deps(gw2, db_path, storage))
+    assert out.response["outcome"] == "answered"
+
+
+def test_follow_up_answer_may_state_the_week_its_plan_ran_on(db_path, storage):
+    """F7 and F3: "in week 5" comes from the plan, and synthesis sees both forms of the question."""
+    earlier = p.Exchange(Q, None, "[late] S-038 had 6.", ["S-038"])
+    week5 = {"disposition": "retrieve", "readings": [{"label": "late", "plan": dict(LATE["plan"], WHERE={"AND": [
+        {"EQ": [{"col": "commitments.week"}, {"value": 5}]},
+        {"EQ": [{"metric": "late_by_delivery"}, {"value": True}]}]})}]}
+    syn = {"readings": [{"label": "late", "sentences": [
+        {"text": "In week 5, {late.supplier_id#1} had {late.late_count#1} late lines."}]}]}
+    gw = model(question_rewriting=[{"question": "Which suppliers delivered late in week 5?",
+                                    "carried_from_history": True}],
+               intent_analysis_demo=[week5], synthesis=[syn], support_scoring=[gate_says("supported")])
+    out = pl.run("And in week five?", [earlier], APPROVER, deps(gw, db_path, storage))
+    assert out.response["outcome"] == "answered"
+    assert out.response["readings"][0]["answer"].startswith("In week 5, ")
+    prompt = next(pr for pr, cfg in gw.calls if cfg.prompt_identity.startswith("synthesis@"))
+    assert "Question as posed: And in week five?\nQuestion: Which suppliers delivered late in week 5?" in prompt
