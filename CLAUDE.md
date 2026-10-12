@@ -89,6 +89,11 @@ The seven points marked "לבדיקה" in `docs/notes/00_STATUS.md` and three mo
 - **K2.** The exchange record holds the rows presented, since a later re-run would not show what was seen (data changes). Copies company data into the system store: added as a question for the client in `docs/notes/00_STATUS.md`.
 - **K10.** Exchanges are stored in the `investigations` collection with `kind: "exchange"`. A temporary demo choice; how many collections is open question 24 (`30_ARCHITECTURE`).
 
+## Second review (Claude chat, 12.10) — before task 5
+
+- **F11, an identifier in the rows must be a reference.** A token outside a reference that equals a value of an identifier column in the rows retrieved (any reading) is rejected, even if the question or the plan holds it: the model must write `{label.alias#row}`. Typed, it loses its row, and "S-002 had {late.late_lines#1}" would pair S-002 with S-001's value (the open "wrong attribution" problem in `docs/notes/00_STATUS.md`). Digits from the question or the plan that are not identifiers in the rows (a week, a date, an identifier used only as a filter) stay allowed. Update `synthesis.md` (and the redraft prompt) to say so.
+- **N12, for task 6.** `Deps` holds the source circuit breaker, so it must be created once at server start and shared by every request. A `Deps` per request gives a new breaker each time, which never opens.
+
 ## Decisions in force (details in `docs/notes/40_CHAT.md`)
 
 - **The model never writes a query.** It fills a plan (schema 1); `compiler.py` validates it, injects entitlement and LIMIT, and builds parameterised SQL.
