@@ -17,6 +17,7 @@ Architecture decisions and the book are handled in a separate Claude chat (the p
 - **An architectural question comes up** that the book and `docs/notes/` do not settle (a new stage, a change to a schema or to the output contract, a security or entitlement question). Write the question in `docs/notes/00_STATUS.md` and stop rather than deciding it.
 - **Code and book disagree.** Describe the difference with the section or requirement number, and stop.
 Small implementation choices (names, internal structure, test layout) do not need the chat.
+**Stop before implementing, not after.** Do not build a "conservative" choice on an architectural question and flag it for review afterwards. Write the question, wait for the answer in the file, then continue.
 
 ## What this repository is
 
@@ -55,18 +56,38 @@ Task 4 adds `query_assistance/pipeline.py`: rewrite (only with history), intent 
 3. **`contradicted` is treated like an unsupported assertion**, not as an immediate fall. With symbolic references a contradiction can no longer come from a wrong value, only from the words around references, so NFR 19 applies as written. Update `docs/notes/40_CHAT.md` §5 and the `post_model_checks` of `support_scoring` accordingly.
 4. **The single regeneration (NFR 19):**
    - at least one assertion kept: `synthesis.redraft()` from the kept assertions;
-   - none kept (including a contradiction): a fresh `synthesis.draft()` over all the material, **with the rejected assertions passed in and an instruction not to state them again** (a new optional block in `synthesis.md`). Without it, the same input at temperature 0 returns the same answer. This feedback is a proposal, not in the book.
+   - none kept (including a contradiction): a fresh `synthesis.draft()` over all the material, **with the rejected assertions passed in and an instruction not to state them again** (a new optional block in `synthesis.md`). Without it, the same input at temperature 0 returns the same answer. **In the book since 12.10:** NFR 19 and 4.9, "afresh with the assertions not found supported excluded".
    - The regenerated answer goes through the gate once more and is never regenerated again.
 5. **What is presented after the last gate.** A sentence is presented only if the gate examined it and every claim found verbatim inside it is `supported`. A sentence with no claim inside it is not presented, since nothing checked it. A reading left with no sentence is shown with its records and "Examined" only. If no sentence survives in any reading, the outcome is `no_supported_assertion` (NFR 19, strict reading).
-6. **Withheld notice.** Where any sentence or assertion was removed and something remains, the response carries a fixed notice from code: "Some statements were withheld because the records do not support them." It never shows what was removed. A `[demo extension]` field in `exchange_response`, a proposal not in the book.
+6. **Withheld notice.** Where any sentence or assertion was removed and something remains, the response carries a fixed notice from code: "Some statements were withheld because the records do not support them." It never shows what was removed. A `[demo extension]` field in `exchange_response`. **In the book since 12.10:** 4.9, "the answer states that statements were withheld, without stating them".
 7. **History layer 3.** For the demo, the oldest exchanges are dropped with no summary. Layers 1 and 2 stay as built. NFR 27 still sees the whole conversation. A deviation from 4.9 ("then summarized"), recorded in `docs/notes/00_STATUS.md`.
 8. **Streaming.** Stream stage progress only. The answer is sent once, after the gate.
 
-9. **R1, recording fails.** If `write_run` fails, the answer is not presented: `request_not_completed` (FR 13, NFR 5). The failure is logged on the independent channel, the breaker's stdout logger (NFR 11).
+9. **R1, recording fails.** If `write_run` fails, the answer is not presented: `request_not_completed` (FR 13, NFR 5; in the book since 12.10, 4.9: "an answer that cannot be recorded is not presented"). The failure is logged on the independent channel, the breaker's stdout logger (NFR 11).
 10. **R2, what is recorded.** In the audit log (the exchange record): every outcome except `source_unreachable` (Test 23), including `request_not_completed`. **A source that could not be reached is still logged on the operational channel** (the breaker's stdout logger, separate from the store): time, user, which source, the error, and an attempt id. Not the question text, which may hold business data (a proposal). Test 23 forbids recording the attempt as an exchange, not logging the failure; `30_ARCHITECTURE` 3.4 requires every failure to be logged.
 11. **R3, granularity.** One entry per model call, rejected attempts included (`attempt_number` > 1, `superseded_reason`). One entry, without tokens, for each stage with no model.
 12. **R4, the gate cannot skip a sentence.** Every synthesis sentence holds a reference, so every sentence asserts something and must be examined. The gate receives the sentences numbered, and every claim in its output names the sentence it comes from (a new field in `support_scoring`, and the gate prompt numbers the sentences). `gate.py` rejects gate output that leaves a sentence uncovered, and the call is retried within `MODEL_CALL_ATTEMPTS` like any rejected model output. If every attempt skips, the outcome is `request_not_completed`. This replaces filtering unexamined sentences: nothing unexamined can reach the presentation step.
 13. **R5.** The withheld notice is a new top-level field `withheld` in `exchange_response`, separate from `notice`. `[demo extension]`.
+
+## Task 4 review (Claude chat, 12.10) — fixes before task 5
+
+The seven points marked "לבדיקה" in `docs/notes/00_STATUS.md` and three more found in review. Details and reasoning there.
+
+**Fix:**
+- **F1, retrieval errors.** Only a failure to reach the source (connection fails, database locked, file missing, breaker open) is `source_unreachable`. Any other `sqlite3` error during execution is a system fault: `request_not_completed`, recorded, and logged on the operational channel.
+- **F3, synthesis receives both forms** of the question, as posed and as rewritten, like intent analysis ("later stages receive both forms", 4.9).
+- **F5, presented identifiers** (NFR 27) include the identifier-column values of the rows shown in the table, in display order, plus those in the answer text. Never free-text values (NFR 21).
+- **F7, digits allowed outside a reference** come from the question as posed **and from the literal values of the executed plan** (WHERE, HAVING), which the compiler validated and "Examined" shows. Counts and sums are still rejected, since no plan holds them.
+- **F8, who acted.** Add `actor_id` to `AuditEntry` and use it for the user. `on_behalf_of` keeps its meaning: an internal user entering information for an external party (`30_ARCHITECTURE` §2).
+- **F9, the company source goes through the circuit breaker** (NFR 9, one breaker per dependency). An open breaker is `source_unreachable`.
+
+**Keep as built:**
+- **K4.** Only the asker rates, and only an `answered` outcome.
+- **K6.** "Understood as" only where the rewrite differs from the question (FR 25, Test 44).
+
+**Keep, and record:**
+- **K2.** The exchange record holds the rows presented, since a later re-run would not show what was seen (data changes). Copies company data into the system store: added as a question for the client in `docs/notes/00_STATUS.md`.
+- **K10.** Exchanges are stored in the `investigations` collection with `kind: "exchange"`. A temporary demo choice; how many collections is open question 24 (`30_ARCHITECTURE`).
 
 ## Decisions in force (details in `docs/notes/40_CHAT.md`)
 
