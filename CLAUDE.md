@@ -10,6 +10,14 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - **The book is the source of truth** (`C:\Users\EvyatarS\project filles\01_Book\`). Where code and book differ, raise it, do not silently pick one.
 - Never delete files from `project filles\` (the original research folder). Copy, do not move.
 
+## When to send Evyatar back to the Claude chat
+
+Architecture decisions and the book are handled in a separate Claude chat (the project "J&J"). Stop and tell Evyatar, in Hebrew, to take it there when:
+- **A task from the plan is finished.** End with a short summary for the chat: what was built, which files changed, the test count, and every point where the code goes beyond or differs from the book. Record the same in `docs/notes/00_STATUS.md`. Commit before handing over.
+- **An architectural question comes up** that the book and `docs/notes/` do not settle (a new stage, a change to a schema or to the output contract, a security or entitlement question). Write the question in `docs/notes/00_STATUS.md` and stop rather than deciding it.
+- **Code and book disagree.** Describe the difference with the section or requirement number, and stop.
+Small implementation choices (names, internal structure, test layout) do not need the chat.
+
 ## What this repository is
 
 MedAgentPro is an LLM-driven root-cause-analysis system for supply-chain cases, developed as a project book in phases. Phase A (the book and feasibility studies) is complete. Phase B is being built. The current goal is a **demo of the query assistance (chat) pipeline** on synthetic data, showing that it answers from records, never infers a cause, and withholds what it cannot support.
@@ -37,6 +45,22 @@ When a decision is made in a session, record it in the relevant note (and here, 
 | 7 | Chat screen in Next.js, after Figure 15 of the book | open |
 | 8 | Demo question set covering each behaviour | open |
 | 9 | End-to-end tests on the scripted model | open |
+
+## Task 4 decisions (settled in the Claude chat, 12.10)
+
+Task 4 adds `query_assistance/pipeline.py`: rewrite (only with history), intent and compile, retrieval of all readings in parallel (FR 16), synthesis over readings that returned rows, gate, one regeneration, contract. Model calls are retried within `MODEL_CALL_ATTEMPTS`, and a `CompileError` counts as a failed call. The questions and the reasoning are in `docs/notes/00_STATUS.md`.
+
+1. **Exchange record.** Reuse `persistence/audit_repository.py` ("recorded as any other run", 4.9). Add `write_run(entries, run_update)` so all stage entries and the exchange document are written in one transaction (NFR 5). Entries are held in memory and written at the end, so an exchange that ends on an unreachable source is not recorded (Test 23). For the demo, an in-memory or SQLite store behind the same interface (no MongoDB). The rating is a later `write_event` on the exchange.
+2. **One gate call over the whole answer**, each reading's text under its label (Test 17 counts the calls).
+3. **`contradicted` is treated like an unsupported assertion**, not as an immediate fall. With symbolic references a contradiction can no longer come from a wrong value, only from the words around references, so NFR 19 applies as written. Update `docs/notes/40_CHAT.md` §5 and the `post_model_checks` of `support_scoring` accordingly.
+4. **The single regeneration (NFR 19):**
+   - at least one assertion kept: `synthesis.redraft()` from the kept assertions;
+   - none kept (including a contradiction): a fresh `synthesis.draft()` over all the material, **with the rejected assertions passed in and an instruction not to state them again** (a new optional block in `synthesis.md`). Without it, the same input at temperature 0 returns the same answer. This feedback is a proposal, not in the book.
+   - The regenerated answer goes through the gate once more and is never regenerated again.
+5. **What is presented after the last gate.** A sentence is presented only if the gate examined it and every claim found verbatim inside it is `supported`. A sentence with no claim inside it is not presented, since nothing checked it. A reading left with no sentence is shown with its records and "Examined" only. If no sentence survives in any reading, the outcome is `no_supported_assertion` (NFR 19, strict reading).
+6. **Withheld notice.** Where any sentence or assertion was removed and something remains, the response carries a fixed notice from code: "Some statements were withheld because the records do not support them." It never shows what was removed. A `[demo extension]` field in `exchange_response`, a proposal not in the book.
+7. **History layer 3.** For the demo, the oldest exchanges are dropped with no summary. Layers 1 and 2 stay as built. NFR 27 still sees the whole conversation. A deviation from 4.9 ("then summarized"), recorded in `docs/notes/00_STATUS.md`.
+8. **Streaming.** Stream stage progress only. The answer is sent once, after the gate.
 
 ## Decisions in force (details in `docs/notes/40_CHAT.md`)
 
