@@ -1,0 +1,161 @@
+{
+  "$comment": "PLACEHOLDER. A stand-in for the company SQLite inventory, which has not been received. Tables, columns and terms are invented so the compiler can be built and tested. Replace the whole file when the inventory arrives.",
+  "entities": {
+    "commitments": {
+      "columns": {
+        "commitment_id": {
+          "type": "text",
+          "identifier": true
+        },
+        "po_id": {
+          "type": "text",
+          "identifier": true
+        },
+        "supplier_id": {
+          "type": "text",
+          "identifier": true
+        },
+        "part_id": {
+          "type": "text",
+          "identifier": true
+        },
+        "planner_id": {
+          "type": "text"
+        },
+        "week": {
+          "type": "integer"
+        },
+        "quantity": {
+          "type": "integer"
+        },
+        "due_date": {
+          "type": "date"
+        },
+        "promised_date": {
+          "type": "date"
+        },
+        "delivered_at": {
+          "type": "date"
+        }
+      },
+      "entitlement": {
+        "PLANNER": {
+          "col": "planner_id",
+          "equals": "user_id"
+        },
+        "APPROVER": {
+          "all": true
+        }
+      }
+    },
+    "suppliers": {
+      "columns": {
+        "supplier_id": {
+          "type": "text",
+          "identifier": true
+        },
+        "name": {
+          "type": "text"
+        },
+        "region": {
+          "type": "text"
+        }
+      },
+      "entitlement": {
+        "PLANNER": {
+          "all": true
+        },
+        "APPROVER": {
+          "all": true
+        }
+      }
+    },
+    "parts": {
+      "columns": {
+        "part_id": {
+          "type": "text",
+          "identifier": true
+        },
+        "description": {
+          "type": "text"
+        },
+        "on_hand": {
+          "type": "integer"
+        }
+      },
+      "entitlement": {
+        "PLANNER": {
+          "all": true
+        },
+        "APPROVER": {
+          "all": true
+        }
+      }
+    },
+    "forecast": {
+      "$comment": "No entitlement declared on purpose. Any plan that touches it is rejected, which the tests rely on.",
+      "columns": {
+        "part_id": {
+          "type": "text",
+          "identifier": true
+        },
+        "week": {
+          "type": "integer"
+        },
+        "demand": {
+          "type": "integer"
+        }
+      }
+    }
+  },
+  "metrics": {
+    "late_by_delivery": {
+      "entity": "commitments",
+      "type": "boolean",
+      "expr": {
+        "op": "GT",
+        "args": [
+          {
+            "col": "commitments.delivered_at"
+          },
+          {
+            "col": "commitments.due_date"
+          }
+        ]
+      },
+      "description": "Delivered after the requested date."
+    },
+    "late_by_promise": {
+      "entity": "commitments",
+      "type": "boolean",
+      "expr": {
+        "op": "GT",
+        "args": [
+          {
+            "col": "commitments.promised_date"
+          },
+          {
+            "col": "commitments.due_date"
+          }
+        ]
+      },
+      "description": "The supplier committed to a date after the requested date."
+    },
+    "days_late": {
+      "entity": "commitments",
+      "type": "real",
+      "expr": {
+        "op": "DAYS_BETWEEN",
+        "args": [
+          {
+            "col": "commitments.due_date"
+          },
+          {
+            "col": "commitments.delivered_at"
+          }
+        ]
+      },
+      "description": "Days between the requested date and the delivery."
+    }
+  }
+}

@@ -1,0 +1,1101 @@
+{
+  "$comment": "MedAgentPro - Phase B, item B1. JSON schemas for every model call. Five schemas total. The domain interpretation schema is not here: it is already written and verified as Prompt B in section 3.3.1 of the book, 25 of 25.",
+  "book_version": "Book_Phase_A 4.10, with chapter 8 added. References [1] to [43].",
+  "status_legend": {
+    "complete": "written and validated against instances",
+    "blocked": "cannot be written until the blocker is resolved",
+    "open": "no blocker, not yet written"
+  },
+  "placeholders": [
+    {
+      "pointer": "/schemas/intent_analysis/schema/$defs/plan/properties/LIMIT/maximum",
+      "value": 200,
+      "book": "Table 15, rows a retrieval returns"
+    },
+    {
+      "pointer": "/schemas/intent_analysis/schema/properties/readings/maxItems",
+      "value": 3,
+      "book": "Table 15, readings a question may carry"
+    },
+    {
+      "pointer": "/schemas/intent_analysis/schema/$defs/plan/properties/SELECT/maxItems",
+      "value": 12,
+      "book": "not in Table 15. A prompt-width value with no reader-facing effect"
+    },
+    {
+      "pointer": "/schemas/intent_analysis/schema/$defs/comparison/oneOf/1/properties/IN/prefixItems/1/maxItems",
+      "value": 20,
+      "book": "not in Table 15. Same"
+    },
+    {
+      "pointer": "/schemas/support_scoring/schema/properties/claims/maxItems",
+      "value": 20,
+      "book": "Table 15, assertions examined by the gate"
+    },
+    {
+      "pointer": "/schemas/exchange_response/schema/properties/gaps/maxItems",
+      "value": 4,
+      "book": "not in Table 15. Bounded by what one answer can carry"
+    }
+  ],
+  "schemas": {
+    "intent_analysis": {
+      "status": "complete",
+      "stage": "Intent analysis and routing, query assistance pipeline only (Table 12).",
+      "requirements": [
+        "FR 11",
+        "FR 14",
+        "FR 16",
+        "NFR 6",
+        "NFR 17",
+        "NFR 21"
+      ],
+      "tests": [
+        "Test 13",
+        "Test 16",
+        "Test 32",
+        "Test 33"
+      ],
+      "compiler_checks": [
+        "Every col resolves in schema.json, and its table is the FROM table or reached by a JOIN.",
+        "Every rel exists in relations.json and connects a table already in scope.",
+        "value type matches the column type it is compared against; both sides of a column-to-column comparison share a type. This is also what rejects a date or numeric column compared to an empty string, which would otherwise compile and return no rows for every question about an absent value.",
+        "IS_NULL and IS_NOT_NULL apply only to a column of the FROM table, never to a column reached through a JOIN.",
+        "GROUP_BY present if and only if SELECT mixes an aggregate with a non-aggregate field, and then it names every non-aggregate alias and no aggregate one. A SELECT of aggregates only carries no GROUP_BY, so a total count can be asked.",
+        "HAVING agg names an alias whose expr is a func. ORDER_BY by names an existing alias.",
+        "Aliases unique within a plan; label unique across readings.",
+        "Entitlement condition injected into WHERE per NFR 17, read from schema.json per role. A role absent from an entity grants no access.",
+        "LIMIT injected where omitted, at the same configured value that bounds it in this schema (Table 15, rows a retrieval returns). A count of the rows before LIMIT is taken in code, so a cut result is presented as a number of a total.",
+        "Every unresolved.asked overlaps the question text as posed. A span the question does not contain is rejected.",
+        "unresolved.needs carries an entity for every kind except unspecified, which must carry none. For no_such_column and value_not_present the entity resolves in schema.json. For no_such_table and source_outside_system it must not, since the gap states that the schema does not hold it.",
+        "Every metric name is declared in schema.json. The compiler expands it to its column expression; the model never writes that expression.",
+        "Every ambiguous.term overlaps the question text as posed, and every alternative resolves in schema.json.",
+        "Where ambiguous is non-empty, the number of readings is at least the number of alternatives declared for any one term. A declared ambiguity that produced a single reading is rejected.",
+        "Every value compared with a column marked identifier in schema.json appears in the question as posed, in an earlier question or answer of the conversation, or among the identifiers presented in an earlier answer (NFR 27, Test 45). The rewritten question is not a source, since the model wrote it, and neither is a summary of reduced exchanges. Matching is by whole token, so S-03 is not found inside S-031. Values of other columns are not checked: a period or a quantity is an interpretation of what was said."
+      ],
+      "schema": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "$id": "medagentpro/intent_analysis.schema.json",
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "disposition"
+        ],
+        "properties": {
+          "disposition": {
+            "enum": [
+              "retrieve",
+              "refer_to_investigation"
+            ],
+            "$comment": "FR 14. A question that requires attributing a cause or judging whether a value is anomalous is referred to an investigation instead of being answered. Deciding this here means no retrieval is planned for such a question."
+          },
+          "readings": {
+            "type": "array",
+            "maxItems": 3,
+            "items": {
+              "$ref": "#/$defs/reading"
+            },
+            "$comment": "FR 11. A question carrying more than one reading is presented under each of them rather than resolved. FR 16 executes them together. PLACEHOLDER: maxItems."
+          },
+          "unresolved": {
+            "type": "array",
+            "maxItems": 3,
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "asked",
+                "needs"
+              ],
+              "properties": {
+                "asked": {
+                  "type": "string",
+                  "maxLength": 120,
+                  "$comment": "A span of the question as the person posed it, not a restatement. Verified in code against the question text and rejected otherwise, so this field cannot carry an explanation or a cause (NFR 20)."
+                },
+                "needs": {
+                  "$ref": "#/$defs/missing"
+                }
+              }
+            },
+            "$comment": "FR 11, second half. A part of the question no reading covers. asked points at the person's own words; needs names a kind of absence and an entity. Neither can carry a cause (NFR 20)."
+          },
+          "ambiguous": {
+            "type": "array",
+            "maxItems": 3,
+            "$comment": "Terms in the question that more than one element of schema.json could express, with the alternatives considered. Declared in the same call, so it costs no additional model call. Each alternative is resolved against schema.json in code. An entry here is what makes a question carry more than one reading under FR 11.",
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "term",
+                "alternatives"
+              ],
+              "properties": {
+                "term": {
+                  "type": "string",
+                  "maxLength": 60,
+                  "$comment": "A span of the question as the person posed it. Verified in code against the question text."
+                },
+                "alternatives": {
+                  "type": "array",
+                  "minItems": 2,
+                  "maxItems": 3,
+                  "items": {
+                    "oneOf": [
+                      {
+                        "$ref": "#/$defs/col"
+                      },
+                      {
+                        "$ref": "#/$defs/metric"
+                      }
+                    ]
+                  }
+                }
+              }
+            }
+          }
+        },
+        "allOf": [
+          {
+            "if": {
+              "properties": {
+                "disposition": {
+                  "const": "retrieve"
+                }
+              }
+            },
+            "then": {
+              "required": [
+                "readings"
+              ],
+              "properties": {
+                "readings": {
+                  "minItems": 1
+                }
+              }
+            }
+          },
+          {
+            "if": {
+              "properties": {
+                "disposition": {
+                  "const": "refer_to_investigation"
+                }
+              }
+            },
+            "then": {
+              "properties": {
+                "readings": {
+                  "maxItems": 0
+                },
+                "unresolved": {
+                  "maxItems": 0
+                }
+              }
+            }
+          }
+        ],
+        "$defs": {
+          "name": {
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9_]{0,39}$"
+          },
+          "qualified": {
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9_]*\\.[a-z][a-z0-9_]*$",
+            "$comment": "table.column. One store only, so a single qualifier is enough."
+          },
+          "reading": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "label",
+              "plan"
+            ],
+            "properties": {
+              "label": {
+                "$ref": "#/$defs/name"
+              },
+              "plan": {
+                "$ref": "#/$defs/plan"
+              }
+            },
+            "$comment": "label is the namespace for references produced downstream. A value drawn from this reading is carried as label.alias (NFR 6)."
+          },
+          "plan": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "SELECT",
+              "FROM"
+            ],
+            "properties": {
+              "SELECT": {
+                "type": "array",
+                "minItems": 1,
+                "maxItems": 12,
+                "items": {
+                  "$ref": "#/$defs/select_item"
+                }
+              },
+              "FROM": {
+                "$ref": "#/$defs/name"
+              },
+              "JOIN": {
+                "type": "array",
+                "minItems": 1,
+                "maxItems": 3,
+                "items": {
+                  "$ref": "#/$defs/join"
+                }
+              },
+              "WHERE": {
+                "$ref": "#/$defs/predicate"
+              },
+              "GROUP_BY": {
+                "type": "array",
+                "minItems": 1,
+                "maxItems": 4,
+                "items": {
+                  "$ref": "#/$defs/name"
+                },
+                "$comment": "Names SELECT aliases, not expressions. The compiler expands each to its underlying column."
+              },
+              "HAVING": {
+                "type": "array",
+                "minItems": 1,
+                "maxItems": 3,
+                "items": {
+                  "$ref": "#/$defs/having_term"
+                },
+                "$comment": "Flat list, implicitly ANDed. agg names a SELECT alias whose expr is a func."
+              },
+              "ORDER_BY": {
+                "type": "array",
+                "minItems": 1,
+                "maxItems": 3,
+                "items": {
+                  "$ref": "#/$defs/order_term"
+                },
+                "$comment": "Orders by SELECT alias. NFR 6 rejects a reference that contradicts an ordering the retrieval stage determined, which requires the ordering to be over named output fields."
+              },
+              "LIMIT": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 200,
+                "$comment": "PLACEHOLDER: maximum. In query assistance there is no summarization stage (Table 12), so retrieved rows enter the synthesis prompt as held. Test 13 rejects a value outside this range, so the bound belongs here and not in the compiler."
+              }
+            },
+            "$comment": "A stated subset of SQL grammar (3.1.6, Table 7). Not expressible: subqueries, UNION, CTE, window functions, AVG, OFFSET, DISTINCT, LIKE, raw SQL of any kind."
+          },
+          "select_item": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "expr",
+              "as"
+            ],
+            "properties": {
+              "expr": {
+                "oneOf": [
+                  {
+                    "$ref": "#/$defs/col"
+                  },
+                  {
+                    "$ref": "#/$defs/metric"
+                  },
+                  {
+                    "$ref": "#/$defs/func"
+                  }
+                ]
+              },
+              "as": {
+                "$ref": "#/$defs/name"
+              }
+            },
+            "$comment": "as is mandatory. It is the field name in the returned row and therefore the second half of every reference downstream."
+          },
+          "join": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "rel",
+              "type"
+            ],
+            "properties": {
+              "rel": {
+                "$ref": "#/$defs/name"
+              },
+              "type": {
+                "enum": [
+                  "INNER",
+                  "LEFT"
+                ]
+              }
+            },
+            "$comment": "rel names a relation declared in relations.json. The model never writes a join condition. Source [20] places schema linking at 29-49 percent of errors and join errors at 21-26 percent."
+          },
+          "col": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "col"
+            ],
+            "properties": {
+              "col": {
+                "$ref": "#/$defs/qualified"
+              }
+            }
+          },
+          "value": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "value"
+            ],
+            "properties": {
+              "value": {
+                "type": [
+                  "string",
+                  "number",
+                  "boolean"
+                ]
+              }
+            },
+            "$comment": "null is excluded as a literal. EQ against NULL is always false, so absence is tested with IS_NULL and IS_NOT_NULL rather than by comparing to a literal."
+          },
+          "operand": {
+            "oneOf": [
+              {
+                "$ref": "#/$defs/col"
+              },
+              {
+                "$ref": "#/$defs/metric"
+              },
+              {
+                "$ref": "#/$defs/value"
+              }
+            ]
+          },
+          "func": {
+            "oneOf": [
+              {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "func",
+                  "arg"
+                ],
+                "properties": {
+                  "func": {
+                    "const": "COUNT"
+                  },
+                  "arg": {
+                    "oneOf": [
+                      {
+                        "$ref": "#/$defs/col"
+                      },
+                      {
+                        "const": "*"
+                      }
+                    ]
+                  }
+                }
+              },
+              {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "func",
+                  "arg"
+                ],
+                "properties": {
+                  "func": {
+                    "enum": [
+                      "SUM",
+                      "MIN",
+                      "MAX"
+                    ]
+                  },
+                  "arg": {
+                    "$ref": "#/$defs/col"
+                  }
+                }
+              }
+            ],
+            "$comment": "Counts come from the store, not the model. AVG is excluded: an average exists in no row, so it cannot be carried as a reference to a field."
+          },
+          "comparison": {
+            "oneOf": [
+              {
+                "type": "object",
+                "additionalProperties": false,
+                "minProperties": 1,
+                "maxProperties": 1,
+                "properties": {
+                  "EQ": {
+                    "$ref": "#/$defs/pair"
+                  },
+                  "NE": {
+                    "$ref": "#/$defs/pair"
+                  },
+                  "GT": {
+                    "$ref": "#/$defs/pair"
+                  },
+                  "GTE": {
+                    "$ref": "#/$defs/pair"
+                  },
+                  "LT": {
+                    "$ref": "#/$defs/pair"
+                  },
+                  "LTE": {
+                    "$ref": "#/$defs/pair"
+                  }
+                }
+              },
+              {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "IN"
+                ],
+                "properties": {
+                  "IN": {
+                    "type": "array",
+                    "minItems": 2,
+                    "maxItems": 2,
+                    "prefixItems": [
+                      {
+                        "$ref": "#/$defs/col"
+                      },
+                      {
+                        "type": "array",
+                        "minItems": 1,
+                        "maxItems": 20,
+                        "items": {
+                          "$ref": "#/$defs/value"
+                        }
+                      }
+                    ],
+                    "items": false
+                  }
+                }
+              },
+              {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "BETWEEN"
+                ],
+                "properties": {
+                  "BETWEEN": {
+                    "type": "array",
+                    "minItems": 3,
+                    "maxItems": 3,
+                    "prefixItems": [
+                      {
+                        "$ref": "#/$defs/col"
+                      },
+                      {
+                        "$ref": "#/$defs/value"
+                      },
+                      {
+                        "$ref": "#/$defs/value"
+                      }
+                    ],
+                    "items": false
+                  }
+                }
+              },
+              {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "IS_NULL"
+                ],
+                "properties": {
+                  "IS_NULL": {
+                    "$ref": "#/$defs/col"
+                  }
+                },
+                "$comment": "Unary. Tests for an absent value. Restricted by the compiler to a column of the FROM table, so that IS_NULL combined with a LEFT JOIN cannot be used as an anti-join."
+              },
+              {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "IS_NOT_NULL"
+                ],
+                "properties": {
+                  "IS_NOT_NULL": {
+                    "$ref": "#/$defs/col"
+                  }
+                },
+                "$comment": "Unary. Same restriction as IS_NULL."
+              }
+            ]
+          },
+          "pair": {
+            "type": "array",
+            "minItems": 2,
+            "maxItems": 2,
+            "items": {
+              "$ref": "#/$defs/operand"
+            }
+          },
+          "predicate": {
+            "oneOf": [
+              {
+                "$ref": "#/$defs/comparison"
+              },
+              {
+                "type": "object",
+                "additionalProperties": false,
+                "minProperties": 1,
+                "maxProperties": 1,
+                "properties": {
+                  "AND": {
+                    "type": "array",
+                    "minItems": 2,
+                    "maxItems": 6,
+                    "items": {
+                      "$ref": "#/$defs/predicate_inner"
+                    }
+                  },
+                  "OR": {
+                    "type": "array",
+                    "minItems": 2,
+                    "maxItems": 6,
+                    "items": {
+                      "$ref": "#/$defs/predicate_inner"
+                    }
+                  }
+                }
+              }
+            ]
+          },
+          "predicate_inner": {
+            "oneOf": [
+              {
+                "$ref": "#/$defs/comparison"
+              },
+              {
+                "type": "object",
+                "additionalProperties": false,
+                "minProperties": 1,
+                "maxProperties": 1,
+                "properties": {
+                  "AND": {
+                    "type": "array",
+                    "minItems": 2,
+                    "maxItems": 6,
+                    "items": {
+                      "$ref": "#/$defs/comparison"
+                    }
+                  },
+                  "OR": {
+                    "type": "array",
+                    "minItems": 2,
+                    "maxItems": 6,
+                    "items": {
+                      "$ref": "#/$defs/comparison"
+                    }
+                  }
+                }
+              }
+            ]
+          },
+          "having_term": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "agg",
+              "op",
+              "value"
+            ],
+            "properties": {
+              "agg": {
+                "$ref": "#/$defs/name"
+              },
+              "op": {
+                "enum": [
+                  "EQ",
+                  "NE",
+                  "GT",
+                  "GTE",
+                  "LT",
+                  "LTE"
+                ]
+              },
+              "value": {
+                "type": "number"
+              }
+            }
+          },
+          "order_term": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "by",
+              "dir"
+            ],
+            "properties": {
+              "by": {
+                "$ref": "#/$defs/name"
+              },
+              "dir": {
+                "enum": [
+                  "ASC",
+                  "DESC"
+                ]
+              }
+            }
+          },
+          "missing": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "kind"
+            ],
+            "properties": {
+              "kind": {
+                "enum": [
+                  "no_such_column",
+                  "no_such_table",
+                  "value_not_present",
+                  "source_outside_system",
+                  "unspecified"
+                ]
+              },
+              "entity": {
+                "type": "string",
+                "$comment": "The table or column the kind refers to, resolved against schema.json. Forbidden with unspecified, required with every other kind. Enforced in code."
+              }
+            },
+            "$comment": "Structured rather than free text. The model names a kind of absence and an entity; the interface renders the sentence from a template. There is no field a cause can be written into."
+          },
+          "metric": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "metric"
+            ],
+            "properties": {
+              "metric": {
+                "$ref": "#/$defs/name"
+              }
+            },
+            "$comment": "A named business measure declared in schema.json, which carries the column expression it compiles to. Where a term has a settled meaning it is declared once as a metric, and the model selects it rather than choosing among columns that could each plausibly express it."
+          }
+        },
+        "title": "Intent Analysis",
+        "description": "Output of the intent analysis stage of the query assistance pipeline. The model populates a query plan; it does not write a query. The only store reachable is the company SQLite database. Validated before any retrieval is executed (NFR 6, Test 13)."
+      }
+    },
+    "summarization": {
+      "status": "blocked",
+      "stage": "Summarization, investigation pipeline only (Table 12).",
+      "requirements": [
+        "NFR 4",
+        "NFR 6"
+      ],
+      "tests": [
+        "Test 4"
+      ],
+      "blocked_by": [
+        "schema.json for the company store. The reference syntax is settled as label.alias, but the schema must state which fields a summary may point at.",
+        "The list of mechanical reductions per case type (scope, grouping of identical rows), which depends on the company data structure. Settled: summarization condenses everything it receives and judges no relevance. Reduction before it is mechanical and done in code, items no claim references are recorded in code, and relevance is judged by domain interpretation only."
+      ],
+      "schema": null
+    },
+    "synthesis": {
+      "status": "blocked",
+      "stage": "Synthesis, both pipelines (Table 12).",
+      "requirements": [
+        "NFR 4",
+        "NFR 6"
+      ],
+      "tests": [
+        "Test 4",
+        "Test 16"
+      ],
+      "blocked_by": [
+        "Same as summarization: the set of fields a reference may resolve to."
+      ],
+      "schema": null
+    },
+    "support_scoring": {
+      "status": "complete",
+      "stage": "Gate, query assistance pipeline. A separate model call examining a drafted answer against the material retrieved for it (4.9).",
+      "requirements": [
+        "NFR 4",
+        "NFR 19",
+        "NFR 20"
+      ],
+      "tests": [
+        "Test 16",
+        "Test 17"
+      ],
+      "post_model_checks": [
+        "Every claim.text appears verbatim in the drafted answer, after whitespace normalization. A paraphrase lets a weak assertion be softened and then approved, so a claim not found in the answer rejects the gate output.",
+        "Every reference resolves to an existing reading label and to an alias that was in that reading's SELECT. Otherwise the output is rejected (NFR 6).",
+        "supported or contradicted with no reference: rejected.",
+        "uncovered with one or more references: rejected.",
+        "One or more contradicted: the whole answer falls, regardless of how many assertions were supported. A contradiction is the model altering material it saw, not material it lacked.",
+        "Otherwise: assertions verdicted supported are kept, the rest are discarded, and the answer is redrafted once from those kept (NFR 19).",
+        "Where no assertion is kept AND the retrieval returned rows, the exchange returns a request for input. An empty retrieval is handled before the gate and is not a failure."
+      ],
+      "notes": [
+        "The judge never sees the question. Judging an answer against material and judging it against a question are separate tasks, and the schema has no verdict for irrelevance. Scope is bounded earlier, by what the intent analysis stage placed in SELECT.",
+        "Claim decomposition with a small closed set of verdicts is the established pattern for grounding checks where a wrong answer is costly. It is not cited in the book, which presents the gate in 4.9 as examining each assertion against the material retrieved for it without claiming the pattern is standard. The book's basis for rejecting a single numeric score is [39], which measures that self-reported scores concentrate in a narrow high band.",
+        "World knowledge does not count as support. This is a prompt constraint, not schema-enforceable."
+      ],
+      "schema": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "$id": "medagentpro/support_scoring.schema.json",
+        "title": "Support Scoring",
+        "description": "Output of the gate applied before an answer is presented (4.9). The model returns a verdict for each assertion the drafted answer makes, judged only against the material retrieved for it. It returns no score. An assertion the material does not support is removed in code, and the answer is redrafted from those that remain.",
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "claims"
+        ],
+        "properties": {
+          "claims": {
+            "type": "array",
+            "minItems": 1,
+            "maxItems": 20,
+            "$comment": "Every assertion the drafted answer makes, in the order it makes them.",
+            "items": {
+              "$ref": "#/$defs/claim"
+            }
+          }
+        },
+        "$defs": {
+          "claim": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "text",
+              "verdict",
+              "evidence"
+            ],
+            "properties": {
+              "text": {
+                "type": "string",
+                "maxLength": 300,
+                "$comment": "The assertion as the answer states it, not a paraphrase. A paraphrase lets a weak assertion be softened and then approved."
+              },
+              "verdict": {
+                "enum": [
+                  "supported",
+                  "contradicted",
+                  "uncovered"
+                ],
+                "$comment": "supported: the retrieved material states it. contradicted: the material states otherwise. uncovered: the material neither states nor denies it. Three categories rather than a number, because 34 measured calls showed a numeric score does not separate sufficient evidence from insufficient, and all 72 outputs fell between 0.65 and 0.95."
+              },
+              "evidence": {
+                "type": "array",
+                "maxItems": 10,
+                "items": {
+                  "$ref": "#/$defs/reference"
+                },
+                "$comment": "Required and may be empty. supported and contradicted require at least one entry; uncovered requires none. Enforced in code."
+              }
+            }
+          },
+          "reference": {
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9_]{0,39}\\.[a-z][a-z0-9_]{0,39}$",
+            "$comment": "label.alias, naming a reading from the intent analysis stage and a field of the row it returned. NFR 6."
+          }
+        }
+      }
+    },
+    "request_for_input": {
+      "status": "superseded",
+      "note": "Not a prompt schema. Table 11 lists eight stages and a request for input is not among them, and every trigger for one is already known from the intent analysis output, the retrieval outcome, or the gate verdicts. No model call produces it. It is carried by the exchange response contract below."
+    },
+    "exchange_response": {
+      "status": "complete",
+      "stage": "Not a pipeline stage. The structure a query assistance exchange returns, assembled in code and rendered by the interface.",
+      "requirements": [
+        "FR 11",
+        "FR 13",
+        "FR 14",
+        "FR 15",
+        "NFR 19",
+        "NFR 20"
+      ],
+      "tests": [
+        "Test 13",
+        "Test 22",
+        "Test 32",
+        "Test 34",
+        "Test 35"
+      ],
+      "assembly_rules": [
+        "outcome is determined in code from the intent analysis disposition, the retrieval outcome classification, and whether any assertion survived the gate.",
+        "checked is rendered from the executed plan by a fixed mapping from clause to phrase. No model writes it.",
+        "checked is present on every reading, whether or not the exchange found a gap. A plan that addressed a plausible but wrong column produces no gap and no failed assertion, so exposing it on gap alone would leave the most frequent error class uncovered.",
+        "An empty retrieval with no matching rows is outcome answered, not a failure. Emptiness is evidence.",
+        "gaps carry no cause. The interface renders each from a template keyed on missing.kind.",
+        "missing.entity is required for every kind except unspecified, which must carry none.",
+        "Where outcome is referred_to_investigation, readings and gaps are empty and offer_investigation is true."
+      ],
+      "templates": {
+        "no_such_column": "On {asked} there is no data. No column in {entity} records it.",
+        "no_such_table": "On {asked} there is no data. There is no {entity} table.",
+        "value_not_present": "{asked} does not appear in {entity}.",
+        "source_outside_system": "{asked} is not held by the system.",
+        "unspecified": "On {asked} no data could be located."
+      },
+      "schema": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "$id": "medagentpro/exchange_response.schema.json",
+        "title": "Exchange Response",
+        "description": "What a query assistance exchange returns. Assembled in code from the intent analysis output, the retrieval outcome, and the gate verdicts. No model call produces it, which is why no field of it can carry a cause (NFR 20).",
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "outcome",
+          "readings",
+          "gaps"
+        ],
+        "properties": {
+          "outcome": {
+            "enum": [
+              "answered",
+              "referred_to_investigation",
+              "no_supported_assertion",
+              "source_unreachable",
+              "request_not_completed"
+            ],
+            "$comment": "request_not_completed covers a rejected retrieval parameter set (Test 13). It is a system fault, not a request for input, and NFR 20 does not govern it."
+          },
+          "readings": {
+            "type": "array",
+            "maxItems": 3,
+            "$comment": "One entry per reading the question carries. FR 11 presents each rather than selecting between them. More than one entry is the multi-reading case of Test 32.",
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "label",
+                "checked",
+                "row_count"
+              ],
+              "properties": {
+                "label": {
+                  "type": "string"
+                },
+                "checked": {
+                  "type": "string",
+                  "$comment": "What was examined, rendered in code from the executed plan. Never written by a model. This is the only exposure of a plan that addressed a plausible but wrong column, which source [20] places at 29 to 49 percent of model errors and which no gate can detect."
+                },
+                "row_count": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "answer": {
+                  "type": "string",
+                  "$comment": "Prose from the synthesis stage, carrying only assertions the gate found supported. Absent where none survived."
+                },
+                "evidence": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/$defs/reference"
+                  }
+                }
+              }
+            }
+          },
+          "gaps": {
+            "type": "array",
+            "maxItems": 4,
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "asked",
+                "missing"
+              ],
+              "properties": {
+                "asked": {
+                  "type": "string",
+                  "maxLength": 120
+                },
+                "missing": {
+                  "$ref": "#/$defs/missing"
+                }
+              }
+            }
+          },
+          "offer_investigation": {
+            "type": "boolean",
+            "$comment": "FR 14. Carries no cause, plausible or otherwise (Test 22)."
+          },
+          "understood_as": {
+            "type": "string",
+            "maxLength": 400,
+            "$comment": "FR 25. The rewritten question, present only where the conversation had earlier exchanges. Copied in code from the rewriting stage, never written by the synthesis model."
+          }
+        },
+        "$defs": {
+          "missing": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "kind"
+            ],
+            "properties": {
+              "kind": {
+                "enum": [
+                  "no_such_column",
+                  "no_such_table",
+                  "value_not_present",
+                  "source_outside_system",
+                  "unspecified"
+                ]
+              },
+              "entity": {
+                "type": "string"
+              }
+            }
+          },
+          "reference": {
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9_]{0,39}\\.[a-z][a-z0-9_]{0,39}$"
+          }
+        }
+      }
+    },
+    "question_rewriting": {
+      "status": "complete",
+      "stage": "Question rewriting, query assistance pipeline only. Runs where the conversation has earlier exchanges (4.9, Table 12).",
+      "requirements": [
+        "FR 25",
+        "NFR 27"
+      ],
+      "tests": [
+        "Test 44",
+        "Test 45"
+      ],
+      "post_model_checks": [
+        "question is non-empty after trimming.",
+        "Where carried_from_history is false, question equals the question as posed after whitespace normalization. A rewrite that claims to carry nothing and still changes the question is rejected.",
+        "The rewritten question is presented with the answer (FR 25) and recorded. It is never a source of identifiers (NFR 27): the compiler checks identifiers against the question as posed, earlier exchanges and presented identifiers only."
+      ],
+      "schema": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "$id": "medagentpro/question_rewriting.schema.json",
+        "title": "Question Rewriting",
+        "description": "Output of the rewriting stage. The current question restated so that it stands on its own, in the language it was posed in. It does not answer the question.",
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "question",
+          "carried_from_history"
+        ],
+        "properties": {
+          "question": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 400
+          },
+          "carried_from_history": {
+            "type": "boolean",
+            "$comment": "false where the question already stands on its own or changes topic. Recorded, and lets the measurement in phase B separate rewrites from pass-throughs."
+          }
+        }
+      }
+    }
+  },
+  "supporting_files": {
+    "schema.json": {
+      "status": "empty",
+      "purpose": "The queryable surface. Entities with their columns and types, metrics that name a business term and the column expression it compiles to, and the entitlement rule per role. What is not here does not exist as far as the model is concerned. Declaring a term as a metric turns schema linking from a guess into a lookup, which is the cheapest of the three defences against a plan that is valid but addresses the wrong column.",
+      "blocked_by": [
+        "Company SQLite inventory: tables, columns, types.",
+        "The terms the client uses and what each means in the data. A term without a settled meaning is not declared as a metric and falls to the other two defences."
+      ]
+    },
+    "relations.json": {
+      "status": "structure settled, content empty",
+      "purpose": "Declared relations for JOIN. Each relation names its column pairs in full so a composite key cannot be joined on one column.",
+      "blocked_by": [
+        "Company SQLite inventory."
+      ]
+    }
+  },
+  "retrieval_outcome_classification": {
+    "$comment": "Determined in code after retrieval, before the gate. Four outcomes, only the third of which the judge sees. An identifier is a column marked identifier in schema.json, compared with EQ or IN at the top level of WHERE or under AND. Under OR it does not restrict the result and is not checked. The check replaces an earlier design that re-ran the plan without its identity predicate, which reported a held identifier as absent whenever other rows met the remaining conditions.",
+    "outcomes": [
+      {
+        "name": "not_plannable",
+        "when": "The intent analysis stage could not map part of the question to a plan.",
+        "known": "Before retrieval, from the unresolved field of schema 1.",
+        "response": "Name what was asked and the table, column, or absent source that would allow it to be retrieved."
+      },
+      {
+        "name": "empty_no_match",
+        "when": "The plan ran and returned no rows, and every identifier the plan names is held in its column.",
+        "known": "In code, one existence check per identifier the plan names, within the user's entitlement. No model call.",
+        "response": "A valid answer. Nothing matched. This is evidence, not a failure."
+      },
+      {
+        "name": "empty_unknown_entity",
+        "when": "The plan returned no rows, and an identifier the plan names is not held in its column.",
+        "known": "In code, same existence checks. The response names each identifier not held.",
+        "response": "The identifier the question named is not present in the data."
+      },
+      {
+        "name": "rows_returned",
+        "when": "The plan returned rows.",
+        "known": "In code.",
+        "response": "Proceed to synthesis and then to the gate. This is the only outcome the gate applies to."
+      }
+    ],
+    "unreachable": {
+      "$comment": "A fifth situation exists and cannot be detected. The plan is valid, rows are returned, and every assertion is genuinely supported by them, but the plan addressed the wrong table or filtered on the wrong column, so the answer is grounded in the wrong material. No gate can find this, because the gate checks an answer against its material and the material is what is wrong. The response is exposure rather than detection: FR 11 requires every reading to be shown, so the person sees what was retrieved and judges it. Source [20] places schema linking at 29 to 49 percent of model errors, which makes this the most frequent failure, not an edge case. It is stated as a problem in section 8.1 of the book."
+    }
+  },
+  "wrong_column_defences": {
+    "$comment": "A plan can be valid, execute, return real rows, and have every assertion supported by them, while addressing a column that is not the one the question meant. No gate detects this, because the gate checks an answer against its material and the material is what is wrong. Source [20] places schema linking at 29 to 49 percent of model errors. Three defences apply, none of which is a guarantee, and they compose.",
+    "defences": [
+      {
+        "name": "declared metrics",
+        "where": "schema.json",
+        "model_calls": 0,
+        "catches": "Terms whose meaning was settled in advance.",
+        "misses": "A term nobody thought to declare."
+      },
+      {
+        "name": "declared ambiguity",
+        "where": "intent analysis output",
+        "model_calls": 0,
+        "catches": "Terms the model itself recognized as open.",
+        "misses": "A term the model was confident and wrong about."
+      },
+      {
+        "name": "exposure",
+        "where": "exchange response, field checked",
+        "model_calls": 0,
+        "catches": "Everything, since the executed plan is always rendered.",
+        "misses": "Whatever the person does not read."
+      }
+    ],
+    "rejected": [
+      {
+        "name": "execution-guided self-consistency",
+        "reason": "Sampling k plans and treating disagreement as ambiguity reduces schema linking errors, but the benefit shrinks as the base model improves, and a model that is consistently wrong passes it unchanged. It measures confidence, not correctness. It also costs k times the calls on every question, and [39] measures sampling five times as 38 percent worse calibrated than asking the model once, so the cost buys less than a single call already provides."
+      },
+      {
+        "name": "conformal prediction over hidden layers",
+        "reason": "Requires access to the model's internal layers. The system reaches a model endpoint through a unified client and has none."
+      }
+    ]
+  },
+  "placeholders_comment": "Working values, not decided. Section 5.3 of the book states what each is derived from without fixing a number, and every value here is replaced at deployment."
+}
