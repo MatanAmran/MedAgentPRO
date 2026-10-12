@@ -88,13 +88,14 @@ def test_budget_scope_provider_refusal_is_not_retried(db_path, ledger):
 
 
 def test_budget_scope_model_mismatch_sends_nothing(db_path, ledger):
-    """A model other than the one priced in .env is never called. (Its notice is the budget's; see
-    the path map for whether that wording is right.)"""
+    """A model other than the one priced in .env is never called. G2: the budget is not used up, so the
+    notice is the plain one, not the budget's."""
     inner = Script()
     gw = Cancellable(budgeted(inner, ledger, MODEL_ID="another-model"), threading.Event())
     d = make_deps(gw, db_path)
     out = pl.run(Q, [], APPROVER, d)
-    check_invariants(out, inner, d, Q, outcome="request_not_completed", recorded=True, calls=0)
+    check_invariants(out, inner, d, Q, outcome="request_not_completed", recorded=True, calls=0,
+                     notice=contract.NOT_COMPLETED)
 
 
 def test_server_listing_and_health(db_path):

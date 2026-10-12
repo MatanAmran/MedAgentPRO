@@ -444,7 +444,9 @@ def run(question: str, history: list[prompts.Exchange], user: dict, deps: Deps,
         return finish(contract.request_not_completed(understood, contract.RATE_LIMITED), failure=f"rate: {e}")
     except BudgetExceeded as e:   # not retried, not an outage
         operational_log.warning("model call refused: attempt=%s user=%s reason=%s", eid, user.get("user_id"), e)
-        notice = contract.EXCHANGE_CAP if e.scope == "exchange" else contract.BUDGET_USED_UP   # R7b
+        notice = {"exchange": contract.EXCHANGE_CAP,                    # R7b
+                  "total": contract.BUDGET_USED_UP, "provider": contract.BUDGET_USED_UP,
+                  }.get(e.scope, contract.NOT_COMPLETED)                # G2: a model not priced in .env
         return finish(contract.request_not_completed(understood, notice), failure=f"budget ({e.scope}): {e}")
     except ExchangeCancelled as e:
         operational_log.warning("exchange cancelled: attempt=%s user=%s reason=%s", eid, user.get("user_id"), e)

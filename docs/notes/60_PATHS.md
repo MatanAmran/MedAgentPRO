@@ -1,6 +1,6 @@
 # MedAgentPro — מפת המסלולים וההיתכנות
 
-**נוצר אוטומטית** ב-`python -m tools.path_map` (מתוך `backend\`), 13.10.2026 00:53. **לא לערוך ידנית** — המקור הוא `backend\tests\paths\registry.py` ו-`backend\tests\feasibility\constraints.py`.
+**נוצר אוטומטית** ב-`python -m tools.path_map` (מתוך `backend\`), 13.10.2026 00:59. **לא לערוך ידנית** — המקור הוא `backend\tests\paths\registry.py` ו-`backend\tests\feasibility\constraints.py`.
 
 **איך זה גדל:** `tests\paths\branches.py` קורא מהקוד ומהסכמות כל הסתעפות (מצב סיום, שלב, סוג כשל, `except`, הודעה, נקודת קצה, קוד HTTP, סוג פער, תפקיד). **הסתעפות בלי מסלול מפילה את `pytest`.** מגבלה שמתגלה (כמו הטמפרטורה) נכנסת כשורה ב-`constraints.py`, ושורה בלי בדיקה מפילה את `pytest`.
 
@@ -58,7 +58,7 @@
 | ✅ | `budget_used_up` | `budget:total`, `notice:BUDGET_USED_UP`, `handler:run.BudgetExceeded` | task 5 |  |
 | ✅ | `exchange_cap` | `budget:exchange`, `notice:EXCHANGE_CAP` | R7a · R7b |  |
 | ✅ | `budget_provider` | `budget:provider` | task 5 · NFR 3 | G1 closed (13.10): the refused call is recorded as model_call_failed |
-| ✅ | `budget_model` | `budget:model` | task 5 | open: shows the budget notice, though the budget is not used up |
+| ✅ | `budget_model` | `budget:model` | task 5 · G2 |  |
 | ✅ | `rate_limit` | `handler:run.RateLimited`, `notice:RATE_LIMITED` | task 5 rate |  |
 | ✅ | `ledger_timeout_and_release` | — | R4 · R5 |  |
 | ✅ | `cancelled_before_synthesis` | `handler:run.ExchangeCancelled` | S1 |  |
