@@ -91,7 +91,7 @@ The seven points marked "לבדיקה" in `docs/notes/00_STATUS.md` and three mo
 
 ## Second review (Claude chat, 12.10) — before task 5
 
-- **F11, an identifier in the rows must be a reference.** A token outside a reference that equals a value of an identifier column in the rows retrieved (any reading) is rejected, even if the question or the plan holds it: the model must write `{label.alias#row}`. Typed, it loses its row, and "S-002 had {late.late_lines#1}" would pair S-002 with S-001's value (the open "wrong attribution" problem in `docs/notes/00_STATUS.md`). Digits from the question or the plan that are not identifiers in the rows (a week, a date, an identifier used only as a filter) stay allowed. Update `synthesis.md` (and the redraft prompt) to say so.
+- **F11, an identifier in the rows must be a reference.** A token outside a reference that equals a value of an identifier column in the rows retrieved (any reading) is rejected, even if the question or the plan holds it: the model must write `{label.alias#row}`. Typed, it loses its row, and "S-002 had {late.late_lines#1}" would pair S-002 with S-001's value (the open "wrong attribution" problem in `docs/notes/00_STATUS.md`). Digits from the question or the plan that are not identifiers in the rows (a week, a date, an identifier used only as a filter) stay allowed. Update `synthesis.md` (and the redraft prompt) to say so. **Done (12.10):** `synthesis.md` v5, `synthesis_redraft.md` v4, `Material.id_aliases`.
 - **N12, for task 6.** `Deps` holds the source circuit breaker, so it must be created once at server start and shared by every request. A `Deps` per request gives a new breaker each time, which never opens.
 
 ## Decisions in force (details in `docs/notes/40_CHAT.md`)
@@ -129,7 +129,7 @@ On Evyatar's machine an Application Control policy blocks `.exe` files in the ve
 # Backend (from backend\, venv active)
 python -m pip install -r requirements.txt
 python -m demo_data.seed          # builds demo_data\demo.db
-python -m pytest -q               # all tests; 311 after the task 4 review
+python -m pytest -q               # all tests; 316 after the second task 4 review
 
 # Frontend (from frontend\)
 npm run dev

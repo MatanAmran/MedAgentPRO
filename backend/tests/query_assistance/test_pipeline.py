@@ -465,3 +465,20 @@ def test_follow_up_answer_may_state_the_week_its_plan_ran_on(db_path, storage):
     assert out.response["readings"][0]["answer"].startswith("In week 5, ")
     prompt = next(pr for pr, cfg in gw.calls if cfg.prompt_identity.startswith("synthesis@"))
     assert "Question as posed: And in week five?\nQuestion: Which suppliers delivered late in week 5?" in prompt
+
+
+# --------------------------------------------------------------------------
+# second review of 12.10: F11
+# --------------------------------------------------------------------------
+
+def test_draft_typing_an_identifier_from_the_rows_is_rejected_and_retried(db_path, storage):
+    """F11: "S-xxx had {late.late_count#1}" could pair one supplier with another's value."""
+    def typed(prompt):
+        first = re.search(r"\[late\] row 1: late\.supplier_id = (\S+),", prompt).group(1)
+        return {"readings": [{"label": "late", "sentences": [{"text": f"{first} had {{late.late_count#1}}."}]}]}
+    gw = model(intent_analysis_demo=[INTENT], synthesis=[typed, SYN], support_scoring=[gate_says("supported")])
+    out = pl.run(Q, [], APPROVER, deps(gw, db_path, storage))
+    assert out.response["outcome"] == "answered"
+    syn = [e for e in trail(storage, out.exchange_id) if e["agent"] == "synthesis"]
+    assert [e["event_type"] for e in syn] == ["model_output_rejected", "model_output_accepted"]
+    assert "(F11)" in syn[1]["superseded_reason"]

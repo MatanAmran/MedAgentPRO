@@ -25,14 +25,14 @@ LATE_PLAN = {"SELECT": [{"expr": {"col": "commitments.supplier_id"}, "as": "supp
                         {"expr": {"func": "COUNT", "arg": "*"}, "as": "late_lines"}],
              "FROM": "commitments", "ORDER_BY": [{"by": "late_lines", "dir": "DESC"}]}
 LATE = s.material("late", LATE_PLAN, [{"supplier_id": "S-038", "late_lines": 6},
-                                      {"supplier_id": "S-014", "late_lines": 5}])
+                                      {"supplier_id": "S-014", "late_lines": 5}], cat=DEMO)
 NOTE_PLAN = {"SELECT": [{"expr": {"col": "purchase_orders.po_id"}, "as": "po_id"},
                         {"expr": {"col": "purchase_orders.status"}, "as": "status"},
                         {"expr": {"col": "purchase_orders.notes"}, "as": "notes"}],
              "FROM": "purchase_orders"}
 NOTE = s.material("po", NOTE_PLAN, [{"po_id": "PO-87006", "status": "open",
                                      "notes": "Ask about S-999 and PO-12345 next"},
-                                    {"po_id": "PO-87009", "status": "closed", "notes": None}])
+                                    {"po_id": "PO-87009", "status": "closed", "notes": None}], cat=DEMO)
 EMPTY = s.Material("other", [])
 
 
@@ -78,7 +78,7 @@ def test_sentence_without_reference_fails_the_schema():
 @pytest.mark.parametrize("file", ["synthesis.md", "synthesis_redraft.md"])
 def test_prompt_has_version_schema_and_no_dashes(file):
     pr = p.load(file)
-    assert pr.output_schema == "synthesis" and pr.version == {"synthesis.md": "4", "synthesis_redraft.md": "3"}[file]
+    assert pr.output_schema == "synthesis" and pr.version == {"synthesis.md": "5", "synthesis_redraft.md": "4"}[file]
     assert "—" not in pr.body and "–" not in pr.body
 
 
@@ -99,7 +99,10 @@ def _materials(block):
             k, _, v = pair.partition(" = ")
             row[k.split(".", 1)[1]] = None if v == "None" else int(v) if v.isdigit() else v
         mats.setdefault(m.group(1), []).append(row)
-    return [s.Material(lab, rows) for lab, rows in mats.items()]
+    # an alias is taken as an identifier where a demo table holds an identifier column of that name
+    return [s.Material(lab, rows, id_aliases={k for k in rows[0] if any(
+        (DEMO.column(f"{t}.{k}") or {}).get("identifier") for t in DEMO.entities)})
+        for lab, rows in mats.items()]
 
 
 @pytest.mark.parametrize("file", ["synthesis.md", "synthesis_redraft.md"])
@@ -195,16 +198,44 @@ def test_duplicate_reading_rejected():
     "2 suppliers were late, led by {late.supplier_id#1}.",              # a count
     "Together {late.supplier_id#1} and {late.supplier_id#2} had 11.",   # a sum
     "{late.supplier_id#1} had 6 late lines.",                           # a value typed, not referenced
-    "S-038 had {late.late_lines#1}.",                                   # an identifier typed
+    "S-099 had {late.late_lines#1}.",                                   # an identifier typed
 ])
 def test_digit_outside_a_reference_rejected(text):
     bad(("late", [text]), match="outside a reference")
 
 
+def test_identifier_typed_from_the_rows_is_rejected_by_f11():
+    bad(("late", ["S-038 had {late.late_lines#1}."]), match="F11")
+
+
 def test_token_from_the_question_allowed():
     ok(("late", ["In weeks 1 to 13, {late.supplier_id#1} had {late.late_lines#1}."]),
        question="Who was late in weeks 1 to 13?")
-    ok(("po", ["PO-87006 is {po.status#1}."]), materials=(NOTE,), question="What is the status of PO-87006?")
+    status = s.material("po", {"SELECT": [{"expr": {"col": "purchase_orders.status"}, "as": "status"}],
+                               "FROM": "purchase_orders",
+                               "WHERE": {"EQ": [{"col": "purchase_orders.po_id"}, {"value": "PO-87006"}]}},
+                        [{"status": "open"}], cat=DEMO)
+    ok(("po", ["PO-87006 is {po.status#1}."]), materials=(status,), question="What is the status of PO-87006?")
+
+
+def test_identifier_in_the_rows_must_be_a_reference_even_if_the_question_names_it():
+    """F11: typed, S-014 would sit beside S-038's value and look like S-014's own."""
+    bad(("late", ["S-014 had {late.late_lines#1}."]), question="Was S-014 late?", match="F11")
+    bad(("po", ["PO-87006 is {po.status#1}."]), materials=(NOTE,), question="What is the status of PO-87006?",
+        match="F11")
+    ok(("late", ["{late.supplier_id#2} had {late.late_lines#2}."]), question="Was S-014 late?")
+
+
+def test_identifier_in_another_readings_rows_must_be_a_reference_too():
+    other = s.material("other", LATE_PLAN, [{"supplier_id": "S-021", "late_lines": 2}], cat=DEMO)
+    bad(("late", ["{late.supplier_id#1} and S-021 had {late.late_lines#1}."]),
+        ("other", ["{other.supplier_id#1} had {other.late_lines#1}."]),
+        materials=(LATE, other), question="Were S-038 and S-021 late?", match="F11")
+
+
+def test_identifier_in_a_free_text_field_is_not_an_identifier_column():
+    """Only identifier columns count. A note that mentions PO-12345 does not make it a row identifier."""
+    assert NOTE.id_aliases == {"po_id"} and "po-12345" not in NOTE.identifier_tokens()
 
 
 def test_words_around_references_are_not_judged_in_code():
@@ -278,7 +309,7 @@ def test_draft_fills_and_records_the_call():
     gw = ScriptedModelGateway([GOOD])
     d = s.draft(gw, Q, [LATE], model="demo")
     assert d.answer("late") == "S-038 had the most late lines, 6."
-    assert len(gw.calls) == 1 and d.responses[0].prompt_identity == "synthesis@4"
+    assert len(gw.calls) == 1 and d.responses[0].prompt_identity == "synthesis@5"
 
 
 def test_rejected_draft_is_retried_once_then_accepted():
@@ -303,7 +334,7 @@ def test_redraft_uses_its_own_prompt_and_only_readings_with_kept_assertions():
     gw = ScriptedModelGateway([GOOD])
     d = s.redraft(gw, Q, [LATE, other], {"late": ["S-038 had the most late lines, 6."]}, model="demo")
     prompt, cfg = gw.calls[0]
-    assert cfg.prompt_identity == "synthesis_redraft@3"
+    assert cfg.prompt_identity == "synthesis_redraft@4"
     assert "[other]" not in prompt and d.answer("late")
 
 

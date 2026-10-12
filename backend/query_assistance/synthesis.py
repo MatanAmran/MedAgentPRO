@@ -14,6 +14,9 @@ What code decides, structurally and without reading meaning:
     literal value of the plan that ran under that reading (WHERE, HAVING), which the compiler
     validated and "Examined" shows. So a count, a sum or an identifier the model typed is
     rejected (NFR 6), and "in week 5" for a plan on week 5 is not (review F7 of 12.10)
+  - an identifier that is a value of an identifier column in the rows retrieved is never typed,
+    even where the question or the plan holds it. Typed, it loses its row, and "S-002 had
+    {late.late_lines#1}" would pair S-002 with another supplier's value (review F11 of 12.10)
 What code does not decide: whether the words around the references are true, for example
 "had the most". That is the gate's (4.9, NFR 19). The ordering itself is shown by code
 beside the answer, from the plan's ORDER_BY.
@@ -69,6 +72,8 @@ class Material:
                Decides which values are free text (NFR 21) and which are identifiers
     literals   tokens holding a digit among the literal values of the plan (WHERE, HAVING).
                A sentence of this reading may write them outside a reference
+    id_aliases aliases that select an identifier column. Their values in the rows are written
+               only as references, in any reading (F11)
     """
     label: str
     rows: list[dict[str, Any]]
@@ -76,6 +81,11 @@ class Material:
     order_by: list[dict] = field(default_factory=list)
     truncated: bool = False
     literals: set[str] = field(default_factory=set)
+    id_aliases: set[str] = field(default_factory=set)
+
+    def identifier_tokens(self) -> set[str]:
+        return {t for row in self.rows for a in self.id_aliases if row.get(a) is not None
+                for t in _tokens_with_digits(format_value(row[a]))}
 
 
 def _plan_values(node: Any) -> list[Any]:
@@ -89,13 +99,15 @@ def _plan_values(node: Any) -> list[Any]:
     return []
 
 
-def material(label: str, plan: dict, rows: list[dict], truncated: bool = False) -> Material:
+def material(label: str, plan: dict, rows: list[dict], truncated: bool = False,
+             cat: Catalog | None = None) -> Material:
     """Builds a Material from a reading's plan, so the alias -> column map and the literals
-    come from what ran."""
+    come from what ran. The catalog says which columns are identifiers."""
     cols = {i["as"]: i["expr"].get("col") for i in plan["SELECT"]}
     values = _plan_values(plan.get("WHERE")) + _plan_values(plan.get("HAVING", []))
     literals = {t for v in values if not isinstance(v, bool) for t in _tokens_with_digits(format_value(v))}
-    return Material(label, rows, cols, plan.get("ORDER_BY", []), truncated, literals)
+    ids = {a for a, col in cols.items() if col and cat and (cat.column(col) or {}).get("identifier")}
+    return Material(label, rows, cols, plan.get("ORDER_BY", []), truncated, literals, ids)
 
 
 @dataclass
@@ -205,6 +217,7 @@ def check(output: dict, materials: list[Material], question: str) -> dict[str, l
     """Schema validation runs before this. Returns the parsed sentences per label."""
     by_label = {m.label: m for m in materials if m.rows}
     question_tokens = set(_tokens_with_digits(question))   # the question as posed, never the rewrite
+    row_identifiers = {t for m in by_label.values() for t in m.identifier_tokens()}   # F11, any reading
     result: dict[str, list[Sentence]] = {}
     for r in output["readings"]:
         label = r["label"]
@@ -231,7 +244,12 @@ def check(output: dict, materials: list[Material], question: str) -> dict[str, l
             outside = REF_RE.sub(" ", text)
             if "{" in outside or "}" in outside:
                 raise SynthesisOutputError(f"'{text}' holds a malformed reference")
-            stray = [t for t in _tokens_with_digits(outside) if t not in question_tokens and t not in m.literals]
+            typed = _tokens_with_digits(outside)
+            ids = [t for t in typed if t in row_identifiers]
+            if ids:
+                raise SynthesisOutputError(f"'{text}' types {ids[0]!r}, an identifier in the records retrieved. "
+                                           f"Write it as a reference to its row (F11)")
+            stray = [t for t in typed if t not in question_tokens and t not in m.literals]
             if stray:
                 raise SynthesisOutputError(f"'{text}' writes {stray[0]!r} outside a reference. Values, counts "
                                            f"and identifiers come from the records (NFR 6)")

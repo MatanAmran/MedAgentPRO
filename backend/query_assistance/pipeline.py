@@ -336,7 +336,7 @@ def run(question: str, history: list[prompts.Exchange], user: dict, deps: Deps,
 
         plans = {r["label"]: r["plan"] for r in intent["readings"]}
         results = {res.label: res for res, _, _ in retrieved}
-        materials = [synthesis.material(label, plans[label], res.rows, res.truncated)
+        materials = [synthesis.material(label, plans[label], res.rows, res.truncated, cat)
                      for label, res in results.items()]
         gaps = compiled.unresolved
 
