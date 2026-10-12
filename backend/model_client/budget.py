@@ -21,6 +21,7 @@ from __future__ import annotations
 import json
 import math
 import os
+import sys
 import threading
 import time
 from collections import deque
@@ -288,7 +289,10 @@ class BudgetedGateway(ModelGateway):
 def real_gateway(env: Mapping[str, str] | None = None, spend_file: Path = SPEND_FILE,
                  breaker: CircuitBreaker | None = None) -> BudgetedGateway:
     """The real model behind the spending cap, from backend/.env. Refuses to start where a value is
-    missing. Create it once per server process (N12, T2): it holds the spend lock and the breaker."""
+    missing. Create it once per server process (N12, T2): it holds the spend lock and the breaker.
+    Refuses under pytest (R8): tests never reach a real model (6.1)."""
+    if "pytest" in sys.modules:
+        raise BudgetConfigError("the real model is never built under pytest (book 6.1, R8)")
     cfg = BudgetConfig.from_env(env)
     check_against_provider_map(cfg)
     inner = LiteLLMGateway(breaker or CircuitBreaker("model_provider", MemoryStore()),

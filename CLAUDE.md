@@ -42,7 +42,7 @@ When a decision is made in a session, record it in the relevant note (and here, 
 | 3 | Output contract in code (`query_assistance/contract.py`) | done |
 | 4 | Pipeline orchestration: rewrite, intent, compile, retrieve, synthesis, gate, contract. Retry within attempts, one redraft (NFR 19), exchange record and rating (FR 12, FR 13). `query_assistance/pipeline.py` | done |
 | 5 | Model gateway configuration: LiteLLM for a real model, scripted fallback. The API key comes from Evyatar, kept in `backend/.env` | built (`model_client/budget.py`); review R1–R7, P1–P10, H1–H2 done (12.10); R9 smoke test pending |
-| 6 | FastAPI endpoint for the chat | open |
+| 6 | FastAPI endpoint for the chat | done (12.10): `main.py`, `api/`, `demo_data/scripted*`; S1–S6 in `docs/notes/00_STATUS.md` |
 | 7 | Chat screen in Next.js, after Figure 15 of the book | open |
 | 8 | Demo question set covering each behaviour | open |
 | 9 | End-to-end tests on the scripted model | open |
@@ -171,7 +171,9 @@ Evyatar pays for the model himself, with a total budget of **USD 10**. The code 
   - `model_client/client.py` — `ModelGateway`, `ScriptedModelGateway`, `LiteLLMGateway`. `model_client/budget.py` — `BudgetedGateway`, `SpendLedger`, `real_gateway()` (task 5).
   - `shared/circuit_breaker.py`, `persistence/audit_repository.py` — engine pieces from Phase A design.
   - `tests/` — pytest. Model calls in tests always go through `ScriptedModelGateway`.
-  - `main.py`, `api/`, `reasoning/`, `tools/` — still empty.
+  - `main.py` — the chat server: scripted model by default, `--real` for the real one; 127.0.0.1, one process. `api/state.py` (demo users, conversations, request ids, cancellation), `api/routes.py` (SSE).
+  - `demo_data/scripted.py` + `scripted_exchanges.json` — the scripted model's answers per question (S5); they pass every real check.
+  - `reasoning/`, `tools/` — still empty.
 - **`frontend/`** — Next.js 16 / React 19 / Tailwind 4 scaffold. `frontend/AGENTS.md` warns this Next.js version differs from training data: read `frontend/node_modules/next/dist/docs/` before writing frontend code.
 - **`studies/`** — Phase A feasibility studies (book 3.2, 3.3).
 - **`docs/notes/`** — project notes, see above.
@@ -184,8 +186,10 @@ On Evyatar's machine an Application Control policy blocks `.exe` files in the ve
 # Backend (from backend\, venv active)
 python -m pip install -r requirements.txt
 python -m demo_data.seed          # builds demo_data\demo.db
-python -m pytest -q               # all tests; 413 after the task 5 review
+python -m pytest -q               # all tests; 432 after task 6
 python -m query_assistance.dry_run   # prices two scripted exchanges at the .env prices, no model call, no key
+python -m query_assistance.dry_run --model claude-sonnet-5-5   # the same, prices from LiteLLM's local map, no .env
+python -m main                    # the chat server on the scripted model, http://127.0.0.1:8000/api/health
 
 # Frontend (from frontend\)
 npm run dev

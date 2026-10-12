@@ -100,6 +100,11 @@ class _Rejected(Exception):
     with no further attempt (R4). Its calls are already recorded."""
 
 
+class ExchangeCancelled(Exception):
+    """Nobody is waiting for the answer any more (task 6, S1): raised before the next model call, so an
+    exchange that no one will read stops paying. It ends as request_not_completed, recorded."""
+
+
 class _Unreachable(Exception):
     pass
 
@@ -441,6 +446,9 @@ def run(question: str, history: list[prompts.Exchange], user: dict, deps: Deps,
         operational_log.warning("model call refused: attempt=%s user=%s reason=%s", eid, user.get("user_id"), e)
         notice = contract.EXCHANGE_CAP if e.scope == "exchange" else contract.BUDGET_USED_UP   # R7b
         return finish(contract.request_not_completed(understood, notice), failure=f"budget ({e.scope}): {e}")
+    except ExchangeCancelled as e:
+        operational_log.warning("exchange cancelled: attempt=%s user=%s reason=%s", eid, user.get("user_id"), e)
+        return finish(contract.request_not_completed(understood), failure=f"cancelled: {e}")
     except Exception as e:        # R6: whatever escapes ends as request_not_completed, recorded
         operational_log.error("exchange failed: attempt=%s user=%s error=%s: %s",
                               eid, user.get("user_id"), type(e).__name__, e)

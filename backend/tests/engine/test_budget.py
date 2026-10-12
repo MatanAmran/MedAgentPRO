@@ -249,9 +249,11 @@ def test_litellm_retries_are_off_and_the_provider_is_prefixed():
     assert seen["model"] == "anthropic/test-model" and seen["api_key"] == "test-key-not-real"
 
 
-def test_real_gateway_refuses_to_start_without_a_value(tmp_path):
-    with pytest.raises(b.BudgetConfigError, match="MODEL_BUDGET_USD"):
-        b.real_gateway({k: v for k, v in ENV.items() if k != "MODEL_BUDGET_USD"}, tmp_path / "spend.json")
+def test_real_gateway_is_never_built_under_pytest(tmp_path):
+    """R8. Even with every value present, before any is read. A missing value is tested on from_env."""
+    with pytest.raises(b.BudgetConfigError, match="never built under pytest"):
+        b.real_gateway(ENV, tmp_path / "spend.json")
+    assert not (tmp_path / "spend.lock").exists()
 
 
 # --------------------------------------------------------------------------
