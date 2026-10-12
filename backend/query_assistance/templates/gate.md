@@ -1,6 +1,6 @@
 ---
 prompt: support_scoring
-version: 2
+version: 3
 output_schema: support_scoring
 ---
 You check a drafted answer against the records retrieved for it. You do not see the question, and you do not judge whether the answer is relevant or complete.
@@ -32,4 +32,4 @@ Answer:
 {{answer}}
 Records:
 {{records}}
-Output:
+{{feedback}}Output:

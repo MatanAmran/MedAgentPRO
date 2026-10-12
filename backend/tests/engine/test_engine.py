@@ -161,8 +161,9 @@ def test_litellm_goes_through_the_breaker(clock):
     b = breaker(clock)
     g = mg.LiteLLMGateway(b, completion=lambda **kw: boom())
     for _ in range(3):
-        with pytest.raises(ConnectionError):
+        with pytest.raises(mg.ModelCallError) as e:
             g.invoke("p", CFG)
+        assert e.value.kind == "connection" and e.value.outage
     with pytest.raises(cb.CircuitOpen):
         g.invoke("p", CFG)
 

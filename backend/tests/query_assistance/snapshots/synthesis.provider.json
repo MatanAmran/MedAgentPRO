@@ -1,0 +1,50 @@
+{
+ "$id": "medagentpro/synthesis.schema.json",
+ "$schema": "https://json-schema.org/draft/2020-12/schema",
+ "additionalProperties": false,
+ "description": "The drafted answer, one entry per reading that returned rows. Sentences carry symbolic references to fields, which code fills.",
+ "properties": {
+  "readings": {
+   "description": "Note: minimum number of items: 1, maximum number of items: 3.",
+   "items": {
+    "additionalProperties": false,
+    "properties": {
+     "label": {
+      "pattern": "^[a-z][a-z0-9_]{0,39}$",
+      "type": "string"
+     },
+     "sentences": {
+      "description": "Note: minimum number of items: 1, maximum number of items: 6.",
+      "items": {
+       "additionalProperties": false,
+       "properties": {
+        "text": {
+         "$comment": "Text with symbolic references {label.alias#row}, filled in code. At least one.",
+         "description": "Note: minimum length: 1, maximum length: 400.",
+         "pattern": "\\{[a-z][a-z0-9_]*\\.[a-z][a-z0-9_]*#[0-9]+\\}",
+         "type": "string"
+        }
+       },
+       "required": [
+        "text"
+       ],
+       "type": "object"
+      },
+      "type": "array"
+     }
+    },
+    "required": [
+     "label",
+     "sentences"
+    ],
+    "type": "object"
+   },
+   "type": "array"
+  }
+ },
+ "required": [
+  "readings"
+ ],
+ "title": "Synthesis",
+ "type": "object"
+}

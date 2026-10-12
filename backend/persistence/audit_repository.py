@@ -47,6 +47,8 @@ class AuditEntry:
     model_identity: str | None = None       # model and prompt version
     input_tokens: int | None = None         # NFR 3, only where a model was called
     output_tokens: int | None = None
+    feedback_attempt: bool | None = None    # [demo extension] P6: the call carried a rejection (R4)
+    rejection_reason: str | None = None     # [demo extension] P6: why the output was rejected or the call failed
     summary_produced: str | None = None     # only on the summarization step
 
     def to_record(self) -> dict:

@@ -1,6 +1,6 @@
 ---
 prompt: synthesis_redraft
-version: 4
+version: 5
 output_schema: synthesis
 ---
 You rewrite the answer to a question about supply-chain records. A check has removed every assertion the records did not support. Write the answer again from the assertions that were kept, and from nothing else.
@@ -32,4 +32,4 @@ Records:
 {{records}}
 Kept:
 {{kept}}
-Output:
+{{feedback}}Output:

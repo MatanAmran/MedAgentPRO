@@ -454,6 +454,31 @@ workflow ב-GitHub Actions · בדיקות Playwright, **על שלושת המנ�
 - **P10 — מאושר.** LiteLLM ממפה `stop_reason: "refusal"` ל-`finish_reason == "content_filter"`, ו-`max_tokens` ל-`"length"`. סירוב מחזיר 200 ומחויב — נרשם בספר ההוצאה וביומן
 - **לידיעה:** לפי התיעוד, פלט מובנה אינו מבטיח רישיות של ערכי `enum`. ערך ברישיות שגויה יידחה בבדיקה בקוד ויעבור ניסיון משוב. לא משנים את הבדיקה
 
+### R1–R7 — בוצע ב-Code (12.10), **לא נעשה commit**. שתי הערות לצ׳אט (**טרם הוכרעו**)
+
+**411 בדיקות עוברות** (היו 351). אף אחת לא קוראת למודל ולא קוראת את `.env`. הקוד בתיקייה, **ממתין לתשובה על ההערות לפני commit**.
+
+**מה נבנה:** `query_assistance\calls.py` (חדש: סיווג כל קריאה, ניסיון משוב אחד, רישום לכל קריאה) · `model_client\client.py` (`ModelCallError`, `classify`, טמפרטורה רק כשהוגדרה, timeout של 120 שניות, הסרת גדר, `finish_reason`, `problem()`) · `model_client\budget.py` (`MODEL_TEMPERATURE`, R5, `ensure_path` ל-R7a, `check_against_provider_map` ל-P1) · `pipeline.py` (פלט מובנה לשכתוב, לסינתזה ולשער; הכוונה בלי; R7a לפני הסינתזה; כל חריגה ← `request_not_completed`) · `prompts.py` (`fill` במעבר אחד, `feedback_block`, R7c) · `synthesis.py` ו-`gate.py` (משוב בלי ציטוט) · `contract.py` (`EXCHANGE_CAP`) · `AuditEntry` (`feedback_attempt`, `rejection_reason`) · `ROW_LIMIT = 30` · שש תבניות בגרסה חדשה · `dry_run.feedback_rate` · צילומי הסכמות המצומצמות ב-`tests\query_assistance\snapshots\`
+
+**שני באגים שנתפסו בבדיקות ותוקנו:** `classify` קרא את שם המחלקה של המחלקה (`type`), כך שכל timeout וכשל חיבור סווגו "unexpected" ולא נספרו במפסק · **`litellm.get_model_info` אינו מעביר את `supports_sampling_params`** (מחזיר `None` לכל המודלים), אף שהטבלה הגולמית (`litellm.model_cost`) מחזיקה `False` במודלי Claude 5. P1 קורא עכשיו מהרשומה הגולמית, ויש בדיקה מול הטבלה האמיתית
+
+| # | ההערה | האפשרויות | ההמלצה |
+|---|---|---|---|
+| H1 | **R1 אומר ש-Haiku 5.5 "is not in LiteLLM 1.105's map". זה לא נכון.** הוא בטבלה: `claude-haiku-5-5`, $0.10 / $0.50, `supports_sampling_params: False` — כמו Sonnet 5.5 ו-Opus 5.5. P1 כפי שאושר ("מסרב אם אינו בטבלה") **לא יחסום אותו** | (א) בלי קוד: R1 הוא הנחיה למה לכתוב ב-`.env`, ולתקן את נוסח R1 · (ב) חסימה מפורשת של Haiku 5.5 ב-`real_gateway()` | **(א).** הנימוק של R1 ("לא בטבלה") נפל. אם יש סיבה אחרת לא להשתמש בו (איכות), היא צריכה להיכתב. **לידיעה:** הוא זול פי 20 מ-Sonnet 5.5 |
+| H2 | **LiteLLM משאיר בסכמה שהוא שולח `$id`, `$schema`, `$comment` ו-`pattern`** (נראה בצילומים). התיעוד של Anthropic אינו מזכיר אותם ברשימת הנתמכים ולא ברשימת הלא נתמכים. ו-`$comment` שולח לספק **את הערות התכן שלנו** (למשל "34 measured calls showed…") — טוקנים, ותוכן שהמודל רואה | (א) להשאיר ולבדוק בבדיקת העשן (R9); אם יש 400 — להחליט אז · (ב) להסיר את ארבעתם לפני השליחה — **מצמצם משלנו, נגד ההכרעה** | **(א).** ההכרעה הייתה לא לכתוב מצמצם. R9 מכריע |
+
+**בחירות מימוש קטנות שלי** (לידיעה, לא ארכיטקטורה): נוסח `EXCHANGE_CAP` ("…Ask about fewer records.") · R7a מעריך את הקלט של השער ושל הניסוח מחדש לפי **התשובה הגדולה ביותר שסכמת הסינתזה מתירה** (3 קריאות × 6 משפטים × אורך מקסימלי) · משוב על `CompileError` = ה-`reason` שלו (שמות ועמודות מהתוכנית — טקסט מודל; הכוונה אינה רואה רשומות) · משוב על הפרת סכמה = מיקום והכלל, בלי הערך · `MODEL_TEMPERATURE` בטווח 0 עד 1 · שגיאה "unexpected" אינה נספרת במפסק · **זמן הרצת הבדיקות עלה מ-6 ל-14 שניות** — ייבוא LiteLLM לצורך הסכמה המצומצמת
+
+### H1, H2 — **הוכרע בצ׳אט (12.10, ערב)**. לתקן, ואז commit
+
+- **H1 — Haiku 5.5 אינו בטבלה המקומית של LiteLLM 1.105** (`model_prices_and_context_window_backup.json`: 0 מופעים של `claude-haiku-5-5`, 19 של `claude-sonnet-5-5`). Code ראה אותו כי **LiteLLM מוריד ב-import את הטבלה העדכנית מ-GitHub** כברירת מחדל (`litellm_core_utils/get_model_cost_map.py`). כך המחירים, P1 והבדיקות תלויים ברשת ומשתנים בלי שנדע, והקיבוע ל-1.105 אינו מקבע. **לכן:**
+  - **`LITELLM_LOCAL_MODEL_COST_MAP=True` לפני כל import של LiteLLM** — בקוד (`model_client`, לפני ה-import הראשון) וב-`tests/conftest.py`. בדיקה: הטבלה שנטענה היא המקומית (Haiku 5.5 חסר בה)
+  - **אין חסימה מפורשת של Haiku 5.5** — P1 ("מסרב אם אינו בטבלה") חוסם אותו מעצמו מול הטבלה המקומית. נוסח R1 נכון, בתוספת "בטבלה המקומית של הגרסה המקובעת"
+  - **`check_against_provider_map` מסרב לעלות גם כשלמודל אין מחיר בטבלה** (`input_cost_per_token` או `output_cost_per_token` חסרים), ולא מדלג על בדיקת המחיר
+- **H2 — (א), להשאיר.** תיקון לנימוק: התיעוד של Anthropic **כן** מזכיר `pattern` — נתמך, בלי backreferences, lookahead/lookbehind ו-`\b`. מילות מפתח לא מוכרות (`$comment`, `$id`, `$schema`) הספק מתעלם מהן, לפי ההערה ב-`filter_anthropic_output_schema`. בדיקת העשן (R9) מאשרת
+- **בוצע (12.10), 413 בדיקות.** `model_client\__init__.py` ו-`tests\conftest.py` קובעים `LITELLM_LOCAL_MODEL_COST_MAP=True`; בדיקה שהטבלה המקומית נטענה (Haiku 5.5 חסר בה) · P1 מסרב כשאין מחיר. **ממצא בדרך:** `litellm.get_model_info` **בונה רשומה במחיר אפס** למודל Anthropic שאינו בטבלה, ולכן אינו נכשל. P1 קורא עכשיו **את הרשומה הגולמית** ב-`litellm.model_cost`, ומחיר אפס נחשב "אין מחיר". **הבדיקות רצות כ-33 שניות** (היו 14)
+- **הבא:** אביתר ממלא `.env` (`MODEL_ID=claude-sonnet-5-5`, **בלי** `MODEL_TEMPERATURE`), `python -m demo_data.seed`, `python -m query_assistance.dry_run` · בדיקת העשן (R9), באישור אביתר לפני השליחה · משימה 6
+
 ## מה שנסגר בסבב האחרון
 
 - **הקוד עבר לריפו** — `MedAgentPro\backend` (`query_assistance`, `model_client`, `persistence`, `shared`, `tests`). **`03_Code` נשאר כמקור ומעודכן.** `python -m pytest -q` מתוך `backend`

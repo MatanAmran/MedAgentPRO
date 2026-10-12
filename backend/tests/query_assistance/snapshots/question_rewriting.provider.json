@@ -1,0 +1,22 @@
+{
+ "$id": "medagentpro/question_rewriting.schema.json",
+ "$schema": "https://json-schema.org/draft/2020-12/schema",
+ "additionalProperties": false,
+ "description": "Output of the rewriting stage. The current question restated so that it stands on its own, in the language it was posed in. It does not answer the question.",
+ "properties": {
+  "carried_from_history": {
+   "$comment": "false where the question already stands on its own or changes topic. Recorded, and lets the measurement in phase B separate rewrites from pass-throughs.",
+   "type": "boolean"
+  },
+  "question": {
+   "description": "Note: minimum length: 1, maximum length: 400.",
+   "type": "string"
+  }
+ },
+ "required": [
+  "question",
+  "carried_from_history"
+ ],
+ "title": "Question Rewriting",
+ "type": "object"
+}

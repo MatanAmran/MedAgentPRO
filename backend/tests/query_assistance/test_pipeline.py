@@ -129,7 +129,7 @@ def test_exchange_record_follows_the_declared_stage_order(db_path, storage):
     for e in t:
         assert e["timestamp"] and e["role"] == "APPROVER" and e["actor_id"] == "AP-01" and "on_behalf_of" not in e
         if e["event_type"].startswith("model_output"):
-            assert "scripted:demo" in e["model_identity"] and "temperature 0" in e["model_identity"]
+            assert "scripted:demo" in e["model_identity"] and "temperature provider default" in e["model_identity"]
             assert e["input_tokens"] and e["output_tokens"]
         else:
             assert "input_tokens" not in e

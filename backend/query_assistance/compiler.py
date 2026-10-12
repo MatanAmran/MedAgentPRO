@@ -35,9 +35,11 @@ from jsonschema import Draft202012Validator
 HERE = Path(__file__).parent
 
 # PROVISIONAL. Table 15: the prompt budget of the synthesis call divided by the
-# token cost of a row. Set from measurement at M2. Until then it equals the
-# schema 1 placeholder, so the schema bound and the default stay one value.
-ROW_LIMIT = 200
+# token cost of a row. Set from measurement at M2. 30 since the task 5 review (R7a,
+# 12.10): about 75 tokens a row measured on the demo store, and up to three readings
+# enter both the synthesis and the gate prompts. intent_validator() applies it to the
+# schema bound, so the bound and the default stay one value.
+ROW_LIMIT = 30
 
 NUMERIC = {"integer", "real"}
 DATE_RE = re.compile(r"^\d{4}-\d{2}-\d{2}$")

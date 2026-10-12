@@ -15,10 +15,11 @@ Conversation the compiler checks identifiers against (NFR 27).
 from __future__ import annotations
 
 import re
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from pathlib import Path
 from typing import Any
 
+from .calls import OutputRejected
 from .compiler import Catalog, Conversation, _norm
 
 HERE = Path(__file__).parent
@@ -55,13 +56,21 @@ def load(file: str) -> Prompt:
 
 
 def fill(prompt: Prompt, **values: str) -> str:
-    out = prompt.body
-    for k, v in values.items():
-        out = out.replace("{{" + k + "}}", v)
-    left = re.findall(r"\{\{(\w+)\}\}", out)
+    """One pass over the template only. A value is never scanned again, so a question or record text
+    that holds {{name}} stays as written (review R6)."""
+    left = [k for k in re.findall(r"\{\{(\w+)\}\}", prompt.body) if k not in values]
     if left:
         raise ValueError(f"{prompt.name}: unfilled {left}")
-    return out
+    return re.sub(r"\{\{(\w+)\}\}", lambda m: values[m.group(1)], prompt.body)
+
+
+def feedback_block(feedback: str | None) -> str:
+    """Review R4: the one further attempt carries the specific rejection, never a record value. Empty on
+    a first attempt. [proposal, not in the book; Table 15 names "Model call attempts" only]"""
+    if not feedback:
+        return ""
+    return (f"Your previous output was rejected: {feedback}\n"
+            "Correct it and return the whole output again.\n")
 
 
 def _tokens(text: str) -> int:
@@ -124,6 +133,7 @@ class Exchange:
     understood: str | None = None      # the rewritten question, where there was one
     answer: str | None = None
     presented: list[str] = field(default_factory=list)
+    presented_total: int = 0           # set where the history cut the list (R7c)
 
 
 @dataclass
@@ -141,7 +151,25 @@ def _render_exchange(i: int, ex: Exchange, with_answer: bool) -> str:
         lines.append(f"A{i}: {ex.answer}")
     if with_answer and ex.presented:
         lines.append("Presented identifiers: " + ", ".join(ex.presented))
+    if with_answer and ex.presented_total > len(ex.presented):
+        lines[-1] = (f"Presented identifiers (the first {len(ex.presented)} of {ex.presented_total}, "
+                     f"in display order): " + ", ".join(ex.presented))
     return "\n".join(lines)
+
+
+def _fit_last(i: int, ex: Exchange, budget: int) -> Exchange:
+    """Review R7c: the last exchange is always carried whole, and after F5 its presented identifiers
+    can outgrow the budget alone. They are cut to the first ones in display order. The identifier
+    check (NFR 27) still sees them all, since compiler_conversation does not read the prompt."""
+    if not ex.presented or _tokens(_render_exchange(i, ex, True)) <= budget:
+        return ex
+    keep: list[str] = []
+    for v in ex.presented:
+        trial = replace(ex, presented=keep + [v], presented_total=len(ex.presented))
+        if _tokens(_render_exchange(i, trial, True)) > budget:
+            break
+        keep.append(v)
+    return replace(ex, presented=keep, presented_total=len(ex.presented))
 
 
 def build_history(exchanges: list[Exchange], budget: int = HISTORY_BUDGET_TOKENS,
@@ -152,6 +180,7 @@ def build_history(exchanges: list[Exchange], budget: int = HISTORY_BUDGET_TOKENS
     if not exchanges:
         return History("", 1)
     last = len(exchanges)
+    exchanges = exchanges[:-1] + [_fit_last(last, exchanges[-1], budget)]
     full = "\n".join(_render_exchange(i, ex, True) for i, ex in enumerate(exchanges, 1))
     if _tokens(full) <= budget:
         return History(full, 1)
@@ -187,8 +216,10 @@ def compiler_conversation(exchanges: list[Exchange], posed: str, rewritten: str 
 # rendering each prompt
 # --------------------------------------------------------------------------
 
-def render_rewrite(history: History, question: str, prompt: Prompt | None = None) -> str:
-    return fill(prompt or load("rewrite.md"), history=history.text, question=question)
+def render_rewrite(history: History, question: str, prompt: Prompt | None = None,
+                   feedback: str | None = None) -> str:
+    return fill(prompt or load("rewrite.md"), history=history.text, question=question,
+                feedback=feedback_block(feedback))
 
 
 def question_block(posed: str, rewritten: str | None = None) -> str:
@@ -200,9 +231,9 @@ def question_block(posed: str, rewritten: str | None = None) -> str:
 
 
 def render_intent(cat: Catalog, role: str, posed: str, rewritten: str | None = None,
-                  prompt: Prompt | None = None) -> str:
+                  prompt: Prompt | None = None, feedback: str | None = None) -> str:
     return fill(prompt or load("intent_analysis.md"), schema=render_schema(cat, role),
-                question_block=question_block(posed, rewritten))
+                question_block=question_block(posed, rewritten), feedback=feedback_block(feedback))
 
 
 def render_records(results: list[tuple[str, list[dict[str, Any]]]]) -> str:
@@ -216,17 +247,18 @@ def render_records(results: list[tuple[str, list[dict[str, Any]]]]) -> str:
 
 
 def render_gate(answer: str, results: list[tuple[str, list[dict[str, Any]]]],
-                prompt: Prompt | None = None) -> str:
+                prompt: Prompt | None = None, feedback: str | None = None) -> str:
     """The question is not passed. The gate judges support, not relevance."""
-    return fill(prompt or load("gate.md"), answer=answer, records=render_records(results))
+    return fill(prompt or load("gate.md"), answer=answer, records=render_records(results),
+                feedback=feedback_block(feedback))
 
 
 # --------------------------------------------------------------------------
 # check on the rewriting output
 # --------------------------------------------------------------------------
 
-class RewriteError(Exception):
-    pass
+class RewriteError(OutputRejected):
+    """A content failure of the rewriting output. Its message names the rule only."""
 
 
 def check_rewrite(output: dict, posed: str) -> str:

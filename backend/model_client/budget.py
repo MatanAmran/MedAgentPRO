@@ -33,7 +33,8 @@ from typing import Callable, Iterator, Mapping
 
 from shared.circuit_breaker import CircuitBreaker, CircuitOpen, MemoryStore
 
-from .client import BudgetExceeded, LiteLLMGateway, ModelConfig, ModelGateway, ModelResponse, RateLimited
+from .client import (BudgetExceeded, LiteLLMGateway, ModelCallError, ModelConfig, ModelGateway, ModelResponse,
+                     RateLimited)
 
 BACKEND = Path(__file__).resolve().parent.parent
 ENV_FILE = BACKEND / ".env"
@@ -41,7 +42,7 @@ SPEND_FILE = BACKEND / ".model_spend.json"
 
 REQUIRED = ("ANTHROPIC_API_KEY", "MODEL_ID", "MODEL_PRICE_IN", "MODEL_PRICE_OUT", "MODEL_BUDGET_USD",
             "MODEL_MAX_USD_PER_EXCHANGE", "MODEL_MAX_OUTPUT_TOKENS", "MODEL_MAX_EXCHANGES_PER_MINUTE")
-OPTIONAL = ("MODEL_PRICE_CACHE_READ", "MODEL_PRICE_CACHE_WRITE")
+OPTIONAL = ("MODEL_PRICE_CACHE_READ", "MODEL_PRICE_CACHE_WRITE", "MODEL_TEMPERATURE")
 
 
 class BudgetConfigError(Exception):
@@ -60,6 +61,7 @@ class BudgetConfig:
     price_cache_read: float | None = None
     price_cache_write: float | None = None
     api_key: str = field(default="", repr=False)
+    temperature: float | None = None   # sent only where set (R1)
 
     @classmethod
     def from_env(cls, env: Mapping[str, str] | None = None, env_file: Path = ENV_FILE,
@@ -86,12 +88,20 @@ class BudgetConfig:
                 raise BudgetConfigError(f"{name} in backend/.env must be above zero")
             return v
 
+        raw_t = str(env.get("MODEL_TEMPERATURE") or "").strip()
+        try:
+            temperature = float(raw_t) if raw_t else None
+        except ValueError:
+            raise BudgetConfigError("MODEL_TEMPERATURE in backend/.env is not a float") from None
+        if temperature is not None and not 0 <= temperature <= 1:
+            raise BudgetConfigError("MODEL_TEMPERATURE in backend/.env must be between 0 and 1")
+
         return cls(env["MODEL_ID"].strip(), number("MODEL_PRICE_IN"), number("MODEL_PRICE_OUT"),
                    number("MODEL_BUDGET_USD"), number("MODEL_MAX_USD_PER_EXCHANGE"),
                    number("MODEL_MAX_OUTPUT_TOKENS", int), number("MODEL_MAX_EXCHANGES_PER_MINUTE", int),
                    number("MODEL_PRICE_CACHE_READ", required=False),
                    number("MODEL_PRICE_CACHE_WRITE", required=False),
-                   str(env.get("ANTHROPIC_API_KEY") or "").strip())
+                   str(env.get("ANTHROPIC_API_KEY") or "").strip(), temperature)
 
     def cost(self, input_tokens: int, output_tokens: int, cache_read: int = 0, cache_write: int = 0) -> float:
         cached = self.price_cache_write or 2 * self.price_in
@@ -220,18 +230,33 @@ class BudgetedGateway(ModelGateway):
         finally:
             self._current.reset(token)
 
+    def worst_case(self, input_tokens: int) -> float:
+        return self.config.cost(input_tokens, self.config.max_output_tokens)
+
+    def _refuse_if_over(self, amount: float, ex: ExchangeSpend | None):
+        """Under the lock. The total cap first: it is the one that ends every exchange."""
+        cfg = self.config
+        if self.ledger.total + self._reserved + amount > cfg.budget_usd:
+            raise BudgetExceeded("the demo budget is used up", scope="total")
+        if ex is not None and ex.spent + ex.reserved + amount > cfg.max_usd_per_exchange:
+            raise BudgetExceeded("this exchange would cross its own cap", scope="exchange")
+
+    def ensure_path(self, input_tokens: list[int]):
+        """Review R7a: before the first synthesis call, the worst case of the whole remaining path
+        (synthesis, gate, redraft, second gate, no feedback attempts) must fit. Nothing is reserved:
+        each call still reserves its own worst case when it is made."""
+        with self._lock:
+            self._refuse_if_over(sum(self.worst_case(n) for n in input_tokens), self._current.get())
+
     def invoke(self, prompt: str, config: ModelConfig) -> ModelResponse:
         cfg = self.config
         if config.model != cfg.model_id:
-            raise BudgetExceeded(f"model {config.model} is not the one priced in backend/.env")
+            raise BudgetExceeded(f"model {config.model} is not the one priced in backend/.env", scope="model")
         call = replace(config, max_tokens=min(config.max_tokens or cfg.max_output_tokens, cfg.max_output_tokens))
         worst = cfg.cost(estimate_input_tokens(prompt), call.max_tokens)
         ex = self._current.get()
         with self._lock:
-            if self.ledger.total + self._reserved + worst > cfg.budget_usd:
-                raise BudgetExceeded("the demo budget is used up")
-            if ex is not None and ex.spent + ex.reserved + worst > cfg.max_usd_per_exchange:
-                raise BudgetExceeded("this exchange reached its own cap")
+            self._refuse_if_over(worst, ex)
             self._reserved += worst
             if ex is not None:
                 ex.reserved += worst
@@ -246,6 +271,10 @@ class BudgetedGateway(ModelGateway):
         except (CircuitOpen, BudgetExceeded):
             actual = 0.0   # nothing was sent, or the provider refused before charging
             raise
+        except ModelCallError as e:
+            if not e.reached_provider:   # R5: known not to have left, so released
+                actual = 0.0
+            raise                        # otherwise, as on a timeout, the worst case stays charged
         finally:
             with self._lock:
                 self._reserved -= worst
@@ -261,6 +290,40 @@ def real_gateway(env: Mapping[str, str] | None = None, spend_file: Path = SPEND_
     """The real model behind the spending cap, from backend/.env. Refuses to start where a value is
     missing. Create it once per server process (N12, T2): it holds the spend lock and the breaker."""
     cfg = BudgetConfig.from_env(env)
+    check_against_provider_map(cfg)
     inner = LiteLLMGateway(breaker or CircuitBreaker("model_provider", MemoryStore()),
-                           api_key=cfg.api_key, provider="anthropic")
+                           api_key=cfg.api_key, provider="anthropic", temperature=cfg.temperature)
     return BudgetedGateway(inner, cfg, SpendLedger(spend_file))
+
+
+def check_against_provider_map(cfg: BudgetConfig, model_info: Callable[[str], dict] | None = None):
+    """P1: refuse to start where the model is not in LiteLLM's map (Haiku 5.5 in the local map of the
+    pinned 1.105, R1, H1), where the map holds no price for it, where a temperature is set for a model
+    that takes none, or where a price in .env is lower than the map's (a typo of 0.2 for 2 would
+    undercount tenfold). A higher price is allowed."""
+    if model_info is None:
+        import litellm
+
+        def model_info(n: str) -> dict:
+            """The raw entry of the map. get_model_info is not used: for an Anthropic model the map does
+            not hold it builds an entry priced at zero, and it does not pass supports_sampling_params on
+            (False on the Claude 5 models in the raw entry)."""
+            for key in (n, n.split("/", 1)[-1]):
+                if key in litellm.model_cost:
+                    return dict(litellm.model_cost[key])
+            raise KeyError(n)
+    name = cfg.model_id if "/" in cfg.model_id else f"anthropic/{cfg.model_id}"
+    try:
+        info = model_info(name)
+    except Exception:
+        raise BudgetConfigError(f"MODEL_ID is not in LiteLLM's model map, so its prices and parameters "
+                                f"cannot be checked") from None
+    if cfg.temperature is not None and info.get("supports_sampling_params") is False:
+        raise BudgetConfigError("MODEL_TEMPERATURE is set, and this model takes no temperature. Remove it")
+    for var, ours, key in (("MODEL_PRICE_IN", cfg.price_in, "input_cost_per_token"),
+                           ("MODEL_PRICE_OUT", cfg.price_out, "output_cost_per_token")):
+        listed = info.get(key)
+        if not listed:   # H1: no price (or zero) in the map is not checked past, it is refused
+            raise BudgetConfigError(f"LiteLLM's model map holds no price for this model, so {var} cannot be checked")
+        if ours < listed * 1_000_000 - 1e-9:
+            raise BudgetConfigError(f"{var} in backend/.env is lower than LiteLLM's price for this model")

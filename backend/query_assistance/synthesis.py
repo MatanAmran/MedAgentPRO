@@ -40,28 +40,21 @@ from typing import Any
 
 from jsonschema import Draft202012Validator
 
-from model_client.client import ModelConfig, ModelGateway, ModelResponse
+from model_client.client import ModelGateway, ModelResponse
 
+from . import calls as model_calls
 from . import prompts
+from .calls import MODEL_CALL_ATTEMPTS, Call, OutputRejected, StageRejected  # noqa: F401  (re-exported)
 from .compiler import HERE, Catalog
-
-# PROVISIONAL. Table 15, "Model call attempts": how often a failed call is retried before
-# the stage fails. The book names the row and no value.
-MODEL_CALL_ATTEMPTS = 2
 
 REF_RE = re.compile(r"\{([a-z][a-z0-9_]{0,39})\.([a-z][a-z0-9_]{0,39})#(\d+)\}")
 TOKEN_RE = re.compile(r"[^\s,;:()\[\]\"']+")
 
 
-class SynthesisOutputError(Exception):
-    """The draft breaks a rule. Treated as a failed call, not as an answer.
-    Raised after the attempts, it carries every call made and why each was rejected (NFR 3)."""
-
-    def __init__(self, message: str, responses: list[ModelResponse] | None = None,
-                 rejections: list[str] | None = None):
-        super().__init__(message)
-        self.responses = responses or []
-        self.rejections = rejections or []
+class SynthesisOutputError(OutputRejected):
+    """The draft breaks a rule: a content failure (R4). Its feedback names the reading, the sentence
+    by number and the rule, and never quotes the sentence or a token in it, which may be a value
+    from a record (P4, NFR 21)."""
 
 
 @dataclass
@@ -125,8 +118,15 @@ class Sentence:
 class Draft:
     sentences: dict[str, list[Sentence]]
     materials: dict[str, Material]
-    responses: list[ModelResponse]          # every call made, for the audit entry (NFR 3)
-    rejections: list[str] = field(default_factory=list)   # why each earlier call was rejected
+    calls: list[Call] = field(default_factory=list)   # every call made, for the audit entry (NFR 3)
+
+    @property
+    def responses(self) -> list[ModelResponse]:
+        return [c.response for c in self.calls if c.response is not None]
+
+    @property
+    def rejections(self) -> list[str]:
+        return [c.rejection for c in self.calls if c.rejection]
 
     def filled(self) -> list[tuple[str, str]]:
         """(label, sentence with references filled), in order. What the gate examines."""
@@ -136,8 +136,7 @@ class Draft:
         """The draft with only the sentences marked True, in the order of filled()."""
         flags = iter(keep)
         kept = {label: [s for s in ss if next(flags)] for label, ss in self.sentences.items()}
-        return Draft({label: ss for label, ss in kept.items() if ss}, self.materials, self.responses,
-                     self.rejections)
+        return Draft({label: ss for label, ss in kept.items() if ss}, self.materials, self.calls)
 
     def answer(self, label: str, cat: Catalog | None = None, for_history: bool = False) -> str:
         """The text of a reading: references filled from their rows. The gate examines this.
@@ -219,45 +218,58 @@ def check(output: dict, materials: list[Material], question: str) -> dict[str, l
     question_tokens = set(_tokens_with_digits(question))   # the question as posed, never the rewrite
     row_identifiers = {t for m in by_label.values() for t in m.identifier_tokens()}   # F11, any reading
     result: dict[str, list[Sentence]] = {}
+    def reject(message: str, feedback: str):
+        raise SynthesisOutputError(message, feedback)
+
     for r in output["readings"]:
         label = r["label"]
         if label in result:
-            raise SynthesisOutputError(f"reading {label} appears twice")
+            reject(f"reading {label} appears twice", f"reading {label} appears twice")
         if label not in by_label:
-            raise SynthesisOutputError(f"reading {label} returned no rows or was not retrieved")
+            reject(f"reading {label} returned no rows or was not retrieved",
+                   f"reading {label} returned no rows or was not retrieved, so it gets no entry")
         m = by_label[label]
         sentences = []
-        for s in r["sentences"]:
+        for k, s in enumerate(r["sentences"], 1):
             text = s["text"]
+            at = f"reading {label}, sentence {k}"
             refs = [(a, b, int(n)) for a, b, n in REF_RE.findall(text)]
             if not refs:
-                raise SynthesisOutputError(f"'{text}' references no field (NFR 4)")
+                reject(f"'{text}' references no field (NFR 4)", f"{at} holds no reference. Every sentence holds one")
             for lab, alias, row in refs:
+                ref = f"{{{lab}.{alias}#{row}}}"
                 if lab != label:
-                    raise SynthesisOutputError(f"'{text}' references reading {lab} from reading {label}")
+                    reject(f"'{text}' references reading {lab} from reading {label}",
+                           f"{at} references reading {lab}. A sentence references its own reading only")
                 if alias not in m.rows[0]:
-                    raise SynthesisOutputError(f"{{{lab}.{alias}#{row}}}: no field {alias} in reading {label}")
+                    reject(f"{ref}: no field {alias} in reading {label}", f"{at}: {ref} names no field of reading {label}")
                 if not 1 <= row <= len(m.rows):
-                    raise SynthesisOutputError(f"{{{lab}.{alias}#{row}}}: reading {label} has {len(m.rows)} row(s)")
+                    reject(f"{ref}: reading {label} has {len(m.rows)} row(s)",
+                           f"{at}: {ref} names row {row}, and reading {label} has {len(m.rows)}")
                 if m.rows[row - 1][alias] is None:
-                    raise SynthesisOutputError(f"{{{lab}.{alias}#{row}}} points at an empty field")
+                    reject(f"{ref} points at an empty field",
+                           f"{at}: {ref} is empty. Say that it is not recorded, without referencing it")
             outside = REF_RE.sub(" ", text)
             if "{" in outside or "}" in outside:
-                raise SynthesisOutputError(f"'{text}' holds a malformed reference")
+                reject(f"'{text}' holds a malformed reference", f"{at} holds a malformed reference")
             typed = _tokens_with_digits(outside)
             ids = [t for t in typed if t in row_identifiers]
             if ids:
-                raise SynthesisOutputError(f"'{text}' types {ids[0]!r}, an identifier in the records retrieved. "
-                                           f"Write it as a reference to its row (F11)")
+                reject(f"'{text}' types {ids[0]!r}, an identifier in the records retrieved. "
+                       f"Write it as a reference to its row (F11)",
+                       f"{at} types an identifier that appears in the records. Write it as a reference to its row")
             stray = [t for t in typed if t not in question_tokens and t not in m.literals]
             if stray:
-                raise SynthesisOutputError(f"'{text}' writes {stray[0]!r} outside a reference. Values, counts "
-                                           f"and identifiers come from the records (NFR 6)")
+                reject(f"'{text}' writes {stray[0]!r} outside a reference. Values, counts "
+                       f"and identifiers come from the records (NFR 6)",
+                       f"{at} types a digit outside a reference. Values, counts and identifiers come "
+                       f"from references only")
             sentences.append(Sentence(text, refs))
         result[label] = sentences
     missing = set(by_label) - set(result)
     if missing:   # [proposal]
-        raise SynthesisOutputError(f"no sentence for reading(s) {sorted(missing)}, which returned rows")
+        reject(f"no sentence for reading(s) {sorted(missing)}, which returned rows",
+               f"reading(s) {sorted(missing)} returned rows and have no sentence")
     return result
 
 
@@ -280,40 +292,34 @@ def _rejected(rejected: list[str] | None) -> str:
 
 
 def render(question: str, materials: list[Material], prompt: prompts.Prompt | None = None,
-           rejected: list[str] | None = None, rewritten: str | None = None) -> str:
+           rejected: list[str] | None = None, rewritten: str | None = None, feedback: str | None = None) -> str:
     return prompts.fill(prompt or prompts.load("synthesis.md"),
                         question_block=prompts.question_block(question, rewritten),
-                        records=_records(materials), rejected=_rejected(rejected))
+                        records=_records(materials), rejected=_rejected(rejected),
+                        feedback=prompts.feedback_block(feedback))
 
 
 def render_redraft(question: str, materials: list[Material], kept: dict[str, list[str]],
-                   prompt: prompts.Prompt | None = None, rewritten: str | None = None) -> str:
+                   prompt: prompts.Prompt | None = None, rewritten: str | None = None,
+                   feedback: str | None = None) -> str:
     lines = [f"[{label}] {t}" for label, ts in kept.items() for t in ts]
     return prompts.fill(prompt or prompts.load("synthesis_redraft.md"),
                         question_block=prompts.question_block(question, rewritten),
-                        records=_records(materials), kept="\n".join(lines))
+                        records=_records(materials), kept="\n".join(lines), feedback=prompts.feedback_block(feedback))
 
 
-def _call(gateway: ModelGateway, text: str, prompt: prompts.Prompt, model: str,
+def _call(gateway: ModelGateway, render_with: Any, prompt: prompts.Prompt, model: str,
           materials: list[Material], question: str, attempts: int) -> Draft:
+    """Structured output on (R2): the schema goes to the provider, and the full schema and check()
+    run in code. A content failure gets one feedback attempt (R4)."""
     v = validator()
-    responses, rejections = [], []
-    for _ in range(attempts):
-        try:
-            resp = gateway.invoke(text, ModelConfig(model=model, prompt_identity=prompt.identity))
-        except Exception as e:   # e.g. the budget refused the call: the earlier calls are still recorded
-            e.calls_made = (responses, rejections)
-            raise
-        responses.append(resp)
-        try:
-            out = resp.json()
-            errors = list(v.iter_errors(out))
-            if errors:
-                raise SynthesisOutputError(errors[0].message)
-            return Draft(check(out, materials, question), {m.label: m for m in materials}, responses, rejections)
-        except (ValueError, SynthesisOutputError) as e:   # ValueError covers unparsable JSON
-            rejections.append(str(e))
-    raise SynthesisOutputError(f"rejected after {attempts} attempt(s): {rejections[-1]}", responses, rejections)
+    by_label = {m.label: m for m in materials}
+    draft_, made = model_calls.ask(
+        gateway, model, prompt.identity, render_with,
+        lambda out: Draft(check(out, materials, question), by_label),
+        attempts, output_schema=v.schema, validator=v)
+    draft_.calls = made
+    return draft_
 
 
 def draft(gateway: ModelGateway, question: str, materials: list[Material], model: str,
@@ -323,8 +329,8 @@ def draft(gateway: ModelGateway, question: str, materials: list[Material], model
     (4.9). A digit outside a reference may come from the question as posed, never from the
     rewrite, which is model text (NFR 6, NFR 27), or from the plan's literals."""
     pr = prompts.load("synthesis.md")
-    return _call(gateway, render(question, materials, pr, rejected, rewritten), pr, model, materials,
-                 question, attempts)
+    return _call(gateway, lambda fb: render(question, materials, pr, rejected, rewritten, fb), pr, model,
+                 materials, question, attempts)
 
 
 def redraft(gateway: ModelGateway, question: str, materials: list[Material], kept: dict[str, list[str]],
@@ -333,4 +339,5 @@ def redraft(gateway: ModelGateway, question: str, materials: list[Material], kep
     the gate on the result once more and does not redraft again (Test 17)."""
     pr = prompts.load("synthesis_redraft.md")
     keep = [m for m in materials if m.label in kept]
-    return _call(gateway, render_redraft(question, keep, kept, pr, rewritten), pr, model, keep, question, attempts)
+    return _call(gateway, lambda fb: render_redraft(question, keep, kept, pr, rewritten, fb), pr, model,
+                 keep, question, attempts)

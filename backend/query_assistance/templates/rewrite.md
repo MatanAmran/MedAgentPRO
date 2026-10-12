@@ -1,6 +1,6 @@
 ---
 prompt: question_rewriting
-version: 1
+version: 2
 output_schema: question_rewriting
 ---
 You restate the latest question in a conversation about supply-chain records so that it can be understood without the conversation.
@@ -44,4 +44,4 @@ Output: {"question": "Which deliveries of S-044 were late in September?", "carri
 Conversation:
 {{history}}
 Latest question: {{question}}
-Output:
+{{feedback}}Output:

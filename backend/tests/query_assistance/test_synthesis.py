@@ -15,6 +15,7 @@ from model_client.client import ScriptedModelGateway
 from query_assistance import compiler as c
 from query_assistance import prompts as p
 from query_assistance import synthesis as s
+from query_assistance.calls import StageFailed
 from query_assistance.compiler import HERE
 
 BUNDLE = json.loads((HERE / "medagentpro_schemas.json").read_text(encoding="utf-8"))
@@ -78,7 +79,7 @@ def test_sentence_without_reference_fails_the_schema():
 @pytest.mark.parametrize("file", ["synthesis.md", "synthesis_redraft.md"])
 def test_prompt_has_version_schema_and_no_dashes(file):
     pr = p.load(file)
-    assert pr.output_schema == "synthesis" and pr.version == {"synthesis.md": "5", "synthesis_redraft.md": "4"}[file]
+    assert pr.output_schema == "synthesis" and pr.version == {"synthesis.md": "6", "synthesis_redraft.md": "5"}[file]
     assert "—" not in pr.body and "–" not in pr.body
 
 
@@ -309,7 +310,7 @@ def test_draft_fills_and_records_the_call():
     gw = ScriptedModelGateway([GOOD])
     d = s.draft(gw, Q, [LATE], model="demo")
     assert d.answer("late") == "S-038 had the most late lines, 6."
-    assert len(gw.calls) == 1 and d.responses[0].prompt_identity == "synthesis@5"
+    assert len(gw.calls) == 1 and d.responses[0].prompt_identity == "synthesis@6"
 
 
 def test_rejected_draft_is_retried_once_then_accepted():
@@ -317,14 +318,17 @@ def test_rejected_draft_is_retried_once_then_accepted():
     assert len(s.draft(gw, Q, [LATE], model="demo").responses) == 2
 
 
-def test_unparsable_output_counts_as_a_failed_attempt():
+def test_unparsable_output_is_a_format_failure_and_not_retried():
+    """R4: a further attempt with the same prompt is a paid bet. Only a content failure gets one."""
     gw = ScriptedModelGateway(["not json", GOOD])
-    assert s.draft(gw, Q, [LATE], model="demo").answer("late")
+    with pytest.raises(StageFailed) as e:
+        s.draft(gw, Q, [LATE], model="demo")
+    assert e.value.kind == "format" and len(gw.calls) == 1
 
 
 def test_draft_fails_after_the_attempts():
     gw = ScriptedModelGateway([COUNTED, COUNTED, GOOD])
-    with pytest.raises(s.SynthesisOutputError, match="after 2 attempt"):
+    with pytest.raises(s.StageRejected, match="after 2 attempt"):
         s.draft(gw, Q, [LATE], model="demo")
     assert len(gw.calls) == 2
 
@@ -334,13 +338,13 @@ def test_redraft_uses_its_own_prompt_and_only_readings_with_kept_assertions():
     gw = ScriptedModelGateway([GOOD])
     d = s.redraft(gw, Q, [LATE, other], {"late": ["S-038 had the most late lines, 6."]}, model="demo")
     prompt, cfg = gw.calls[0]
-    assert cfg.prompt_identity == "synthesis_redraft@4"
+    assert cfg.prompt_identity == "synthesis_redraft@5"
     assert "[other]" not in prompt and d.answer("late")
 
 
 def test_failed_draft_carries_every_call_and_why():
-    gw = ScriptedModelGateway([COUNTED, "not json"])
-    with pytest.raises(s.SynthesisOutputError) as e:
+    gw = ScriptedModelGateway([COUNTED, COUNTED])
+    with pytest.raises(s.StageRejected) as e:
         s.draft(gw, Q, [LATE], model="demo")
     assert len(e.value.responses) == 2 and len(e.value.rejections) == 2
     assert "outside a reference" in e.value.rejections[0]
@@ -354,7 +358,7 @@ def test_accepted_draft_carries_the_earlier_rejection():
 def test_digit_from_the_rewrite_is_not_allowed():
     """The rewritten question is model text, so a digit in it does not license a digit in the answer."""
     seven = out(("late", ["In week 7, {late.supplier_id#1} had {late.late_lines#1}."]))
-    with pytest.raises(s.SynthesisOutputError):
+    with pytest.raises(s.StageRejected):
         s.draft(ScriptedModelGateway([seven, seven]), "And the week before?", [LATE], model="demo",
                 rewritten="Which suppliers were late in week 7?")
     assert s.draft(ScriptedModelGateway([seven]), "Late in week 7?", [LATE], model="demo").answer("late")
@@ -371,7 +375,7 @@ def test_digit_from_the_plan_literals_is_allowed():
     assert s.draft(ScriptedModelGateway([seven]), "And the week before?", [m], model="demo",
                    rewritten="Which suppliers were late in week 7?").answer("late")
     counted = out(("late", ["2 suppliers in week 7, led by {late.supplier_id#1}."]))
-    with pytest.raises(s.SynthesisOutputError, match="'2'"):
+    with pytest.raises(s.StageRejected, match="'2'"):
         s.draft(ScriptedModelGateway([counted, counted]), "And the week before?", [m], model="demo")
 
 

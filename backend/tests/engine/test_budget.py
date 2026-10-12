@@ -11,7 +11,7 @@ import pytest
 
 from demo_data import seed
 from model_client import budget as b
-from model_client.client import (BudgetExceeded, LiteLLMGateway, ModelConfig, RateLimited,
+from model_client.client import (BudgetExceeded, LiteLLMGateway, ModelCallError, ModelConfig, RateLimited,
                                  ScriptedModelGateway)
 from persistence.audit_repository import AuditRepository, MemoryStorage
 from query_assistance import contract, dry_run, pipeline, prompts
@@ -227,9 +227,9 @@ def test_other_provider_errors_still_count_as_failures():
     def completion(**kw):
         raise _Refusal(429, "rate_limit_error: too many requests")
     breaker = CircuitBreaker("model_provider", MemoryStore(), threshold=5)
-    with pytest.raises(_Refusal):
+    with pytest.raises(ModelCallError) as e:
         LiteLLMGateway(breaker, completion=completion).invoke("x", CFG)
-    assert breaker.failure_count == 1
+    assert e.value.kind == "rate_limited" and e.value.outage and breaker.failure_count == 1
 
 
 def test_litellm_retries_are_off_and_the_provider_is_prefixed():
@@ -279,7 +279,7 @@ def test_exhausted_budget_ends_the_exchange_with_its_notice(ledger, db_path):
                        deps(gateway(ledger, inner, MODEL_BUDGET_USD="0.001"), db_path, storage))
     assert out.response["outcome"] == "request_not_completed"
     assert out.response["notice"] == contract.BUDGET_USED_UP and inner.calls == [] and out.recorded
-    assert storage.investigations[out.exchange_id]["failure"].startswith("budget:")
+    assert storage.investigations[out.exchange_id]["failure"].startswith("budget (total):")
     assert out.cost == {"exchange_usd": 0, "remaining_usd": 0.001}
 
 

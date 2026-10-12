@@ -76,7 +76,7 @@ def test_rewrite_examples_validate_and_name_no_new_identifier():
 def test_gate_example_validates_and_evaluates():
     pr = p.load("gate.md")
     (inp, out), = examples(pr)
-    assert pr.version == "2"
+    assert pr.version == "3"
     assert not list(validator("support_scoring").iter_errors(out))
     sentences = [(m.group(1), m.group(2)) for m in re.finditer(r"^\d+\. \[(\w+)\] (.*)$", inp, re.M)]
     assert gate.render_answer(sentences) in inp

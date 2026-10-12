@@ -14,11 +14,14 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 
+from .calls import OutputRejected
 from .compiler import _norm
 
 
-class GateOutputError(Exception):
-    """The gate's output breaks a rule. Treated as a failed call, not as a verdict."""
+class GateOutputError(OutputRejected):
+    """The gate's output breaks a rule. A content failure, not a verdict. Its feedback names the claim
+    and the sentence by number and never quotes the claim, which was copied from an answer whose
+    values were filled from the records (P4)."""
 
 
 @dataclass
@@ -39,24 +42,30 @@ def evaluate(output: dict, sentences: list[tuple[str, str]], aliases: dict[str, 
     """sentences are (label, text as filled), in the order the gate received them.
     aliases maps each reading label to the aliases its SELECT produced."""
     covered: set[int] = set()
-    for c in output["claims"]:
+    for k, c in enumerate(output["claims"], 1):
         n = c["sentence"]
         if not 1 <= n <= len(sentences):
-            raise GateOutputError(f"claim names sentence {n}, and the answer has {len(sentences)}")
+            raise GateOutputError(f"claim names sentence {n}, and the answer has {len(sentences)}",
+                                  f"claim {k} names sentence {n}, and the answer has {len(sentences)} sentences")
         if _norm(c["text"]) not in _norm(sentences[n - 1][1]):
-            raise GateOutputError(f"claim not found verbatim in sentence {n}: {c['text']!r}")
+            raise GateOutputError(f"claim not found verbatim in sentence {n}: {c['text']!r}",
+                                  f"claim {k} is not copied word for word from sentence {n}")
         for ref in c["evidence"]:
             label, _, alias = ref.partition(".")
             if alias not in aliases.get(label, set()):
-                raise GateOutputError(f"reference {ref} resolves to no retrieved field")
+                raise GateOutputError(f"reference {ref} resolves to no retrieved field",
+                                      f"claim {k} cites {ref}, which is not a field in the records")
         if c["verdict"] in ("supported", "contradicted") and not c["evidence"]:
-            raise GateOutputError(f"{c['verdict']} with no reference: {c['text']!r}")
+            raise GateOutputError(f"{c['verdict']} with no reference: {c['text']!r}",
+                                  f"claim {k} is {c['verdict']} and cites no field")
         if c["verdict"] == "uncovered" and c["evidence"]:
-            raise GateOutputError(f"uncovered with a reference: {c['text']!r}")
+            raise GateOutputError(f"uncovered with a reference: {c['text']!r}",
+                                  f"claim {k} is uncovered and cites a field. Uncovered cites none")
         covered.add(n)
     skipped = sorted(set(range(1, len(sentences) + 1)) - covered)
     if skipped:
-        raise GateOutputError(f"sentence(s) {skipped} not examined")
+        raise GateOutputError(f"sentence(s) {skipped} not examined",
+                              f"sentence(s) {skipped} have no claim. Every sentence makes at least one")
 
     supported = [True] * len(sentences)
     kept, removed, by_sentence = [], [], {}

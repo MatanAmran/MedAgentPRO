@@ -90,6 +90,14 @@ def _exchange(cfg: BudgetConfig, db: Path, gw: ModelGateway, question: str, hist
     return meter.rows, out
 
 
+def feedback_rate(audit_log: list[dict]) -> tuple[int, int]:
+    """R4: how many calls were feedback attempts, and how many of them were accepted. If feedback
+    attempts rarely succeed, set the attempts to 1. Read from the audit entries, so the smoke test and
+    a real record give the same figure."""
+    attempts = [e for e in audit_log if e.get("feedback_attempt")]
+    return len(attempts), sum(1 for e in attempts if e["event_type"] == "model_output_accepted")
+
+
 def _print(title: str, rows: list[tuple], cfg: BudgetConfig):
     print(f"\n{title}")
     print(f"  {'call':<26}{'input ~':>9}{'input hi':>10}{'output':>8}{'cost ~ USD':>12}{'worst USD':>11}")
@@ -118,6 +126,8 @@ def main(env=None) -> int:
         rows2, _ = _exchange(cfg, db, follow, "And by promised date?", [first.exchange])
 
     print(f"Model {cfg.model_id}. Prices from backend/.env, no model called.")
+    print("The scripted outputs here are accepted at once, so no feedback attempt is priced. Each content "
+          "failure adds one call of about the same size as the one it repeats.")
     t1, w1 = _print("A first question (3 calls)", rows1, cfg)
     t2, w2 = _print("A follow-up with one regeneration (6 calls)", rows2, cfg)
     print(f"\nCap per exchange {cfg.max_usd_per_exchange:.4f}. The worst case above "

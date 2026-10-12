@@ -36,19 +36,23 @@ from typing import Any, Callable
 
 from jsonschema import Draft202012Validator
 
-from model_client.client import BudgetExceeded, ModelConfig, ModelGateway, ModelResponse, RateLimited
+from model_client.budget import estimate_input_tokens
+from model_client.client import BudgetExceeded, ModelGateway, RateLimited
 from persistence.audit_repository import AuditEntry, AuditRepository
 from shared.circuit_breaker import CircuitBreaker, CircuitOpen, MemoryStore
 from shared.circuit_breaker import log as operational_log
 
+from . import calls as model_calls
 from . import contract, gate, prompts, synthesis
+from .calls import MODEL_CALL_ATTEMPTS, Call, StageFailed, StageRejected
 from .compiler import HERE, Catalog, CompileError, CompiledReading, RetrievalResult, _norm, compile_intent, \
     execute, intent_validator
-from .synthesis import MODEL_CALL_ATTEMPTS, Draft, SynthesisOutputError
+from .synthesis import Draft
 
 _BUNDLE = json.loads((HERE / "medagentpro_schemas.json").read_text(encoding="utf-8"))["schemas"]
 _REWRITE_V = Draft202012Validator(_BUNDLE["question_rewriting"]["schema"])
 _GATE_V = Draft202012Validator(_BUNDLE["support_scoring"]["schema"])
+_SYNTHESIS_SCHEMA = _BUNDLE["synthesis"]["schema"]
 
 # The order stages are declared in, which the audit trail follows (Test 21).
 REWRITING, INTENT, COMPILATION, RETRIEVAL, SYNTHESIS, GATE, REGENERATION, REGATE, CONTRACT, RATING = range(1, 11)
@@ -56,8 +60,6 @@ STAGE_NAMES = {REWRITING: "question_rewriting", INTENT: "intent_analysis", COMPI
                RETRIEVAL: "retrieval", SYNTHESIS: "synthesis", GATE: "support_gate",
                REGENERATION: "regeneration", REGATE: "support_gate", CONTRACT: "output_contract",
                RATING: "rating"}
-
-REJECTED = (ValueError, prompts.RewriteError, CompileError, gate.GateOutputError, SynthesisOutputError)
 
 # SQLite primary result codes that mean the source cannot be reached, not that the query is wrong
 # (review F1): busy, locked, cannot open. A failed connection counts as well.
@@ -94,7 +96,8 @@ class Outcome:
 
 
 class _Rejected(Exception):
-    """A model stage rejected the output of every attempt. Already recorded."""
+    """A model stage ended without a usable output: content rejected in every attempt, or a failure
+    with no further attempt (R4). Its calls are already recorded."""
 
 
 class _Unreachable(Exception):
@@ -129,67 +132,80 @@ class _Record:
         """A stage with no model call: one entry, without tokens (decision 11)."""
         self._entry(ordinal, "stage_completed", evidence_reviewed=evidence)
 
-    def calls(self, ordinal: int, responses: list[ModelResponse], rejections: list[str], model: str):
-        """One entry per model call, rejected ones included. A repeated attempt states why it
-        supersedes the earlier one (NFR 3, decision 11)."""
-        temperature = ModelConfig(model).temperature
-        for n, resp in enumerate(responses, 1):
-            self._entry(ordinal, "model_output_rejected" if n <= len(rejections) else "model_output_accepted",
-                        attempt_number=n,
-                        superseded_reason=f"attempt {n - 1} rejected: {rejections[n - 2]}" if n > 1 else None,
-                        model_identity=f"{resp.model} · {resp.prompt_identity} · temperature {temperature}",
-                        input_tokens=resp.input_tokens, output_tokens=resp.output_tokens)
+    def calls(self, ordinal: int, made: list[Call], model: str):
+        """One entry per model call: accepted, rejected, or failed with no response. A repeated
+        attempt states why it supersedes the earlier one, and whether it carried feedback (NFR 3, P6).
+        The temperature recorded is what was sent, or the provider's default where none was (R1)."""
+        for n, c in enumerate(made, 1):
+            r = c.response
+            sent = "provider default" if r is None or r.temperature is None else r.temperature
+            event = ("model_call_failed" if r is None else
+                     "model_output_rejected" if c.rejection else "model_output_accepted")
+            self._entry(ordinal, event, attempt_number=n,
+                        superseded_reason=f"attempt {n - 1} rejected: {made[n - 2].rejection}" if n > 1 else None,
+                        model_identity=f"{r.model if r else model} · {c.prompt_identity} · temperature {sent}",
+                        input_tokens=r.input_tokens if r else None, output_tokens=r.output_tokens if r else None,
+                        feedback_attempt=c.feedback_attempt, rejection_reason=c.rejection)
 
 
 # --------------------------------------------------------------------------
 # model stages
 # --------------------------------------------------------------------------
 
-def _ask(deps: Deps, rec: _Record, ordinal: int, prompt: prompts.Prompt, text: str,
-         accept: Callable[[Any], Any]) -> Any:
-    """Calls the model within the attempts. accept() validates the parsed output and raises one of
-    REJECTED where it breaks a rule. Every call is recorded, whatever the result."""
-    responses, rejections = [], []
+def _recorded(rec: _Record, ordinal: int, deps: Deps, run: Callable[[], tuple[Any, list[Call]]]) -> Any:
+    """Runs one stage's calls and records every one of them, whatever the result."""
     try:
-        for _ in range(deps.attempts):
-            resp = deps.gateway.invoke(text, ModelConfig(model=deps.model, prompt_identity=prompt.identity))
-            responses.append(resp)
-            try:
-                return accept(resp.json())
-            except REJECTED as e:
-                rejections.append(str(e))
-        raise _Rejected(f"{STAGE_NAMES[ordinal]} rejected after {deps.attempts} attempt(s): {rejections[-1]}")
-    finally:
-        rec.calls(ordinal, responses, rejections, deps.model)
+        result, made = run()
+    except (StageRejected, StageFailed) as e:
+        rec.calls(ordinal, e.calls, deps.model)
+        raise _Rejected(f"{STAGE_NAMES[ordinal]}: {e}") from e
+    except Exception as e:
+        rec.calls(ordinal, getattr(e, "calls_made", []), deps.model)
+        raise
+    rec.calls(ordinal, made, deps.model)
+    return result
 
 
-def _valid(validator: Draft202012Validator, out: Any) -> Any:
-    errors = sorted(validator.iter_errors(out), key=lambda e: list(e.path))
-    if errors:
-        raise ValueError(f"schema: {errors[0].message}")
-    return out
+def _ask(deps: Deps, rec: _Record, ordinal: int, prompt: prompts.Prompt, render: Callable[[str | None], str],
+         accept: Callable[[Any], Any], output_schema: dict | None = None,
+         validator: Draft202012Validator | None = None, rejected: tuple = ()) -> Any:
+    return _recorded(rec, ordinal, deps, lambda: model_calls.ask(
+        deps.gateway, deps.model, prompt.identity, render, accept, deps.attempts, output_schema, validator, rejected))
 
 
 def _synthesize(deps: Deps, rec: _Record, ordinal: int, call: Callable[[], Draft]) -> Draft:
-    try:
+    def run():
         d = call()
-    except SynthesisOutputError as e:
-        rec.calls(ordinal, e.responses, e.rejections, deps.model)
-        raise _Rejected(str(e)) from e
-    except Exception as e:
-        rec.calls(ordinal, *getattr(e, "calls_made", ([], [])), deps.model)
-        raise
-    rec.calls(ordinal, d.responses, d.rejections, deps.model)
-    return d
+        return d, d.calls
+    return _recorded(rec, ordinal, deps, run)
 
 
 def _gate(deps: Deps, rec: _Record, ordinal: int, d: Draft) -> gate.GateResult:
+    """Structured output on (R2). The full schema and gate.evaluate run in code."""
     sentences = d.filled()
     records = [(label, m.rows) for label, m in d.materials.items() if m.rows]
     aliases = {label: set(m.columns) for label, m in d.materials.items()}
-    text = prompts.render_gate(gate.render_answer(sentences), records)
-    return _ask(deps, rec, ordinal, prompts.load("gate.md"), text,
-                lambda out: gate.evaluate(_valid(_GATE_V, out), sentences, aliases))
+    answer = gate.render_answer(sentences)
+    return _ask(deps, rec, ordinal, prompts.load("gate.md"),
+                lambda fb: prompts.render_gate(answer, records, feedback=fb),
+                lambda out: gate.evaluate(out, sentences, aliases), _GATE_V.schema, _GATE_V)
+
+
+def _path_inputs(question: str, rewritten: str | None, materials: list) -> list[int]:
+    """R7a: the input of every call left on the path, synthesis to the second gate, before any of it
+    is made. The answer is taken at its largest, from the synthesis schema's bounds."""
+    s = _SYNTHESIS_SCHEMA
+    reading = s["properties"]["readings"]
+    sentence = reading["items"]["properties"]["sentences"]
+    longest = sentence["items"]["properties"]["text"].get("maxLength", 400)
+    n = reading.get("maxItems", 3) * sentence.get("maxItems", 6)
+    answer = gate.render_answer([("label", "x" * longest)] * n)
+    records = [(m.label, m.rows) for m in materials if m.rows]
+    syn = estimate_input_tokens(synthesis.render(question, materials, rewritten=rewritten))
+    gate_in = estimate_input_tokens(prompts.render_gate(answer, records))
+    redraft_in = estimate_input_tokens(synthesis.render_redraft(question, materials, {"label": [answer]},
+                                                                rewritten=rewritten))
+    return [syn, gate_in, redraft_in, gate_in]
 
 
 # --------------------------------------------------------------------------
@@ -322,19 +338,24 @@ def run(question: str, history: list[prompts.Exchange], user: dict, deps: Deps,
         # rewriting, only with earlier exchanges. Layer 3 drops the oldest with no summary (decision 7)
         if history:
             stage("rewriting")
-            text = prompts.render_rewrite(prompts.build_history(history), question)
-            rewritten = _ask(deps, rec, REWRITING, prompts.load("rewrite.md"), text,
-                             lambda out: prompts.check_rewrite(_valid(_REWRITE_V, out), question))
+            built = prompts.build_history(history)
+            rewritten = _ask(deps, rec, REWRITING, prompts.load("rewrite.md"),
+                             lambda fb: prompts.render_rewrite(built, question, feedback=fb),
+                             lambda out: prompts.check_rewrite(out, question), _REWRITE_V.schema, _REWRITE_V)
             if _norm(rewritten) != _norm(question):
                 understood = rewritten
 
-        # intent analysis and compilation. A plan the compiler rejects is a rejected output (Test 13)
+        # intent analysis and compilation. A plan the compiler rejects is a rejected output (Test 13).
+        # No structured output here: unpacked, the schema exceeds what the provider accepts (review,
+        # "Settled on Code's proposals"), so every schema breach is a content failure
         stage("intent")
         conv = prompts.compiler_conversation(history, question, rewritten)
         pr = deps.intent_prompt or prompts.load("intent_analysis.md")
         validator = intent_validator()
-        intent, compiled = _ask(deps, rec, INTENT, pr, prompts.render_intent(cat, role, question, rewritten, pr),
-                                lambda out: (out, compile_intent(out, conv, user, cat, validator)))
+        intent, compiled = _ask(deps, rec, INTENT, pr,
+                                lambda fb: prompts.render_intent(cat, role, question, rewritten, pr, fb),
+                                lambda out: (out, compile_intent(out, conv, user, cat, validator)),
+                                validator=validator, rejected=(CompileError,))
         rec.step(COMPILATION, [{"label": r.label, "sql": r.sql, "params": r.params} for r in compiled.readings])
         if compiled.disposition == "refer_to_investigation":
             return finish(contract.referred(understood))
@@ -375,6 +396,10 @@ def run(question: str, history: list[prompts.Exchange], user: dict, deps: Deps,
         if not any(m.rows for m in materials):   # an empty result is a finding (Test 35), no model call
             return finish(contract.answered(views(), gaps, understood), presented=[])
 
+        # R7a: stop before the first synthesis call if the whole path cannot fit
+        if hasattr(deps.gateway, "ensure_path"):
+            deps.gateway.ensure_path(_path_inputs(question, rewritten, materials))
+
         # synthesis, the gate, and the single regeneration (NFR 19, decisions 3 to 5).
         # Synthesis receives both forms of the question (4.9, review F3)
         stage("synthesis")
@@ -414,7 +439,12 @@ def run(question: str, history: list[prompts.Exchange], user: dict, deps: Deps,
         return finish(contract.request_not_completed(understood, contract.RATE_LIMITED), failure=f"rate: {e}")
     except BudgetExceeded as e:   # not retried, not an outage
         operational_log.warning("model call refused: attempt=%s user=%s reason=%s", eid, user.get("user_id"), e)
-        return finish(contract.request_not_completed(understood, contract.BUDGET_USED_UP), failure=f"budget: {e}")
+        notice = contract.EXCHANGE_CAP if e.scope == "exchange" else contract.BUDGET_USED_UP   # R7b
+        return finish(contract.request_not_completed(understood, notice), failure=f"budget ({e.scope}): {e}")
+    except Exception as e:        # R6: whatever escapes ends as request_not_completed, recorded
+        operational_log.error("exchange failed: attempt=%s user=%s error=%s: %s",
+                              eid, user.get("user_id"), type(e).__name__, e)
+        return finish(contract.request_not_completed(understood), failure=f"unexpected: {type(e).__name__}: {e}")
     finally:
         stack.close()
 

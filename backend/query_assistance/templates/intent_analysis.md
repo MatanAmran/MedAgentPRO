@@ -1,6 +1,6 @@
 ---
 prompt: intent_analysis
-version: 1
+version: 2
 output_schema: intent_analysis
 ---
 You plan which records answer a question about supply-chain data. You do not write a query. You fill a structured plan, and code builds the query from it.
@@ -32,4 +32,4 @@ Question: Why was S-031 late on PO-87954?
 Output: {"disposition": "refer_to_investigation"}
 
 {{question_block}}
-Output:
+{{feedback}}Output:
