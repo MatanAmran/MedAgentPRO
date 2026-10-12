@@ -309,3 +309,14 @@ def test_dry_run_prices_two_exchanges_without_a_key(capsys):
     assert dry_run.main({k: v for k, v in ENV.items() if k != "ANTHROPIC_API_KEY"}) == 0
     text = capsys.readouterr().out
     assert "A first question (3 calls)" in text and "(6 calls)" in text and "fits" in text
+
+
+def test_dry_run_with_a_model_prices_from_the_local_map_and_reads_no_env(capsys, monkeypatch):
+    """No .env before the smoke test: --model takes the prices from LiteLLM's local map."""
+    def no_env(*a, **k):
+        raise AssertionError(".env was read")
+    monkeypatch.setattr(b.BudgetConfig, "from_env", no_env)
+    assert dry_run.main(argv=["--model", "claude-sonnet-5-5"]) == 0
+    text = capsys.readouterr().out
+    assert "2 in / 10 out per million, from LiteLLM's local map" in text and "R7a reserves" in text
+    assert dry_run.main(argv=["--model", "claude-not-a-model-9-9"]) == 1

@@ -296,22 +296,31 @@ def real_gateway(env: Mapping[str, str] | None = None, spend_file: Path = SPEND_
     return BudgetedGateway(inner, cfg, SpendLedger(spend_file))
 
 
+def map_entry(name: str) -> dict:
+    """The raw entry of LiteLLM's local map (H1). get_model_info is not used: for an Anthropic model the
+    map does not hold it builds an entry priced at zero, and it does not pass supports_sampling_params
+    on (False on the Claude 5 models in the raw entry). Raises KeyError where the map holds none."""
+    import litellm
+    for key in (name, name.split("/", 1)[-1]):
+        if key in litellm.model_cost:
+            return dict(litellm.model_cost[key])
+    raise KeyError(name)
+
+
+def map_prices(model_id: str) -> tuple[float, float]:
+    """USD per million tokens, input and output, from the local map. For the dry run without .env."""
+    info = map_entry(model_id)
+    if not info.get("input_cost_per_token") or not info.get("output_cost_per_token"):
+        raise KeyError(f"{model_id} has no price in the map")
+    return info["input_cost_per_token"] * 1_000_000, info["output_cost_per_token"] * 1_000_000
+
+
 def check_against_provider_map(cfg: BudgetConfig, model_info: Callable[[str], dict] | None = None):
     """P1: refuse to start where the model is not in LiteLLM's map (Haiku 5.5 in the local map of the
     pinned 1.105, R1, H1), where the map holds no price for it, where a temperature is set for a model
     that takes none, or where a price in .env is lower than the map's (a typo of 0.2 for 2 would
     undercount tenfold). A higher price is allowed."""
-    if model_info is None:
-        import litellm
-
-        def model_info(n: str) -> dict:
-            """The raw entry of the map. get_model_info is not used: for an Anthropic model the map does
-            not hold it builds an entry priced at zero, and it does not pass supports_sampling_params on
-            (False on the Claude 5 models in the raw entry)."""
-            for key in (n, n.split("/", 1)[-1]):
-                if key in litellm.model_cost:
-                    return dict(litellm.model_cost[key])
-            raise KeyError(n)
+    model_info = model_info or map_entry
     name = cfg.model_id if "/" in cfg.model_id else f"anthropic/{cfg.model_id}"
     try:
         info = model_info(name)

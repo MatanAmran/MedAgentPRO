@@ -1,8 +1,9 @@
 """
 MedAgentPro - what an exchange would cost, before a real one (task 5).
 
-Runs two exchanges on the demo store with the scripted model, prices every call at the values in
-backend/.env, and prints them. No model is called and no key is needed.
+Runs two exchanges on the demo store with the scripted model, prices every call, and prints them.
+No model is called and no key is needed. Prices come from backend/.env, or, with --model, from
+LiteLLM's local map for that model, and then .env is not read at all.
 
   a first question                 intent, synthesis, gate: 3 calls
   a follow-up with a regeneration  rewrite, intent, synthesis, gate, regeneration, gate: 6 calls
@@ -12,18 +13,25 @@ counts for English, and the deliberately high estimate the budget reserves. Outp
 from the scripted outputs, which are near the size of real ones. The worst case is what the
 budget reserves before each call: the high input estimate plus the full output cap.
 
-Run from backend/:  python -m query_assistance.dry_run
+Also printed: what R7a reserves for the whole path before the first synthesis call, against the cap
+per exchange, and how many exchanges a budget covers, typically and at the worst case.
+
+Run from backend/:
+  python -m query_assistance.dry_run                                 prices and caps from backend/.env
+  python -m query_assistance.dry_run --model claude-sonnet-5-5       map prices, no .env
+      [--budget 3.5] [--cap 0.25] [--max-output 2000]                 what to report against
 """
 
 from __future__ import annotations
 
+import argparse
 import re
 import sys
 import tempfile
 from pathlib import Path
 
 from demo_data import seed
-from model_client.budget import BudgetConfig, BudgetConfigError, estimate_input_tokens
+from model_client.budget import BudgetConfig, BudgetConfigError, estimate_input_tokens, map_prices
 from model_client.client import ModelConfig, ModelGateway, ModelResponse, ScriptedModelGateway
 from persistence.audit_repository import AuditRepository, MemoryStorage
 from shared.circuit_breaker import CircuitBreaker, MemoryStore
@@ -70,6 +78,11 @@ class _Meter(ModelGateway):
 
     def __init__(self, inner: ModelGateway, cfg: BudgetConfig):
         self.inner, self.cfg, self.rows = inner, cfg, []
+        self.path_worst: float | None = None
+
+    def ensure_path(self, input_tokens: list[int]):
+        """What R7a would reserve before the first synthesis call. Kept, never refused here."""
+        self.path_worst = sum(self.cfg.cost(n, self.cfg.max_output_tokens) for n in input_tokens)
 
     def invoke(self, prompt: str, config: ModelConfig) -> ModelResponse:
         resp = self.inner.invoke(prompt, config)
@@ -80,14 +93,14 @@ class _Meter(ModelGateway):
         return resp
 
 
-def _exchange(cfg: BudgetConfig, db: Path, gw: ModelGateway, question: str, history) -> tuple[list[tuple], pipeline.Outcome]:
+def _exchange(cfg: BudgetConfig, db: Path, gw: ModelGateway, question: str, history) -> tuple[_Meter, pipeline.Outcome]:
     meter = _Meter(gw, cfg)
     deps = pipeline.Deps(meter, cfg.model_id, Catalog.load(seed.HERE / "schema.json", seed.HERE / "relations.json"),
                          pipeline.connect_readonly(db),
                          AuditRepository(MemoryStorage(), CircuitBreaker("system_store", MemoryStore()), b"dry-run"),
                          prompts.load(seed.HERE / "intent_analysis.md"))
     out = pipeline.run(question, history, {"role": "APPROVER", "user_id": "AP-01"}, deps)
-    return meter.rows, out
+    return meter, out
 
 
 def feedback_rate(audit_log: list[dict]) -> tuple[int, int]:
@@ -108,34 +121,63 @@ def _print(title: str, rows: list[tuple], cfg: BudgetConfig):
     return total, worst
 
 
-def main(env=None) -> int:
+def _config(env, argv) -> BudgetConfig:
+    """With --model, prices from the local map and the reporting values from the command line; .env is
+    not read. Without it, everything from .env, as before. No key either way."""
+    ap = argparse.ArgumentParser(prog="python -m query_assistance.dry_run")
+    ap.add_argument("--model", help="price this model from LiteLLM's local map, without backend/.env")
+    ap.add_argument("--budget", type=float, default=3.5, help="total to report against, USD (with --model)")
+    ap.add_argument("--cap", type=float, default=0.25, help="cap per exchange to report against, USD (with --model)")
+    ap.add_argument("--max-output", type=int, default=2000, help="output tokens per call (with --model)")
+    args = ap.parse_args(argv or [])   # never the test runner's own arguments
+    if not args.model:
+        return BudgetConfig.from_env(env, need_key=False)
     try:
-        cfg = BudgetConfig.from_env(env, need_key=False)
+        price_in, price_out = map_prices(args.model)
+    except KeyError:
+        raise BudgetConfigError(f"{args.model} is not priced in LiteLLM's local map") from None
+    return BudgetConfig(args.model, price_in, price_out, args.budget, args.cap, args.max_output, 10)
+
+
+def main(env=None, argv: list[str] | None = None) -> int:
+    try:
+        cfg = _config(env, argv)
     except BudgetConfigError as e:
         print(e)
         return 1
     with tempfile.TemporaryDirectory() as tmp:
         db = Path(tmp) / "demo.db"
         seed.build(db)
-        rows1, first = _exchange(cfg, db, _script(intent_analysis_demo=[INTENT], synthesis=[SYN],
-                                                  support_scoring=[_gate("supported")]), Q, [])
+        m1, first = _exchange(cfg, db, _script(intent_analysis_demo=[INTENT], synthesis=[SYN],
+                                               support_scoring=[_gate("supported")]), Q, [])
         follow = _script(question_rewriting=[{"question": "Which suppliers delivered late by promised date "
                                                           "in weeks 1 to 13?", "carried_from_history": True}],
                          intent_analysis_demo=[INTENT], synthesis=[SYN], synthesis_redraft=[SYN_ONE],
                          support_scoring=[_gate("supported", "uncovered"), _gate("supported")])
-        rows2, _ = _exchange(cfg, db, follow, "And by promised date?", [first.exchange])
+        m2, _ = _exchange(cfg, db, follow, "And by promised date?", [first.exchange])
 
-    print(f"Model {cfg.model_id}. Prices from backend/.env, no model called.")
+    source = "LiteLLM's local map" if argv and "--model" in argv else "backend/.env"
+    print(f"Model {cfg.model_id}: {cfg.price_in:g} in / {cfg.price_out:g} out per million, from {source}. "
+          f"No model called.")
     print("The scripted outputs here are accepted at once, so no feedback attempt is priced. Each content "
           "failure adds one call of about the same size as the one it repeats.")
-    t1, w1 = _print("A first question (3 calls)", rows1, cfg)
-    t2, w2 = _print("A follow-up with one regeneration (6 calls)", rows2, cfg)
-    print(f"\nCap per exchange {cfg.max_usd_per_exchange:.4f}. The worst case above "
-          f"{'fits' if max(w1, w2) <= cfg.max_usd_per_exchange else 'DOES NOT FIT: calls would be refused'}.")
-    print(f"Total cap {cfg.budget_usd:.2f}: about {int(cfg.budget_usd // max(t1, 1e-9))} first questions "
-          f"or {int(cfg.budget_usd // max(t2, 1e-9))} follow-ups at the ~ cost.")
+    t1, w1 = _print("A first question (3 calls)", m1.rows, cfg)
+    t2, w2 = _print("A follow-up with one regeneration (6 calls)", m2.rows, cfg)
+    cap = cfg.max_usd_per_exchange
+    print(f"\nCap per exchange {cap:.4f}.")
+    for title, m in (("first question", m1), ("follow-up", m2)):
+        path = m.path_worst or 0.0
+        print(f"  R7a reserves {path:.5f} for the path from synthesis on ({title}): "
+              f"{'fits' if path <= cap else 'DOES NOT FIT: stopped before synthesis'}")
+    print(f"  Every call's worst case together: {max(w1, w2):.5f} "
+          f"({'fits' if max(w1, w2) <= cap else 'the cap would refuse the last calls'})")
+    budget = cfg.budget_usd
+    print(f"\nTotal {budget:.2f} covers about {int(budget // max(t1, 1e-9))} first questions or "
+          f"{int(budget // max(t2, 1e-9))} follow-ups at the ~ cost; "
+          f"{int(budget // min(cap, max(w1, w2)))} follow-ups if every call of them hit its worst case; "
+          f"and {int(budget // cap)} exchanges if each spent its whole cap, which nothing above exceeds.")
     return 0
 
 
 if __name__ == "__main__":
-    sys.exit(main())
+    sys.exit(main(argv=sys.argv[1:]))
