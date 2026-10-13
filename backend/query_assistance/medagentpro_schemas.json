@@ -970,6 +970,13 @@
                 "label": {
                   "type": "string"
                 },
+                "headers": {
+                  "type": "object",
+                  "additionalProperties": {
+                    "type": "string"
+                  },
+                  "$comment": "[demo extension, task 7 review] The name each column is shown by: the label in schema.json, or for an aggregate a phrase built from its expression in code. Never the model's alias, never model text."
+                },
                 "identifiers": {
                   "type": "array",
                   "items": {

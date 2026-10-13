@@ -79,12 +79,14 @@ export const api = {
     if (!res.ok || !res.body) throw new ApiError(res.status, await detail(res));
 
     let result: Omit<ExchangeItem, "posed" | "rating" | "at"> | null = null;
-    let error: string | null = null;
+    let error: { message: string; status: number } | null = null;
     const parser = createSseParser(({ event, data }) => {
       const payload = JSON.parse(data);
       if (event === "stage") opts.onStage?.(payload.stage as Stage);
       else if (event === "result") result = payload;
-      else if (event === "error") error = payload.error ?? "The request could not be completed.";
+      // T7-B1: a wait for a busy conversation that ran out ends as an error event carrying 409
+      else if (event === "error")
+        error = { message: payload.error ?? "The request could not be completed.", status: payload.status ?? 500 };
     });
     const reader = res.body.getReader();
     for (;;) {
@@ -92,7 +94,10 @@ export const api = {
       if (done) break;
       parser.push(value);
     }
-    if (error) throw new ApiError(500, error);
+    if (error) {
+      const { message, status } = error as { message: string; status: number };
+      throw new ApiError(status, message);
+    }
     if (!result) throw new ApiError(0, "The answer did not arrive.");
     return result;
   },

@@ -133,7 +133,11 @@ PATHS: list[Path] = [
          ("http:401", "http:403", "http:404", "http:409", "http:422"), "S2 · S3 · R8"),
     Path("server_rating", f"{P}::test_server_rating_rules",
          ("endpoint:POST /api/exchanges/{exchange_id}/rating", "stage:rating"), "FR 12 · K4 · Test 16"),
-    Path("server_one_at_a_time", f"{P}::test_server_one_question_at_a_time_per_conversation", (), "task 6"),
+    Path("server_one_at_a_time", f"{P}::test_server_one_question_at_a_time_per_conversation", (),
+         "task 6 · T7-B1", "a second question waits for the conversation, then runs after the first"),
+    Path("server_waits_for_abandoned_exchange",
+         f"{P}::test_server_waits_for_abandoned_exchange_then_refuses_when_the_wait_runs_out", (),
+         "T7-B1 (c) · R8", "the wait is bounded: error event with status 409, the conversation untouched"),
     Path("server_listing_and_health", f"{B}::test_server_listing_and_health",
          ("endpoint:GET /api/conversations", "endpoint:GET /api/health"), "S3"),
 ]

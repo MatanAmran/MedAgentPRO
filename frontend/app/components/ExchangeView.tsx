@@ -5,6 +5,7 @@ import type { ExchangeItem, Rating, Stage } from "@/lib/types";
 import { ReadingCard } from "./ReadingCard";
 
 export const STAGE_TEXT: Record<Stage, string> = {
+  waiting: "Finishing the previous question",
   rewriting: "Reading the question in context",
   intent: "Planning what to look up",
   retrieval: "Retrieving records",

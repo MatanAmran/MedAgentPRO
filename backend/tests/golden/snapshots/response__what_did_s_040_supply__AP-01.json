@@ -3,11 +3,15 @@
  "outcome": "answered",
  "readings": [
   {
-   "checked": "Examined: commitments where commitments.supplier_id = 'S-040'",
+   "checked": "Examined: purchase order lines where supplier = 'S-040'",
    "columns": [
     "po_id",
     "part_id"
    ],
+   "headers": {
+    "part_id": "part",
+    "po_id": "purchase order"
+   },
    "identifiers": [
     "po_id",
     "part_id"

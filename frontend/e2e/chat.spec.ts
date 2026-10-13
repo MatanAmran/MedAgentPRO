@@ -71,15 +71,14 @@ async function openNewest(page: Page) {
   await page.getByTestId("conversations").getByRole("button").first().click();
 }
 
-// Gap T7-B1: the server frees the conversation when the abandoned exchange ends, which is after the
-// model call already under way. A question sent at once is refused with 409. Whether the server should
-// free it at once is open (00_STATUS.md, task 7). Fixing it makes this test pass and fail the mark.
+// T7-B1 (c): the new question waits on the server while the abandoned exchange finishes the call
+// under way, shows that it is waiting, and is then answered, never refused
 test("B1: reload mid-stream, then at once a new question in the same conversation is taken", async ({ page }) => {
-  test.fail(true, "T7-B1: the conversation is busy until the call under way ends");
   await reloadMidStream(page);
   await openNewest(page);
   await ask(page, WHY);
-  await expect(page.getByTestId("referral")).toBeVisible({ timeout: 5_000 });
+  await expect(page.getByTestId("referral")).toBeVisible({ timeout: 20_000 });
+  await expect(page.getByText("still being answered")).toHaveCount(0);
 });
 
 test("B1: reload mid-stream; once the abandoned exchange ends, the conversation takes a new question", async ({

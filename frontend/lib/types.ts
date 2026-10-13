@@ -19,6 +19,7 @@ export interface Reading {
   row_count: number;
   result?: "rows_returned" | "empty_no_match" | "empty_unknown_entity";
   columns?: string[];
+  headers?: Record<string, string>; // [demo extension] the name each column is shown by, from the catalog
   identifiers?: string[]; // [demo extension] Q3: columns that select an identifier
   rows?: Record<string, Cell>[];
   total?: number;
@@ -80,6 +81,7 @@ export interface Health {
 }
 
 export type Stage =
+  | "waiting" // T7-B1: the conversation is finishing an earlier question
   | "rewriting"
   | "intent"
   | "retrieval"

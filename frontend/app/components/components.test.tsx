@@ -168,3 +168,20 @@ describe("the question box (R8)", () => {
     expect((screen.getByLabelText("Send") as HTMLButtonElement).disabled).toBe(true);
   });
 });
+
+describe("readable names (task 7 review, item 2)", () => {
+  it("heads each column by its name from the catalog, not the model's alias", () => {
+    render(
+      <ReadingCard
+        reading={reading({
+          columns: ["supplier_id", "late_count"],
+          headers: { supplier_id: "supplier", late_count: "number of records" },
+          rows: [{ supplier_id: "S-008", late_count: 4 }],
+          row_count: 1,
+        })}
+      />,
+    );
+    const heads = screen.getAllByRole("columnheader").map((h) => h.textContent);
+    expect(heads).toEqual(["supplier", "number of records"]);
+  });
+});

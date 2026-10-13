@@ -879,6 +879,54 @@ workflow ב-GitHub Actions · בדיקות Playwright, **על שלושת המנ�
 10. **שורת התקדמות** בזמן ריצה ("Retrieving records…"), הודעת `withheld`, בקשת קלט, הודעות כשל, ושורת עלות במודל האמיתי — מצבים שאין להם מסך באיור
 11. **אגודלים** — תווי Unicode, לא אייקונים באיור. בלי ספריית אייקונים, לפי התוכנית
 
+### משימה 7 — סקירה בצ׳אט (13.10). **מאושרת, עם שלושה דברים לפני PR**
+
+**נבדק:** הסיכום, וצילום המסך `task7_screen.png`. המסך עובד ונאמן למבנה של איור 15. **הממצא ב-Q4 נכון ומטופל נכון** (`_check_span` מקבל גם קטע מהשכתוב — המונח עובר לתשובה רק אם הוא מהשאלה כפי שנשאלה). `identifiers` בחוזה, שדרוג `next` בגלל ה-RCE, ו-`--scripted-delay` — מאושרים.
+
+1. **T7-B1 — (ג).** שאלה חדשה לשיחה שעדיין `busy` **ממתינה בשרת** שהשיחה תתפנה, עד `MODEL_REQUEST_TIMEOUT_SECONDS` + 10 שניות, ובינתיים הזרם שולח אירוע `stage` בשם `waiting` ("Finishing the previous question…"). אם לא התפנתה — 409 כמו היום. **לא (ב):** שני חילופים במקביל בשיחה אחת שוברים את ההיסטוריה ואת NFR 27. ההמתנה היא **לא ניסיון חוזר** — הבקשה אחת, וה-`request_id` אחד (R8 נשמר). בדיקת ה-Playwright של T7-B1 צריכה לעבור, ולהסיר את `test.fail`. מסלול חדש במפה (`server_waits_for_abandoned_exchange`)
+2. **שמות קריאים (סטייה 6, ומה שתוכנן מאז משימה 4):** היום "Examined" וכותרות הטבלה מציגים שמות טכניים (`commitments.week`, `supplier_id`, `late_count`). להוסיף ל-`demo_data\schema.json` שדה `label` לכל טבלה ועמודה ("purchase commitments", "week", "supplier"), ולהשתמש בו ב-"Examined" ובכותרות העמודות. כינוי של צבירה — מהביטוי, בקוד: `COUNT(*)` ← "number of records", `SUM(col)` ← "total {label}". **הכל מהקטלוג ומהתוכנית, לא טקסט מודל.** golden יתעדכן — להראות את הדיף. ‏**`label` הוא חובה** לכל עמודה (בדיקה בקטלוג), כדי שעמודה חדשה לא תופיע בשם טכני
+3. **מחוון הפיתוח של Next** (העיגול "N" בפינה) לא יופיע בדמו: הדמו רץ מ-`npm run build && npm run start`, או `devIndicators: false`. להוסיף ל-`CLAUDE.md`, תחת Commands, איך מריצים את הדמו (שרת + מסך) בפקודות
+
+**אחרי שלושתם:** ‏`path_map`, כל הסטים, ו-PR של `task7/chat-screen` ל-`master` — **לעצור לפני push ולהראות לאביתר מה עולה**, כמו ב-PR #1.
+
+**שלושת הסעיפים — בוצעו (13.10).** commit מקומי בענף, **בלי push**:
+1. **T7-B1 (ג):**
+   - **איך זה עובד:** שאלה לשיחה `busy` ממתינה על ה-worker, ובינתיים יוצא אירוע `stage` בשם `waiting` ("Finishing the previous question…").
+     - **גבול ההמתנה:** `WAIT_FOR_CONVERSATION_SECONDS` = ‏`MODEL_REQUEST_TIMEOUT_SECONDS` + 10, כלומר 130 שניות.
+     - **השינוי ב-`state.begin`:** פוצל לשלושה — ‏`claim_request` (המזהה נתפס מיד, R8), ‏`take`, ו-`wait_and_take`. ההמתנה על `threading.Condition`, ו-`finish` מעיר אותה.
+     - **ניתוק בזמן ההמתנה:** כלום לא רץ.
+     - **שחרור השיחה:** `release_if_unstarted` משחרר רק שיחה שהבקשה הזו תפסה, לעולם לא את של חילוף אחר.
+   - **סטייה בנוסח:** "409 כמו היום" — כשההמתנה נגמרת, הזרם (והסטטוס 200 שלו) כבר התחיל, אז אי אפשר להחזיר 409 כסטטוס HTTP. במקום זה נשלח אירוע `error` עם `"status": 409` וההודעה של היום. המסך מציג אותה כמו קודם.
+   - **בדיקות:**
+     - `test_server_one_question_at_a_time_per_conversation` נכתבה מחדש: השאלה השנייה ממתינה, רצה אחרי הראשונה, ושתיהן נרשמות לפי הסדר.
+     - מסלול חדש במפה, `server_waits_for_abandoned_exchange`: ההמתנה נגמרת ← אירוע 409, והשיחה לא נגעה.
+     - **ה-`test.fail` הוסר,** ובדיקת ה-Playwright של T7-B1 עוברת.
+2. **שמות קריאים:**
+   - **`label` לכל טבלה, עמודה ומדד ב-`demo_data\schema.json`.** למשל: ‏`commitments` ← "purchase order lines", ‏`due_date` ← "requested date", ‏`quantity` ← "ordered quantity", ובקבלות "receipt quantity".
+   - **שתי בדיקות קטלוג:**
+     - `label` חובה לכל טבלה, עמודה ומדד.
+     - שם קריא משותף מותר רק לעמודות עם אותו שם טכני (`supplier_id` ← "supplier" בכל טבלה). ככה "Examined" לא יכול להיות דו-משמעי.
+   - **ב-"Examined", בכותרות העמודות (`headers`, ‏`[demo extension]`) ובשורת המיון:**
+     - צבירה מקבלת שם מהביטוי: "number of records", ‏"count of {label}", ‏"total/lowest/highest {label}".
+     - **הכינוי של המודל (`late_count`) לא מוצג עוד,** וגם לא השם הטכני של המדד בסוגריים. תיאור המדד העסקי נשאר.
+   - **קטלוג בלי `label`:** הקטלוג של בדיקות המהדר נשאר כמו שהוא, והקוד חוזר לשמות הטכניים.
+   - **לא נגע בפרומפט:** תבנית ה-schema בפרומפט לא מציגה `label`, ולכן ה-golden של הפרומפטים לא השתנה. מה שהמודל רואה לא השתנה.
+   - **הדיף ב-golden:** למשל "Examined: commitments where commitments.week between 1 and 13 and delivered after the requested date (late_by_delivery) · grouped by supplier_id · computed the number of records as late_count" ← "Examined: purchase order lines where week between 1 and 13 and delivered after the requested date · grouped by supplier · computed the number of records". ‏"ordered by late_count" ← "ordered by number of records". ונוסף `headers`.
+3. **מחוון הפיתוח:** `devIndicators: false` ב-`next.config.ts`. ב-`CLAUDE.md` נוספו פקודות הדמו: `python -m main`, ‏`npm run build`, ‏`npm run start`. ה-build נבדק במחשב ועובר.
+
+**הריצה:**
+
+| סט | תוצאה |
+|---|---|
+| backend | **647 עוברות**, 1 מדולגת · ruff ו-bandit נקיים · `path_map` עודכן |
+| Vitest | **40 עוברות** |
+| Playwright על Edge | **8 עוברות**, בלי כישלון צפוי |
+| next build | עובר |
+
+צילום המסך `task7_screen.png` עודכן.
+
+**לאביתר — סטיות מאיור 15:** רובן מוצדקות (פירוט למעלה). אחרי סעיף 2, סטייה 6 נסגרת ברובה. **לא חובה לעדכן את האיור בספר** — האיור הוא איור של הכוונה, והמסך עומד בו. אם בכל זאת: כותרת הקריאה וטקסט התשובה הם השינויים היחידים שקורא יבחין בהם.
+
 ## מה שנסגר בסבב האחרון
 
 - **הקוד עבר לריפו** — `MedAgentPro\backend` (`query_assistance`, `model_client`, `persistence`, `shared`, `tests`). **`03_Code` נשאר כמקור ומעודכן.** `python -m pytest -q` מתוך `backend`

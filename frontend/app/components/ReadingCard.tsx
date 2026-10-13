@@ -26,7 +26,7 @@ function Table({ reading }: { reading: Reading }) {
           <tr className="border-b border-zinc-200 text-zinc-500">
             {cols.map((c) => (
               <th key={c} className="py-1 pr-4 font-medium">
-                {c}
+                {reading.headers?.[c] ?? c}
               </th>
             ))}
           </tr>
@@ -62,7 +62,7 @@ function Grouped({ reading, by, groups }: { reading: Reading } & NonNullable<Ret
                   <Value key={c} column={c} value={row[c] ?? null} ids={ids} />
                 ) : (
                   <span key={c} className="text-sm text-zinc-600">
-                    {c} {formatCell(row[c] ?? null)}
+                    {reading.headers?.[c] ?? c} {formatCell(row[c] ?? null)}
                   </span>
                 ),
               )}

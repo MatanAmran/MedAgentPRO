@@ -23,6 +23,7 @@ const READING_KEYS = [
   "row_count",
   "result",
   "columns",
+  "headers",
   "identifiers",
   "rows",
   "total",

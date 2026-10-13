@@ -26,7 +26,7 @@ from .compiler import HERE, Catalog, RetrievalResult
 from .synthesis import format_value
 
 CMP = {"EQ": "=", "NE": "≠", "GT": ">", "GTE": "≥", "LT": "<", "LTE": "≤"}
-AGG = {"SUM": "summed", "MIN": "lowest", "MAX": "highest"}
+AGG = {"SUM": "total", "MIN": "lowest", "MAX": "highest"}
 
 _BUNDLE = json.loads((HERE / "medagentpro_schemas.json").read_text(encoding="utf-8"))
 _ENTRY = _BUNDLE["schemas"]["exchange_response"]
@@ -42,27 +42,49 @@ class ContractError(Exception):
 # what was examined (FR 11, Test 34)
 # --------------------------------------------------------------------------
 
+# Readable names (task 7 review, item 2): every table, column and metric of schema.json carries a
+# label, and "Examined", the column headers and the order caption use it. The name an aggregate is
+# shown by comes from its expression, here; never from the alias the model chose, nor any model text.
+# A catalog without labels (the compiler tests' placeholder) falls back to the technical names.
+
+def _table(name: str, cat: Catalog) -> str:
+    return cat.entities[name].get("label", name)
+
+
+def _column(qualified: str, cat: Catalog) -> str:
+    return (cat.column(qualified) or {}).get("label", qualified)
+
+
+def _metric(name: str, cat: Catalog) -> str:
+    return cat.metrics[name].get("label", name)
+
+
 def _operand(node: dict, cat: Catalog) -> str:
     if "col" in node:
-        return node["col"]
+        return _column(node["col"], cat)
     if "metric" in node:
-        return node["metric"]
+        return _metric(node["metric"], cat)
     if "func" in node:
-        return _func(node)
+        return _func(node, cat)
     return format_value(node["value"]) if not isinstance(node["value"], str) else f"'{node['value']}'"
 
 
-def _func(node: dict) -> str:
+def _func(node: dict, cat: Catalog) -> str:
     if node["arg"] == "*":
-        return "the number of records"
-    col = node["arg"]["col"]
-    return f"the number of {col}" if node["func"] == "COUNT" else f"{AGG[node['func']]} {col}"
+        return "number of records"
+    col = _column(node["arg"]["col"], cat)
+    return f"count of {col}" if node["func"] == "COUNT" else f"{AGG[node['func']]} {col}"
+
+
+def headers(plan: dict, cat: Catalog) -> dict[str, str]:
+    """The name each output column is shown by, from the catalog and the expression."""
+    return {i["as"]: _operand(i["expr"], cat) for i in plan["SELECT"]}
 
 
 def _metric_phrase(name: str, cat: Catalog, negate: bool = False) -> str:
     desc = cat.metrics[name]["description"].rstrip(".")
     desc = desc[0].lower() + desc[1:]
-    return f"{'not ' if negate else ''}{desc} ({name})"
+    return f"{'not ' if negate else ''}{desc}"
 
 
 def _predicate(node: dict, cat: Catalog) -> str:
@@ -80,13 +102,13 @@ def _predicate(node: dict, cat: Catalog) -> str:
         return f"{_operand(a, cat)} {CMP[op]} {_operand(b, cat)}"
     if op == "IN":
         vals = ", ".join(_operand(v, cat) for v in arg[1])
-        return f"{arg[0]['col']} in ({vals})"
+        return f"{_column(arg[0]['col'], cat)} in ({vals})"
     if op == "BETWEEN":
-        return f"{arg[0]['col']} between {_operand(arg[1], cat)} and {_operand(arg[2], cat)}"
+        return f"{_column(arg[0]['col'], cat)} between {_operand(arg[1], cat)} and {_operand(arg[2], cat)}"
     if op == "IS_NULL":
-        return f"{arg['col']} not recorded"
+        return f"{_column(arg['col'], cat)} not recorded"
     if op == "IS_NOT_NULL":
-        return f"{arg['col']} recorded"
+        return f"{_column(arg['col'], cat)} recorded"
     raise AssertionError(op)
 
 
@@ -105,33 +127,36 @@ def _restricted(plan: dict, cat: Catalog, role: str) -> bool:
 
 def render_checked(plan: dict, cat: Catalog, role: str) -> str:
     """Fixed mapping from clause to phrase. No model writes it (exchange_response assembly rules)."""
-    parts = [f"Examined: {plan['FROM']}"]
+    named = headers(plan, cat)
+    parts = [f"Examined: {_table(plan['FROM'], cat)}"]
     scope = {plan["FROM"]}
     for j in plan.get("JOIN", []):
         rel = cat.relations[j["rel"]]
         other = rel["to"] if rel["from"] in scope else rel["from"]
         scope.add(other)
-        parts[0] += f" with {other}" if j["type"] == "INNER" else f" with {other} where held"
+        other_name = _table(other, cat)
+        parts[0] += f" with {other_name}" if j["type"] == "INNER" else f" with {other_name} where held"
     if "WHERE" in plan:
         parts[0] += f" where {_predicate(plan['WHERE'], cat)}"
     if plan.get("GROUP_BY"):
-        parts.append("grouped by " + ", ".join(plan["GROUP_BY"]))
-    aggs = [f"{_func(i['expr'])} as {i['as']}" for i in plan["SELECT"] if "func" in i["expr"]]
+        parts.append("grouped by " + ", ".join(named.get(g, g) for g in plan["GROUP_BY"]))
+    aggs = [_func(i["expr"], cat) for i in plan["SELECT"] if "func" in i["expr"]]
     if aggs:
-        parts.append("computed " + ", ".join(aggs))
+        parts.append("computed the " + ", the ".join(aggs))
     for h in plan.get("HAVING", []):
-        parts.append(f"kept where {h['agg']} {CMP[h['op']]} {format_value(h['value'])}")
+        parts.append(f"kept where {named.get(h['agg'], h['agg'])} {CMP[h['op']]} {format_value(h['value'])}")
     if _restricted(plan, cat, role):
         parts.append("limited to the records you hold")
     return " · ".join(parts)
 
 
-def render_order(plan: dict) -> str | None:
+def render_order(plan: dict, cat: Catalog | None = None) -> str | None:
     order = plan.get("ORDER_BY")
     if not order:
         return None
+    named = headers(plan, cat) if cat else {}
     return "ordered by " + ", then ".join(
-        f"{o['by']}, {'highest' if o['dir'] == 'DESC' else 'lowest'} first" for o in order)
+        f"{named.get(o['by'], o['by'])}, {'highest' if o['dir'] == 'DESC' else 'lowest'} first" for o in order)
 
 
 # --------------------------------------------------------------------------
@@ -167,6 +192,7 @@ def reading_view(label: str, plan: dict, result: RetrievalResult, cat: Catalog, 
         "checked": render_checked(plan, cat, role),
         "result": result.outcome,
         "columns": [i["as"] for i in plan["SELECT"]],
+        "headers": headers(plan, cat),   # task 7 review, item 2 [demo extension]
         # task 7, Q3 [demo extension]: which columns select an identifier, from schema.json, so the
         # screen can group and tag without reading meaning
         "identifiers": [i["as"] for i in plan["SELECT"] if "col" in i["expr"]
@@ -175,7 +201,7 @@ def reading_view(label: str, plan: dict, result: RetrievalResult, cat: Catalog, 
         "row_count": len(result.rows),
         "total": result.total,
     }
-    order = render_order(plan)
+    order = render_order(plan, cat)
     if order and result.rows:
         view["ordered_by"] = order
     if result.outcome == "empty_no_match":

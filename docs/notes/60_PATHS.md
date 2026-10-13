@@ -1,10 +1,10 @@
 # MedAgentPro — מפת המסלולים וההיתכנות
 
-**נוצר אוטומטית** ב-`python -m tools.path_map` (מתוך `backend\`), 13.10.2026 14:35. **לא לערוך ידנית** — המקור הוא `backend\tests\paths\registry.py` ו-`backend\tests\feasibility\constraints.py`.
+**נוצר אוטומטית** ב-`python -m tools.path_map` (מתוך `backend\`), 13.10.2026 15:06. **לא לערוך ידנית** — המקור הוא `backend\tests\paths\registry.py` ו-`backend\tests\feasibility\constraints.py`.
 
 **איך זה גדל:** `tests\paths\branches.py` קורא מהקוד ומהסכמות כל הסתעפות (מצב סיום, שלב, סוג כשל, `except`, הודעה, נקודת קצה, קוד HTTP, סוג פער, תפקיד). **הסתעפות בלי מסלול מפילה את `pytest`.** מגבלה שמתגלה (כמו הטמפרטורה) נכנסת כשורה ב-`constraints.py`, ושורה בלי בדיקה מפילה את `pytest`.
 
-**תוצאות:** 64 עוברים · 0 נכשלים · 0 פער ידוע · 0 דולגו
+**תוצאות:** 65 עוברים · 0 נכשלים · 0 פער ידוע · 0 דולגו
 
 ## מסלולים
 
@@ -72,7 +72,8 @@
 | ✅ | `server_disconnect_mid_exchange` | — | S1 |  |
 | ✅ | `server_refusals` | `http:401`, `http:403`, `http:404`, `http:409`, `http:422` | S2 · S3 · R8 |  |
 | ✅ | `server_rating` | `endpoint:POST /api/exchanges/{exchange_id}/rating`, `stage:rating` | FR 12 · K4 · Test 16 |  |
-| ✅ | `server_one_at_a_time` | — | task 6 |  |
+| ✅ | `server_one_at_a_time` | — | task 6 · T7-B1 | a second question waits for the conversation, then runs after the first |
+| ✅ | `server_waits_for_abandoned_exchange` | — | T7-B1 (c) · R8 | the wait is bounded: error event with status 409, the conversation untouched |
 | ✅ | `server_listing_and_health` | `endpoint:GET /api/conversations`, `endpoint:GET /api/health` | S3 |  |
 
 ## הסתעפויות בקוד, ומי מכסה כל אחת

@@ -6,7 +6,8 @@ MedAgentPro - what the chat server holds in memory (task 6).
   conversations   S3: held here, by id and owner. The history the rewriting stage and the identifier
                   check (NFR 27) read never comes from the client, which could forge it
   request ids     R8: one exchange per client request id; a repeated id is refused
-  one in flight   one question at a time per conversation, so its history is never read half written
+  one in flight   one question at a time per conversation, so its history is never read half written.
+                  A question for a busy conversation waits for it, up to a bound (T7-B1), then is refused
   cancellation    S1: a gateway wrapper that refuses the next model call once nobody is waiting
 
 Deps is built once per server (N12) and shared by every request. A request gets a shallow copy whose
@@ -16,12 +17,13 @@ gateway is wrapped for cancellation, and, on the scripted model, bound to its qu
 from __future__ import annotations
 
 import threading
+import time
 import uuid
 from dataclasses import dataclass, field, replace
 from datetime import datetime, timezone
 from typing import Any, Callable
 
-from model_client.client import ModelConfig, ModelGateway, ModelResponse
+from model_client.client import MODEL_REQUEST_TIMEOUT_SECONDS, ModelConfig, ModelGateway, ModelResponse
 from query_assistance import prompts
 from query_assistance.pipeline import Deps, ExchangeCancelled, Outcome
 
@@ -65,12 +67,23 @@ class ConflictError(Exception):
     pass
 
 
+BUSY = "a question in this conversation is still being answered"
+
+# T7-B1 (task 7 review, option c): how long a question waits for its conversation to be free. The
+# exchange that holds it ends at the latest one model call after its client left (S1), so the
+# request timeout of that call, and a margin for the stages around it.
+WAIT_FOR_CONVERSATION_SECONDS = MODEL_REQUEST_TIMEOUT_SECONDS + 10
+
+
 class AppState:
-    def __init__(self, deps: Deps, mode: str, gateway_for: Callable[[str], ModelGateway]):
+    def __init__(self, deps: Deps, mode: str, gateway_for: Callable[[str], ModelGateway],
+                 wait_seconds: float = WAIT_FOR_CONVERSATION_SECONDS):
         self.deps = deps
         self.mode = mode                       # scripted | real
         self.gateway_for = gateway_for         # the question's gateway: bound on scripted, shared on real
+        self.wait_seconds = wait_seconds
         self._lock = threading.Lock()
+        self._freed = threading.Condition(self._lock)   # signalled when a conversation stops being busy
         self._conversations: dict[str, Conversation] = {}
         self._request_ids: set[str] = set()
 
@@ -103,17 +116,43 @@ class AppState:
 
     # --- one exchange --------------------------------------------------------
 
-    def begin(self, conv: Conversation, request_id: str) -> list[prompts.Exchange]:
-        """R8: a request id answers once. One question at a time per conversation. Returns the history
-        as it stands, which the exchange reads."""
+    def claim_request(self, request_id: str):
+        """R8: a request id answers once, whether its question runs, waits or is refused."""
         with self._lock:
             if request_id in self._request_ids:
                 raise ConflictError("this request id was already sent")
-            if conv.busy:
-                raise ConflictError("a question in this conversation is still being answered")
             self._request_ids.add(request_id)
+
+    def take(self, conv: Conversation) -> list[prompts.Exchange] | None:
+        """The conversation for this question, and its history as it stands; None if it is busy."""
+        with self._lock:
+            if conv.busy:
+                return None
             conv.busy = True
             return list(conv.history)
+
+    def wait_and_take(self, conv: Conversation, cancelled: threading.Event) -> list[prompts.Exchange] | None:
+        """T7-B1: waits for the conversation to be free, then takes it. None if the wait ran out or the
+        client left meanwhile. One request, one request id: this is not a retry (R8)."""
+        deadline = time.monotonic() + self.wait_seconds
+        with self._freed:
+            while conv.busy:
+                left = deadline - time.monotonic()
+                if cancelled.is_set() or left <= 0:
+                    return None
+                self._freed.wait(min(left, 0.25))
+            if cancelled.is_set():
+                return None
+            conv.busy = True
+            return list(conv.history)
+
+    def begin(self, conv: Conversation, request_id: str) -> list[prompts.Exchange]:
+        """The request id and the conversation at once, refusing a busy one (no wait)."""
+        self.claim_request(request_id)
+        history = self.take(conv)
+        if history is None:
+            raise ConflictError(BUSY)
+        return history
 
     def deps_for(self, question: str, cancelled: threading.Event) -> Deps:
         return replace(self.deps, gateway=Cancellable(self.gateway_for(question), cancelled))
@@ -126,6 +165,7 @@ class AppState:
                                    "recorded": outcome.recorded, "response": outcome.response,
                                    "cost": outcome.cost, "at": _now(), "rating": None})
             conv.busy = False
+            self._freed.notify_all()
 
     def rated(self, exchange_id: str, user: dict, rating: str):
         """Task 7, Q5: the item shows the rating last given, so the screen shows it after a reload.
