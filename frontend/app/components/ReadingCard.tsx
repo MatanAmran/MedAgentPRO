@@ -53,21 +53,23 @@ function Grouped({ reading, by, groups }: { reading: Reading } & NonNullable<Ret
   return (
     <div className="flex flex-col gap-2" data-testid="reading-groups">
       {groups.map((g, i) => (
-        <div key={i} className="flex flex-wrap items-baseline gap-2" data-testid="reading-group">
-          <span className="min-w-20 font-mono font-semibold">{formatCell(g.key)}</span>
-          {g.rows.map((row, j) => (
-            <span key={j} className="inline-flex items-baseline gap-1.5">
-              {rest.map((c) =>
-                ids.includes(c) ? (
-                  <Value key={c} column={c} value={row[c] ?? null} ids={ids} />
-                ) : (
-                  <span key={c} className="text-sm text-zinc-600">
-                    {reading.headers?.[c] ?? c} {formatCell(row[c] ?? null)}
-                  </span>
-                ),
-              )}
-            </span>
-          ))}
+        <div key={i} className="grid grid-cols-[6rem_1fr] items-baseline gap-2" data-testid="reading-group">
+          <span className="font-mono font-semibold">{formatCell(g.key)}</span>
+          <span className="flex flex-wrap items-baseline gap-x-3 gap-y-1.5">
+            {g.rows.map((row, j) => (
+              <span key={j} className="inline-flex items-baseline gap-1">
+                {rest.map((c) =>
+                  ids.includes(c) ? (
+                    <Value key={c} column={c} value={row[c] ?? null} ids={ids} />
+                  ) : (
+                    <span key={c} className="text-xs text-zinc-400">
+                      {reading.headers?.[c] ?? c} {formatCell(row[c] ?? null)}
+                    </span>
+                  ),
+                )}
+              </span>
+            ))}
+          </span>
         </div>
       ))}
     </div>

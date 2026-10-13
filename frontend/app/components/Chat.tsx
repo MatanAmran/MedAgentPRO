@@ -2,9 +2,10 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { api, ApiError, newRequestId } from "@/lib/api";
-import type { ConversationSummary, DemoUserId, ExchangeItem, Rating, Stage } from "@/lib/types";
+import type { ConversationSummary, DemoUserId, Example, ExchangeItem, Rating, Stage } from "@/lib/types";
 import { Header, Sidebar } from "./Chrome";
 import { Composer } from "./Composer";
+import { Examples } from "./Examples";
 import { ExchangeView, Pending } from "./ExchangeView";
 
 interface PendingState {
@@ -22,6 +23,7 @@ function message(e: unknown): string {
 export function Chat() {
   const [user, setUser] = useState<DemoUserId>("AP-01");
   const [mode, setMode] = useState<string | null>(null);
+  const [examples, setExamples] = useState<Example[]>([]);
   const [conversations, setConversations] = useState<ConversationSummary[]>([]);
   const [current, setCurrent] = useState<string | null>(null);
   const [items, setItems] = useState<ExchangeItem[]>([]);
@@ -48,6 +50,7 @@ export function Chat() {
 
   useEffect(() => {
     api.health().then((h) => setMode(h.mode), () => setLoadError("The chat server could not be reached."));
+    api.examples().then(setExamples, () => setExamples([]));
     return () => abort.current?.abort();
   }, []);
 
@@ -157,6 +160,23 @@ export function Chat() {
                 />
               ))}
               {pending && <Pending question={pending.question} stage={pending.stage} error={pending.error} />}
+              {/* task 8, A4: the scripted questions on an empty screen, and a follow-up under its question */}
+              {items.length === 0 && !pending && (
+                <Examples
+                  title="Try a question"
+                  examples={examples.filter((e) => !e.follows)}
+                  onAsk={send}
+                  disabled={locked}
+                />
+              )}
+              {items.length > 0 && !pending && (
+                <Examples
+                  title="Follow up"
+                  examples={examples.filter((e) => e.follows === items[items.length - 1].posed)}
+                  onAsk={send}
+                  disabled={locked}
+                />
+              )}
               <div ref={bottom} />
             </div>
           </div>
