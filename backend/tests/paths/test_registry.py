@@ -62,3 +62,13 @@ def test_every_test_of_the_path_suites_is_on_the_map():
     cases = {p.test for p in PATHS if "[" in p.test}
     for pid in (x[0] for x in test_paths.A_PATHS):
         assert f"test_paths.py::test_path[{pid}]" in cases, f"test_path[{pid}] is not in tests/paths/registry.py"
+
+
+def test_every_book_test_for_the_chat_has_a_test():
+    """Task 9: each of the book's tests for the chat and its screen is answered by a test that names it,
+    except the load-time one, which waits for the company's environment (task 9, B4) and which no test
+    here may claim."""
+    from tools.book_tests import BOOK_TESTS, coverage, missing
+    assert missing() == []
+    pending = [t.number for t in BOOK_TESTS if t.pending]
+    assert pending == [39] and not coverage().get(39)

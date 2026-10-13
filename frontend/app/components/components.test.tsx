@@ -191,3 +191,36 @@ describe("readable names (task 7 review, item 2)", () => {
     expect(heads).toEqual(["supplier", "number of records"]);
   });
 });
+
+describe("states are told apart by text, not colour (Test 40, task 9 B3)", () => {
+  const CASES: [string, ExchangeResponse][] = [
+    ["answered", GOLDEN["which_suppliers_were_late_in_weeks_1_to_13__AP-01"]],
+    ["referred_to_investigation", GOLDEN["why_is_s_014_late_so_often__AP-01"]],
+    ["no_supported_assertion", GOLDEN["which_supplier_delivered_the_most_lines_on_time_in__AP-01"]],
+    ["declined action", GOLDEN["update_the_promised_date_of_po_87213_to_20_october__AP-01"]],
+    ["source_unreachable", { outcome: "source_unreachable", readings: [], gaps: [], notice: "demo.db could not be reached. The question was not answered." }],
+    ["request_not_completed", { outcome: "request_not_completed", readings: [], gaps: [], notice: "The request could not be completed." }],
+  ];
+
+  it("each state carries words of its own, beyond the question", () => {
+    const words = CASES.map(([name, r]) => {
+      show(r);
+      const text = (screen.getByTestId("exchange").textContent ?? "").replace("A question?", "").trim();
+      cleanup();
+      expect(text, name).not.toBe("");
+      return text;
+    });
+    expect(new Set(words).size).toBe(CASES.length);
+  });
+
+  it("every control a person may act on is named in words", () => {
+    for (const [name, r] of CASES) {
+      show(r);
+      for (const b of screen.queryAllByRole("button")) {
+        const named = (b.getAttribute("aria-label") ?? b.textContent ?? "").trim();
+        expect(named, `${name}: a button with no name`).not.toBe("");
+      }
+      cleanup();
+    }
+  });
+});

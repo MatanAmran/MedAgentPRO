@@ -22,7 +22,7 @@ export function Header({
         </span>
         <span className="text-2xl font-bold tracking-tight text-zinc-900">MedAgentPro</span>
         {mode && (
-          <span className="ml-2 rounded bg-zinc-100 px-2 py-0.5 text-xs text-zinc-500" data-testid="mode">
+          <span className="ml-2 rounded bg-zinc-100 px-2 py-0.5 text-xs text-zinc-600" data-testid="mode">
             {mode === "real" ? "real model" : "scripted model"}
           </span>
         )}
@@ -45,7 +45,7 @@ export function Header({
               </option>
             ))}
           </select>
-          <span className="mt-0.5 text-[10px] uppercase tracking-wide text-zinc-400">demo, no authentication</span>
+          <span className="mt-0.5 text-[10px] uppercase tracking-wide text-zinc-600">demo, no authentication</span>
         </label>
       </div>
     </header>
@@ -75,7 +75,7 @@ export function Sidebar({
       >
         + New conversation
       </button>
-      <div className="text-sm font-semibold text-zinc-500">Conversations</div>
+      <div className="text-sm font-semibold text-zinc-600">Conversations</div>
       <ul className="flex flex-col gap-1" data-testid="conversations">
         {conversations.map((c) => (
           <li key={c.conversation_id}>
