@@ -14,12 +14,11 @@ import json
 import os
 import re
 import sqlite3
-import threading
 
 import pytest
+from constraints import CONSTRAINTS
 
 from api import routes  # noqa: F401  (imports the server's modules, as the server does)
-from constraints import CONSTRAINTS
 from demo_data import seed
 from demo_data.scripted import ScriptedDemoGateway, load_scripts
 from model_client import budget as b
@@ -28,7 +27,7 @@ from model_client.client import ModelConfig, ModelGateway, ModelResponse
 from persistence.audit_repository import AuditRepository, MemoryStorage
 from query_assistance import calls, compiler, prompts, synthesis
 from query_assistance import pipeline as pl
-from query_assistance.compiler import Catalog, CompileError, ROW_LIMIT, compile_intent, execute, intent_validator
+from query_assistance.compiler import ROW_LIMIT, Catalog, CompileError, compile_intent, execute, intent_validator
 from shared.circuit_breaker import CircuitBreaker, MemoryStore
 
 CAT = Catalog.load(seed.HERE / "schema.json", seed.HERE / "relations.json")
@@ -71,13 +70,6 @@ def model_entry() -> dict:
         pytest.fail(f"{name} is not in LiteLLM's local map")
 
 
-@pytest.fixture(scope="module")
-def db_path(tmp_path_factory):
-    path = tmp_path_factory.mktemp("demo") / "demo.db"
-    seed.build(path)
-    return path
-
-
 MAX_SELECT = BUNDLE["intent_analysis"]["schema"]["$defs"]["plan"]["properties"]["SELECT"].get("maxItems", 99)
 
 
@@ -99,7 +91,7 @@ def worst_materials(db_path) -> tuple[str, list]:
         compiled = compile_intent(intent, prompts.compiler_conversation([], q, None), USERS["APPROVER"], CAT,
                                   intent_validator())
         mats = []
-        for reading, r in zip(intent["readings"], compiled.readings):
+        for reading, r in zip(intent["readings"], compiled.readings, strict=True):
             res = execute(r, conn)
             mats.append(synthesis.material(r.label, reading["plan"], res.rows, res.truncated, CAT))
         size = sum(len(json.dumps(m.rows, default=str)) for m in mats)
@@ -208,7 +200,8 @@ def test_T09_intent_schema_not_sent_while_it_exceeds(db_path):
     class Capture(ModelGateway):
         def invoke(self, prompt, config):
             seen.append(config)
-            return ModelResponse(json.dumps({"disposition": "refer_to_investigation"}), "x", 1, 1, config.prompt_identity)
+            return ModelResponse(json.dumps({"disposition": "refer_to_investigation"}), "x", 1, 1,
+                                 config.prompt_identity)
     audit = AuditRepository(MemoryStorage(), CircuitBreaker("s", MemoryStore()), b"k")
     pl.run("Why?", [], USERS["APPROVER"], pl.Deps(Capture(), "x", CAT, pl.connect_readonly(db_path), audit,
                                                   prompts.load(seed.HERE / "intent_analysis.md")))
@@ -296,7 +289,7 @@ def test_T14_no_hidden_retries_in_litellm():
 def test_L01_every_scripted_demo_question_runs_through_the_real_checks(db_path):
     scripts = load_scripts()
     assert scripts
-    for key, entry in scripts.items():
+    for entry in scripts.values():
         audit = AuditRepository(MemoryStorage(), CircuitBreaker("s", MemoryStore()), b"k")
         d = pl.Deps(ScriptedDemoGateway(entry["question"], scripts), "scripted-demo", CAT,
                     pl.connect_readonly(db_path), audit, prompts.load(seed.HERE / "intent_analysis.md"))

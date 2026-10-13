@@ -420,7 +420,8 @@ def test_reference_target_is_checked_within_entitlement():
 def test_unreadable_reference_falls_back_to_the_column(db):
     """Where the role may not read the referenced table, the column itself is checked,
     as it was before references were declared."""
-    import copy, json
+    import copy
+    import json
     schema = json.loads((c.HERE / "schema.json").read_text(encoding="utf-8"))
     rel = json.loads((c.HERE / "relations.json").read_text(encoding="utf-8"))
     del schema["entities"]["suppliers"]["entitlement"]["PLANNER"]
@@ -458,3 +459,8 @@ def test_each_reading_returns_under_its_label(db):
     res = run(intent(a, b), db)
     assert [r.label for r in res] == ["r0", "r1"]
     assert [r.rows for r in res] == [[{"n": 7}], [{"n": 7}]]
+
+
+def test_the_intent_validator_is_built_once_per_row_limit():
+    assert c.intent_validator() is c.intent_validator()
+    assert c.intent_validator(row_limit=5) is not c.intent_validator()

@@ -8,15 +8,31 @@ from __future__ import annotations
 
 import threading
 
-import pytest
-
 import branches
+import pytest
+from test_paths import (  # noqa: F401
+    AP,
+    APPROVER,
+    ENV,
+    INTENT,
+    LATE,
+    SYN,
+    Q,
+    Raw,
+    Script,
+    Server,
+    budgeted,
+    check_invariants,
+    check_stream,
+    gate_says,
+    happy,
+    make_deps,
+)
+
 from api.state import Cancellable
 from model_client.client import BudgetExceeded, ModelCallError
 from query_assistance import contract
 from query_assistance import pipeline as pl
-from test_paths import (APPROVER, ENV, INTENT, LATE, Q, SYN, Raw, Script, budgeted, check_invariants,  # noqa: F401
-                        db_path, gate_says, happy, ledger, make_deps, Server, check_stream, AP)
 
 # How to make a model call fail with each kind. A kind missing here fails its case below.
 PRODUCE_FAILURE = {
@@ -67,7 +83,8 @@ def test_every_model_failure_kind_at_the_gate_after_paying_for_synthesis(db_path
 def test_every_gap_kind_is_rendered_without_a_cause(db_path, kind):
     assert kind in GAP_ENTITY, f"new gap kind {kind!r}: add a valid entity to GAP_ENTITY"
     needs = {"kind": kind} if GAP_ENTITY[kind] is None else {"kind": kind, "entity": GAP_ENTITY[kind]}
-    intent = {"disposition": "retrieve", "readings": [LATE], "unresolved": [{"asked": "delivered late", "needs": needs}]}
+    intent = {"disposition": "retrieve", "readings": [LATE],
+              "unresolved": [{"asked": "delivered late", "needs": needs}]}
     gw = Script(intent_analysis_demo=[intent], synthesis=[SYN], support_scoring=[gate_says("supported")])
     d = make_deps(gw, db_path)
     out = pl.run(Q, [], APPROVER, d)

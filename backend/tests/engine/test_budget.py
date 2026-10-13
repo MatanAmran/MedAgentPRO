@@ -11,8 +11,14 @@ import pytest
 
 from demo_data import seed
 from model_client import budget as b
-from model_client.client import (BudgetExceeded, LiteLLMGateway, ModelCallError, ModelConfig, RateLimited,
-                                 ScriptedModelGateway)
+from model_client.client import (
+    BudgetExceeded,
+    LiteLLMGateway,
+    ModelCallError,
+    ModelConfig,
+    RateLimited,
+    ScriptedModelGateway,
+)
 from persistence.audit_repository import AuditRepository, MemoryStorage
 from query_assistance import contract, dry_run, pipeline, prompts
 from query_assistance.compiler import Catalog
@@ -26,13 +32,6 @@ CFG = ModelConfig("test-model", prompt_identity="x@1")
 
 def config(**over):
     return b.BudgetConfig.from_env({**ENV, **over})
-
-
-@pytest.fixture
-def ledger(tmp_path):
-    lg = b.SpendLedger(tmp_path / "spend.json")
-    yield lg
-    lg.close()
 
 
 def gateway(ledger, inner=None, clock=None, **over):
@@ -259,13 +258,6 @@ def test_real_gateway_is_never_built_under_pytest(tmp_path):
 # --------------------------------------------------------------------------
 # in the pipeline
 # --------------------------------------------------------------------------
-
-@pytest.fixture(scope="module")
-def db_path(tmp_path_factory):
-    path = tmp_path_factory.mktemp("demo") / "demo.db"
-    seed.build(path)
-    return path
-
 
 def deps(gw, db_path, storage):
     return pipeline.Deps(gw, "test-model", Catalog.load(seed.HERE / "schema.json", seed.HERE / "relations.json"),

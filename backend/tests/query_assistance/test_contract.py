@@ -53,7 +53,8 @@ def test_checked_reads_the_metric_as_its_business_term():
 
 
 def test_two_readings_differ_exactly_where_the_term_was_open():
-    other = dict(LATE, WHERE={"AND": [LATE["WHERE"]["AND"][0], {"EQ": [{"metric": "late_by_promise"}, {"value": True}]}]})
+    other = dict(LATE, WHERE={"AND": [LATE["WHERE"]["AND"][0],
+                                      {"EQ": [{"metric": "late_by_promise"}, {"value": True}]}]})
     a, b = k.render_checked(LATE, CAT, "APPROVER"), k.render_checked(other, CAT, "APPROVER")
     assert "delivered after the requested date" in a
     assert "the supplier committed to a date after the requested date" in b
@@ -76,7 +77,8 @@ def test_checked_covers_each_clause():
                        {"expr": {"func": "SUM", "arg": {"col": "commitments.line_value"}}, "as": "value"}],
             "FROM": "commitments",
             "JOIN": [{"rel": "commitment_order", "type": "INNER"}, {"rel": "order_supplier", "type": "LEFT"}],
-            "WHERE": {"AND": [{"OR": [{"IN": [{"col": "commitments.supplier_id"}, [{"value": "S-001"}, {"value": "S-002"}]]},
+            "WHERE": {"AND": [{"OR": [{"IN": [{"col": "commitments.supplier_id"},
+                                              [{"value": "S-001"}, {"value": "S-002"}]]},
                                       {"GT": [{"col": "commitments.quantity"}, {"value": 100}]}]},
                               {"IS_NULL": {"col": "commitments.delivered_at"}},
                               {"EQ": [{"metric": "late_by_promise"}, {"value": False}]}]},
@@ -152,7 +154,8 @@ def test_gap_is_filled_from_its_template(kind, entity, text):
 # --------------------------------------------------------------------------
 
 def test_answered_with_two_readings_and_a_gap(db):
-    other = dict(LATE, WHERE={"AND": [LATE["WHERE"]["AND"][0], {"EQ": [{"metric": "late_by_promise"}, {"value": True}]}]})
+    other = dict(LATE, WHERE={"AND": [LATE["WHERE"]["AND"][0],
+                                      {"EQ": [{"metric": "late_by_promise"}, {"value": True}]}]})
     views = [k.reading_view("late_by_delivery", LATE, run(db, LATE), CAT, "APPROVER"),
              k.reading_view("late_by_promise", other, run(db, other), CAT, "APPROVER")]
     resp = k.answered(views, [{"asked": "and their buyer", "needs": {"kind": "no_such_column", "entity": "suppliers"}}],

@@ -105,7 +105,8 @@ class CircuitBreaker:
         self.cooldown = cooldown
         self.clock = clock
         k = f"breaker:{dependency}:"
-        self.k_state, self.k_fail, self.k_opened, self.k_probe = k + "state", k + "failures", k + "opened_at", k + "probe"
+        self.k_state, self.k_fail = k + "state", k + "failures"
+        self.k_opened, self.k_probe = k + "opened_at", k + "probe"
 
     # --- Figure 6 ----------------------------------------------------------
 

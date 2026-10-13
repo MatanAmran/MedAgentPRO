@@ -24,8 +24,7 @@ from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from typing import Any, Callable
 
-from shared.circuit_breaker import CircuitBreaker
-from shared.circuit_breaker import log
+from shared.circuit_breaker import CircuitBreaker, log
 
 # PROVISIONAL (review R4, P7). LiteLLM's own default is 6000 seconds. 120 is enough for the output cap,
 # and response time is measured to the first token anyway (Table 15).

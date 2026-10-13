@@ -10,7 +10,6 @@ import json
 import logging
 import shutil
 import sqlite3
-import threading
 import uuid
 
 import pytest
@@ -19,7 +18,7 @@ from fastapi.testclient import TestClient
 import main
 from demo_data import seed
 from model_client import budget as b
-from model_client.client import LiteLLMGateway, ModelConfig, ScriptedModelGateway
+from model_client.client import LiteLLMGateway, ScriptedModelGateway
 from persistence.audit_repository import AuditRepository, MemoryStorage
 from query_assistance import compiler as c
 from query_assistance import pipeline as pl
@@ -30,13 +29,6 @@ CAT = c.Catalog.load(seed.HERE / "schema.json", seed.HERE / "relations.json")
 APPROVER = {"role": "APPROVER", "user_id": "AP-01"}
 PLANNER = {"role": "PLANNER", "user_id": "PL-02"}
 ROLES = [APPROVER, PLANNER]
-
-
-@pytest.fixture(scope="module")
-def db_path(tmp_path_factory):
-    path = tmp_path_factory.mktemp("demo") / "demo.db"
-    seed.build(path)
-    return path
 
 
 def run_plan(plan, db_path, user=APPROVER, question="q", label="r"):

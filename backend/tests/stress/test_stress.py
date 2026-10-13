@@ -10,7 +10,6 @@ No test reaches a real model (6.1).
 
 import asyncio
 import json
-import threading
 import time
 import uuid
 from concurrent.futures import ThreadPoolExecutor
@@ -39,13 +38,6 @@ APPROVER = {"role": "APPROVER", "user_id": "AP-01"}
 # ordinary slow run does not.
 MEASURED_SECONDS = 11.2
 BOUND_SECONDS = 3 * MEASURED_SECONDS
-
-
-@pytest.fixture(scope="module")
-def db_path(tmp_path_factory):
-    path = tmp_path_factory.mktemp("demo") / "demo.db"
-    seed.build(path)
-    return path
 
 
 def _events(text: str) -> list[str]:

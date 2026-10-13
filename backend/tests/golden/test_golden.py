@@ -52,13 +52,6 @@ def as_json(obj) -> str:
     return json.dumps(obj, indent=1, ensure_ascii=False, sort_keys=True) + "\n"
 
 
-@pytest.fixture(scope="module")
-def db_path(tmp_path_factory):
-    path = tmp_path_factory.mktemp("demo") / "demo.db"
-    seed.build(path)
-    return path
-
-
 class _Recording(ModelGateway):
     def __init__(self, inner):
         self.inner, self.prompts = inner, {}

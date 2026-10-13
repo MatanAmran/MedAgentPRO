@@ -22,6 +22,7 @@ it and tells the user the request could not be completed (Test 13).
 from __future__ import annotations
 
 import copy
+import functools
 import json
 import re
 import sqlite3
@@ -157,7 +158,10 @@ class Catalog:
         return name in self.entities
 
 
+@functools.lru_cache(maxsize=None)
 def intent_validator(bundle_path=HERE / "medagentpro_schemas.json", row_limit=ROW_LIMIT):
+    """Built once per bundle and row limit: building it costs more than compiling a plan. The
+    validator is shared, so its schema is read, never changed."""
     bundle = json.loads(Path(bundle_path).read_text(encoding="utf-8"))
     schema = copy.deepcopy(bundle["schemas"]["intent_analysis"]["schema"])
     schema["$defs"]["plan"]["properties"]["LIMIT"]["maximum"] = row_limit
@@ -444,7 +448,7 @@ class _ReadingCompiler:
         # Entitlement: WHERE for FROM and INNER, ON for LEFT so the join stays a left join
         where_parts: list[tuple[str, list]] = []
         joins: list[tuple[str, list]] = []
-        for (jsql, jparams), (table, kind) in zip(self.join_sql, list(self.scope.items())[1:]):
+        for (jsql, jparams), (table, kind) in zip(self.join_sql, list(self.scope.items())[1:], strict=True):
             ent = self.entitlement(table)
             if ent and kind == "LEFT":
                 jsql, jparams = f"{jsql} AND {ent[0]}", jparams + ent[1]

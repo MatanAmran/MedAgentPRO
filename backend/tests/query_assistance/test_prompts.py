@@ -262,3 +262,15 @@ def test_nothing_kept_is_a_request_for_input():
     r = gate.evaluate(claims((1, "S-031 had 7 late commitments.", "uncovered", []),
                              (2, "S-044 had 2.", "uncovered", [])), SENTENCES, ALIASES)
     assert r.decision == "request_input" and r.supported == [False, False]
+
+@pytest.mark.parametrize("text, says", [
+    ("Just a body, no header.\n", "no header"),
+    ("---\nprompt: x\nversion 1\noutput_schema: y\n---\nbody\n", "is not 'key: value'"),
+    ("---\nprompt: x\nversion: 1\n---\nbody\n", "header lacks output_schema"),
+])
+def test_a_malformed_prompt_file_names_the_file_and_what_is_wrong(tmp_path, text, says):
+    f = tmp_path / "broken.md"
+    f.write_text(text, encoding="utf-8")
+    with pytest.raises(ValueError, match=re.escape(says)) as e:
+        p.load(f)
+    assert "broken.md" in str(e.value)

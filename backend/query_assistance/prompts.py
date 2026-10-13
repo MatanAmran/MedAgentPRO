@@ -48,10 +48,25 @@ class Prompt:
         return f"{self.name}@{self.version}"
 
 
-def load(file: str) -> Prompt:
-    text = (PROMPTS / file).read_text(encoding="utf-8")
+_HEADER_KEYS = ("prompt", "version", "output_schema")
+
+
+def load(file: str | Path) -> Prompt:
+    path = PROMPTS / file
+    text = path.read_text(encoding="utf-8")
     m = re.match(r"---\n(.*?)\n---\n", text, re.S)
-    meta = dict(line.split(": ", 1) for line in m.group(1).splitlines())
+    if m is None:
+        raise ValueError(f"{path.name}: no header; the file must open with a '---' block holding "
+                         f"{', '.join(_HEADER_KEYS)}")
+    meta: dict[str, str] = {}
+    for line in m.group(1).splitlines():
+        key, sep, value = line.partition(": ")
+        if not sep:
+            raise ValueError(f"{path.name}: header line {line!r} is not 'key: value'")
+        meta[key] = value
+    missing = [k for k in _HEADER_KEYS if k not in meta]
+    if missing:
+        raise ValueError(f"{path.name}: header lacks {', '.join(missing)}")
     return Prompt(meta["prompt"], meta["version"], meta["output_schema"], text[m.end():])
 
 

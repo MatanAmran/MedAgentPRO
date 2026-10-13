@@ -153,7 +153,7 @@ class Draft:
         for label, ss in self.sentences.items():
             m = self.materials[label]
             for s in ss:
-                for lab, alias, row in s.refs:
+                for _lab, alias, row in s.refs:
                     col = m.columns.get(alias)
                     if col and (cat.column(col) or {}).get("identifier"):
                         v = str(m.rows[row - 1][alias])
@@ -242,7 +242,8 @@ def check(output: dict, materials: list[Material], question: str) -> dict[str, l
                     reject(f"'{text}' references reading {lab} from reading {label}",
                            f"{at} references reading {lab}. A sentence references its own reading only")
                 if alias not in m.rows[0]:
-                    reject(f"{ref}: no field {alias} in reading {label}", f"{at}: {ref} names no field of reading {label}")
+                    reject(f"{ref}: no field {alias} in reading {label}",
+                           f"{at}: {ref} names no field of reading {label}")
                 if not 1 <= row <= len(m.rows):
                     reject(f"{ref}: reading {label} has {len(m.rows)} row(s)",
                            f"{at}: {ref} names row {row}, and reading {label} has {len(m.rows)}")

@@ -11,7 +11,7 @@ Adding to the system: a new branch makes test_registry fail; add the path's test
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 
 
 @dataclass(frozen=True)
@@ -51,7 +51,8 @@ PATHS: list[Path] = [
     # --- one exchange: rejected output and feedback -----------------------------
     _a("intent_fixed_by_feedback", [], "R4 feedback attempt · Test 13"),
     _a("intent_schema_breach_fixed_by_feedback", [], "R4 · P3 (intent breach = content)"),
-    _a("intent_rejected_twice", ["outcome:request_not_completed", "handler:run._Rejected", "notice:NOT_COMPLETED"], "Test 13"),
+    _a("intent_rejected_twice", ["outcome:request_not_completed", "handler:run._Rejected", "notice:NOT_COMPLETED"],
+       "Test 13"),
     _a("intent_not_json", [], "R4 format"),
     _a("synthesis_fixed_by_feedback", [], "R4 · F7, F11"),
     _a("synthesis_rejected_twice", [], "R4"),
@@ -104,12 +105,14 @@ PATHS: list[Path] = [
          ("budget:total", "notice:BUDGET_USED_UP", "handler:run.BudgetExceeded"), "task 5"),
     Path("exchange_cap", f"{P}::test_exchange_cap_stops_before_synthesis",
          ("budget:exchange", "notice:EXCHANGE_CAP"), "R7a · R7b"),
-    Path("budget_provider", f"{B}::test_budget_scope_provider_refusal_is_not_retried", ("budget:provider",), "task 5 · NFR 3",
+    Path("budget_provider", f"{B}::test_budget_scope_provider_refusal_is_not_retried", ("budget:provider",),
+         "task 5 · NFR 3",
          "G1 closed (13.10): the refused call is recorded as model_call_failed"),
     Path("budget_model", f"{B}::test_budget_scope_model_mismatch_sends_nothing", ("budget:model",), "task 5 · G2"),
     Path("rate_limit", f"{P}::test_rate_limit_refuses_before_any_call",
          ("handler:run.RateLimited", "notice:RATE_LIMITED"), "task 5 rate"),
-    Path("ledger_timeout_and_release", f"{P}::test_timeout_keeps_the_worst_case_charged_and_refused_connection_releases_it",
+    Path("ledger_timeout_and_release",
+         f"{P}::test_timeout_keeps_the_worst_case_charged_and_refused_connection_releases_it",
          (), "R4 · R5"),
     Path("cancelled_before_synthesis", f"{P}::test_cancelled_before_synthesis_makes_no_further_call",
          ("handler:run.ExchangeCancelled",), "S1"),
@@ -119,7 +122,8 @@ PATHS: list[Path] = [
          ("endpoint:POST /api/conversations", "endpoint:POST /api/conversations/{conversation_id}/exchanges",
           "endpoint:GET /api/conversations/{conversation_id}", "http:200", "http:201"), "S1 · S3 · decision 8"),
     Path("server_unreachable_then_goes_on", f"{P}::test_server_source_unreachable_then_goes_on", (), "FR 15 · S3"),
-    Path("server_worker_bug", f"{P}::test_server_bug_in_the_worker_ends_with_error_and_frees_the_conversation", (), "S1"),
+    Path("server_worker_bug", f"{P}::test_server_bug_in_the_worker_ends_with_error_and_frees_the_conversation", (),
+         "S1"),
     Path("server_gateway_build_fails", f"{P}::test_server_gateway_for_raising_frees_the_conversation", (), "B1"),
     Path("server_stream_never_read", f"{P}::test_server_stream_never_read_frees_the_conversation", (), "B1"),
     Path("server_disconnect_mid_exchange", f"{P}::test_server_disconnect_mid_exchange_stops_paying", (), "S1"),

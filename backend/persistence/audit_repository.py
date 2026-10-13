@@ -196,7 +196,7 @@ class AuditRepository:
                 inv = self.storage.get_investigation(run_id, tx) or {
                     "investigation_id": run_id, "audit_head": GENESIS, "audit_seq": 0}
                 inv.update(update or {})
-                for entry, record in zip(entries, records):
+                for entry, record in zip(entries, records, strict=True):
                     record["seq"] = inv["audit_seq"] + 1
                     record["prev_hash"] = inv["audit_head"]
                     record["hash"] = chain_hash(self.key, record)

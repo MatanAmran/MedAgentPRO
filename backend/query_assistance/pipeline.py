@@ -29,9 +29,9 @@ import sqlite3
 import uuid
 from concurrent.futures import ThreadPoolExecutor
 from contextlib import ExitStack
-from pathlib import Path
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
+from pathlib import Path
 from typing import Any, Callable
 
 from jsonschema import Draft202012Validator
@@ -45,8 +45,17 @@ from shared.circuit_breaker import log as operational_log
 from . import calls as model_calls
 from . import contract, gate, prompts, synthesis
 from .calls import MODEL_CALL_ATTEMPTS, Call, StageFailed, StageRejected
-from .compiler import HERE, Catalog, CompileError, CompiledReading, RetrievalResult, _norm, compile_intent, \
-    execute, intent_validator
+from .compiler import (
+    HERE,
+    Catalog,
+    CompiledReading,
+    CompileError,
+    RetrievalResult,
+    _norm,
+    compile_intent,
+    execute,
+    intent_validator,
+)
 from .synthesis import Draft
 
 _BUNDLE = json.loads((HERE / "medagentpro_schemas.json").read_text(encoding="utf-8"))["schemas"]
@@ -165,7 +174,7 @@ def _recorded(rec: _Record, ordinal: int, deps: Deps, run: Callable[[], tuple[An
         rec.calls(ordinal, e.calls, deps.model)
         raise _Rejected(f"{STAGE_NAMES[ordinal]}: {e}") from e
     except Exception as e:
-        rec.calls(ordinal, getattr(e, "calls_made", []), deps.model)
+        rec.calls(ordinal, model_calls.calls_made(e), deps.model)
         raise
     rec.calls(ordinal, made, deps.model)
     return result

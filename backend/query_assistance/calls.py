@@ -44,6 +44,16 @@ class SchemaBreach(OutputRejected):
     pass
 
 
+# An exception ask() does not handle (an open breaker, the budget, a cancellation, a bug) leaves with
+# the calls already made attached under this attribute, so the stage can still record them (NFR 3).
+# Set with setattr: the exception's type is not ours, and wrapping it would change what callers catch.
+_CALLS_MADE = "calls_made"
+
+
+def calls_made(e: BaseException) -> list[Call]:
+    return getattr(e, _CALLS_MADE, [])
+
+
 @dataclass
 class Call:
     prompt_identity: str
@@ -126,7 +136,7 @@ def ask(gateway: ModelGateway, model: str, prompt_identity: str, render: Callabl
             # recorded (NFR 3). The budget's own refusals, an open breaker and a cancellation sent nothing
             if isinstance(e, BudgetExceeded) and e.scope == "provider":
                 calls.append(Call(prompt_identity, None, is_feedback, f"budget: {e}"))
-            e.calls_made = calls
+            setattr(e, _CALLS_MADE, calls)
             raise
         problem = resp.problem()
         if problem:

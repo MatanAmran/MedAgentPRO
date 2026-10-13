@@ -137,7 +137,7 @@ def build(out: Path = DEFAULT_OUT, seed: int = 20261009) -> dict:
     # suppliers ---------------------------------------------------------
     suppliers = []
     profiles = _profile_plan(len(SUPPLIER_NAMES), rng)
-    for i, (name, prof) in enumerate(zip(SUPPLIER_NAMES, profiles), start=1):
+    for i, (name, prof) in enumerate(zip(SUPPLIER_NAMES, profiles, strict=True), start=1):
         region = rng.choice(list(REGIONS))
         suppliers.append(dict(supplier_id=f"S-{i:03d}", name=name, region=region,
                               country=rng.choice(REGIONS[region]), profile=prof))
@@ -158,8 +158,10 @@ def build(out: Path = DEFAULT_OUT, seed: int = 20261009) -> dict:
             reorder = rng.choice([20, 50, 100, 200, 500])
             r = rng.random()
             on_hand = 0 if r < 0.05 else rng.randint(0, reorder - 1) if r < 0.20 else rng.randint(reorder, reorder * 6)
-            bin_loc = None if rng.random() < 0.15 else f"{rng.choice('ABCDEF')}-{rng.randint(1, 30):02d}-{rng.randint(1, 6)}"
-            parts.append(dict(part_id=f"P-{10000 + n * 37}", description=f"{kind} {rng.choice('ABCDEFGHJK')}{rng.randint(10, 99)}",
+            bin_loc = None if rng.random() < 0.15 else \
+                f"{rng.choice('ABCDEF')}-{rng.randint(1, 30):02d}-{rng.randint(1, 6)}"
+            parts.append(dict(part_id=f"P-{10000 + n * 37}",
+                              description=f"{kind} {rng.choice('ABCDEFGHJK')}{rng.randint(10, 99)}",
                               category=cat, planner_id=rng.choice(PLANNERS), on_hand=on_hand,
                               reorder_point=reorder, bin_location=bin_loc,
                               suppliers=rng.sample(active, k=rng.choice([1, 1, 2, 2, 3])),
@@ -253,7 +255,7 @@ def build(out: Path = DEFAULT_OUT, seed: int = 20261009) -> dict:
                 status = "cancelled"
             elif any_open:
                 # a line received short is closed by the buyer once it is clearly final
-                status = "open" if any(l["delivered"] > DATA_CUTOFF - timedelta(days=30) for l in lines_here) \
+                status = "open" if any(ln["delivered"] > DATA_CUTOFF - timedelta(days=30) for ln in lines_here) \
                     else rng.choice(["open", "closed"])
             else:
                 status = "closed"

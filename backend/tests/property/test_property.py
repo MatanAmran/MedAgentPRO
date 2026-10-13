@@ -176,7 +176,7 @@ def test_every_valid_plan_compiles_to_safe_bounded_runnable_sql(rnd, role, conn)
     except c.CompileError:
         assume(False)
     sqls = [(r.sql, r.params), (r.count_sql, r.count_params)] + [(pr.sql, pr.params) for pr in r.probes]
-    for sql, params in sqls:
+    for sql, _params in sqls:
         assert "'" not in sql, sql
     for v in _literals(plan.get("WHERE")):
         if isinstance(v, str):           # with no quote in the SQL, a string can only be a parameter

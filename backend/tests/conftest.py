@@ -6,6 +6,8 @@ whichever module a test imports first.
 Property tests (marker "property") run in the ordinary run with hypothesis's default number of
 examples. Under -m stress they run again, with the "stress" profile: many more examples, no deadline
 (classic test set, item 4).
+
+The fixtures shared across test files live here, so no test file imports them from another.
 """
 
 import os
@@ -14,6 +16,9 @@ import pytest
 from hypothesis import HealthCheck, settings
 
 os.environ["LITELLM_LOCAL_MODEL_COST_MAP"] = "True"
+
+from demo_data import seed  # noqa: E402  (after the cost-map switch: imports reach LiteLLM)
+from model_client import budget as b  # noqa: E402
 
 settings.register_profile("stress", max_examples=2000, deadline=None,
                           suppress_health_check=[HealthCheck.too_slow, HealthCheck.filter_too_much])
@@ -36,3 +41,19 @@ def pytest_collection_modifyitems(config, items):
         for item in items:
             if item.get_closest_marker("property"):
                 item.add_marker(pytest.mark.stress)
+
+
+@pytest.fixture(scope="module")
+def db_path(tmp_path_factory):
+    """A freshly seeded demo store, one per test module."""
+    path = tmp_path_factory.mktemp("demo") / "demo.db"
+    seed.build(path)
+    return path
+
+
+@pytest.fixture
+def ledger(tmp_path):
+    """An empty spend ledger in the test's own directory."""
+    lg = b.SpendLedger(tmp_path / "spend.json")
+    yield lg
+    lg.close()

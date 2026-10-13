@@ -6,19 +6,27 @@ No test calls a real model (6.1) or reads backend/.env. The values below are mad
 
 import json
 import re
-import sqlite3
 from pathlib import Path
 
 import pytest
 
 from demo_data import seed
 from model_client import budget as b
-from model_client.client import (LiteLLMGateway, ModelCallError, ModelConfig, ModelResponse,
-                                 ScriptedModelGateway, classify)
+from model_client.client import (
+    LiteLLMGateway,
+    ModelCallError,
+    ModelConfig,
+    ModelResponse,
+    ScriptedModelGateway,
+    classify,
+)
 from persistence.audit_repository import AuditRepository, MemoryStorage
 from query_assistance import calls as mc
 from query_assistance import compiler as c
-from query_assistance import contract, pipeline as pl, prompts as p, synthesis as s
+from query_assistance import contract
+from query_assistance import pipeline as pl
+from query_assistance import prompts as p
+from query_assistance import synthesis as s
 from shared.circuit_breaker import CircuitBreaker, MemoryStore
 
 HERE = Path(__file__).parent
@@ -59,13 +67,6 @@ def model(**by_prompt):
 
 def prompts_of(gw, name):
     return [pr for pr, cfg in gw.calls if cfg.prompt_identity.startswith(name + "@")]
-
-
-@pytest.fixture(scope="module")
-def db_path(tmp_path_factory):
-    path = tmp_path_factory.mktemp("demo") / "demo.db"
-    seed.build(path)
-    return path
 
 
 @pytest.fixture
@@ -401,13 +402,6 @@ def test_feedback_never_carries_a_record_value(db_path, storage):
 # --------------------------------------------------------------------------
 # R5: the ledger
 # --------------------------------------------------------------------------
-
-@pytest.fixture
-def ledger(tmp_path):
-    lg = b.SpendLedger(tmp_path / "spend.json")
-    yield lg
-    lg.close()
-
 
 @pytest.mark.parametrize("error, charged", [
     (ModelCallError("client_error", "unsupported", reached_provider=False), False),

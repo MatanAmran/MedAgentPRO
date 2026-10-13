@@ -18,7 +18,6 @@ The interface language is English, as in the book's screens.
 from __future__ import annotations
 
 import json
-from dataclasses import dataclass
 from typing import Any
 
 from jsonschema import Draft202012Validator

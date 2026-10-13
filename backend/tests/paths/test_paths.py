@@ -19,6 +19,7 @@ No test reaches a real model (6.1).
 from __future__ import annotations
 
 import asyncio
+import itertools
 import json
 import re
 import sqlite3
@@ -34,7 +35,7 @@ from api.routes import router
 from api.state import AppState, Cancellable
 from demo_data import seed
 from model_client import budget as b
-from model_client.client import ModelCallError, ModelConfig, ModelGateway, ModelResponse, ScriptedModelGateway
+from model_client.client import ModelCallError, ModelConfig, ModelGateway, ModelResponse
 from persistence.audit_repository import AuditRepository, MemoryStorage
 from query_assistance import compiler as c
 from query_assistance import contract
@@ -85,7 +86,8 @@ SYN_ONE = {"readings": [{"label": "late", "sentences": [{"text": ONE}]}]}
 SYN_TWO_READINGS = {"readings": [
     {"label": "late", "sentences": [{"text": ONE}]},
     {"label": "promise", "sentences": [{"text": "{promise.supplier_id#1} had {promise.late_count#1}."}]}]}
-SYN_TYPED_DIGIT = {"readings": [{"label": "late", "sentences": [{"text": "7 suppliers, led by {late.supplier_id#1}."}]}]}
+SYN_TYPED_DIGIT = {"readings": [{"label": "late",
+                                  "sentences": [{"text": "7 suppliers, led by {late.supplier_id#1}."}]}]}
 SYN_NO_REFERENCE = {"readings": [{"label": "late", "sentences": [{"text": "Several suppliers were late."}]}]}
 
 
@@ -143,13 +145,6 @@ class Script(ModelGateway):
                              finish_reason="stop")
 
 
-@pytest.fixture(scope="module")
-def db_path(tmp_path_factory):
-    path = tmp_path_factory.mktemp("demo") / "demo.db"
-    seed.build(path)
-    return path
-
-
 def make_deps(gw, db_path, storage=None, connect=None, audit=None):
     storage = storage or MemoryStorage()
     audit = audit or AuditRepository(storage, CircuitBreaker("system_store", MemoryStore()), b"test-key")
@@ -176,7 +171,7 @@ def check_invariants(out, gw, d, question, *, outcome, recorded, calls=None, not
         assert made == calls, [cfg.prompt_identity for _, cfg in gw.calls]
     # no model stage resent with an identical prompt (task 5 review: no retry without a change in input)
     if gw is not None:
-        for (p1, c1), (p2, c2) in zip(gw.calls, gw.calls[1:]):
+        for (p1, c1), (p2, c2) in itertools.pairwise(gw.calls):
             if c1.prompt_identity == c2.prompt_identity:
                 assert p1 != p2, f"{c1.prompt_identity} resent unchanged"
     storage = d.audit.storage
@@ -253,7 +248,8 @@ A_PATHS = [
     ("intent_not_json", Q, APPROVER, False,
      dict(intent_analysis_demo=[Raw("this is not json")]), "request_not_completed", True, 1, None),
     ("synthesis_fixed_by_feedback", Q, APPROVER, False,
-     dict(intent_analysis_demo=[INTENT], synthesis=[SYN_TYPED_DIGIT, SYN_ONE], support_scoring=[gate_says("supported")]),
+     dict(intent_analysis_demo=[INTENT], synthesis=[SYN_TYPED_DIGIT, SYN_ONE],
+          support_scoring=[gate_says("supported")]),
      "answered", True, 4, None),
     ("synthesis_rejected_twice", Q, APPROVER, False,
      dict(intent_analysis_demo=[INTENT], synthesis=[SYN_TYPED_DIGIT, SYN_TYPED_DIGIT]),
@@ -283,9 +279,11 @@ A_PATHS = [
      dict(intent_analysis_demo=[INTENT], synthesis=[ModelCallError("client_error", "400 bad schema")]),
      "request_not_completed", True, 2, None),
     ("unexpected_exception", Q, APPROVER, False,
-     dict(intent_analysis_demo=[ModelCallError("unexpected", "RuntimeError: boom")]), "request_not_completed", True, 1, None),
+     dict(intent_analysis_demo=[ModelCallError("unexpected", "RuntimeError: boom")]),
+     "request_not_completed", True, 1, None),
     ("gate_raises_after_synthesis", Q, APPROVER, False,
-     dict(intent_analysis_demo=[INTENT], synthesis=[SYN], support_scoring=[ModelCallError("unexpected", "RuntimeError: boom")]),
+     dict(intent_analysis_demo=[INTENT], synthesis=[SYN],
+          support_scoring=[ModelCallError("unexpected", "RuntimeError: boom")]),
      "request_not_completed", True, 3, None),
     ("follow_up_rewritten", "And by promised date?", APPROVER, True,
      dict(question_rewriting=[{"question": "Which suppliers were late by promised date in weeks 1 to 13?",
@@ -435,13 +433,6 @@ def test_long_conversation_keeps_history_within_its_budget(db_path):
 ENV = {"ANTHROPIC_API_KEY": "test-key-not-real", "MODEL_ID": "scripted", "MODEL_PRICE_IN": "2",
        "MODEL_PRICE_OUT": "10", "MODEL_BUDGET_USD": "3.5", "MODEL_MAX_USD_PER_EXCHANGE": "0.25",
        "MODEL_MAX_OUTPUT_TOKENS": "2000", "MODEL_MAX_EXCHANGES_PER_MINUTE": "10"}
-
-
-@pytest.fixture
-def ledger(tmp_path):
-    lg = b.SpendLedger(tmp_path / "spend.json")
-    yield lg
-    lg.close()
 
 
 def budgeted(inner, ledger, **over):
@@ -728,7 +719,8 @@ def test_server_refuses_what_it_should(db_path):
 
 
 def test_server_rating_rules(db_path):
-    s = Server(db_path, {Q: Script(intent_analysis_demo=[INTENT], synthesis=[SYN], support_scoring=[gate_says("supported")]),
+    s = Server(db_path, {Q: Script(intent_analysis_demo=[INTENT], synthesis=[SYN],
+                                   support_scoring=[gate_says("supported")]),
                          "Why?": Script(intent_analysis_demo=[REFER])})
     cid = s.conversation()
     ex = check_stream(s.ask(cid, Q))["exchange_id"]
@@ -747,7 +739,11 @@ def test_server_one_question_at_a_time_per_conversation(db_path):
     def slow_intent(prompt):
         gate_open.wait(10)
         return REFER
-    s = Server(db_path, {Q: Script(intent_analysis_demo=[slow_intent]), "Other?": Script(intent_analysis_demo=[REFER, REFER], question_rewriting=[{"question": "Other?", "carried_from_history": False}])})
+    s = Server(db_path, {
+        Q: Script(intent_analysis_demo=[slow_intent]),
+        "Other?": Script(intent_analysis_demo=[REFER, REFER],
+                         question_rewriting=[{"question": "Other?", "carried_from_history": False}]),
+    })
     cid = s.conversation()
     first: dict = {}
     t = threading.Thread(target=lambda: first.setdefault("r", s.ask(cid, Q)))

@@ -1,5 +1,5 @@
-# Tool configuration only (classic test set, item 5). The first round measures and reports; nothing is
-# fixed or silenced before the report is reviewed in the Claude chat.
+# Tool configuration only (classic test set, item 5). Blocking in CI as settled in the Claude chat (13.10):
+# ruff, bandit, pip-audit, and coverage at 92%. mypy reports without blocking until after task 7.
 
 [tool.ruff]
 line-length = 120
@@ -7,8 +7,11 @@ target-version = "py314"
 extend-exclude = ["venv"]
 
 [tool.ruff.lint]
-# the defaults (pyflakes and pycodestyle errors) and flake8-bugbear, which finds likely bugs
-extend-select = ["B"]
+# A narrow, blocking set (settled in the Claude chat, 13.10): pycodestyle errors, pyflakes, flake8-bugbear
+# and import order. ruff 0.17's broader default set (C4, UP, SIM, RUF, FURB, PL) is style with no value here.
+select = ["E", "F", "B", "I"]
+# B008: FastAPI's Depends() in argument defaults is the framework's idiom
+ignore = ["B008"]
 
 [tool.mypy]
 # gradual: these two packages first
@@ -26,3 +29,6 @@ source = ["query_assistance", "model_client", "api", "persistence", "shared", "d
 [tool.coverage.report]
 show_missing = false
 skip_covered = false
+# 96% on 13.10: room for change, and RedisStore, MongoStorage and main's start-up stay uncovered as they
+# are. Never raised with "pragma: no cover"
+fail_under = 92

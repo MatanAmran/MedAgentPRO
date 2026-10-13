@@ -34,8 +34,15 @@ from typing import Callable, Iterator, Mapping
 
 from shared.circuit_breaker import CircuitBreaker, CircuitOpen, MemoryStore
 
-from .client import (BudgetExceeded, LiteLLMGateway, ModelCallError, ModelConfig, ModelGateway, ModelResponse,
-                     RateLimited)
+from .client import (
+    BudgetExceeded,
+    LiteLLMGateway,
+    ModelCallError,
+    ModelConfig,
+    ModelGateway,
+    ModelResponse,
+    RateLimited,
+)
 
 BACKEND = Path(__file__).resolve().parent.parent
 ENV_FILE = BACKEND / ".env"
@@ -329,8 +336,8 @@ def check_against_provider_map(cfg: BudgetConfig, model_info: Callable[[str], di
     try:
         info = model_info(name)
     except Exception:
-        raise BudgetConfigError(f"MODEL_ID is not in LiteLLM's model map, so its prices and parameters "
-                                f"cannot be checked") from None
+        raise BudgetConfigError("MODEL_ID is not in LiteLLM's model map, so its prices and parameters "
+                                "cannot be checked") from None
     if cfg.temperature is not None and info.get("supports_sampling_params") is False:
         raise BudgetConfigError("MODEL_TEMPERATURE is set, and this model takes no temperature. Remove it")
     for var, ours, key in (("MODEL_PRICE_IN", cfg.price_in, "input_cost_per_token"),

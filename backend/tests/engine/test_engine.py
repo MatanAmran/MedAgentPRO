@@ -7,9 +7,9 @@ from types import SimpleNamespace
 
 import pytest
 
+from model_client import client as mg
 from persistence import audit_repository as A
 from shared import circuit_breaker as cb
-from model_client import client as mg
 
 
 class Clock:
@@ -190,7 +190,8 @@ def test_three_writes_land_together(clock):
     r = repo(clock, st)
     r.write_event(entry(1, status_after="IN_PROGRESS"), {"domain": "supply_chain"}, step_output={"rows": 3})
     assert len(st.audit_log) == 1
-    assert st.investigations["INV-1"]["status"] == "IN_PROGRESS" and st.investigations["INV-1"]["domain"] == "supply_chain"
+    assert st.investigations["INV-1"]["status"] == "IN_PROGRESS"
+    assert st.investigations["INV-1"]["domain"] == "supply_chain"
     assert r.completed_output("INV-1", 1) == {"rows": 3}
 
 

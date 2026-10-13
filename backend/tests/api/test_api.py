@@ -7,7 +7,6 @@ No test reaches a real model (6.1, R8): the real gateway refuses to build under 
 import asyncio
 import json
 import threading
-import time
 import uuid
 
 import pytest
@@ -19,7 +18,6 @@ from api.state import Cancellable
 from demo_data import seed
 from demo_data.scripted import ScriptedDemoGateway, load_scripts
 from model_client.budget import BudgetConfigError
-from model_client.client import ModelConfig
 from persistence.audit_repository import AuditRepository, MemoryStorage
 from query_assistance import pipeline, prompts
 from query_assistance.compiler import Catalog
@@ -29,13 +27,6 @@ TWO = "Which suppliers were late in weeks 1 to 13?"
 WHY = "Why is S-014 late so often?"
 NONE = "What did S-040 supply?"
 AP, PL = {"X-Demo-User": "AP-01"}, {"X-Demo-User": "PL-02"}
-
-
-@pytest.fixture(scope="module")
-def db_path(tmp_path_factory):
-    path = tmp_path_factory.mktemp("demo") / "demo.db"
-    seed.build(path)
-    return path
 
 
 @pytest.fixture

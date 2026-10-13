@@ -80,13 +80,6 @@ def called(gw, name):
     return [cfg.prompt_identity for _, cfg in gw.calls if cfg.prompt_identity.startswith(name + "@")]
 
 
-@pytest.fixture(scope="module")
-def db_path(tmp_path_factory):
-    path = tmp_path_factory.mktemp("demo") / "demo.db"
-    seed.build(path)
-    return path
-
-
 @pytest.fixture
 def storage():
     return MemoryStorage()
