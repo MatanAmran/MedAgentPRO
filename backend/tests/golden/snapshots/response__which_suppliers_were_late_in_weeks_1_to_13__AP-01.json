@@ -1,4 +1,7 @@
 {
+ "ambiguous_terms": [
+  "late"
+ ],
  "gaps": [],
  "outcome": "answered",
  "readings": [
@@ -60,6 +63,7 @@
      "supplier_id": "S-013"
     }
    ],
+   "title": "Delivered after the requested date",
    "total": 28
   },
   {
@@ -120,6 +124,7 @@
      "supplier_id": "S-019"
     }
    ],
+   "title": "The supplier committed to a date after the requested date",
    "total": 13
   }
  ]

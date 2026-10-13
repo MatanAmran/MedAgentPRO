@@ -124,5 +124,16 @@ class AppState:
                 conv.history.append(outcome.exchange)
                 conv.items.append({"exchange_id": outcome.exchange_id, "posed": question,
                                    "recorded": outcome.recorded, "response": outcome.response,
-                                   "cost": outcome.cost, "at": _now()})
+                                   "cost": outcome.cost, "at": _now(), "rating": None})
             conv.busy = False
+
+    def rated(self, exchange_id: str, user: dict, rating: str):
+        """Task 7, Q5: the item shows the rating last given, so the screen shows it after a reload.
+        The audit holds every rating (the last one counts); this is only what the screen reads."""
+        with self._lock:
+            for conv in self._conversations.values():
+                if conv.owner != user["user_id"]:
+                    continue
+                for item in conv.items:
+                    if item["exchange_id"] == exchange_id:
+                        item["rating"] = rating

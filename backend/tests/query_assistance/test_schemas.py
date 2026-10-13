@@ -270,7 +270,7 @@ case("support_scoring", "no claims at all",
 
 case("exchange_response", "answer with a gap",
      {"outcome": "answered",
-      "readings": [{"label": "late", "row_count": 3,
+      "readings": [{"label": "late", "title": "Reading 1", "row_count": 3,
                     "checked": "commitments in weeks 1 to 13 where the delivery "
                                "date is later than the due date",
                     "answer": "Three suppliers were late.",
@@ -282,18 +282,31 @@ case("exchange_response", "answer with a gap",
 
 case("exchange_response", "three readings presented",
      {"outcome": "answered",
-      "readings": [{"label": "a", "checked": "x", "row_count": 2},
-                   {"label": "b", "checked": "y", "row_count": 5},
-                   {"label": "c", "checked": "z", "row_count": 0}],
+      "readings": [{"label": "a", "title": "Reading 1", "checked": "x", "row_count": 2},
+                   {"label": "b", "title": "Reading 2", "checked": "y", "row_count": 5},
+                   {"label": "c", "title": "Reading 3", "checked": "z", "row_count": 0}],
       "gaps": []}, True,
      "Test 32. Each reading is presented rather than one being selected.")
 
 case("exchange_response", "empty retrieval is an answer",
      {"outcome": "answered",
-      "readings": [{"label": "a", "checked": "x", "row_count": 0,
+      "readings": [{"label": "a", "title": "Reading 1", "checked": "x", "row_count": 0,
                     "answer": "No supplier was late."}],
       "gaps": []}, True,
      "Test 35. Emptiness is a finding about the data, not a failure.")
+
+case("exchange_response", "reading without title",
+     {"outcome": "answered",
+      "readings": [{"label": "a", "checked": "x", "row_count": 1}],
+      "gaps": []}, False,
+     "Task 7, Q2 [demo extension]: every reading carries a title built in code.")
+
+case("exchange_response", "ambiguous terms named",
+     {"outcome": "answered",
+      "readings": [{"label": "a", "title": "Reading 1", "checked": "x", "row_count": 1},
+                   {"label": "b", "title": "Reading 2", "checked": "y", "row_count": 1}],
+      "gaps": [], "ambiguous_terms": ["late"]}, True,
+     "Task 7, Q4 [demo extension]: the term read in more than one way, a span of the question.")
 
 case("exchange_response", "referral to investigation",
      {"outcome": "referred_to_investigation", "readings": [], "gaps": [],
@@ -316,13 +329,13 @@ case("exchange_response", "unrecognised outcome",
 
 case("exchange_response", "four readings",
      {"outcome": "answered",
-      "readings": [{"label": "a", "checked": "x", "row_count": 1}] * 4,
+      "readings": [{"label": "a", "title": "Reading 1", "checked": "x", "row_count": 1}] * 4,
       "gaps": []}, False,
      "More parallel result sets than a person reads on one screen.")
 
 case("exchange_response", "reading without checked",
      {"outcome": "answered",
-      "readings": [{"label": "a", "row_count": 3, "answer": "Three."}],
+      "readings": [{"label": "a", "title": "Reading 1", "row_count": 3, "answer": "Three."}],
       "gaps": []}, False,
      "FR 11. checked is the only exposure of a plan that addressed the wrong "
      "column, which no gate detects.")

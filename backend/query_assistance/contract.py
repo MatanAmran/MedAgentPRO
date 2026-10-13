@@ -142,6 +142,24 @@ def _cell(v: Any) -> Any:
     return v if v is None or isinstance(v, (int, float, str)) else str(v)
 
 
+def _metrics_named(node: Any) -> set[str]:
+    if isinstance(node, dict):
+        found = {node["metric"]} if isinstance(node.get("metric"), str) else set()
+        return found.union(*(_metrics_named(v) for v in node.values()))
+    if isinstance(node, list):
+        return set().union(*(_metrics_named(v) for v in node))
+    return set()
+
+
+def reading_title(plan: dict, cat: Catalog) -> str | None:
+    """Task 7, Q2 [demo extension]: the business description of the one metric the plan names, from
+    schema.json. None where the plan names none or several; answered() then numbers the reading."""
+    named = _metrics_named(plan)
+    if len(named) != 1:
+        return None
+    return cat.metrics[named.pop()]["description"].rstrip(".")
+
+
 def reading_view(label: str, plan: dict, result: RetrievalResult, cat: Catalog, role: str,
                  answer: str | None = None, evidence: list[str] | None = None) -> dict:
     view: dict[str, Any] = {
@@ -168,6 +186,9 @@ def reading_view(label: str, plan: dict, result: RetrievalResult, cat: Catalog, 
     if answer:
         view["answer"] = answer
         view["evidence"] = list(evidence or [])
+    title = reading_title(plan, cat)
+    if title:
+        view["title"] = title
     return view
 
 
@@ -196,12 +217,18 @@ WITHHELD = "Some statements were withheld because the records do not support the
 
 
 def answered(readings: list[dict], gaps: list[dict] | None = None, understood_as: str | None = None,
-             withheld: bool = False) -> dict:
+             withheld: bool = False, ambiguous_terms: list[str] | None = None) -> dict:
     """withheld: the gate removed a statement and something remains. The notice is fixed and never
-    says what was removed ([demo extension], decisions 6 and 13 of 12.10)."""
+    says what was removed ([demo extension], decisions 6 and 13 of 12.10).
+    A reading with no title of its own is numbered by its place (task 7, Q2). ambiguous_terms is kept
+    only where more than one reading is shown (Q4); the caller passes spans of the question as posed."""
+    for n, r in enumerate(readings, start=1):
+        r.setdefault("title", f"Reading {n}")
     resp = {"outcome": "answered", "readings": readings, "gaps": [render_gap(g) for g in gaps or []]}
     if withheld:
         resp["withheld"] = WITHHELD
+    if ambiguous_terms and len(readings) > 1:
+        resp["ambiguous_terms"] = list(ambiguous_terms)
     return _finish(resp, understood_as)
 
 

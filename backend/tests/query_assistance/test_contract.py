@@ -164,6 +164,27 @@ def test_answered_with_two_readings_and_a_gap(db):
     assert resp["understood_as"]
 
 
+def test_a_reading_is_titled_by_its_one_metric_else_numbered(db):
+    """Task 7, Q2: the title comes from schema.json, never from a model. One metric: its description.
+    None, or more than one: the reading's place in the answer."""
+    none = {"SELECT": [{"expr": {"col": "commitments.po_id"}, "as": "po_id"}], "FROM": "commitments",
+            "WHERE": {"EQ": [{"col": "commitments.supplier_id"}, {"value": "S-001"}]}}
+    both = dict(LATE, WHERE={"AND": [LATE["WHERE"]["AND"][1],
+                                     {"EQ": [{"metric": "late_by_promise"}, {"value": True}]}]})
+    assert k.reading_title(LATE, CAT) == "Delivered after the requested date"
+    assert k.reading_title(none, CAT) is None and k.reading_title(both, CAT) is None
+    views = [k.reading_view("a", LATE, run(db, LATE), CAT, "APPROVER"),
+             k.reading_view("b", both, run(db, both), CAT, "APPROVER")]
+    resp = k.answered(views, ambiguous_terms=["late"])
+    assert [r["title"] for r in resp["readings"]] == ["Delivered after the requested date", "Reading 2"]
+    assert resp["ambiguous_terms"] == ["late"]
+
+
+def test_ambiguous_terms_only_where_more_than_one_reading_is_shown(db):
+    resp = k.answered([k.reading_view("a", LATE, run(db, LATE), CAT, "APPROVER")], ambiguous_terms=["late"])
+    assert "ambiguous_terms" not in resp
+
+
 def test_referred_offers_an_investigation_and_carries_nothing_else():
     resp = k.referred()
     assert resp["offer_investigation"] is True and resp["readings"] == [] and resp["gaps"] == []

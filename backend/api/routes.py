@@ -193,6 +193,7 @@ def router(state: AppState) -> APIRouter:
             raise HTTPException(403, "only the person who asked rates the answer") from None
         except ValueError as e:
             raise HTTPException(422, str(e)) from None
+        state.rated(exchange_id, user, body.rating)
         return {"exchange_id": exchange_id, "rating": body.rating}
 
     return r

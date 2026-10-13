@@ -204,7 +204,17 @@ A_PATHS = [
     ("answered_two_readings", Q, APPROVER, False,
      dict(intent_analysis_demo=[INTENT_TWO], synthesis=[SYN_TWO_READINGS], support_scoring=[gate_says("supported")]),
      "answered", True, 3, lambda r: [v["label"] for v in r["readings"]] == ["late", "promise"]
-                                    and all(v["checked"].startswith("Examined") for v in r["readings"])),
+                                    and all(v["checked"].startswith("Examined") for v in r["readings"])
+                                    and [v["title"] for v in r["readings"]] == [
+                                        "Delivered after the requested date",
+                                        "The supplier committed to a date after the requested date"]
+                                    and r["ambiguous_terms"] == ["late"]),
+    # Task 7, Q4: a term found only in the rewrite (model text) compiles, but is never named on screen
+    ("ambiguous_term_only_in_rewrite_not_named", "And in weeks 1 to 13?", APPROVER, True,
+     dict(question_rewriting=[{"question": Q, "carried_from_history": True}], intent_analysis_demo=[INTENT_TWO],
+          synthesis=[SYN_TWO_READINGS], support_scoring=[gate_says("supported")]),
+     "answered", True, 4, lambda r: "ambiguous_terms" not in r and r["understood_as"] == Q
+                                    and len(r["readings"]) == 2),
     ("planner_sees_own_rows_only", Q, PLANNER, False,
      dict(intent_analysis_demo=[INTENT], synthesis=[SYN], support_scoring=[gate_says("supported")]),
      "answered", True, 3, lambda r: "limited to the records you hold" in r["readings"][0]["checked"]),
