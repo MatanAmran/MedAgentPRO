@@ -1,0 +1,28 @@
+# Tool configuration only (classic test set, item 5). The first round measures and reports; nothing is
+# fixed or silenced before the report is reviewed in the Claude chat.
+
+[tool.ruff]
+line-length = 120
+target-version = "py314"
+extend-exclude = ["venv"]
+
+[tool.ruff.lint]
+# the defaults (pyflakes and pycodestyle errors) and flake8-bugbear, which finds likely bugs
+extend-select = ["B"]
+
+[tool.mypy]
+# gradual: these two packages first
+files = ["query_assistance", "model_client"]
+python_version = "3.14"
+ignore_missing_imports = true
+
+[tool.bandit]
+exclude_dirs = ["venv", "tests"]
+
+[tool.coverage.run]
+branch = true
+source = ["query_assistance", "model_client", "api", "persistence", "shared", "demo_data", "main"]
+
+[tool.coverage.report]
+show_missing = false
+skip_covered = false

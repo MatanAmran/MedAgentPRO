@@ -1,0 +1,76 @@
+# MedAgentPro - tests (classic test set, item 7). Linux only: Windows minutes cost twice as much, and
+# the repository belongs to another owner.
+#
+# No secret of any kind: no API key, no model call at any step (book 6.1). The first step fails if
+# ANTHROPIC_API_KEY exists in the environment, and tests/ci/test_no_key.py checks the same from pytest.
+# mypy and coverage report without blocking until a threshold is decided.
+
+name: tests
+
+on:
+  push:
+  pull_request:
+  schedule:
+    - cron: "0 3 * * *"        # daily: the load and concurrency tests, and property tests at full size
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+defaults:
+  run:
+    working-directory: backend
+
+jobs:
+  tests:
+    if: github.event_name != 'schedule'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: No API key in this environment
+        working-directory: .
+        run: |
+          if [ -n "${ANTHROPIC_API_KEY+set}" ]; then
+            echo "ANTHROPIC_API_KEY must not exist in CI: tests never reach a real model (book 6.1)"
+            exit 1
+          fi
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.14"
+          cache: pip
+          cache-dependency-path: backend/requirements*.txt
+      - run: python -m pip install -r requirements.txt -r requirements-dev.txt
+      - run: python -m demo_data.seed
+      - run: python -m pytest -q
+      - run: python -m ruff check .
+      - run: python -m bandit -c pyproject.toml -r . -q
+      - run: python -m pip_audit -r requirements.txt -r requirements-dev.txt
+      - name: mypy (reports, does not block yet)
+        continue-on-error: true
+        run: python -m mypy
+      - name: coverage (reports, does not block yet)
+        continue-on-error: true
+        run: python -m pytest -q --cov --cov-branch --cov-report=term
+
+  stress:
+    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: No API key in this environment
+        working-directory: .
+        run: |
+          if [ -n "${ANTHROPIC_API_KEY+set}" ]; then
+            echo "ANTHROPIC_API_KEY must not exist in CI"
+            exit 1
+          fi
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.14"
+          cache: pip
+          cache-dependency-path: backend/requirements*.txt
+      - run: python -m pip install -r requirements.txt -r requirements-dev.txt
+      - run: python -m demo_data.seed
+      - run: python -m pytest -m stress -q

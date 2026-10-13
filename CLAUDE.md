@@ -193,12 +193,25 @@ On Evyatar's machine an Application Control policy blocks `.exe` files in the ve
 # Backend (from backend\, venv active)
 python -m pip install -r requirements.txt
 python -m demo_data.seed          # builds demo_data\demo.db
-python -m pytest -q               # all tests; 432 after task 6
+python -m pytest -q               # the default run; 631 after the classic set, items 1-5 and 7
 python -m tools.path_map          # runs tests/paths and tests/feasibility, writes docs/notes/60_PATHS.md
 python -m query_assistance.dry_run   # prices two scripted exchanges at the .env prices, no model call, no key
 python -m query_assistance.dry_run --model claude-sonnet-5-5   # the same, prices from LiteLLM's local map, no .env
 python -m main                    # the chat server on the scripted model, http://127.0.0.1:8000/api/health
+python -m pytest -m stress        # load, concurrency, and the property tests at 2000 examples (not in the default run)
+UPDATE_GOLDEN=1 python -m pytest tests/golden   # rewrite golden snapshots, printing the diff for review
 
+# Dev tools (python -m pip install -r requirements-dev.txt; configuration in backend\pyproject.toml)
+python -m ruff check .            # style and likely bugs
+python -m mypy                    # query_assistance and model_client, gradually
+python -m bandit -c pyproject.toml -r . -q
+python -m pip_audit               # the installed environment, against known vulnerabilities
+python -m pytest --cov --cov-branch
+```
+
+Application Control also blocks compiled (mypyc) extensions from unverified publishers, shown as a Windows Security notice ("Part of this app has been blocked … .pyd"). mypy and tomli (a pip-audit dependency) are installed as pure Python for that reason: `pip install --no-binary mypy mypy==<v>`, and tomli from its `py3-none-any` wheel (`pip download --only-binary :all: --implementation py --platform any`). Do not change the security policy.
+
+```powershell
 # Frontend (from frontend\)
 npm run dev
 ```

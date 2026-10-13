@@ -11,3 +11,8 @@ backend/demo_data/demo.db
 backend/.model_spend.json
 backend/.model_spend.lock
 backend/.model_spend.tmp
+backend/.hypothesis/
+backend/.coverage
+backend/htmlcov/
+backend/.mypy_cache/
+backend/.ruff_cache/
