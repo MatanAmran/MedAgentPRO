@@ -931,6 +931,21 @@ workflow ב-GitHub Actions · בדיקות Playwright, **על שלושת המנ�
   - **שוחזר** ב-worktree נקי.
   - **תוקן** ב-`dbf1ef1`: הצעד `npx next typegen` לפני `tsc` ב-workflow, וגם בפקודות ב-`CLAUDE.md`.
 - **CI על ה-PR אחרי התיקון:** [ריצה 38445289783](https://github.com/MatanAmran/MedAgentPRO/actions/runs/38445289783) **עברה.** העבודות `tests`, ‏`frontend` ו-`e2e` ירוקות, ו-`stress` מדולגת כמתוכנן. זו הפעם הראשונה ש-Playwright רץ ב-CI על Chromium, והוא עבר.
+- **מיזוג (13.10):** אביתר מיזג את PR #2 ל-`master` ב-merge commit (`a240086`).
+  - **במחשב:** `master` עודכן ב-fast-forward מ-`MedAgentPRO/master`.
+  - **commit ההערות `a7f92c5`** (הרישום של PR #2) לא עלה עם ה-PR. הוא הועבר ל-`master` ב-cherry-pick (`520a110`).
+  - **הענף `task7/chat-screen`** נשאר, במחשב וב-GitHub.
+- **הריצה על `master`:**
+
+| סט | תוצאה |
+|---|---|
+| backend | **647 עוברות**, 1 מדולגת, כיסוי 95.6% (סף 92%) |
+| `-m stress` | 8 עוברות |
+| ruff, bandit, pip-audit | נקיים |
+| `path_map` | 127 עוברות |
+| frontend | `npm ci`, ‏`next typegen`, ‏`tsc`, ‏eslint נקיים · **Vitest 40** · ‏`npm audit --omit=dev` נקי · **Playwright 8** על Edge |
+
+**משימה 7 סגורה.** הבא: משימה 8 (סט שאלות הדמו), לפי `01_HANDOFF.md`.
 
 **לאביתר — סטיות מאיור 15:** רובן מוצדקות (פירוט למעלה). אחרי סעיף 2, סטייה 6 נסגרת ברובה. **לא חובה לעדכן את האיור בספר** — האיור הוא איור של הכוונה, והמסך עומד בו. אם בכל זאת: כותרת הקריאה וטקסט התשובה הם השינויים היחידים שקורא יבחין בהם.
 
