@@ -50,12 +50,14 @@ def gate_claims(prompt: str, gate: dict) -> dict:
 
 
 class ScriptedDemoGateway(ModelGateway):
-    """Bound to one question for one exchange. Each stage takes the next output its script holds."""
+    """Bound to one question for one exchange. Each stage takes the next output its script holds: one
+    output, or a list where the stage runs more than once (the gate before and after a redraft)."""
 
     def __init__(self, question: str, scripts: dict[str, dict], delay: float = 0.0):
         self.question = question
         self.delay = delay              # seconds before each output: lets end-to-end tests act mid-stream
         self.script = scripts.get(_key(question))
+        self._served: dict[str, int] = {}   # how many outputs each stage has taken
         self._inner = ScriptedModelGateway(self._answer)
 
     @property
@@ -66,6 +68,10 @@ class ScriptedDemoGateway(ModelGateway):
         name = config.prompt_identity.split("@")[0]
         stage = _STAGE.get(name)
         out = self.script.get(stage) if self.script and stage else None
+        if isinstance(out, list):   # a stage called more than once takes its outputs in order, the last repeating
+            n = self._served.get(stage, 0)
+            self._served[stage] = n + 1
+            out = out[min(n, len(out) - 1)] if out else None
         if out is None and self.script and stage == "rewrite":
             # a scripted question stands on its own unless its entry says otherwise
             out = {"question": self.question, "carried_from_history": False}

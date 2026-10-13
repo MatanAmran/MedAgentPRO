@@ -1,47 +1,1119 @@
 {
-  "$comment": "Task 6, S5: what the scripted model answers in the server's default mode. Keyed by the question as posed. Each output replaces the model only: it goes through the schema, the compiler, the references, the gate and the contract like a real one. The gate's claims are built from the numbered sentences in the gate prompt, one per sentence, with the verdict and the cited aliases given here. A question with no entry ends as request_not_completed. Task 8 fills the full question set.",
-  "version": 1,
+  "$comment": "Task 6 (S5) and task 8: what the scripted model answers in the server's default mode, in the order the demo presents them. Keyed by the question as posed. Each output replaces the model only: it goes through the schema, the compiler, the references, the gate and the contract like a real one. The gate's claims are built from the numbered sentences in the gate prompt, one per sentence, with the verdict and the cited aliases given here; a stage that runs twice (the gate before and after a redraft) takes a list. expect is what the exchange must end in (tests/feasibility L01, frontend e2e): outcome, what it shows, the question it follows, and whether the gate's verdicts are scripted to show the mechanism. A question with no entry ends as request_not_completed.",
+  "version": 2,
   "exchanges": [
     {
       "question": "Which suppliers were late in weeks 1 to 13?",
-      "intent": {"disposition": "retrieve",
-                 "ambiguous": [{"term": "late", "alternatives": [{"metric": "late_by_delivery"}, {"metric": "late_by_promise"}]}],
-                 "readings": [
-                   {"label": "late_by_delivery", "plan": {
-                     "SELECT": [{"expr": {"col": "commitments.supplier_id"}, "as": "supplier_id"},
-                                {"expr": {"func": "COUNT", "arg": "*"}, "as": "late_count"}],
-                     "FROM": "commitments",
-                     "WHERE": {"AND": [{"BETWEEN": [{"col": "commitments.week"}, {"value": 1}, {"value": 13}]},
-                                       {"EQ": [{"metric": "late_by_delivery"}, {"value": true}]}]},
-                     "GROUP_BY": ["supplier_id"], "ORDER_BY": [{"by": "late_count", "dir": "DESC"}], "LIMIT": 10}},
-                   {"label": "late_by_promise", "plan": {
-                     "SELECT": [{"expr": {"col": "commitments.supplier_id"}, "as": "supplier_id"},
-                                {"expr": {"func": "COUNT", "arg": "*"}, "as": "late_count"}],
-                     "FROM": "commitments",
-                     "WHERE": {"AND": [{"BETWEEN": [{"col": "commitments.week"}, {"value": 1}, {"value": 13}]},
-                                       {"EQ": [{"metric": "late_by_promise"}, {"value": true}]}]},
-                     "GROUP_BY": ["supplier_id"], "ORDER_BY": [{"by": "late_count", "dir": "DESC"}], "LIMIT": 10}}]},
-      "synthesis": {"readings": [
-        {"label": "late_by_delivery", "sentences": [
-          {"text": "{late_by_delivery.supplier_id#1} had the most lines delivered after the requested date, {late_by_delivery.late_count#1}."},
-          {"text": "{late_by_delivery.supplier_id#2} followed with {late_by_delivery.late_count#2}."}]},
-        {"label": "late_by_promise", "sentences": [
-          {"text": "{late_by_promise.supplier_id#1} had the most lines whose promised date was after the requested date, {late_by_promise.late_count#1}."}]}]},
-      "gate": {"verdicts": ["supported"],
-               "evidence": {"late_by_delivery": ["supplier_id", "late_count"],
-                            "late_by_promise": ["supplier_id", "late_count"]}}
+      "intent": {
+        "disposition": "retrieve",
+        "ambiguous": [
+          {
+            "term": "late",
+            "alternatives": [
+              {
+                "metric": "late_by_delivery"
+              },
+              {
+                "metric": "late_by_promise"
+              }
+            ]
+          }
+        ],
+        "readings": [
+          {
+            "label": "late_by_delivery",
+            "plan": {
+              "SELECT": [
+                {
+                  "expr": {
+                    "col": "commitments.supplier_id"
+                  },
+                  "as": "supplier_id"
+                },
+                {
+                  "expr": {
+                    "func": "COUNT",
+                    "arg": "*"
+                  },
+                  "as": "late_count"
+                }
+              ],
+              "FROM": "commitments",
+              "WHERE": {
+                "AND": [
+                  {
+                    "BETWEEN": [
+                      {
+                        "col": "commitments.week"
+                      },
+                      {
+                        "value": 1
+                      },
+                      {
+                        "value": 13
+                      }
+                    ]
+                  },
+                  {
+                    "EQ": [
+                      {
+                        "metric": "late_by_delivery"
+                      },
+                      {
+                        "value": true
+                      }
+                    ]
+                  }
+                ]
+              },
+              "GROUP_BY": [
+                "supplier_id"
+              ],
+              "ORDER_BY": [
+                {
+                  "by": "late_count",
+                  "dir": "DESC"
+                }
+              ],
+              "LIMIT": 10
+            }
+          },
+          {
+            "label": "late_by_promise",
+            "plan": {
+              "SELECT": [
+                {
+                  "expr": {
+                    "col": "commitments.supplier_id"
+                  },
+                  "as": "supplier_id"
+                },
+                {
+                  "expr": {
+                    "func": "COUNT",
+                    "arg": "*"
+                  },
+                  "as": "late_count"
+                }
+              ],
+              "FROM": "commitments",
+              "WHERE": {
+                "AND": [
+                  {
+                    "BETWEEN": [
+                      {
+                        "col": "commitments.week"
+                      },
+                      {
+                        "value": 1
+                      },
+                      {
+                        "value": 13
+                      }
+                    ]
+                  },
+                  {
+                    "EQ": [
+                      {
+                        "metric": "late_by_promise"
+                      },
+                      {
+                        "value": true
+                      }
+                    ]
+                  }
+                ]
+              },
+              "GROUP_BY": [
+                "supplier_id"
+              ],
+              "ORDER_BY": [
+                {
+                  "by": "late_count",
+                  "dir": "DESC"
+                }
+              ],
+              "LIMIT": 10
+            }
+          }
+        ]
+      },
+      "synthesis": {
+        "readings": [
+          {
+            "label": "late_by_delivery",
+            "sentences": [
+              {
+                "text": "{late_by_delivery.supplier_id#1} had the most lines delivered after the requested date, {late_by_delivery.late_count#1}."
+              },
+              {
+                "text": "{late_by_delivery.supplier_id#2} followed with {late_by_delivery.late_count#2}."
+              }
+            ]
+          },
+          {
+            "label": "late_by_promise",
+            "sentences": [
+              {
+                "text": "{late_by_promise.supplier_id#1} had the most lines whose promised date was after the requested date, {late_by_promise.late_count#1}."
+              }
+            ]
+          }
+        ]
+      },
+      "gate": {
+        "verdicts": [
+          "supported"
+        ],
+        "evidence": {
+          "late_by_delivery": [
+            "supplier_id",
+            "late_count"
+          ],
+          "late_by_promise": [
+            "supplier_id",
+            "late_count"
+          ]
+        }
+      },
+      "expect": {
+        "outcome": "answered",
+        "shows": [
+          "two_readings"
+        ],
+        "note": "late read two ways (Test 32); Examined on each (Test 34); Showing 10 of N"
+      }
+    },
+    {
+      "question": "And in weeks 14 to 26?",
+      "rewrite": {
+        "question": "Which suppliers were late in weeks 14 to 26?",
+        "carried_from_history": true
+      },
+      "intent": {
+        "disposition": "retrieve",
+        "ambiguous": [
+          {
+            "term": "late",
+            "alternatives": [
+              {
+                "metric": "late_by_delivery"
+              },
+              {
+                "metric": "late_by_promise"
+              }
+            ]
+          }
+        ],
+        "readings": [
+          {
+            "label": "late_by_delivery",
+            "plan": {
+              "SELECT": [
+                {
+                  "expr": {
+                    "col": "commitments.supplier_id"
+                  },
+                  "as": "supplier_id"
+                },
+                {
+                  "expr": {
+                    "func": "COUNT",
+                    "arg": "*"
+                  },
+                  "as": "late_count"
+                }
+              ],
+              "FROM": "commitments",
+              "WHERE": {
+                "AND": [
+                  {
+                    "BETWEEN": [
+                      {
+                        "col": "commitments.week"
+                      },
+                      {
+                        "value": 14
+                      },
+                      {
+                        "value": 26
+                      }
+                    ]
+                  },
+                  {
+                    "EQ": [
+                      {
+                        "metric": "late_by_delivery"
+                      },
+                      {
+                        "value": true
+                      }
+                    ]
+                  }
+                ]
+              },
+              "GROUP_BY": [
+                "supplier_id"
+              ],
+              "ORDER_BY": [
+                {
+                  "by": "late_count",
+                  "dir": "DESC"
+                }
+              ],
+              "LIMIT": 10
+            }
+          },
+          {
+            "label": "late_by_promise",
+            "plan": {
+              "SELECT": [
+                {
+                  "expr": {
+                    "col": "commitments.supplier_id"
+                  },
+                  "as": "supplier_id"
+                },
+                {
+                  "expr": {
+                    "func": "COUNT",
+                    "arg": "*"
+                  },
+                  "as": "late_count"
+                }
+              ],
+              "FROM": "commitments",
+              "WHERE": {
+                "AND": [
+                  {
+                    "BETWEEN": [
+                      {
+                        "col": "commitments.week"
+                      },
+                      {
+                        "value": 14
+                      },
+                      {
+                        "value": 26
+                      }
+                    ]
+                  },
+                  {
+                    "EQ": [
+                      {
+                        "metric": "late_by_promise"
+                      },
+                      {
+                        "value": true
+                      }
+                    ]
+                  }
+                ]
+              },
+              "GROUP_BY": [
+                "supplier_id"
+              ],
+              "ORDER_BY": [
+                {
+                  "by": "late_count",
+                  "dir": "DESC"
+                }
+              ],
+              "LIMIT": 10
+            }
+          }
+        ]
+      },
+      "synthesis": {
+        "readings": [
+          {
+            "label": "late_by_delivery",
+            "sentences": [
+              {
+                "text": "{late_by_delivery.supplier_id#1} had the most lines delivered after the requested date, {late_by_delivery.late_count#1}."
+              }
+            ]
+          },
+          {
+            "label": "late_by_promise",
+            "sentences": [
+              {
+                "text": "{late_by_promise.supplier_id#1} had the most lines whose promised date was after the requested date, {late_by_promise.late_count#1}."
+              }
+            ]
+          }
+        ]
+      },
+      "gate": {
+        "verdicts": [
+          "supported"
+        ],
+        "evidence": {
+          "late_by_delivery": [
+            "supplier_id",
+            "late_count"
+          ],
+          "late_by_promise": [
+            "supplier_id",
+            "late_count"
+          ]
+        }
+      },
+      "expect": {
+        "outcome": "answered",
+        "shows": [
+          "two_readings",
+          "understood_as"
+        ],
+        "follows": "Which suppliers were late in weeks 1 to 13?",
+        "note": "a follow-up answered under the question understood (Test 44, FR 25)"
+      }
+    },
+    {
+      "question": "Which purchase orders were delivered late in September?",
+      "intent": {
+        "disposition": "retrieve",
+        "readings": [
+          {
+            "label": "late_in_september",
+            "plan": {
+              "SELECT": [
+                {
+                  "expr": {
+                    "col": "commitments.supplier_id"
+                  },
+                  "as": "supplier_id"
+                },
+                {
+                  "expr": {
+                    "col": "commitments.po_id"
+                  },
+                  "as": "po_id"
+                },
+                {
+                  "expr": {
+                    "func": "COUNT",
+                    "arg": "*"
+                  },
+                  "as": "late_lines"
+                }
+              ],
+              "FROM": "commitments",
+              "WHERE": {
+                "AND": [
+                  {
+                    "BETWEEN": [
+                      {
+                        "col": "commitments.delivered_at"
+                      },
+                      {
+                        "value": "2026-09-01"
+                      },
+                      {
+                        "value": "2026-09-30"
+                      }
+                    ]
+                  },
+                  {
+                    "EQ": [
+                      {
+                        "metric": "late_by_delivery"
+                      },
+                      {
+                        "value": true
+                      }
+                    ]
+                  }
+                ]
+              },
+              "GROUP_BY": [
+                "supplier_id",
+                "po_id"
+              ],
+              "ORDER_BY": [
+                {
+                  "by": "supplier_id",
+                  "dir": "ASC"
+                },
+                {
+                  "by": "po_id",
+                  "dir": "ASC"
+                }
+              ],
+              "LIMIT": 30
+            }
+          }
+        ]
+      },
+      "synthesis": {
+        "readings": [
+          {
+            "label": "late_in_september",
+            "sentences": [
+              {
+                "text": "{late_in_september.supplier_id#1} delivered {late_in_september.po_id#1} after the requested date."
+              }
+            ]
+          }
+        ]
+      },
+      "gate": {
+        "verdicts": [
+          "supported"
+        ],
+        "evidence": {
+          "late_in_september": [
+            "supplier_id",
+            "po_id"
+          ]
+        }
+      },
+      "expect": {
+        "outcome": "answered",
+        "shows": [
+          "one_reading",
+          "grouped"
+        ],
+        "note": "orders grouped under their supplier, as in Figure 15 (rule Q3)"
+      }
+    },
+    {
+      "question": "Which suppliers missed a commitment in weeks 1 to 13?",
+      "intent": {
+        "disposition": "retrieve",
+        "readings": [
+          {
+            "label": "missed_promise",
+            "plan": {
+              "SELECT": [
+                {
+                  "expr": {
+                    "col": "commitments.supplier_id"
+                  },
+                  "as": "supplier_id"
+                },
+                {
+                  "expr": {
+                    "func": "COUNT",
+                    "arg": "*"
+                  },
+                  "as": "missed_count"
+                }
+              ],
+              "FROM": "commitments",
+              "WHERE": {
+                "AND": [
+                  {
+                    "BETWEEN": [
+                      {
+                        "col": "commitments.week"
+                      },
+                      {
+                        "value": 1
+                      },
+                      {
+                        "value": 13
+                      }
+                    ]
+                  },
+                  {
+                    "EQ": [
+                      {
+                        "metric": "missed_promise"
+                      },
+                      {
+                        "value": true
+                      }
+                    ]
+                  }
+                ]
+              },
+              "GROUP_BY": [
+                "supplier_id"
+              ],
+              "ORDER_BY": [
+                {
+                  "by": "missed_count",
+                  "dir": "DESC"
+                }
+              ],
+              "LIMIT": 10
+            }
+          }
+        ]
+      },
+      "synthesis": {
+        "readings": [
+          {
+            "label": "missed_promise",
+            "sentences": [
+              {
+                "text": "{missed_promise.supplier_id#1} had the most lines delivered after the date it committed to, {missed_promise.missed_count#1}."
+              }
+            ]
+          }
+        ]
+      },
+      "gate": {
+        "verdicts": [
+          "supported"
+        ],
+        "evidence": {
+          "missed_promise": [
+            "supplier_id",
+            "missed_count"
+          ]
+        }
+      },
+      "expect": {
+        "outcome": "answered",
+        "shows": [
+          "one_reading"
+        ],
+        "note": "one reading, titled by its metric; what was examined (Test 34)"
+      }
+    },
+    {
+      "question": "Which open lines are past due, and who approved them?",
+      "intent": {
+        "disposition": "retrieve",
+        "readings": [
+          {
+            "label": "past_due",
+            "plan": {
+              "SELECT": [
+                {
+                  "expr": {
+                    "col": "commitments.supplier_id"
+                  },
+                  "as": "supplier_id"
+                },
+                {
+                  "expr": {
+                    "col": "commitments.po_id"
+                  },
+                  "as": "po_id"
+                },
+                {
+                  "expr": {
+                    "col": "commitments.due_date"
+                  },
+                  "as": "due_date"
+                }
+              ],
+              "FROM": "commitments",
+              "JOIN": [
+                {
+                  "rel": "commitment_order",
+                  "type": "INNER"
+                }
+              ],
+              "WHERE": {
+                "AND": [
+                  {
+                    "EQ": [
+                      {
+                        "col": "purchase_orders.status"
+                      },
+                      {
+                        "value": "open"
+                      }
+                    ]
+                  },
+                  {
+                    "IS_NULL": {
+                      "col": "commitments.delivered_at"
+                    }
+                  },
+                  {
+                    "LT": [
+                      {
+                        "col": "commitments.due_date"
+                      },
+                      {
+                        "value": "2026-10-09"
+                      }
+                    ]
+                  }
+                ]
+              },
+              "ORDER_BY": [
+                {
+                  "by": "due_date",
+                  "dir": "ASC"
+                }
+              ],
+              "LIMIT": 30
+            }
+          }
+        ],
+        "unresolved": [
+          {
+            "asked": "who approved them",
+            "needs": {
+              "kind": "no_such_column",
+              "entity": "purchase_orders"
+            }
+          }
+        ]
+      },
+      "synthesis": {
+        "readings": [
+          {
+            "label": "past_due",
+            "sentences": [
+              {
+                "text": "{past_due.po_id#1} has the earliest requested date, {past_due.due_date#1}."
+              }
+            ]
+          }
+        ]
+      },
+      "gate": {
+        "verdicts": [
+          "supported"
+        ],
+        "evidence": {
+          "past_due": [
+            "po_id",
+            "due_date"
+          ]
+        }
+      },
+      "expect": {
+        "outcome": "answered",
+        "shows": [
+          "one_reading",
+          "gap"
+        ],
+        "note": "what is held is answered; what no column records is a gap, with no reason (FR 11, NFR 20)"
+      }
+    },
+    {
+      "question": "What delay reasons were recorded for S-038's late lines?",
+      "intent": {
+        "disposition": "retrieve",
+        "readings": [
+          {
+            "label": "recorded_reasons",
+            "plan": {
+              "SELECT": [
+                {
+                  "expr": {
+                    "col": "commitments.po_id"
+                  },
+                  "as": "po_id"
+                },
+                {
+                  "expr": {
+                    "col": "commitments.delay_reason"
+                  },
+                  "as": "delay_reason"
+                }
+              ],
+              "FROM": "commitments",
+              "WHERE": {
+                "AND": [
+                  {
+                    "EQ": [
+                      {
+                        "col": "commitments.supplier_id"
+                      },
+                      {
+                        "value": "S-038"
+                      }
+                    ]
+                  },
+                  {
+                    "IS_NOT_NULL": {
+                      "col": "commitments.delay_reason"
+                    }
+                  }
+                ]
+              },
+              "ORDER_BY": [
+                {
+                  "by": "po_id",
+                  "dir": "ASC"
+                }
+              ],
+              "LIMIT": 10
+            }
+          }
+        ]
+      },
+      "synthesis": {
+        "readings": [
+          {
+            "label": "recorded_reasons",
+            "sentences": [
+              {
+                "text": "For {recorded_reasons.po_id#1}, the delay is recorded as {recorded_reasons.delay_reason#1}."
+              }
+            ]
+          }
+        ]
+      },
+      "gate": {
+        "verdicts": [
+          "supported"
+        ],
+        "evidence": {
+          "recorded_reasons": [
+            "po_id",
+            "delay_reason"
+          ]
+        }
+      },
+      "expect": {
+        "outcome": "answered",
+        "shows": [
+          "one_reading",
+          "recorded_reason"
+        ],
+        "note": "a reason someone recorded, quoted as recorded, never as a cause the system found"
+      }
     },
     {
       "question": "Why is S-014 late so often?",
-      "intent": {"disposition": "refer_to_investigation"}
+      "intent": {
+        "disposition": "refer_to_investigation"
+      },
+      "expect": {
+        "outcome": "referred_to_investigation",
+        "shows": [
+          "referral"
+        ],
+        "note": "a cause is referred to an investigation (Test 22, FR 14)"
+      }
     },
     {
       "question": "What did S-040 supply?",
-      "intent": {"disposition": "retrieve", "readings": [{"label": "supplied", "plan": {
-        "SELECT": [{"expr": {"col": "commitments.po_id"}, "as": "po_id"},
-                   {"expr": {"col": "commitments.part_id"}, "as": "part_id"}],
-        "FROM": "commitments",
-        "WHERE": {"EQ": [{"col": "commitments.supplier_id"}, {"value": "S-040"}]}}}]}
+      "intent": {
+        "disposition": "retrieve",
+        "readings": [
+          {
+            "label": "supplied",
+            "plan": {
+              "SELECT": [
+                {
+                  "expr": {
+                    "col": "commitments.po_id"
+                  },
+                  "as": "po_id"
+                },
+                {
+                  "expr": {
+                    "col": "commitments.part_id"
+                  },
+                  "as": "part_id"
+                }
+              ],
+              "FROM": "commitments",
+              "WHERE": {
+                "EQ": [
+                  {
+                    "col": "commitments.supplier_id"
+                  },
+                  {
+                    "value": "S-040"
+                  }
+                ]
+              }
+            }
+          }
+        ]
+      },
+      "expect": {
+        "outcome": "answered",
+        "shows": [
+          "no_match"
+        ],
+        "note": "a supplier with no orders: no records matched (Test 35)"
+      }
+    },
+    {
+      "question": "What did S-099 supply?",
+      "intent": {
+        "disposition": "retrieve",
+        "readings": [
+          {
+            "label": "supplied",
+            "plan": {
+              "SELECT": [
+                {
+                  "expr": {
+                    "col": "commitments.po_id"
+                  },
+                  "as": "po_id"
+                },
+                {
+                  "expr": {
+                    "col": "commitments.part_id"
+                  },
+                  "as": "part_id"
+                }
+              ],
+              "FROM": "commitments",
+              "WHERE": {
+                "EQ": [
+                  {
+                    "col": "commitments.supplier_id"
+                  },
+                  {
+                    "value": "S-099"
+                  }
+                ]
+              }
+            }
+          }
+        ]
+      },
+      "expect": {
+        "outcome": "answered",
+        "shows": [
+          "not_held"
+        ],
+        "note": "an identifier the data does not hold is said to be absent, and where it was looked for (Test 35)"
+      }
+    },
+    {
+      "question": "Which parts are below their reorder point?",
+      "intent": {
+        "disposition": "retrieve",
+        "readings": [
+          {
+            "label": "below_reorder",
+            "plan": {
+              "SELECT": [
+                {
+                  "expr": {
+                    "col": "parts.part_id"
+                  },
+                  "as": "part_id"
+                },
+                {
+                  "expr": {
+                    "col": "parts.on_hand"
+                  },
+                  "as": "on_hand"
+                },
+                {
+                  "expr": {
+                    "col": "parts.reorder_point"
+                  },
+                  "as": "reorder_point"
+                }
+              ],
+              "FROM": "parts",
+              "WHERE": {
+                "EQ": [
+                  {
+                    "metric": "below_reorder_point"
+                  },
+                  {
+                    "value": true
+                  }
+                ]
+              },
+              "ORDER_BY": [
+                {
+                  "by": "on_hand",
+                  "dir": "ASC"
+                }
+              ],
+              "LIMIT": 10
+            }
+          }
+        ]
+      },
+      "synthesis": {
+        "readings": [
+          {
+            "label": "below_reorder",
+            "sentences": [
+              {
+                "text": "{below_reorder.part_id#1} has {below_reorder.on_hand#1} on hand against a reorder point of {below_reorder.reorder_point#1}."
+              },
+              {
+                "text": "{below_reorder.part_id#1} is the most urgent part to reorder."
+              }
+            ]
+          }
+        ]
+      },
+      "gate": [
+        {
+          "verdicts": [
+            "supported",
+            "uncovered"
+          ],
+          "evidence": {
+            "below_reorder": [
+              "part_id",
+              "on_hand",
+              "reorder_point"
+            ]
+          }
+        },
+        {
+          "verdicts": [
+            "supported"
+          ],
+          "evidence": {
+            "below_reorder": [
+              "part_id",
+              "on_hand",
+              "reorder_point"
+            ]
+          }
+        }
+      ],
+      "redraft": {
+        "readings": [
+          {
+            "label": "below_reorder",
+            "sentences": [
+              {
+                "text": "{below_reorder.part_id#1} has {below_reorder.on_hand#1} on hand against a reorder point of {below_reorder.reorder_point#1}."
+              }
+            ]
+          }
+        ]
+      },
+      "expect": {
+        "outcome": "answered",
+        "shows": [
+          "one_reading",
+          "withheld"
+        ],
+        "scripted_gate": true,
+        "note": "the gate removes a judgement the records do not support; the answer is redrafted and says that statements were withheld (NFR 19)"
+      }
+    },
+    {
+      "question": "Which supplier delivered the most lines on time in weeks 1 to 13?",
+      "intent": {
+        "disposition": "retrieve",
+        "readings": [
+          {
+            "label": "on_time",
+            "plan": {
+              "SELECT": [
+                {
+                  "expr": {
+                    "col": "commitments.supplier_id"
+                  },
+                  "as": "supplier_id"
+                },
+                {
+                  "expr": {
+                    "func": "COUNT",
+                    "arg": "*"
+                  },
+                  "as": "on_time_count"
+                }
+              ],
+              "FROM": "commitments",
+              "WHERE": {
+                "AND": [
+                  {
+                    "BETWEEN": [
+                      {
+                        "col": "commitments.week"
+                      },
+                      {
+                        "value": 1
+                      },
+                      {
+                        "value": 13
+                      }
+                    ]
+                  },
+                  {
+                    "IS_NOT_NULL": {
+                      "col": "commitments.delivered_at"
+                    }
+                  },
+                  {
+                    "EQ": [
+                      {
+                        "metric": "late_by_delivery"
+                      },
+                      {
+                        "value": false
+                      }
+                    ]
+                  }
+                ]
+              },
+              "GROUP_BY": [
+                "supplier_id"
+              ],
+              "ORDER_BY": [
+                {
+                  "by": "on_time_count",
+                  "dir": "DESC"
+                }
+              ],
+              "LIMIT": 10
+            }
+          }
+        ]
+      },
+      "synthesis": [
+        {
+          "readings": [
+            {
+              "label": "on_time",
+              "sentences": [
+                {
+                  "text": "{on_time.supplier_id#1} is the most reliable supplier."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "readings": [
+            {
+              "label": "on_time",
+              "sentences": [
+                {
+                  "text": "{on_time.supplier_id#1} can be relied on more than any other supplier."
+                }
+              ]
+            }
+          ]
+        }
+      ],
+      "gate": {
+        "verdicts": [
+          "uncovered"
+        ],
+        "evidence": {}
+      },
+      "expect": {
+        "outcome": "no_supported_assertion",
+        "shows": [
+          "request_for_input"
+        ],
+        "scripted_gate": true,
+        "note": "nothing the gate can support, after one fresh draft: the answer is replaced by a request for input, records included (Test 17, NFR 19)"
+      }
+    },
+    {
+      "question": "Update the promised date of PO-87213 to 20 October.",
+      "intent": {
+        "disposition": "out_of_scope_action"
+      },
+      "expect": {
+        "outcome": "answered",
+        "shows": [
+          "action_declined"
+        ],
+        "note": "a request to change records: nothing is retrieved, a fixed sentence (task 8, A1)"
+      }
     }
   ]
 }

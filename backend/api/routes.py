@@ -7,6 +7,7 @@ MedAgentPro - the chat API (task 6; 4.9, Figure 8: synchronous, answered while t
   POST /api/conversations/{id}/exchanges          a question: text/event-stream (S1)
   POST /api/exchanges/{id}/rating                 FR 12
   GET  /api/health                                the mode, and the budget left on the real model
+  GET  /api/examples                              the scripted demo questions, in order (task 8, A4)
 
 The stream (S1, decision 8): an event per stage as it starts, then one "result" event carrying the
 response after the gate, never model text before it. Cost and budget travel beside the response,
@@ -28,6 +29,7 @@ from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
 from starlette.background import BackgroundTask
 
+from demo_data.scripted import load_scripts
 from query_assistance import pipeline
 from shared.circuit_breaker import log as operational_log
 
@@ -132,6 +134,16 @@ def router(state: AppState) -> APIRouter:
         if hasattr(state.deps.gateway, "remaining"):
             out["budget_remaining_usd"] = round(state.deps.gateway.remaining(), 6)
         return out
+
+    @r.get("/examples")
+    def examples():
+        """Task 8, A4: the questions the scripted model answers, in the demo's order, for the empty
+        screen. None on the real model, whose answers are not scripted."""
+        if state.mode != "scripted":
+            return []
+        return [{"question": e["question"], "follows": e["expect"].get("follows"),
+                 "outcome": e["expect"]["outcome"], "shows": e["expect"]["shows"]}
+                for e in load_scripts().values()]
 
     @r.post("/conversations", status_code=201)
     def new_conversation(user: dict = Depends(demo_user)):

@@ -1,0 +1,74 @@
+{
+ "gaps": [],
+ "outcome": "answered",
+ "readings": [
+  {
+   "answer": "S-038 had the most lines delivered after the date it committed to, 9.",
+   "checked": "Examined: purchase order lines where week between 1 and 13 and delivered after the date the supplier committed to · grouped by supplier · computed the number of records",
+   "columns": [
+    "supplier_id",
+    "missed_count"
+   ],
+   "evidence": [
+    "missed_promise.supplier_id",
+    "missed_promise.missed_count"
+   ],
+   "headers": {
+    "missed_count": "number of records",
+    "supplier_id": "supplier"
+   },
+   "identifiers": [
+    "supplier_id"
+   ],
+   "label": "missed_promise",
+   "notice": "Showing 10 of 25.",
+   "ordered_by": "ordered by number of records, highest first",
+   "result": "rows_returned",
+   "row_count": 10,
+   "rows": [
+    {
+     "missed_count": 9,
+     "supplier_id": "S-038"
+    },
+    {
+     "missed_count": 5,
+     "supplier_id": "S-005"
+    },
+    {
+     "missed_count": 4,
+     "supplier_id": "S-001"
+    },
+    {
+     "missed_count": 3,
+     "supplier_id": "S-011"
+    },
+    {
+     "missed_count": 3,
+     "supplier_id": "S-019"
+    },
+    {
+     "missed_count": 3,
+     "supplier_id": "S-033"
+    },
+    {
+     "missed_count": 2,
+     "supplier_id": "S-003"
+    },
+    {
+     "missed_count": 2,
+     "supplier_id": "S-010"
+    },
+    {
+     "missed_count": 2,
+     "supplier_id": "S-013"
+    },
+    {
+     "missed_count": 2,
+     "supplier_id": "S-014"
+    }
+   ],
+   "title": "Delivered after the date the supplier committed to",
+   "total": 25
+  }
+ ]
+}

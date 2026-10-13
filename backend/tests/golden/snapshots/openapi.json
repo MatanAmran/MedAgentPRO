@@ -301,6 +301,23 @@
     "summary": "Ask"
    }
   },
+  "/api/examples": {
+   "get": {
+    "description": "Task 8, A4: the questions the scripted model answers, in the demo's order, for the empty\nscreen. None on the real model, whose answers are not scripted.",
+    "operationId": "examples_api_examples_get",
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      },
+      "description": "Successful Response"
+     }
+    },
+    "summary": "Examples"
+   }
+  },
   "/api/exchanges/{exchange_id}/rating": {
    "post": {
     "operationId": "rate_api_exchanges__exchange_id__rating_post",

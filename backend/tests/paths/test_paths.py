@@ -69,6 +69,7 @@ INTENT = {"disposition": "retrieve", "readings": [LATE]}
 INTENT_TWO = {"disposition": "retrieve", "ambiguous": [{"term": "late", "alternatives": [
     {"metric": "late_by_delivery"}, {"metric": "late_by_promise"}]}], "readings": [LATE, PROMISE]}
 REFER = {"disposition": "refer_to_investigation"}
+ACTION = {"disposition": "out_of_scope_action"}
 EMPTY = {"disposition": "retrieve", "readings": [{"label": "s40", "plan": {
     "SELECT": [{"expr": {"col": "commitments.po_id"}, "as": "po_id"}], "FROM": "commitments",
     "WHERE": {"EQ": [{"col": "commitments.supplier_id"}, {"value": "S-040"}]}}}]}
@@ -215,6 +216,10 @@ A_PATHS = [
           synthesis=[SYN_TWO_READINGS], support_scoring=[gate_says("supported")]),
      "answered", True, 4, lambda r: "ambiguous_terms" not in r and r["understood_as"] == Q
                                     and len(r["readings"]) == 2),
+    # Task 8, A1: a request to change records retrieves nothing and is answered by a fixed sentence
+    ("action_declined", "Update the promised date of PO-87006 to 20 October.", APPROVER, False,
+     dict(intent_analysis_demo=[ACTION]), "answered", True, 1,
+     lambda r: r["readings"] == [] and r["gaps"] == [] and r["notice"] == contract.ACTION_DECLINED),
     ("planner_sees_own_rows_only", Q, PLANNER, False,
      dict(intent_analysis_demo=[INTENT], synthesis=[SYN], support_scoring=[gate_says("supported")]),
      "answered", True, 3, lambda r: "limited to the records you hold" in r["readings"][0]["checked"]),

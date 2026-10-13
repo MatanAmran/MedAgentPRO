@@ -43,6 +43,8 @@ PATHS: list[Path] = [
        "a term the compiler accepts from the rewrite is not shown: only spans of the question as posed"),
     _a("planner_sees_own_rows_only", ["role:PLANNER"], "NFR 17 · Test 18"),
     _a("referred", ["outcome:referred_to_investigation", "disposition:refer_to_investigation"], "FR 14 · Test 22"),
+    _a("action_declined", ["disposition:out_of_scope_action", "notice:ACTION_DECLINED"], "task 8 A1 · FR 14 (extension)",
+       "a request to change records: nothing retrieved, a fixed sentence, outcome answered"),
     _a("empty_result_no_synthesis", [], "Test 35"),
     _a("identifier_not_held", [], "Test 35 · 40_CHAT §6"),
     _a("redraft_from_kept", ["verdict:uncovered", "stage:regeneration", "notice:WITHHELD"], "NFR 19 · decision 4, 6"),
@@ -140,4 +142,6 @@ PATHS: list[Path] = [
          "T7-B1 (c) · R8", "the wait is bounded: error event with status 409, the conversation untouched"),
     Path("server_listing_and_health", f"{B}::test_server_listing_and_health",
          ("endpoint:GET /api/conversations", "endpoint:GET /api/health"), "S3"),
+    Path("server_examples", f"{B}::test_server_examples_on_the_scripted_model_only", ("endpoint:GET /api/examples",),
+         "task 8 A4", "the scripted questions for the empty screen; none on the real model"),
 ]

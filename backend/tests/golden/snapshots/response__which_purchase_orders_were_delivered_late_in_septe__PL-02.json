@@ -1,0 +1,56 @@
+{
+ "gaps": [],
+ "outcome": "answered",
+ "readings": [
+  {
+   "answer": "S-001 delivered PO-89259 after the requested date.",
+   "checked": "Examined: purchase order lines where delivery date between '2026-09-01' and '2026-09-30' and delivered after the requested date · grouped by supplier, purchase order · computed the number of records · limited to the records you hold",
+   "columns": [
+    "supplier_id",
+    "po_id",
+    "late_lines"
+   ],
+   "evidence": [
+    "late_in_september.supplier_id",
+    "late_in_september.po_id"
+   ],
+   "headers": {
+    "late_lines": "number of records",
+    "po_id": "purchase order",
+    "supplier_id": "supplier"
+   },
+   "identifiers": [
+    "supplier_id",
+    "po_id"
+   ],
+   "label": "late_in_september",
+   "ordered_by": "ordered by supplier, lowest first, then purchase order, lowest first",
+   "result": "rows_returned",
+   "row_count": 4,
+   "rows": [
+    {
+     "late_lines": 2,
+     "po_id": "PO-89259",
+     "supplier_id": "S-001"
+    },
+    {
+     "late_lines": 1,
+     "po_id": "PO-89322",
+     "supplier_id": "S-001"
+    },
+    {
+     "late_lines": 1,
+     "po_id": "PO-89121",
+     "supplier_id": "S-009"
+    },
+    {
+     "late_lines": 1,
+     "po_id": "PO-89298",
+     "supplier_id": "S-032"
+    }
+   ],
+   "title": "Delivered after the requested date",
+   "total": 4
+  }
+ ]
+}

@@ -1,0 +1,88 @@
+{
+ "gaps": [],
+ "outcome": "answered",
+ "readings": [
+  {
+   "answer": "P-10629 has 0 on hand against a reorder point of 100.",
+   "checked": "Examined: parts where stock on hand is below the reorder point",
+   "columns": [
+    "part_id",
+    "on_hand",
+    "reorder_point"
+   ],
+   "evidence": [
+    "below_reorder.part_id",
+    "below_reorder.on_hand",
+    "below_reorder.reorder_point"
+   ],
+   "headers": {
+    "on_hand": "stock on hand",
+    "part_id": "part",
+    "reorder_point": "reorder point"
+   },
+   "identifiers": [
+    "part_id"
+   ],
+   "label": "below_reorder",
+   "notice": "Showing 10 of 31.",
+   "ordered_by": "ordered by stock on hand, lowest first",
+   "result": "rows_returned",
+   "row_count": 10,
+   "rows": [
+    {
+     "on_hand": 0,
+     "part_id": "P-10629",
+     "reorder_point": 100
+    },
+    {
+     "on_hand": 0,
+     "part_id": "P-10703",
+     "reorder_point": 50
+    },
+    {
+     "on_hand": 0,
+     "part_id": "P-10777",
+     "reorder_point": 500
+    },
+    {
+     "on_hand": 0,
+     "part_id": "P-11147",
+     "reorder_point": 50
+    },
+    {
+     "on_hand": 0,
+     "part_id": "P-12775",
+     "reorder_point": 20
+    },
+    {
+     "on_hand": 0,
+     "part_id": "P-13330",
+     "reorder_point": 500
+    },
+    {
+     "on_hand": 0,
+     "part_id": "P-13478",
+     "reorder_point": 20
+    },
+    {
+     "on_hand": 0,
+     "part_id": "P-14144",
+     "reorder_point": 500
+    },
+    {
+     "on_hand": 0,
+     "part_id": "P-15439",
+     "reorder_point": 200
+    },
+    {
+     "on_hand": 0,
+     "part_id": "P-15550",
+     "reorder_point": 20
+    }
+   ],
+   "title": "Stock on hand is below the reorder point",
+   "total": 31
+  }
+ ],
+ "withheld": "Some statements were withheld because the records do not support them."
+}

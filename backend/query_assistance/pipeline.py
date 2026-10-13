@@ -381,6 +381,8 @@ def run(question: str, history: list[prompts.Exchange], user: dict, deps: Deps,
         rec.step(COMPILATION, [{"label": r.label, "sql": r.sql, "params": r.params} for r in compiled.readings])
         if compiled.disposition == "refer_to_investigation":
             return finish(contract.referred(understood))
+        if compiled.disposition == "out_of_scope_action":   # task 8, A1: nothing is retrieved
+            return finish(contract.declined_action(understood))
 
         # retrieval
         stage("retrieval")
@@ -417,7 +419,8 @@ def run(question: str, history: list[prompts.Exchange], user: dict, deps: Deps,
             return out
 
         if not any(m.rows for m in materials):   # an empty result is a finding (Test 35), no model call
-            return finish(contract.answered(views(), gaps, understood, ambiguous_terms=terms), presented=[])
+            return finish(contract.answered(views(), gaps, understood, ambiguous_terms=terms, catalog=cat),
+                          presented=[])
 
         # R7a: stop before the first synthesis call if the whole path cannot fit
         if hasattr(deps.gateway, "ensure_path"):
@@ -452,7 +455,7 @@ def run(question: str, history: list[prompts.Exchange], user: dict, deps: Deps,
 
         if not final.sentences:   # NFR 19, strict reading: records included are replaced (Test 17)
             return finish(contract.no_supported_assertion(views(), understood))
-        response = contract.answered(views(final), gaps, understood, withheld, ambiguous_terms=terms)
+        response = contract.answered(views(final), gaps, understood, withheld, ambiguous_terms=terms, catalog=cat)
         return finish(response, final, presented=_presented(response, plans, cat, final))
 
     except _Rejected as e:

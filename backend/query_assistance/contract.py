@@ -222,10 +222,20 @@ def reading_view(label: str, plan: dict, result: RetrievalResult, cat: Catalog, 
     return view
 
 
-def render_gap(gap: dict) -> dict:
-    """FR 11, NFR 20: what is missing and what would allow it, never why."""
+def _entity(entity: str, cat: Catalog | None) -> str:
+    """The readable name of a table or a column a gap names, where the catalog holds it."""
+    if cat is None:
+        return entity
+    if "." in entity:
+        return _column(entity, cat) if cat.column(entity) else entity
+    return _table(entity, cat) if entity in cat.entities else entity
+
+
+def render_gap(gap: dict, cat: Catalog | None = None) -> dict:
+    """FR 11, NFR 20: what is missing and what would allow it, never why. The text names the table or
+    column by its label (task 7 review, item 2); missing keeps the technical name."""
     kind, entity = gap["needs"]["kind"], gap["needs"].get("entity")
-    text = TEMPLATES[kind].format(asked=gap["asked"], entity=entity)
+    text = TEMPLATES[kind].format(asked=gap["asked"], entity=_entity(entity, cat) if entity else entity)
     missing = {"kind": kind} if entity is None else {"kind": kind, "entity": entity}
     return {"asked": gap["asked"], "missing": missing, "text": text}
 
@@ -247,14 +257,15 @@ WITHHELD = "Some statements were withheld because the records do not support the
 
 
 def answered(readings: list[dict], gaps: list[dict] | None = None, understood_as: str | None = None,
-             withheld: bool = False, ambiguous_terms: list[str] | None = None) -> dict:
+             withheld: bool = False, ambiguous_terms: list[str] | None = None,
+             catalog: Catalog | None = None) -> dict:
     """withheld: the gate removed a statement and something remains. The notice is fixed and never
     says what was removed ([demo extension], decisions 6 and 13 of 12.10).
     A reading with no title of its own is numbered by its place (task 7, Q2). ambiguous_terms is kept
     only where more than one reading is shown (Q4); the caller passes spans of the question as posed."""
     for n, r in enumerate(readings, start=1):
         r.setdefault("title", f"Reading {n}")
-    resp = {"outcome": "answered", "readings": readings, "gaps": [render_gap(g) for g in gaps or []]}
+    resp = {"outcome": "answered", "readings": readings, "gaps": [render_gap(g, catalog) for g in gaps or []]}
     if withheld:
         resp["withheld"] = WITHHELD
     if ambiguous_terms and len(readings) > 1:
@@ -267,6 +278,15 @@ def referred(understood_as: str | None = None) -> dict:
     return _finish({"outcome": "referred_to_investigation", "readings": [], "gaps": [],
                     "offer_investigation": True,
                     "notice": "This asks for a cause, which an investigation determines."}, understood_as)
+
+
+ACTION_DECLINED = "This assistant reads records. It does not change them."
+
+
+def declined_action(understood_as: str | None = None) -> dict:
+    """Task 8, A1 [demo extension]: a request to change records. An existing outcome, answered, with no
+    reading, no gap and a fixed notice: no new outcome is needed, and nothing was retrieved."""
+    return _finish({"outcome": "answered", "readings": [], "gaps": [], "notice": ACTION_DECLINED}, understood_as)
 
 
 def no_supported_assertion(readings: list[dict], understood_as: str | None = None) -> dict:

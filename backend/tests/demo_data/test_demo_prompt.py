@@ -34,17 +34,18 @@ def db(tmp_path_factory):
 
 
 def test_prompt_metadata():
-    assert PROMPT.output_schema == "intent_analysis" and PROMPT.identity == "intent_analysis_demo@2"
+    assert PROMPT.output_schema == "intent_analysis" and PROMPT.identity == "intent_analysis_demo@3"
     assert "—" not in PROMPT.body and "–" not in PROMPT.body
 
 
 def test_examples_cover_each_kind():
     kinds = {("refer" if o["disposition"] == "refer_to_investigation" else
+              "action" if o["disposition"] == "out_of_scope_action" else
               "ambiguous" if o.get("ambiguous") else
               "unresolved" if o.get("unresolved") else
               "join" if any("JOIN" in r["plan"] for r in o["readings"]) else "plain")
              for _, o in examples()}
-    assert {"refer", "ambiguous", "unresolved", "join", "plain"} <= kinds
+    assert {"refer", "action", "ambiguous", "unresolved", "join", "plain"} <= kinds
 
 
 @pytest.mark.parametrize("question, output", examples())
