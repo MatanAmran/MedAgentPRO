@@ -1107,6 +1107,22 @@ workflow ב-GitHub Actions · בדיקות Playwright, **על שלושת המנ�
 | `path_map` | 130 עוברות |
 | frontend | `tsc` ו-eslint נקיים · **Vitest 62** · ‏`npm audit --omit=dev` נקי · **Playwright 9** על Edge |
 
+**PR ומיזוג (13.10):**
+- **ה-PR:** [MatanAmran/MedAgentPRO#3](https://github.com/MatanAmran/MedAgentPRO/pull/3), ‏`task8/demo-questions` ← `master`. אביתר אישר את ה-push ופתח את ה-PR.
+- **ה-CI עבר** ב-[ריצת ה-push](https://github.com/MatanAmran/MedAgentPRO/actions/runs/38461724866) וב-[ריצת ה-PR](https://github.com/MatanAmran/MedAgentPRO/actions/runs/38462745119).
+- **המיזוג:** אביתר מיזג ל-`master` ב-merge commit (`3ec161f`). במחשב `master` עודכן ב-fast-forward.
+- **הריצה על `master`:**
+
+| סט | תוצאה |
+|---|---|
+| backend | **670 עוברות**, כיסוי 95.8% |
+| `-m stress` | 8 עוברות |
+| ruff, bandit, pip-audit | נקיים |
+| `path_map` | 130 עוברות |
+| frontend | `npm ci`, ‏`next typegen`, ‏`tsc`, ‏eslint נקיים · **Vitest 62** · ‏`npm audit --omit=dev` נקי · **Playwright 9** |
+
+**משימה 8 סגורה.** הבא: משימה 9, לפי `01_HANDOFF.md`.
+
 ## מה שנסגר בסבב האחרון
 
 - **הקוד עבר לריפו** — `MedAgentPro\backend` (`query_assistance`, `model_client`, `persistence`, `shared`, `tests`). **`03_Code` נשאר כמקור ומעודכן.** `python -m pytest -q` מתוך `backend`

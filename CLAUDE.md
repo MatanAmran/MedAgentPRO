@@ -44,7 +44,7 @@ When a decision is made in a session, record it in the relevant note (and here, 
 | 5 | Model gateway configuration: LiteLLM for a real model, scripted fallback. The API key comes from Evyatar, kept in `backend/.env` | built (`model_client/budget.py`); review R1–R7, P1–P10, H1–H2 done (12.10); R9 smoke test pending |
 | 6 | FastAPI endpoint for the chat | done (12.10): `main.py`, `api/`, `demo_data/scripted*`; S1–S6 in `docs/notes/00_STATUS.md` |
 | 7 | Chat screen in Next.js, after Figure 15 of the book | done (13.10), merged in PR #2: `frontend/app`, `frontend/lib`, `frontend/e2e`; Q1–Q5, T7-B1 and the deviations from Figure 15 in `docs/notes/00_STATUS.md` |
-| 8 | Demo question set covering each behaviour | built (13.10), branch `task8/demo-questions`: `demo_data/scripted_exchanges.json` (12 questions, each with `expect`), `out_of_scope_action` (A1), `GET /api/examples` and the examples on screen (A4), `docs/notes/70_DEMO.md` for the presenter |
+| 8 | Demo question set covering each behaviour | done (13.10), merged in PR #3: `demo_data/scripted_exchanges.json` (12 questions, each with `expect`), `out_of_scope_action` (A1), `GET /api/examples` and the examples on screen (A4), `docs/notes/70_DEMO.md` for the presenter |
 | 9 | End-to-end tests on the scripted model | open |
 
 ## Task 4 decisions (settled in the Claude chat, 12.10)
