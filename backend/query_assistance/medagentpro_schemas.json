@@ -970,6 +970,13 @@
                 "label": {
                   "type": "string"
                 },
+                "identifiers": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  },
+                  "$comment": "[demo extension, task 7 Q3] The columns, in display order, that select an identifier column of schema.json. The interface groups and tags by them; no meaning is read."
+                },
                 "title": {
                   "type": "string",
                   "maxLength": 120,

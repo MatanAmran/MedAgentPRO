@@ -167,6 +167,10 @@ def reading_view(label: str, plan: dict, result: RetrievalResult, cat: Catalog, 
         "checked": render_checked(plan, cat, role),
         "result": result.outcome,
         "columns": [i["as"] for i in plan["SELECT"]],
+        # task 7, Q3 [demo extension]: which columns select an identifier, from schema.json, so the
+        # screen can group and tag without reading meaning
+        "identifiers": [i["as"] for i in plan["SELECT"] if "col" in i["expr"]
+                        and (cat.column(i["expr"]["col"]) or {}).get("identifier")],
         "rows": [{k: _cell(v) for k, v in r.items()} for r in result.rows],
         "row_count": len(result.rows),
         "total": result.total,

@@ -16,6 +16,9 @@
     "late_by_delivery.supplier_id",
     "late_by_delivery.late_count"
    ],
+   "identifiers": [
+    "supplier_id"
+   ],
    "label": "late_by_delivery",
    "notice": "Showing 10 of 28.",
    "ordered_by": "ordered by late_count, highest first",
@@ -76,6 +79,9 @@
    "evidence": [
     "late_by_promise.supplier_id",
     "late_by_promise.late_count"
+   ],
+   "identifiers": [
+    "supplier_id"
    ],
    "label": "late_by_promise",
    "notice": "Showing 10 of 13.",

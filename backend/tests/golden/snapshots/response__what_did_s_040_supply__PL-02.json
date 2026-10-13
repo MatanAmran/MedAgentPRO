@@ -8,6 +8,10 @@
     "po_id",
     "part_id"
    ],
+   "identifiers": [
+    "po_id",
+    "part_id"
+   ],
    "label": "supplied",
    "notice": "No records matched.",
    "result": "empty_no_match",
