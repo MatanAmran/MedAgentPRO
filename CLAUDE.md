@@ -43,7 +43,7 @@ When a decision is made in a session, record it in the relevant note (and here, 
 | 4 | Pipeline orchestration: rewrite, intent, compile, retrieve, synthesis, gate, contract. Retry within attempts, one redraft (NFR 19), exchange record and rating (FR 12, FR 13). `query_assistance/pipeline.py` | done |
 | 5 | Model gateway configuration: LiteLLM for a real model, scripted fallback. The API key comes from Evyatar, kept in `backend/.env` | built (`model_client/budget.py`); review R1–R7, P1–P10, H1–H2 done (12.10); R9 smoke test pending |
 | 6 | FastAPI endpoint for the chat | done (12.10): `main.py`, `api/`, `demo_data/scripted*`; S1–S6 in `docs/notes/00_STATUS.md` |
-| 7 | Chat screen in Next.js, after Figure 15 of the book | open |
+| 7 | Chat screen in Next.js, after Figure 15 of the book | built (13.10), branch `task7/chat-screen`: `frontend/app`, `frontend/lib`; Q1–Q5 and the deviations from Figure 15 in `docs/notes/00_STATUS.md`; T7-B1 open |
 | 8 | Demo question set covering each behaviour | open |
 | 9 | End-to-end tests on the scripted model | open |
 
@@ -193,7 +193,7 @@ On Evyatar's machine an Application Control policy blocks `.exe` files in the ve
 # Backend (from backend\, venv active)
 python -m pip install -r requirements.txt
 python -m demo_data.seed          # builds demo_data\demo.db
-python -m pytest -q               # the default run; 635 after the classic set and the item-5 report fixes
+python -m pytest -q               # the default run; 643 after task 7
 python -m tools.path_map          # runs tests/paths and tests/feasibility, writes docs/notes/60_PATHS.md
 python -m query_assistance.dry_run   # prices two scripted exchanges at the .env prices, no model call, no key
 python -m query_assistance.dry_run --model claude-sonnet-5-5   # the same, prices from LiteLLM's local map, no .env
@@ -213,7 +213,12 @@ Application Control also blocks compiled (mypyc) extensions from unverified publ
 
 ```powershell
 # Frontend (from frontend\)
-npm run dev
+npm run dev                       # the screen, http://localhost:3000, against the server on 127.0.0.1:8000
+npx tsc --noEmit; npx eslint .    # types and lint
+npx vitest run                    # component and library tests (fixtures: backend golden snapshots)
+npx playwright test               # end to end: starts the scripted server (--scripted-delay) and next dev
+                                  # itself on 8000 and 3000, so stop any dev server first. Locally on the
+                                  # installed Edge (channel msedge), in CI on Chromium
 ```
 
 Studies (run from inside the study directory — scripts use relative paths like `samples/`, `results/`):

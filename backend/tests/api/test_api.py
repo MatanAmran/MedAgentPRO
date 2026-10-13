@@ -245,6 +245,24 @@ def test_reload_with_the_real_model_is_refused(capsys):
     assert "refused" in capsys.readouterr().out
 
 
+def test_scripted_delay_is_refused_with_the_real_model(capsys):
+    """The delay is a test aid for the scripted model (task 7, end-to-end tests); it never slows the
+    real one, where waiting holds a budget reservation."""
+    assert main.main(["--real", "--scripted-delay", "1"]) == 2
+    assert "scripted model only" in capsys.readouterr().out
+
+
+def test_scripted_delay_waits_before_each_output(db_path, monkeypatch):
+    waits: list[float] = []
+    monkeypatch.setattr("demo_data.scripted.time.sleep", waits.append)
+    app = main.create_app("scripted", db_path, scripted_delay=0.5)
+    with TestClient(app) as c:
+        cid = c.post("/api/conversations", headers=AP).json()["conversation_id"]
+        out = result(c.post(f"/api/conversations/{cid}/exchanges", headers=AP,
+                            json={"question": WHY, "request_id": uuid.uuid4().hex}))
+    assert out["response"]["outcome"] == "referred_to_investigation" and waits == [0.5]
+
+
 def test_the_real_model_needs_its_chain_key_and_never_builds_under_pytest(db_path, monkeypatch):
     monkeypatch.delenv("MEDAGENTPRO_CHAIN_KEY", raising=False)
     monkeypatch.setattr(main, "ENV_FILE", db_path.parent / "no.env")

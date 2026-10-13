@@ -14,6 +14,7 @@ from __future__ import annotations
 
 import json
 import re
+import time
 from pathlib import Path
 
 from model_client.client import ModelCallError, ModelConfig, ModelGateway, ModelResponse, ScriptedModelGateway
@@ -51,8 +52,9 @@ def gate_claims(prompt: str, gate: dict) -> dict:
 class ScriptedDemoGateway(ModelGateway):
     """Bound to one question for one exchange. Each stage takes the next output its script holds."""
 
-    def __init__(self, question: str, scripts: dict[str, dict]):
+    def __init__(self, question: str, scripts: dict[str, dict], delay: float = 0.0):
         self.question = question
+        self.delay = delay              # seconds before each output: lets end-to-end tests act mid-stream
         self.script = scripts.get(_key(question))
         self._inner = ScriptedModelGateway(self._answer)
 
@@ -73,4 +75,6 @@ class ScriptedDemoGateway(ModelGateway):
         return gate_claims(prompt, out) if stage == "gate" else out
 
     def invoke(self, prompt: str, config: ModelConfig) -> ModelResponse:
+        if self.delay:
+            time.sleep(self.delay)
         return self._inner.invoke(prompt, config)
