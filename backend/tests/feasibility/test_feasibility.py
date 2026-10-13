@@ -295,7 +295,8 @@ def _grouped(r: dict) -> bool:
 
 # Task 8: what each behaviour named in a script's expect.shows means in the response
 SHOWS = {
-    "two_readings": lambda r: len(r["readings"]) == 2 and all(x["checked"].startswith("Examined") for x in r["readings"]),
+    "two_readings": lambda r: len(r["readings"]) == 2
+    and all(x["checked"].startswith("Examined") for x in r["readings"]),
     "one_reading": lambda r: len(r["readings"]) == 1 and r["readings"][0]["checked"].startswith("Examined"),
     "understood_as": lambda r: bool(r.get("understood_as")),
     "grouped": lambda r: _grouped(r["readings"][0]),

@@ -172,7 +172,8 @@ def test_gap_text_names_the_table_or_column_by_its_label():
                      CAT)
     assert g["text"] == "On who approved them there is no data. No column in purchase orders records it."
     assert g["missing"] == {"kind": "no_such_column", "entity": "purchase_orders"}
-    col = k.render_gap({"asked": "x", "needs": {"kind": "value_not_present", "entity": "commitments.delay_reason"}}, CAT)
+    col = k.render_gap({"asked": "x", "needs": {"kind": "value_not_present",
+                                                "entity": "commitments.delay_reason"}}, CAT)
     assert col["text"] == "x does not appear in delay reason."
 
 
