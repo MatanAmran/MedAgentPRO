@@ -1,0 +1,96 @@
+# Root Cause Analysis Report
+
+## Primary Causal Explanation
+
+**Root Cause: mod_jk Configuration Failure Preventing Apache-Tomcat Connector Initialization**
+
+The evidence strongly indicates a persistent misconfiguration or corruption in the mod_jk (Apache-Tomcat connector) configuration file that prevents proper initialization of worker processes, particularly affecting child process spawning during Apache restarts and logrotate operations.
+
+### Confidence Score: **0.85**
+
+## Supporting Evidence Analysis
+
+### Critical Evidence Chain:
+
+1. **Configuration File Issue** (E2, E1, E23-E25)
+   - `/etc/httpd/conf/workers2.properties` is explicitly identified as a failed entity
+   - Repeated failures in `workerEnv.init()` and `jk2_init()` point to configuration parsing/loading problems
+   - mod_jk appears as the primary recurring source
+
+2. **Cascading Error States** (E7-E11, E30-E33)
+   - Progressive error states (6→7→8→9→10) with decreasing frequency (450→180→45→25→unknown)
+   - This pattern suggests repeated retry attempts with escalating failure severity
+   - High occurrence count (450 for state 6) indicates systemic, not transient, issue
+
+3. **Child Process Initialization Failures** (E3, E12-E13, E34-E35)
+   - "jk2_init() child processes" failures (E3)
+   - "mod_jk child init 1 -2" errors occurring 12 times (E34)
+   - "Can't find child in scoreboard" (8 occurrences) suggests Apache can't track spawned children
+   - This indicates the connector fails during Apache's child process fork/initialization
+
+4. **Temporal Correlation with Logrotate** (E4, E15, E26, E36, E16-E22)
+   - Logrotate failures (35 occurrences) with abnormal exits
+   - Timestamps cluster around 04:00-04:51 hours (E16-E17, E20-E21) - typical logrotate schedule
+   - Logrotate typically triggers Apache reload/restart, which would re-initialize mod_jk
+   - This explains why the issue manifests repeatedly at scheduled intervals
+
+## Secondary Contributing Factors
+
+- **PAM/Authentication Issues** (E5-E6, E27-E29, E38): While SSH failures (200) and user session problems exist, these appear unrelated to the primary mod_jk issue
+- **Web Server Misconfigurations** (E14, E37): Directory index errors are likely symptoms of degraded service, not causes
+
+## Recommended Actions
+
+### Immediate (Priority 1):
+1. **Validate workers2.properties syntax and permissions**
+   ```bash
+   # Check file existence, permissions, and ownership
+   ls -la /etc/httpd/conf/workers2.properties
+   # Validate configuration syntax
+   ```
+   *Evidence: E2, E1*
+
+2. **Review Apache error logs during logrotate execution**
+   - Focus on timestamps around 04:00-05:00 and 14:00-18:00
+   - Identify exact failure point in mod_jk initialization sequence
+   *Evidence: E16-E22, E26*
+
+3. **Temporarily disable mod_jk to confirm service stability**
+   - Isolate whether issue is mod_jk-specific or broader Apache problem
+   *Evidence: E23-E25, E30-E33*
+
+### Short-term (Priority 2):
+4. **Repair or regenerate workers2.properties configuration**
+   - Verify worker definitions match available Tomcat instances
+   - Ensure socket/AJP connector settings are correct
+   *Evidence: E2, E7-E11*
+
+5. **Adjust logrotate configuration for Apache**
+   - Modify postrotate script to gracefully reload instead of restart
+   - Add error handling to logrotate Apache configuration
+   *Evidence: E36, E15*
+
+6. **Increase Apache scoreboard size** (if child tracking is the bottleneck)
+   ```apache
+   ServerLimit 256
+   MaxClients 256
+   ```
+   *Evidence: E13, E35*
+
+### Long-term (Priority 3):
+7. **Implement monitoring for mod_jk health**
+   - Alert on error state escalation patterns
+   - Track worker initialization success rates
+   *Evidence: E30-E33*
+
+8. **Address authentication security concerns**
+   - Investigate 200 SSH authentication failures
+   - Review PAM configuration for cyrus/news users
+   *Evidence: E38, E5-E6*
+
+## Validation Criteria
+
+The root cause hypothesis will be confirmed if:
+- Correcting workers2.properties eliminates error states 6-10
+- Logrotate operations complete without triggering mod_jk failures
+- Child process scoreboard errors cease after configuration fix

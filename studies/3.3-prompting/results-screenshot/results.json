@@ -1,0 +1,48 @@
+{
+ "run_timestamp": "2026-09-06T03:10:20",
+ "model": "claude-sonnet-4-5-20250929",
+ "temperature": 0.0,
+ "max_tokens": 1500,
+ "prompts": {
+  "conversational": "You are an expert root cause investigator. Analyze this summarized operational evidence and propose a causal explanation for the anomaly. Provide your confidence score as a value between 0.0 and 1.0, cite the specific evidence IDs that support your conclusion, and suggest recommended actions.\n\nEvidence:\n{evidence}",
+  "structured": "You are the domain interpretation stage of an automated root cause analysis pipeline. Determine the nature of the anomaly from the evidence below and propose a causal explanation.\n\nRespond with a single JSON object and nothing else. No prose before or after it, no code fences. The object must have exactly these keys:\n\n{{\n  \"anomaly_type\": string,\n  \"causal_hypothesis\": string,\n  \"confidence_score\": number between 0.0 and 1.0,\n  \"evidence_references\": [string],\n  \"recommended_action\": string\n}}\n\n\"evidence_references\" must contain identifiers taken from the evidence list below. Do not cite an identifier that does not appear there, and do not introduce facts that the evidence does not state.\n\nEvidence:\n{evidence}",
+  "calibrated": "You are the domain interpretation stage of an automated root cause analysis pipeline. Determine the nature of the anomaly from the evidence below and propose a causal explanation.\n\nRespond with a single JSON object and nothing else. No prose before or after it, no code fences. The object must have exactly these keys:\n\n{{\n  \"anomaly_type\": string,\n  \"causal_hypothesis\": string,\n  \"confidence_score\": number between 0.0 and 1.0,\n  \"evidence_references\": [string],\n  \"recommended_action\": string\n}}\n\n\"confidence_score\" must reflect how far the evidence supports the hypothesis. Report a high value when the evidence identifies the component that failed, the condition under which it failed, and how often. Report a low value when evidence that would decide between explanations is absent, when the evidence supports more than one unrelated explanation, or when the hypothesis rests on anything the evidence does not state.\n\n\"evidence_references\" must contain identifiers taken from the evidence list below. Do not cite an identifier that does not appear there, and do not introduce facts that the evidence does not state.\n\nEvidence:\n{evidence}",
+  "exemplified": "You are the domain interpretation stage of an automated root cause analysis pipeline. Determine the nature of the anomaly from the evidence below and propose a causal explanation.\n\nRespond with a single JSON object and nothing else. No prose before or after it, no code fences. The object must have exactly these keys:\n\n{{\n  \"anomaly_type\": string,\n  \"causal_hypothesis\": string,\n  \"confidence_score\": number between 0.0 and 1.0,\n  \"evidence_references\": [string],\n  \"recommended_action\": string\n}}\n\n\"confidence_score\" must reflect how far the evidence supports the hypothesis. Report a high value when the evidence identifies the component that failed, the condition under which it failed, and how often. Report a low value when evidence that would decide between explanations is absent, when the evidence supports more than one unrelated explanation, or when the hypothesis rests on anything the evidence does not state.\n\n\"evidence_references\" must contain identifiers taken from the evidence list below. Do not cite an identifier that does not appear there, and do not introduce facts that the evidence does not state.\n\nTwo worked examples of the intended scale.\n\nExample A. Evidence:\nX1. failed_entities: postfix smtpd\nX2. error_codes: connection timed out to relay host\nX3. anomaly_timestamps: Mar 02 03:14:07\nX4. recurring_sources: relay.example.net\nX5. occurrence_count: connection timed out = 214\n\nCorrect response for Example A, in part:\n\"causal_hypothesis\": \"Mail delivery fails because the relay host stopped accepting connections, timing out 214 times from a single relay\",\n\"confidence_score\": 0.88\n\nThe score is high because the evidence names the component, the condition under which it failed, and how often.\n\nExample B. Evidence:\nY1. failed_entities: postfix smtpd\nY2. anomaly_timestamps: Mar 02 03:14:07\nY3. anomaly_timestamps: Mar 02 09:41:55\nY4. recurring_sources: relay.example.net\n\nCorrect response for Example B, in part:\n\"causal_hypothesis\": \"Mail delivery through the relay host failed, for a reason the evidence does not state\",\n\"confidence_score\": 0.30\n\nThe score is low because the evidence names the component and when it failed and does not state under what condition, so a delivery fault, a credential fault and a network fault remain equally consistent with it.\n\nNow respond for the evidence below, using the same scale.\n\nEvidence:\n{evidence}"
+ },
+ "runs": [
+  {
+   "sample_id": "LOG-01",
+   "condition": "conversational",
+   "repetition": 1,
+   "outcome": "responded",
+   "evidence_items": 25,
+   "output_tokens": 608,
+   "output_truncated": false,
+   "elapsed_seconds": 16.1,
+   "json_parsed": false,
+   "fields_present": false,
+   "confidence_valid": false,
+   "references_resolve": false,
+   "references_total": 0,
+   "references_unresolved": [],
+   "failure": "not valid JSON: Expecting value: line 1 column 1 (char 0)"
+  },
+  {
+   "sample_id": "LOG-01",
+   "condition": "structured",
+   "repetition": 1,
+   "outcome": "responded",
+   "evidence_items": 25,
+   "output_tokens": 331,
+   "output_truncated": false,
+   "elapsed_seconds": 8.7,
+   "json_parsed": true,
+   "fields_present": true,
+   "confidence_valid": true,
+   "references_resolve": true,
+   "references_total": 14,
+   "references_unresolved": [],
+   "failure": null
+  }
+ ]
+}

@@ -1,0 +1,9 @@
+```json
+{
+  "anomaly_type": "Distributed brute-force authentication attack with service disruption",
+  "causal_hypothesis": "Multiple external sources are conducting systematic brute-force attacks against SSH and FTP services, attempting authentication with common usernames (root, guest) and unknown users. The high volume of failed authentication attempts (189 SSH failures, 67 unknown user attempts) from 29 distinct recurring sources across geographically distributed IP addresses indicates a coordinated or opportunistic attack pattern. The logrotate service failures (16 occurrences) may be a secondary effect caused by excessive logging from authentication failures filling disk space or overwhelming the logging subsystem.",
+  "confidence_score": 0.92,
+  "evidence_references": ["E1", "E2", "E3", "E4", "E5", "E6", "E27", "E28", "E29", "E30", "E31", "E32", "E33", "E34", "E35", "E36", "E37", "E38", "E39", "E40", "E41", "E42", "E43", "E44", "E45", "E46", "E47", "E48", "E49", "E50", "E51", "E52", "E53", "E54", "E55", "E56", "E57", "E58", "E59", "E60", "E61"],
+  "recommended_action": "Implement immediate rate-limiting and IP-based blocking for SSH and FTP services using fail2ban or similar intrusion prevention system. Disable root login via SSH, restrict FTP access, and investigate logrotate failures to ensure log rotation is functioning properly to prevent disk space exhaustion. Review and strengthen authentication policies, consider implementing key-based authentication only for SSH, and monitor for continued attack patterns from the identified source IPs."
+}
+```

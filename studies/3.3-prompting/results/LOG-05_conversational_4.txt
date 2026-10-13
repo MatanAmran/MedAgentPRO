@@ -1,0 +1,87 @@
+# Root Cause Analysis Report
+
+## Causal Explanation
+
+**Primary Root Cause: Network Connectivity Failure to Critical Hadoop Infrastructure Nodes**
+
+The anomaly was caused by a **network-level failure preventing communication with the Hadoop cluster's master nodes** (msra-sa-41), specifically affecting connectivity to:
+- HDFS NameNode (port 9000)
+- YARN ResourceManager (port 8030)
+
+This network disruption triggered a cascade of failures across the MapReduce job execution pipeline, ultimately causing job failure.
+
+**Confidence Score: 0.92**
+
+---
+
+## Supporting Evidence Analysis
+
+### Network Layer Failures (Primary Indicators)
+- **E6, E24**: `NoRouteToHostException` from client (MININT-FNANLI5) to msra-sa-41:9000 - definitive network routing failure
+- **E8, E20**: Address change detected (356 occurrences) - indicates network instability or DNS/routing reconfiguration
+- **E7, E22**: "ERROR IN CONTACTING RM" (178 occurrences) - ResourceManager unreachable
+
+### Service Impact Chain
+- **E9, E21**: Failed to renew HDFS lease (356 occurrences) - direct consequence of NameNode unreachability
+- **E4, E15, E18**: DFSClient and LeaseRenewer failures - HDFS client operations blocked
+- **E16, E17**: RMCommunicator and IPC Client failures - YARN communication breakdown
+- **E5, E19**: EventHandlingThread and JobHistoryEventHandler affected - job coordination disrupted
+
+### Job Execution Failures (Downstream Effects)
+- **E1, E2**: Two map tasks failed (attempt_*_m_000001_0, attempt_*_m_000002_0)
+- **E3**: Entire job failed (job_1445144423722_0020)
+
+### Temporal Pattern
+- **E10-E14**: Failures clustered within ~30 seconds (18:05:57 to 18:06:28), indicating a sudden network event rather than gradual degradation
+
+---
+
+## Failure Sequence Reconstruction
+
+1. **T0 (18:05:57)**: Network connectivity to msra-sa-41 lost/degraded
+2. **T0+4s**: HDFS lease renewal failures begin accumulating
+3. **T0+29s**: MapReduce tasks unable to communicate with RM, tasks fail
+4. **T0+31s**: Job coordination breaks down, entire job marked as failed
+
+---
+
+## Recommended Actions
+
+### Immediate (Emergency Response)
+1. **Verify network connectivity** between client node (MININT-FNANLI5) and master node (msra-sa-41)
+   - Check routing tables, firewall rules, and physical network infrastructure
+   - Test connectivity: `ping msra-sa-41`, `telnet msra-sa-41 9000`, `telnet msra-sa-41 8030`
+
+2. **Check master node status** (msra-sa-41)
+   - Verify NameNode and ResourceManager services are running
+   - Review network interface configuration for address changes
+
+### Short-term (Recovery)
+3. **Restart failed job** (job_1445144423722_0020) once connectivity is restored
+4. **Monitor lease renewal** and RM communication for 15-30 minutes post-recovery
+5. **Review DNS configuration** - the address change pattern suggests potential DNS issues
+
+### Long-term (Prevention)
+6. **Implement network monitoring** with alerts for:
+   - NoRouteToHostException patterns
+   - RM/NameNode unreachability
+   - Abnormal address resolution changes
+
+7. **Configure retry policies** with exponential backoff for transient network failures
+8. **Enable HA (High Availability)** for NameNode and ResourceManager if not already configured
+9. **Investigate root cause** of the 356 address change detections - this is abnormally high and suggests:
+   - Network infrastructure instability
+   - DNS server issues
+   - Load balancer misconfiguration
+
+10. **Review network architecture** between client and cluster nodes for single points of failure
+
+---
+
+## Confidence Justification
+
+The 0.92 confidence score reflects:
+- **Strong evidence**: Clear NoRouteToHostException and network error patterns
+- **Consistent timeline**: All failures align with network connectivity loss
+- **High occurrence counts**: 356 lease failures and 178 RM contact errors indicate sustained outage
+- **Minor uncertainty**: Cannot definitively rule out simultaneous master node failure (though less likely given the client-side NoRouteToHostException)

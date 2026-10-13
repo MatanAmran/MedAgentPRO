@@ -1,0 +1,9 @@
+```json
+{
+  "anomaly_type": "ZooKeeper quorum network partition and cluster instability",
+  "causal_hypothesis": "Persistent network connectivity failures between ZooKeeper ensemble members (nodes with myid=1,2,3 at IPs 10.10.34.11-13) are preventing quorum formation. The QuorumCnxManager cannot establish or maintain channels to peers at election addresses, causing repeated connection breaks (156 occurrences for id 188978561024), worker thread interruptions (187 send worker exits, 143 interrupted), and learner handler failures. This triggers continuous leader election attempts and prevents the cluster from achieving stable consensus.",
+  "confidence_score": 0.95,
+  "evidence_references": ["E1", "E2", "E3", "E4", "E5", "E6", "E7", "E8", "E9", "E10", "E11", "E12", "E13", "E14", "E15", "E16", "E17", "E34", "E35", "E36", "E37", "E38", "E39", "E40", "E41", "E42", "E43", "E44", "E45", "E46", "E47", "E48", "E49", "E50", "E51", "E52"],
+  "recommended_action": "Investigate network connectivity between ZooKeeper nodes at 10.10.34.11, 10.10.34.12, and 10.10.34.13 on port 3888 (election port). Check for firewall rules, network segmentation, packet loss, or routing issues. Verify all nodes can reach each other bidirectionally. Review network infrastructure logs for the timestamp ranges provided. Consider checking if nodes are experiencing resource exhaustion that could cause connection timeouts."
+}
+```

@@ -1,0 +1,125 @@
+{
+ "run_timestamp": "2026-09-05T01:56:08",
+ "model": "claude-sonnet-4-5-20250929",
+ "temperature": 0.0,
+ "max_tokens": 2000,
+ "context_limit": 200000,
+ "prompts": {
+  "baseline": "You are the summarization stage of an automated root cause analysis pipeline. You will be given raw operational log data.\n\nProduce a condensed summary that a later reasoning stage will use to determine why something failed. The later stage will not see the raw data, so anything you omit is lost.\n\nRetain:\n- identifiers of entities that failed\n- error codes and error types\n- timestamps of anomalous events\n- sources that recur across failures\n- how many times each anomaly occurred\n\nDiscard repetitive routine entries that carry no diagnostic value.\n\nWrite plain prose and lists. Do not add commentary about your own process.\n\nRaw data:\n---\n{data}\n---",
+  "schema": "You are the summarization stage of an automated root cause analysis pipeline. You will be given raw operational log data.\n\nProduce a condensed summary that a later reasoning stage will use to determine why something failed. The later stage will not see the raw data, so anything you omit is lost.\n\nRetain:\n- identifiers of entities that failed\n- error codes and error types\n- timestamps of anomalous events\n- sources that recur across failures\n- how many times each anomaly occurred\n\nDiscard repetitive routine entries that carry no diagnostic value.\n\nRespond with a single JSON object and nothing else. No prose before or after it, no code fences. The object must have exactly these keys:\n\n{{\n  \"failed_entities\": [string],\n  \"error_codes\": [string],\n  \"anomaly_timestamps\": [string],\n  \"recurring_sources\": [string],\n  \"occurrence_counts\": [{{\"item\": string, \"count\": integer}}],\n  \"narrative\": string\n}}\n\nEvery list must contain at least one element. \"narrative\" is a short factual account of what went wrong.\n\nRaw data:\n---\n{data}\n---"
+ },
+ "runs": [
+  {
+   "sample_id": "LOG-06",
+   "condition": "baseline",
+   "label": "baseline",
+   "input_tokens": 178280,
+   "outcome": "summarized",
+   "output_truncated": false,
+   "schema_valid": null,
+   "repair_used": false,
+   "repair_reason": null,
+   "summary_tokens": 618,
+   "compression_ratio": 288.5,
+   "facts_total": 5,
+   "facts_found_auto": 1,
+   "elapsed_seconds": 22.5,
+   "facts": [
+    {
+     "type": "entity",
+     "needle": "mod_jk",
+     "note": "הרכיב שנכשל",
+     "auto_found": true,
+     "needs_review": false
+    },
+    {
+     "type": "error_code",
+     "needle": "error state 6",
+     "note": "קוד השגיאה השכיח",
+     "auto_found": false,
+     "needs_review": false
+    },
+    {
+     "type": "count",
+     "needle": "369",
+     "note": "מספר המופעים של error state 6",
+     "auto_found": false,
+     "needs_review": true
+    },
+    {
+     "type": "source",
+     "needle": "218.188.2.4",
+     "note": "הכתובת עם כשלי האימות",
+     "auto_found": false,
+     "needs_review": false
+    },
+    {
+     "type": "count",
+     "needle": "490",
+     "note": "סך כשלי האימות",
+     "auto_found": false,
+     "needs_review": true
+    }
+   ],
+   "source_file": "LOG-06.log",
+   "input_bytes": 399910,
+   "repetition": 1
+  },
+  {
+   "sample_id": "LOG-06",
+   "condition": "schema",
+   "label": "schema",
+   "input_tokens": 178390,
+   "outcome": "summarized",
+   "output_truncated": false,
+   "schema_valid": true,
+   "repair_used": false,
+   "repair_reason": null,
+   "summary_tokens": 804,
+   "compression_ratio": 221.9,
+   "facts_total": 5,
+   "facts_found_auto": 2,
+   "elapsed_seconds": 20.3,
+   "facts": [
+    {
+     "type": "entity",
+     "needle": "mod_jk",
+     "note": "הרכיב שנכשל",
+     "auto_found": true,
+     "needs_review": false
+    },
+    {
+     "type": "error_code",
+     "needle": "error state 6",
+     "note": "קוד השגיאה השכיח",
+     "auto_found": true,
+     "needs_review": false
+    },
+    {
+     "type": "count",
+     "needle": "369",
+     "note": "מספר המופעים של error state 6",
+     "auto_found": false,
+     "needs_review": true
+    },
+    {
+     "type": "source",
+     "needle": "218.188.2.4",
+     "note": "הכתובת עם כשלי האימות",
+     "auto_found": false,
+     "needs_review": false
+    },
+    {
+     "type": "count",
+     "needle": "490",
+     "note": "סך כשלי האימות",
+     "auto_found": false,
+     "needs_review": true
+    }
+   ],
+   "source_file": "LOG-06.log",
+   "input_bytes": 399910,
+   "repetition": 1
+  }
+ ]
+}

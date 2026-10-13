@@ -1,0 +1,45 @@
+# Summary
+
+## Failing Component
+**mod_jk (Apache JK connector)** - The primary failure involves mod_jk child worker environments repeatedly entering error states.
+
+## Error Pattern
+- **Error Type**: `mod_jk child workerEnv in error state`
+- **Error States**: Primarily states 6, 7, 8, 9, and 10
+- **Frequency**: Hundreds of occurrences throughout the logs
+- **Timing**: Errors occur in clusters, typically 2-10 seconds after `workerEnv.init()` success messages
+
+## Key Timestamps
+- Pattern begins: December 4, 2005, 04:47:44
+- Continues through: July 27, 2005 (logs appear to span multiple time periods)
+- Most concentrated failures: December 4-5, 2005
+
+## Recurring Sequence
+1. `workerEnv.init() ok /etc/httpd/conf/workers2.properties` (success)
+2. `jk2_init() Found child [PID] in scoreboard slot [N]` (child process initialization)
+3. `mod_jk child workerEnv in error state [6-10]` (failure occurs 2-10 seconds later)
+
+## Additional Failures
+- **jk2_init() errors**: "Can't find child [PID] in scoreboard" - occurred 12 times
+- **mod_jk child init errors**: "mod_jk child init 1 -2" - occurred 10 times
+- **Directory index forbidden**: Multiple HTTP 403 errors from various client IPs
+- **Authentication failures**: SSH brute force attempts from multiple external hosts
+- **FTP connection floods**: Massive concurrent connection attempts from single IPs
+
+## Affected Child Processes
+- Scoreboard slots: 6, 7, 8, 9, 10, 11, 12, 13 (most common: 6-10)
+- Child PIDs range from low thousands to 30,000+
+- Process churn indicates repeated worker restarts
+
+## Configuration File
+- `/etc/httpd/conf/workers2.properties` - repeatedly referenced during initialization
+
+## Secondary Issues
+- Logrotate failures: "ALERT exited abnormally with [1]" - daily occurrence
+- ZooKeeper connection issues (later in logs): QuorumCnxManager connection breaks
+- Named DNS issues: "notify question section contains no SOA"
+
+## Error State Distribution
+- State 6: Most frequent (~60% of errors)
+- State 7: Second most common (~25%)
+- States 8, 9, 10: Less frequent but indicate escalating severity

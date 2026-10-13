@@ -1,0 +1,70 @@
+# Root Cause Analysis Summary
+
+## Overview
+This is a Hadoop Distributed File System (HDFS) operational log spanning from 081109 203615 to 081111 102017, showing normal distributed file operations with intermittent failures.
+
+## Key Failures and Anomalies
+
+### DataXceiver Exceptions (Primary Issue)
+**47 occurrences** of "Got exception while serving" errors across multiple DataNodes:
+
+**Affected DataNodes (recurring):**
+- 10.251.30.85:50010 (2 occurrences)
+- 10.251.126.255:50010 (2 occurrences)
+- 10.251.26.8:50010 (2 occurrences)
+- 10.251.70.211:50010 (2 occurrences)
+- 10.251.42.246:50010 (2 occurrences)
+- 10.251.31.5:50010 (2 occurrences)
+
+**Sample timestamps:**
+- 081109 214043, 214402, 214529, 214910, 215136, 215259, 215702, 220032, 220403
+- 081110 070326, 071657, 072124, 080546, 080847, 081044, 081054, 081337, 081515, 081643, 081741, 082702, 082706, 082737, 082954, 083045
+- 081110 091216, 091550, 091657, 092151, 093020, 094019, 175934, 231904, 231911, 233954
+- 081111 004102, 011254, 012254, 014431, 124159, 124817, 125138, 125914, 125920, 130315, 131041, 131233, 131806, 131950, 132523, 133657, 133946, 135429, 135653, 135806
+
+**Block IDs involved in failures include:**
+- blk_-2918118818249673980, blk_8376667364205250596, blk_3763728533434719668, blk_6241141267506413726, blk_8466246428293623262, blk_-3140754468249228022, blk_3441699978641526775, blk_-305633040016166849, blk_-6290631608800952376
+
+### Block Deletion Operations
+**Massive cleanup operations** at multiple timestamps:
+- 081110 103026-103759: **60+ blocks** deleted from invalidSet across ~50 DataNodes
+- 081110 210112-210753: **40+ blocks** deleted
+- 081111 023010-023353: **20+ blocks** deleted
+- 081111 044304-044853: **25+ blocks** deleted
+- 081111 065205-065303: **20+ blocks** deleted
+- 081111 075616-075838: **13+ blocks** deleted
+- 081111 085859-090246: **20+ blocks** deleted
+
+### Task Failures
+Multiple temporary task files referenced in allocateBlock operations suggest job execution issues:
+- Tasks from jobs: 200811092030_0001, 200811092030_0002, 200811092030_0003, 200811101024_0001, 200811101024_0005, 200811101024_0009, 200811101024_0011, 200811101024_0013, 200811101024_0014, 200811101024_0015, 200811101024_0016
+
+### Network/Communication Issues
+DataXceiver exceptions indicate block transfer failures between DataNodes, suggesting:
+- Network connectivity problems
+- DataNode overload
+- Timeout issues during block replication
+
+## Recurring Patterns
+
+1. **Block size consistency**: Most blocks are 67108864 bytes (64MB), standard HDFS block size
+2. **PacketResponder terminations**: Normal operation pattern throughout
+3. **DataBlockScanner verifications**: Periodic successful verifications indicate healthy blocks
+4. **Block replication requests**: System attempting to maintain replication factor
+
+## Critical Entities
+
+**Most problematic DataNodes:**
+- 10.251.30.85:50010
+- 10.251.126.255:50010  
+- 10.251.26.8:50010
+- 10.251.70.211:50010
+- 10.251.42.246:50010
+
+**Time periods with highest failure density:**
+- 081109 214000-220500
+- 081110 080500-083500
+- 081110 231900-235500
+
+## System Behavior
+The cluster shows signs of stress with repeated block serving failures, extensive block cleanup operations, and multiple DataNode communication errors, while continuing to process MapReduce jobs with temporary file operations.

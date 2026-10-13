@@ -1,0 +1,54 @@
+```json
+{
+  "failed_entities": [
+    "attempt_1445144423722_0020_m_000002_0",
+    "attempt_1445144423722_0020_m_000001_0",
+    "job_1445144423722_0020",
+    "DFSClient_NONMAPREDUCE_1537864556_1",
+    "eventHandlingThread"
+  ],
+  "error_codes": [
+    "NoRouteToHostException",
+    "ERROR IN CONTACTING RM",
+    "Address change detected",
+    "Failed to renew lease"
+  ],
+  "anomaly_timestamps": [
+    "2015-10-18 18:05:57,009",
+    "2015-10-18 18:06:01,840",
+    "2015-10-18 18:06:26,029",
+    "2015-10-18 18:06:28,217",
+    "2015-10-18 18:06:26,139"
+  ],
+  "recurring_sources": [
+    "LeaseRenewer:msrabi@msra-sa-41:9000",
+    "RMCommunicator Allocator",
+    "org.apache.hadoop.ipc.Client",
+    "org.apache.hadoop.hdfs.DFSClient",
+    "org.apache.hadoop.mapreduce.jobhistory.JobHistoryEventHandler"
+  ],
+  "occurrence_counts": [
+    {
+      "item": "Address change detected (msra-sa-41/10.190.173.170:9000 to msra-sa-41:9000)",
+      "count": 356
+    },
+    {
+      "item": "Failed to renew lease for DFSClient_NONMAPREDUCE_1537864556_1",
+      "count": 356
+    },
+    {
+      "item": "ERROR IN CONTACTING RM (msra-sa-41:8030)",
+      "count": 178
+    },
+    {
+      "item": "Retrying connect to server: msra-sa-41:8030",
+      "count": 178
+    },
+    {
+      "item": "NoRouteToHostException from MININT-FNANLI5 to msra-sa-41:9000",
+      "count": 2
+    }
+  ],
+  "narrative": "MapReduce job job_1445144423722_0020 experienced catastrophic failure due to network connectivity issues. At 18:05:57, HDFS write pipeline failed with slow read (65020ms) and bad datanode error. Starting at 18:06:01, ResourceManager became unreachable. Two map tasks (attempt_1445144423722_0020_m_000002_0 and attempt_1445144423722_0020_m_000001_0) running on MININT-FNANLI5 failed at 18:06:26 and 18:06:28 with NoRouteToHostException to msra-sa-41:9000. The job history event handler thread crashed at 18:06:26. For over 5 hours, the system continuously failed to contact ResourceManager (178 attempts) and renew HDFS leases (356 failures), with persistent DNS/network address resolution issues between msra-sa-41 IP (10.190.173.170) and hostname. The job became completely stalled with no progress after the initial task failures."
+}
+```

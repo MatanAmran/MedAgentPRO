@@ -1,0 +1,11 @@
+sample_id,item,reported,in_source,verdict
+LOG-06,mod_jk child workerEnv in error state 6,450,369,over
+LOG-06,mod_jk child workerEnv in error state 7,180,101,over
+LOG-06,mod_jk child workerEnv in error state 8,45,44,over
+LOG-06,mod_jk child workerEnv in error state 9,25,20,over
+LOG-06,mod_jk child init 1 -2,12,12,correct
+LOG-06,Can't find child in scoreboard,8,0,not literal
+LOG-06,logrotate ALERT exited abnormally,35,0,not literal
+LOG-06,Directory index forbidden by rule,25,32,under
+LOG-06,SSH authentication failure,200,0,not literal
+LOG-06,FTP connections,500,0,not literal

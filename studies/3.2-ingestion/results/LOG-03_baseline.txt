@@ -1,0 +1,59 @@
+# Summary of Operational Log Analysis
+
+## Failed Entity
+- **Node ID**: myid=1 (IP: 10.10.34.11)
+- **Cluster Members**: Node 1 (10.10.34.11), Node 2 (10.10.34.12), Node 3 (10.10.34.13)
+- **Remote ID Referenced**: 188978561024
+
+## Primary Error Patterns
+
+### Connection Failures (Recurring)
+- **"Connection broken for id 188978561024"** - occurred hundreds of times between 19:13:24 and 19:29:27 on 2015-07-29
+- **"Cannot open channel to 2 at election address /10.10.34.12:3888"** - occurred 100+ times from 2015-07-30 17:55:26 through 2015-08-25 10:50:16
+- **"Cannot open channel to 3 at election address /10.10.34.13:3888"** - occurred 100+ times across same period
+
+### Worker Thread Failures
+- **"Send worker leaving thread"** - occurred 200+ times
+- **"Interrupted while waiting for message on queue"** - occurred 200+ times
+- **"Interrupting SendWorker"** - occurred 100+ times
+- **RecvWorker and SendWorker** threads repeatedly failing for id 188978561024
+
+### Critical State Changes
+- **2015-07-30 23:43:22** - "GOODBYE /10.10.34.12:35276" followed by state change to **"LOOKING"** at 23:43:23
+- **2015-07-31 19:30:07** - Node entered **"LOOKING"** state, initiated leader election
+- **2015-08-20 17:14:11** - "ZooKeeperServer not running" error
+- **2015-08-20 17:14:12** - Election notification showing LOOKING state
+
+### LearnerHandler Errors (from Node 2 perspective)
+- **"Unexpected exception causing shutdown while sock still open"** - occurred 15+ times between 19:03:35 and 19:21:26 on 2015-07-29
+- **"GOODBYE"** messages for connections from all three nodes
+
+### Session/Client Issues
+- Multiple session expirations and terminations
+- "Connection request from old client" warnings (20+ occurrences)
+- "caught end of stream exception" (10+ occurrences)
+
+## Timeline of Critical Events
+
+**2015-07-29 19:04 - 19:29**: Massive connection instability with continuous broken connections and worker thread failures
+
+**2015-07-30 23:43**: Node 2 disconnected, Node 1 entered LOOKING state, began extended leader election period
+
+**2015-07-30 23:44 - 2015-08-25 11:20**: Prolonged inability to establish quorum, repeated election timeouts (60000ms), persistent "Cannot open channel" errors to nodes 2 and 3
+
+**2015-08-20 17:14**: ZooKeeperServer stopped running
+
+**2015-08-24 15:26**: System restart attempt, continued election failures
+
+**2015-08-25 11:20**: Final connection break for id 3
+
+## Anomaly Counts
+- Connection broken errors: ~300+
+- Cannot open channel errors: ~200+
+- Send worker leaving: ~200+
+- Interrupted while waiting: ~200+
+- Election timeout notifications: ~50+
+- LearnerHandler exceptions: ~15+
+
+## Root Cause Indicators
+The cluster experienced a **quorum failure** starting 2015-07-30 23:43. Node 1 could not maintain stable connections to nodes 2 and 3, preventing leader election completion. The persistent "Cannot open channel" errors to election addresses suggest **network partitioning or node failures** preventing the required majority for ZooKeeper quorum.

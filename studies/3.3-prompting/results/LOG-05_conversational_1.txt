@@ -1,0 +1,77 @@
+# Root Cause Analysis Report
+
+## Causal Explanation
+
+**Primary Root Cause: Network Connectivity Failure to Critical Hadoop Infrastructure Nodes**
+
+The anomaly was caused by a **network-level failure preventing communication with the Hadoop cluster's master nodes** (msra-sa-41), specifically affecting connectivity to:
+- HDFS NameNode (port 9000)
+- YARN ResourceManager (port 8030)
+
+This network disruption triggered a cascade of failures across the MapReduce job execution pipeline, ultimately causing job failure.
+
+**Confidence Score: 0.92**
+
+---
+
+## Supporting Evidence Analysis
+
+### Network Layer Failures (Primary Indicators)
+- **E6, E24**: `NoRouteToHostException` from client (MININT-FNANLI5) to msra-sa-41:9000 - definitive network routing failure
+- **E8, E20**: Address change detected (356 occurrences) - indicates network instability or DNS/routing reconfiguration
+- **E7, E22**: "ERROR IN CONTACTING RM" (178 occurrences) - ResourceManager unreachable
+
+### Service Impact Chain
+- **E9, E21**: Failed to renew HDFS lease (356 occurrences) - direct consequence of NameNode unreachability
+- **E4, E15, E18**: DFSClient unable to maintain connection for lease renewal
+- **E16, E17**: RMCommunicator and IPC Client failures - application-level manifestation of network issues
+- **E1, E2, E3**: MapReduce task and job failures - ultimate business impact
+
+### Temporal Pattern
+- **E10-E14**: Failures clustered within ~30 seconds (18:05:57 to 18:06:28), indicating a sudden network event rather than gradual degradation
+
+### Failure Correlation
+The 356:178 ratio (HDFS failures to RM failures) suggests HDFS operations were more frequent, but both services were equally affected by the underlying network issue.
+
+---
+
+## Recommended Actions
+
+### Immediate (Emergency Response)
+1. **Verify network connectivity** between client node (MININT-FNANLI5) and master node (msra-sa-41)
+   - Check routing tables, firewall rules, and physical network infrastructure
+   - Test connectivity: `ping`, `traceroute`, `telnet` to ports 9000 and 8030
+
+2. **Restart failed job** (job_1445144423722_0020) once connectivity is restored
+   - Verify HDFS and YARN services are healthy before resubmission
+
+### Short-term (Within 24 hours)
+3. **Investigate network infrastructure**
+   - Review network device logs (switches, routers) for the time window 18:05-18:07
+   - Check for DNS resolution issues causing address changes
+   - Verify no network maintenance or configuration changes occurred
+
+4. **Review Hadoop configuration**
+   - Validate `yarn.resourcemanager.address` and `fs.defaultFS` settings
+   - Ensure proper hostname resolution in `/etc/hosts` or DNS
+
+### Long-term (Preventive Measures)
+5. **Implement monitoring and alerting**
+   - Network connectivity monitoring between compute and master nodes
+   - Alert on NoRouteToHostException patterns
+   - Track lease renewal failure rates
+
+6. **Enhance resilience**
+   - Configure YARN ResourceManager HA (High Availability) if not already enabled
+   - Implement HDFS NameNode HA
+   - Increase retry timeouts for transient network issues: `ipc.client.connect.max.retries`
+
+7. **Network redundancy**
+   - Establish redundant network paths between client and master nodes
+   - Consider network bonding/teaming on critical infrastructure
+
+---
+
+## Risk Assessment
+- **Recurrence Risk**: HIGH if network issue is unresolved
+- **Business Impact**: Job failures, data processing delays, potential data inconsistency if writes were in progress

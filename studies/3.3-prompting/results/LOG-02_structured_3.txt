@@ -1,0 +1,9 @@
+```json
+{
+  "anomaly_type": "Distributed brute-force authentication attack with service disruption",
+  "causal_hypothesis": "Multiple external sources are conducting systematic brute-force attacks against SSH and FTP services, attempting authentication with common usernames (root, guest) and unknown users. The high volume of failed authentication attempts (189 SSH failures, 67 unknown user attempts) from 29 distinct recurring sources across geographically distributed IP addresses indicates a coordinated or opportunistic attack pattern. The logrotate service failures (16 occurrences) may be a secondary effect caused by rapid log file growth from the authentication attack traffic, causing the log rotation process to exit abnormally. The daily recurrence pattern around 04:00 hours suggests automated attack scripts or scheduled scanning activity.",
+  "confidence_score": 0.92,
+  "evidence_references": ["E1", "E2", "E3", "E4", "E5", "E6", "E27", "E28", "E29", "E30", "E31", "E32", "E33", "E34", "E35", "E36", "E37", "E38", "E39", "E40", "E41", "E42", "E43", "E44", "E45", "E46", "E47", "E48", "E49", "E50", "E51", "E52", "E53", "E54", "E55", "E56", "E57", "E58", "E59", "E60", "E61", "E11", "E12", "E14", "E15", "E16", "E17", "E19", "E20", "E21", "E22", "E23", "E24", "E25", "E26"],
+  "recommended_action": "Implement rate-limiting and IP-based blocking for SSH and FTP services using fail2ban or iptables rules. Block or throttle the identified recurring source IPs. Disable root login via SSH and remove/disable guest accounts. Implement key-based authentication for SSH. Investigate and resolve logrotate configuration issues related to large log files. Enable geographic IP filtering if services don't require global access. Monitor authentication logs for continued attack patterns."
+}
+```

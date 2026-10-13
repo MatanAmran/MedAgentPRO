@@ -1,0 +1,87 @@
+# Root Cause Analysis: ZooKeeper Cluster Quorum Instability
+
+## Causal Explanation
+
+The evidence indicates a **chronic network connectivity failure** causing ZooKeeper cluster quorum instability and repeated leader election failures. The root cause is persistent network communication breakdown between ZooKeeper ensemble members, specifically affecting connections to nodes at 10.10.34.12 (myid=2) and 10.10.34.13 (myid=3).
+
+### Failure Chain:
+1. **Network connectivity issues** prevent QuorumCnxManager from establishing/maintaining channels to peer nodes (E11, E43, E44)
+2. **Connection breaks** disrupt SendWorker and RecvWorker threads responsible for inter-node communication (E12, E45, E46, E47)
+3. **Quorum loss** triggers leader election attempts that fail due to inability to reach sufficient nodes (E51, E52)
+4. **LearnerHandler failures** occur as follower synchronization breaks down (E16, E17, E49)
+5. **Service degradation** as ZooKeeper cannot maintain stable quorum (E19)
+
+## Confidence Score: **0.92**
+
+### Justification:
+- High occurrence counts (E43: 89, E44: 78, E45: 156, E46: 187) indicate systematic rather than transient issues
+- Clear correlation between "Cannot open channel" errors and subsequent cascading failures
+- Multiple timestamps spanning weeks (E20-E33) show chronic, recurring pattern
+- Error sequence follows documented ZooKeeper quorum failure patterns
+
+## Supporting Evidence
+
+**Primary Evidence:**
+- E11, E43, E44: Cannot open channels to specific nodes (167 total occurrences)
+- E12, E45: Connection broken for peer communication (156 occurrences)
+- E46, E47: Worker thread failures (330 combined occurrences)
+
+**Secondary Evidence:**
+- E1, E2: QuorumPeer failures on multiple nodes
+- E51: Election timeouts (38 occurrences)
+- E52: LOOKING state entries indicating election attempts
+- E20-E33: Recurring pattern over 27-day period
+
+**Corroborating Evidence:**
+- E34-E42: Consistent source components and IP addresses
+- E16, E17, E49, E50: LearnerHandler disruptions
+- E19: ZooKeeper service unavailability
+
+## Recommended Actions
+
+### Immediate (Priority 1):
+1. **Network diagnostics**: Investigate connectivity between ZooKeeper nodes, specifically:
+   - Check firewall rules for port 3888 (election port)
+   - Verify network path to 10.10.34.12 and 10.10.34.13
+   - Test latency and packet loss between ensemble members
+   
+2. **Review network infrastructure**: Check for:
+   - Intermittent switch/router issues
+   - Network segmentation or VLAN misconfigurations
+   - Load balancer interference with ZooKeeper ports
+
+### Short-term (Priority 2):
+3. **Increase timeout values** temporarily in zoo.cfg:
+   - `tickTime` and `initLimit` to accommodate network instability
+   - Monitor if this reduces election churn
+
+4. **Enable detailed logging**:
+   - Set `zookeeper.root.logger=DEBUG` to capture detailed connection attempts
+   - Capture tcpdump on port 3888 during failure windows
+
+5. **Health monitoring**: Implement active monitoring for:
+   - Quorum status
+   - Leader election frequency
+   - Network connectivity between nodes
+
+### Long-term (Priority 3):
+6. **Infrastructure remediation**:
+   - Replace/upgrade network equipment if hardware issues identified
+   - Implement redundant network paths between ZooKeeper nodes
+   - Consider dedicated network segment for ZooKeeper cluster traffic
+
+7. **Architecture review**:
+   - Verify ensemble size is appropriate (appears to be 3-node cluster)
+   - Ensure nodes are distributed across failure domains
+   - Review resource allocation (CPU, memory, network bandwidth)
+
+8. **Preventive measures**:
+   - Implement network quality SLAs between ZooKeeper nodes
+   - Establish automated alerting for quorum loss
+   - Create runbook for rapid response to similar incidents
+
+### Validation Steps:
+- Monitor occurrence counts of E43, E44 after network fixes
+- Verify stable leader election (no LOOKING states)
+- Confirm LearnerHandler connections remain stable
+- Track cluster availability metrics

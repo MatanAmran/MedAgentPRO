@@ -1,0 +1,26 @@
+sample_id,item,reported,in_source,verdict
+LOG-01,mod_jk child workerEnv in error state 6,42,42,correct
+LOG-01,mod_jk child workerEnv in error state 7,18,17,over
+LOG-01,workerEnv.init() ok,54,61,under
+LOG-01,jk2_init() Found child,62,79,under
+LOG-02,sshd authentication failure,189,0,not literal
+LOG-02,logrotate ALERT exited abnormally with [1],16,0,not literal
+LOG-02,ftpd connection bursts,15,0,not literal
+LOG-02,check pass; user unknown,67,74,under
+LOG-02,authentication failure for user=root,89,0,not literal
+LOG-02,authentication failure for user=guest,25,0,not literal
+LOG-03,Cannot open channel to 2 at election address /10.10.34.12:3888,89,47,over
+LOG-03,Cannot open channel to 3 at election address /10.10.34.13:3888,78,37,over
+LOG-03,Connection broken for id 188978561024,156,138,over
+LOG-03,Send worker leaving thread,187,134,over
+LOG-03,Interrupted while waiting for message on queue,143,153,under
+LOG-03,Interrupting SendWorker,124,140,under
+LOG-03,LearnerHandler GOODBYE,24,0,not literal
+LOG-03,Unexpected exception causing shutdown,13,12,over
+LOG-03,Notification time out: 60000,38,36,over
+LOG-03,LOOKING state,3,0,not literal
+LOG-05,Address change detected (msra-sa-41/10.190.173.170:9000 to msra-sa-41:9000),356,0,not literal
+LOG-05,Failed to renew lease for DFSClient_NONMAPREDUCE_1537864556_1,356,0,not literal
+LOG-05,ERROR IN CONTACTING RM (msra-sa-41:8030),178,0,not literal
+LOG-05,Retrying connect to server: msra-sa-41:8030,178,146,over
+LOG-05,NoRouteToHostException from MININT-FNANLI5 to msra-sa-41:9000,2,0,not literal
