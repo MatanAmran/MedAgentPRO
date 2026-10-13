@@ -750,6 +750,13 @@ workflow ב-GitHub Actions · בדיקות Playwright, **על שלושת המנ�
 4. `git push -u MedAgentPRO demo/chat-pipeline`, ו-**pull request ל-`master`** (לא ל-`main`), עם תיאור קצר: מה נבנה (משימות 0–6, סט הבדיקות), איך מריצים, ושאין מפתח ולא קריאה למודל אמיתי בשום מקום. לבדוק שה-CI עובר על ה-PR
 5. **לא לגעת ב-`main`.** אביתר ומתן מחליטים יחד: להפוך את `master` לברירת המחדל ולמחוק את `main`. עד אז הבדיקה היומית (`schedule`) לא תרוץ — GitHub מריץ תזמון רק מענף ברירת המחדל
 
+**ביצוע (13.10):**
+- **1–2:** `e5ea168` — `.claude/` ב-`.gitignore` · `2dc2d23` — `studies\`, 144 קבצים. **תוספת שאביתר אישר:** `.gitattributes` עם `studies/** -text`. ב-122 קבצים יש CRLF, ו-`core.autocrlf=true` היה ממיר אותם ל-LF בתוך git. נבדק: כל 144 הקבצים ב-git זהים בייט לבייט לדיסק
+- **3:** אביתר ראה ואישר: 27 commits, 235 קבצים. אין `.env`, `.model_spend.json`, `demo.db`, `venv`, `.claude`. מחרוזות דמויות מפתח — רק המזויפות ב-`tests/security/test_security.py`
+- **4, push:** `demo/chat-pipeline` עלה ל-`MedAgentPRO`, ו-GitHub לא חסם אותו. **CI על ה-push עבר:** [ריצה 38383161017](https://github.com/MatanAmran/MedAgentPRO/actions/runs/38383161017), עבודת `tests`, כל הצעדים ירוקים. mypy לא חוסם, ו-`stress` מדולגת כמתוכנן. משך: כדקה
+- **4, PR ל-`master`:** [MatanAmran/MedAgentPRO#1](https://github.com/MatanAmran/MedAgentPRO/pull/1), "Chat pipeline demo: tasks 0–6 and the test suite". אביתר פתח אותו בדפדפן, כי `gh` לא מותקן במחשב. CI על ה-PR: [ריצה 38384035744](https://github.com/MatanAmran/MedAgentPRO/actions/runs/38384035744) — **עברה**: עבודת `tests` ירוקה, כל הצעדים (כדקה וחצי), ו-`stress` מדולגת כמתוכנן
+- **5:** לא נגעו ב-`main`. **פתוח לאביתר ומתן:** להפוך את `master` לברירת המחדל ולמחוק את `main`. עד אז הבדיקה היומית לא רצה
+
 ## מה שנסגר בסבב האחרון
 
 - **הקוד עבר לריפו** — `MedAgentPro\backend` (`query_assistance`, `model_client`, `persistence`, `shared`, `tests`). **`03_Code` נשאר כמקור ומעודכן.** `python -m pytest -q` מתוך `backend`
