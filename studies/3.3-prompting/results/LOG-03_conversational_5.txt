@@ -1,0 +1,88 @@
+# Root Cause Analysis: ZooKeeper Cluster Quorum Instability
+
+## Causal Explanation
+
+The evidence indicates a **persistent network connectivity failure** causing ZooKeeper cluster quorum instability and repeated leader election failures. The root cause is chronic network communication breakdown between ZooKeeper ensemble members, specifically affecting connections to nodes at 10.10.34.12 (myid=2) and 10.10.34.13 (myid=3).
+
+### Failure Cascade Pattern:
+
+1. **Network Channel Failures** (E11, E43, E44): Persistent inability to establish election channels to peers 2 and 3 (167 total failures)
+2. **Worker Thread Disruption** (E12-E15, E45-E48): Connection breaks trigger cascading worker thread failures (610+ occurrences)
+3. **Quorum Loss** (E1, E2, E38, E52): QuorumPeer failures force nodes into LOOKING state, preventing stable leader election
+4. **Learner Synchronization Failures** (E3-E5, E16, E17, E49, E50): LearnerHandlers crash when unable to maintain follower connections
+5. **Service Degradation** (E19): ZooKeeperServer stops running due to inability to maintain quorum
+
+## Confidence Score: **0.92**
+
+### Justification:
+- High occurrence counts (E43-E48) demonstrate systematic rather than transient failures
+- Multiple timestamp clusters (E20-E33) show recurring pattern over weeks
+- Clear causal chain from network failures → worker disruption → quorum loss
+- Consistent error sources (E34-E42) point to specific network paths
+
+## Supporting Evidence
+
+**Primary Evidence:**
+- E43, E44: 167 channel opening failures to specific nodes
+- E45-E48: 610 worker thread disruptions from connection breaks
+- E11, E12: Core connectivity errors in QuorumCnxManager
+- E1, E2: QuorumPeer failures on multiple nodes
+
+**Secondary Evidence:**
+- E20-E33: Recurring failures across 27-day period
+- E40-E42: Consistent failure to reach election addresses
+- E51: 38 notification timeouts indicating election protocol failures
+- E52: 3 LOOKING states confirming quorum instability
+
+**Corroborating Evidence:**
+- E34-E39: All failure sources related to quorum/election subsystems
+- E16, E17: Learner synchronization failures as downstream effect
+
+## Recommended Actions
+
+### Immediate (Priority 1):
+1. **Network Diagnostics**: Execute comprehensive network testing between cluster nodes
+   - Test connectivity: `telnet 10.10.34.12 3888` and `telnet 10.10.34.13 3888`
+   - Check packet loss: `ping -c 100 10.10.34.12` and similar for .13
+   - Verify firewall rules allow ZooKeeper election port (3888)
+
+2. **Verify Node Health**: Check if nodes 2 and 3 are operational
+   - SSH to 10.10.34.12 and 10.10.34.13
+   - Verify ZooKeeper process status
+   - Review system resources (CPU, memory, disk)
+
+### Short-term (Priority 2):
+3. **Network Infrastructure Review**:
+   - Inspect switches/routers between nodes for errors
+   - Check for network segmentation or VLAN misconfigurations
+   - Review recent network changes around initial failure date (2015-07-29)
+
+4. **Configuration Validation**:
+   - Verify zoo.cfg consistency across all nodes
+   - Confirm server IDs match network addresses
+   - Validate tickTime, initLimit, and syncLimit settings
+
+5. **Increase Monitoring**:
+   - Enable detailed network monitoring between nodes
+   - Set up alerts for election port connectivity
+   - Monitor quorum state transitions
+
+### Long-term (Priority 3):
+6. **Architecture Improvements**:
+   - Consider network redundancy between nodes
+   - Evaluate cluster placement across failure domains
+   - Implement network quality monitoring
+
+7. **Tuning**:
+   - Adjust timeout parameters if network latency is unavoidable
+   - Consider increasing initLimit/syncLimit if appropriate
+
+8. **Documentation**:
+   - Document network topology and dependencies
+   - Create runbook for quorum loss scenarios
+
+### Validation Steps:
+- After fixes, monitor for 72 hours minimum
+- Verify "Cannot open channel" errors cease (E43, E44)
+- Confirm stable leader election with no LOOKING states
+- Validate all LearnerHandlers remain connected

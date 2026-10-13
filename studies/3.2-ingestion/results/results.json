@@ -1,0 +1,607 @@
+{
+ "run_timestamp": "2026-09-05T01:11:59",
+ "model": "claude-sonnet-4-5-20250929",
+ "temperature": 0.0,
+ "max_tokens": 2000,
+ "context_limit": 200000,
+ "prompts": {
+  "baseline": "You are the summarization stage of an automated root cause analysis pipeline. You will be given raw operational log data.\n\nProduce a condensed summary that a later reasoning stage will use to determine why something failed. The later stage will not see the raw data, so anything you omit is lost.\n\nRetain:\n- identifiers of entities that failed\n- error codes and error types\n- timestamps of anomalous events\n- sources that recur across failures\n- how many times each anomaly occurred\n\nDiscard repetitive routine entries that carry no diagnostic value.\n\nWrite plain prose and lists. Do not add commentary about your own process.\n\nRaw data:\n---\n{data}\n---",
+  "schema": "You are the summarization stage of an automated root cause analysis pipeline. You will be given raw operational log data.\n\nProduce a condensed summary that a later reasoning stage will use to determine why something failed. The later stage will not see the raw data, so anything you omit is lost.\n\nRetain:\n- identifiers of entities that failed\n- error codes and error types\n- timestamps of anomalous events\n- sources that recur across failures\n- how many times each anomaly occurred\n\nDiscard repetitive routine entries that carry no diagnostic value.\n\nRespond with a single JSON object and nothing else. No prose before or after it, no code fences. The object must have exactly these keys:\n\n{{\n  \"failed_entities\": [string],\n  \"error_codes\": [string],\n  \"anomaly_timestamps\": [string],\n  \"recurring_sources\": [string],\n  \"occurrence_counts\": [{{\"item\": string, \"count\": integer}}],\n  \"narrative\": string\n}}\n\nEvery list must contain at least one element. \"narrative\" is a short factual account of what went wrong.\n\nRaw data:\n---\n{data}\n---"
+ },
+ "runs": [
+  {
+   "sample_id": "LOG-01",
+   "condition": "baseline",
+   "input_tokens": 7442,
+   "outcome": "summarized",
+   "output_truncated": false,
+   "schema_valid": null,
+   "repair_used": false,
+   "repair_reason": null,
+   "summary_tokens": 412,
+   "compression_ratio": 18.1,
+   "facts_total": 5,
+   "facts_found_auto": 3,
+   "elapsed_seconds": 11.1,
+   "facts": [
+    {
+     "type": "error_code",
+     "needle": "error state 6",
+     "note": "קוד השגיאה השכיח",
+     "auto_found": true,
+     "needs_review": false
+    },
+    {
+     "type": "error_code",
+     "needle": "error state 7",
+     "note": "קוד שגיאה משני",
+     "auto_found": true,
+     "needs_review": false
+    },
+    {
+     "type": "entity",
+     "needle": "mod_jk",
+     "note": "הרכיב שנכשל",
+     "auto_found": true,
+     "needs_review": false
+    },
+    {
+     "type": "count",
+     "needle": "42",
+     "note": "מספר המופעים של error state 6",
+     "auto_found": false,
+     "needs_review": true
+    },
+    {
+     "type": "timestamp",
+     "needle": "Dec 04",
+     "note": "תאריך האירועים",
+     "auto_found": false,
+     "needs_review": false
+    }
+   ],
+   "source_file": "LOG-01.log",
+   "input_bytes": 16911
+  },
+  {
+   "sample_id": "LOG-01",
+   "condition": "schema",
+   "input_tokens": 7552,
+   "outcome": "summarized",
+   "output_truncated": false,
+   "schema_valid": true,
+   "repair_used": false,
+   "repair_reason": null,
+   "summary_tokens": 656,
+   "compression_ratio": 11.5,
+   "facts_total": 5,
+   "facts_found_auto": 5,
+   "elapsed_seconds": 10.9,
+   "facts": [
+    {
+     "type": "error_code",
+     "needle": "error state 6",
+     "note": "קוד השגיאה השכיח",
+     "auto_found": true,
+     "needs_review": false
+    },
+    {
+     "type": "error_code",
+     "needle": "error state 7",
+     "note": "קוד שגיאה משני",
+     "auto_found": true,
+     "needs_review": false
+    },
+    {
+     "type": "entity",
+     "needle": "mod_jk",
+     "note": "הרכיב שנכשל",
+     "auto_found": true,
+     "needs_review": false
+    },
+    {
+     "type": "count",
+     "needle": "42",
+     "note": "מספר המופעים של error state 6",
+     "auto_found": true,
+     "needs_review": true
+    },
+    {
+     "type": "timestamp",
+     "needle": "Dec 04",
+     "note": "תאריך האירועים",
+     "auto_found": true,
+     "needs_review": false
+    }
+   ],
+   "source_file": "LOG-01.log",
+   "input_bytes": 16911
+  },
+  {
+   "sample_id": "LOG-02",
+   "condition": "baseline",
+   "input_tokens": 25263,
+   "outcome": "summarized",
+   "output_truncated": false,
+   "schema_valid": null,
+   "repair_used": false,
+   "repair_reason": null,
+   "summary_tokens": 1311,
+   "compression_ratio": 19.3,
+   "facts_total": 5,
+   "facts_found_auto": 3,
+   "elapsed_seconds": 30.5,
+   "facts": [
+    {
+     "type": "error_code",
+     "needle": "authentication failure",
+     "note": "סוג הכשל",
+     "auto_found": true,
+     "needs_review": false
+    },
+    {
+     "type": "source",
+     "needle": "218.188.2.4",
+     "note": "הכתובת עם הכי הרבה כשלים",
+     "auto_found": true,
+     "needs_review": false
+    },
+    {
+     "type": "count",
+     "needle": "14",
+     "note": "כמות הכשלים מאותה כתובת",
+     "auto_found": true,
+     "needs_review": true
+    },
+    {
+     "type": "entity",
+     "needle": "sshd",
+     "note": "השירות שנכשל",
+     "auto_found": false,
+     "needs_review": false
+    },
+    {
+     "type": "count",
+     "needle": "181",
+     "note": "סך כשלי האימות",
+     "auto_found": false,
+     "needs_review": true
+    }
+   ],
+   "source_file": "LOG-02.log",
+   "input_bytes": 54913
+  },
+  {
+   "sample_id": "LOG-02",
+   "condition": "schema",
+   "input_tokens": 25373,
+   "outcome": "summarized",
+   "output_truncated": false,
+   "schema_valid": true,
+   "repair_used": false,
+   "repair_reason": null,
+   "summary_tokens": 1152,
+   "compression_ratio": 22.0,
+   "facts_total": 5,
+   "facts_found_auto": 4,
+   "elapsed_seconds": 23.3,
+   "facts": [
+    {
+     "type": "error_code",
+     "needle": "authentication failure",
+     "note": "סוג הכשל",
+     "auto_found": true,
+     "needs_review": false
+    },
+    {
+     "type": "source",
+     "needle": "218.188.2.4",
+     "note": "הכתובת עם הכי הרבה כשלים",
+     "auto_found": true,
+     "needs_review": false
+    },
+    {
+     "type": "count",
+     "needle": "14",
+     "note": "כמות הכשלים מאותה כתובת",
+     "auto_found": true,
+     "needs_review": true
+    },
+    {
+     "type": "entity",
+     "needle": "sshd",
+     "note": "השירות שנכשל",
+     "auto_found": true,
+     "needs_review": false
+    },
+    {
+     "type": "count",
+     "needle": "181",
+     "note": "סך כשלי האימות",
+     "auto_found": false,
+     "needs_review": true
+    }
+   ],
+   "source_file": "LOG-02.log",
+   "input_bytes": 54913
+  },
+  {
+   "sample_id": "LOG-03",
+   "condition": "baseline",
+   "input_tokens": 61868,
+   "outcome": "summarized",
+   "output_truncated": false,
+   "schema_valid": null,
+   "repair_used": false,
+   "repair_reason": null,
+   "summary_tokens": 938,
+   "compression_ratio": 66.0,
+   "facts_total": 5,
+   "facts_found_auto": 4,
+   "elapsed_seconds": 23.1,
+   "facts": [
+    {
+     "type": "error_code",
+     "needle": "ERROR",
+     "note": "נוכחות רמת ERROR",
+     "auto_found": true,
+     "needs_review": false
+    },
+    {
+     "type": "count",
+     "needle": "13",
+     "note": "מספר שורות ERROR",
+     "auto_found": true,
+     "needs_review": true
+    },
+    {
+     "type": "source",
+     "needle": "10.10.34.11",
+     "note": "הצומת הפעיל ביותר",
+     "auto_found": true,
+     "needs_review": false
+    },
+    {
+     "type": "entity",
+     "needle": "QuorumCnxManager",
+     "note": "הרכיב המעורב",
+     "auto_found": false,
+     "needs_review": false
+    },
+    {
+     "type": "timestamp",
+     "needle": "2015-07-29",
+     "note": "תאריך האירועים",
+     "auto_found": true,
+     "needs_review": false
+    }
+   ],
+   "source_file": "LOG-03.log",
+   "input_bytes": 137972
+  },
+  {
+   "sample_id": "LOG-03",
+   "condition": "schema",
+   "input_tokens": 61978,
+   "outcome": "summarized",
+   "output_truncated": false,
+   "schema_valid": true,
+   "repair_used": false,
+   "repair_reason": null,
+   "summary_tokens": 1313,
+   "compression_ratio": 47.2,
+   "facts_total": 5,
+   "facts_found_auto": 5,
+   "elapsed_seconds": 23.0,
+   "facts": [
+    {
+     "type": "error_code",
+     "needle": "ERROR",
+     "note": "נוכחות רמת ERROR",
+     "auto_found": true,
+     "needs_review": false
+    },
+    {
+     "type": "count",
+     "needle": "13",
+     "note": "מספר שורות ERROR",
+     "auto_found": true,
+     "needs_review": true
+    },
+    {
+     "type": "source",
+     "needle": "10.10.34.11",
+     "note": "הצומת הפעיל ביותר",
+     "auto_found": true,
+     "needs_review": false
+    },
+    {
+     "type": "entity",
+     "needle": "QuorumCnxManager",
+     "note": "הרכיב המעורב",
+     "auto_found": true,
+     "needs_review": false
+    },
+    {
+     "type": "timestamp",
+     "needle": "2015-07-29",
+     "note": "תאריך האירועים",
+     "auto_found": true,
+     "needs_review": false
+    }
+   ],
+   "source_file": "LOG-03.log",
+   "input_bytes": 137972
+  },
+  {
+   "sample_id": "LOG-04",
+   "condition": "baseline",
+   "input_tokens": 117803,
+   "outcome": "summarized",
+   "output_truncated": false,
+   "schema_valid": null,
+   "repair_used": false,
+   "repair_reason": null,
+   "summary_tokens": 1555,
+   "compression_ratio": 75.8,
+   "facts_total": 5,
+   "facts_found_auto": 2,
+   "elapsed_seconds": 29.1,
+   "facts": [
+    {
+     "type": "entity",
+     "needle": "blk_-8775602795571523802",
+     "note": "הבלוק שחוזר הכי הרבה",
+     "auto_found": false,
+     "needs_review": false
+    },
+    {
+     "type": "error_code",
+     "needle": "WARN",
+     "note": "רמת החומרה",
+     "auto_found": false,
+     "needs_review": false
+    },
+    {
+     "type": "count",
+     "needle": "80",
+     "note": "מספר שורות WARN",
+     "auto_found": true,
+     "needs_review": true
+    },
+    {
+     "type": "source",
+     "needle": "10.251.203.149",
+     "note": "הצומת הפעיל ביותר",
+     "auto_found": false,
+     "needs_review": false
+    },
+    {
+     "type": "timestamp",
+     "needle": "081109",
+     "note": "תאריך הלוג",
+     "auto_found": true,
+     "needs_review": false
+    }
+   ],
+   "source_file": "LOG-04.log",
+   "input_bytes": 285847
+  },
+  {
+   "sample_id": "LOG-04",
+   "condition": "schema",
+   "input_tokens": 117913,
+   "outcome": "summarized",
+   "output_truncated": true,
+   "schema_valid": false,
+   "repair_used": true,
+   "repair_reason": "output is not valid JSON: Unterminated string starting at: line 197 column 16 (char 4317)",
+   "summary_tokens": 4000,
+   "compression_ratio": 29.5,
+   "facts_total": 5,
+   "facts_found_auto": 3,
+   "elapsed_seconds": 63.1,
+   "facts": [
+    {
+     "type": "entity",
+     "needle": "blk_-8775602795571523802",
+     "note": "הבלוק שחוזר הכי הרבה",
+     "auto_found": false,
+     "needs_review": false
+    },
+    {
+     "type": "error_code",
+     "needle": "WARN",
+     "note": "רמת החומרה",
+     "auto_found": true,
+     "needs_review": false
+    },
+    {
+     "type": "count",
+     "needle": "80",
+     "note": "מספר שורות WARN",
+     "auto_found": true,
+     "needs_review": true
+    },
+    {
+     "type": "source",
+     "needle": "10.251.203.149",
+     "note": "הצומת הפעיל ביותר",
+     "auto_found": false,
+     "needs_review": false
+    },
+    {
+     "type": "timestamp",
+     "needle": "081109",
+     "note": "תאריך הלוג",
+     "auto_found": true,
+     "needs_review": false
+    }
+   ],
+   "source_file": "LOG-04.log",
+   "input_bytes": 285847
+  },
+  {
+   "sample_id": "LOG-05",
+   "condition": "baseline",
+   "input_tokens": 162879,
+   "outcome": "summarized",
+   "output_truncated": false,
+   "schema_valid": null,
+   "repair_used": false,
+   "repair_reason": null,
+   "summary_tokens": 1058,
+   "compression_ratio": 153.9,
+   "facts_total": 5,
+   "facts_found_auto": 2,
+   "elapsed_seconds": 26.8,
+   "facts": [
+    {
+     "type": "error_code",
+     "needle": "FATAL",
+     "note": "הרמה החמורה ביותר שהופיעה",
+     "auto_found": false,
+     "needs_review": false
+    },
+    {
+     "type": "count",
+     "needle": "2",
+     "note": "מספר שורות FATAL",
+     "auto_found": true,
+     "needs_review": true
+    },
+    {
+     "type": "count",
+     "needle": "298",
+     "note": "מספר שורות ERROR",
+     "auto_found": false,
+     "needs_review": true
+    },
+    {
+     "type": "source",
+     "needle": "10.190.173.170",
+     "note": "הכתובת הדומיננטית",
+     "auto_found": true,
+     "needs_review": false
+    },
+    {
+     "type": "entity",
+     "needle": "maxTaskFailuresPerNode",
+     "note": "פרמטר התצורה הרלוונטי",
+     "auto_found": false,
+     "needs_review": false
+    }
+   ],
+   "source_file": "LOG-05.log",
+   "input_bytes": 382949
+  },
+  {
+   "sample_id": "LOG-05",
+   "condition": "schema",
+   "input_tokens": 162989,
+   "outcome": "summarized",
+   "output_truncated": false,
+   "schema_valid": true,
+   "repair_used": false,
+   "repair_reason": null,
+   "summary_tokens": 841,
+   "compression_ratio": 193.8,
+   "facts_total": 5,
+   "facts_found_auto": 2,
+   "elapsed_seconds": 25.1,
+   "facts": [
+    {
+     "type": "error_code",
+     "needle": "FATAL",
+     "note": "הרמה החמורה ביותר שהופיעה",
+     "auto_found": false,
+     "needs_review": false
+    },
+    {
+     "type": "count",
+     "needle": "2",
+     "note": "מספר שורות FATAL",
+     "auto_found": true,
+     "needs_review": true
+    },
+    {
+     "type": "count",
+     "needle": "298",
+     "note": "מספר שורות ERROR",
+     "auto_found": false,
+     "needs_review": true
+    },
+    {
+     "type": "source",
+     "needle": "10.190.173.170",
+     "note": "הכתובת הדומיננטית",
+     "auto_found": true,
+     "needs_review": false
+    },
+    {
+     "type": "entity",
+     "needle": "maxTaskFailuresPerNode",
+     "note": "פרמטר התצורה הרלוונטי",
+     "auto_found": false,
+     "needs_review": false
+    }
+   ],
+   "source_file": "LOG-05.log",
+   "input_bytes": 382949
+  },
+  {
+   "sample_id": "LOG-06",
+   "condition": "baseline",
+   "input_tokens": 178280,
+   "outcome": "summarized",
+   "output_truncated": false,
+   "schema_valid": null,
+   "repair_used": false,
+   "repair_reason": null,
+   "summary_tokens": 781,
+   "compression_ratio": 228.3,
+   "facts_total": 5,
+   "facts_found_auto": 2,
+   "elapsed_seconds": 26.2,
+   "facts": [
+    {
+     "type": "error_code",
+     "needle": "FATAL",
+     "note": "מגיע מ-LOG-05",
+     "auto_found": false,
+     "needs_review": false
+    },
+    {
+     "type": "error_code",
+     "needle": "authentication failure",
+     "note": "מגיע מ-LOG-02",
+     "auto_found": true,
+     "needs_review": false
+    },
+    {
+     "type": "error_code",
+     "needle": "error state 6",
+     "note": "מגיע מ-LOG-01",
+     "auto_found": true,
+     "needs_review": false
+    },
+    {
+     "type": "entity",
+     "needle": "blk_-8775602795571523802",
+     "note": "מגיע מ-LOG-04",
+     "auto_found": false,
+     "needs_review": false
+    },
+    {
+     "type": "entity",
+     "needle": "QuorumCnxManager",
+     "note": "מגיע מ-LOG-03",
+     "auto_found": false,
+     "needs_review": false
+    }
+   ],
+   "source_file": "LOG-06.log",
+   "input_bytes": 399910
+  }
+ ]
+}

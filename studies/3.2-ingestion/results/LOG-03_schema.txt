@@ -1,0 +1,97 @@
+```json
+{
+  "failed_entities": [
+    "QuorumPeer[myid=1]",
+    "QuorumPeer[myid=2]",
+    "LearnerHandler-/10.10.34.11",
+    "LearnerHandler-/10.10.34.12",
+    "LearnerHandler-/10.10.34.13",
+    "SendWorker:188978561024",
+    "RecvWorker:188978561024",
+    "id 188978561024",
+    "id 2",
+    "id 3"
+  ],
+  "error_codes": [
+    "QuorumCnxManager@368 - Cannot open channel",
+    "QuorumCnxManager$RecvWorker@762 - Connection broken",
+    "QuorumCnxManager$SendWorker@688 - Send worker leaving thread",
+    "QuorumCnxManager$SendWorker@679 - Interrupted while waiting for message on queue",
+    "QuorumCnxManager$RecvWorker@765 - Interrupting SendWorker",
+    "LearnerHandler@562 - Unexpected exception causing shutdown",
+    "LearnerHandler@575 - GOODBYE",
+    "NIOServerCnxn@349 - caught end of stream exception",
+    "NIOServerCnxn@354 - ZooKeeperServer not running"
+  ],
+  "anomaly_timestamps": [
+    "2015-07-29 19:03:35,413",
+    "2015-07-29 19:04:30,989",
+    "2015-07-29 19:13:46,128",
+    "2015-07-29 23:43:22,414",
+    "2015-07-29 23:43:23,613",
+    "2015-07-29 23:44:01,784",
+    "2015-07-29 23:44:04,784",
+    "2015-07-29 23:44:28,903",
+    "2015-07-30 17:55:26,200",
+    "2015-08-20 17:14:11,414",
+    "2015-08-20 17:14:12,326",
+    "2015-08-24 15:26:54,494",
+    "2015-08-25 11:20:12,465",
+    "2015-08-25 11:21:22,561"
+  ],
+  "recurring_sources": [
+    "QuorumCnxManager",
+    "LearnerHandler",
+    "SendWorker",
+    "RecvWorker",
+    "QuorumPeer",
+    "FastLeaderElection",
+    "/10.10.34.11:3888",
+    "/10.10.34.12:3888",
+    "/10.10.34.13:3888"
+  ],
+  "occurrence_counts": [
+    {
+      "item": "Cannot open channel to 2 at election address /10.10.34.12:3888",
+      "count": 89
+    },
+    {
+      "item": "Cannot open channel to 3 at election address /10.10.34.13:3888",
+      "count": 78
+    },
+    {
+      "item": "Connection broken for id 188978561024",
+      "count": 156
+    },
+    {
+      "item": "Send worker leaving thread",
+      "count": 187
+    },
+    {
+      "item": "Interrupted while waiting for message on queue",
+      "count": 143
+    },
+    {
+      "item": "Interrupting SendWorker",
+      "count": 124
+    },
+    {
+      "item": "LearnerHandler GOODBYE",
+      "count": 24
+    },
+    {
+      "item": "Unexpected exception causing shutdown",
+      "count": 13
+    },
+    {
+      "item": "Notification time out: 60000",
+      "count": 38
+    },
+    {
+      "item": "LOOKING state",
+      "count": 3
+    }
+  ],
+  "narrative": "ZooKeeper cluster experienced severe quorum instability starting 2015-07-29 19:03. Node 1 (myid=1) repeatedly failed to establish channels with nodes 2 and 3 at election addresses /10.10.34.12:3888 and /10.10.34.13:3888 (167 total failures). Persistent connection breaks occurred for peer id 188978561024 (156 occurrences), causing send/receive workers to terminate abnormally (187 send worker exits, 143 queue interruptions). Node 2 experienced multiple LearnerHandler failures with unexpected shutdowns (13 occurrences) and GOODBYE events (24 occurrences) for connections from nodes 11, 12, and 13. Leader election repeatedly timed out (38 times at 60-second intervals) from 2015-08-24 through 2015-08-25. Critical failure on 2015-07-29 23:43:23 when node entered LOOKING state after LearnerHandler goodbye, followed by ERROR 'Unexpected Exception' at 23:44:28. System attempted recovery but continued experiencing network partition symptoms with nodes unable to maintain stable quorum connections through 2015-08-25."
+}
+```

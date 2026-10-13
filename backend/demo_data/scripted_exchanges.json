@@ -1,0 +1,47 @@
+{
+  "$comment": "Task 6, S5: what the scripted model answers in the server's default mode. Keyed by the question as posed. Each output replaces the model only: it goes through the schema, the compiler, the references, the gate and the contract like a real one. The gate's claims are built from the numbered sentences in the gate prompt, one per sentence, with the verdict and the cited aliases given here. A question with no entry ends as request_not_completed. Task 8 fills the full question set.",
+  "version": 1,
+  "exchanges": [
+    {
+      "question": "Which suppliers were late in weeks 1 to 13?",
+      "intent": {"disposition": "retrieve",
+                 "ambiguous": [{"term": "late", "alternatives": [{"metric": "late_by_delivery"}, {"metric": "late_by_promise"}]}],
+                 "readings": [
+                   {"label": "late_by_delivery", "plan": {
+                     "SELECT": [{"expr": {"col": "commitments.supplier_id"}, "as": "supplier_id"},
+                                {"expr": {"func": "COUNT", "arg": "*"}, "as": "late_count"}],
+                     "FROM": "commitments",
+                     "WHERE": {"AND": [{"BETWEEN": [{"col": "commitments.week"}, {"value": 1}, {"value": 13}]},
+                                       {"EQ": [{"metric": "late_by_delivery"}, {"value": true}]}]},
+                     "GROUP_BY": ["supplier_id"], "ORDER_BY": [{"by": "late_count", "dir": "DESC"}], "LIMIT": 10}},
+                   {"label": "late_by_promise", "plan": {
+                     "SELECT": [{"expr": {"col": "commitments.supplier_id"}, "as": "supplier_id"},
+                                {"expr": {"func": "COUNT", "arg": "*"}, "as": "late_count"}],
+                     "FROM": "commitments",
+                     "WHERE": {"AND": [{"BETWEEN": [{"col": "commitments.week"}, {"value": 1}, {"value": 13}]},
+                                       {"EQ": [{"metric": "late_by_promise"}, {"value": true}]}]},
+                     "GROUP_BY": ["supplier_id"], "ORDER_BY": [{"by": "late_count", "dir": "DESC"}], "LIMIT": 10}}]},
+      "synthesis": {"readings": [
+        {"label": "late_by_delivery", "sentences": [
+          {"text": "{late_by_delivery.supplier_id#1} had the most lines delivered after the requested date, {late_by_delivery.late_count#1}."},
+          {"text": "{late_by_delivery.supplier_id#2} followed with {late_by_delivery.late_count#2}."}]},
+        {"label": "late_by_promise", "sentences": [
+          {"text": "{late_by_promise.supplier_id#1} had the most lines whose promised date was after the requested date, {late_by_promise.late_count#1}."}]}]},
+      "gate": {"verdicts": ["supported"],
+               "evidence": {"late_by_delivery": ["supplier_id", "late_count"],
+                            "late_by_promise": ["supplier_id", "late_count"]}}
+    },
+    {
+      "question": "Why is S-014 late so often?",
+      "intent": {"disposition": "refer_to_investigation"}
+    },
+    {
+      "question": "What did S-040 supply?",
+      "intent": {"disposition": "retrieve", "readings": [{"label": "supplied", "plan": {
+        "SELECT": [{"expr": {"col": "commitments.po_id"}, "as": "po_id"},
+                   {"expr": {"col": "commitments.part_id"}, "as": "part_id"}],
+        "FROM": "commitments",
+        "WHERE": {"EQ": [{"col": "commitments.supplier_id"}, {"value": "S-040"}]}}}]}
+    }
+  ]
+}

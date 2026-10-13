@@ -1,0 +1,66 @@
+# Root Cause Analysis Report
+
+## Causal Explanation
+
+**Primary Root Cause:** Network connectivity failure between the client node (MININT-FNANLI5) and the Hadoop cluster master node (msra-sa-41), resulting in loss of communication with both HDFS NameNode (port 9000) and YARN ResourceManager (port 8030).
+
+**Failure Cascade:**
+1. Network route to msra-sa-41 became unavailable from the client node
+2. HDFS lease renewal failed (356 occurrences), preventing the DFSClient from maintaining file locks
+3. ResourceManager communication failed (178 occurrences), preventing task coordination
+4. MapReduce job tasks failed due to inability to contact RM and maintain HDFS connections
+5. Entire job (job_1445144423722_0020) ultimately failed
+
+## Confidence Score: **0.92**
+
+### Reasoning:
+- Clear network-level error (NoRouteToHostException) indicates infrastructure failure
+- High occurrence counts show sustained connectivity loss, not transient issues
+- Multiple dependent services failed simultaneously in expected cascade pattern
+- Timeline shows rapid progression from network error to job failure
+- Error pattern is consistent with network partition scenario
+
+## Supporting Evidence
+
+**Primary Evidence:**
+- **E6, E24**: NoRouteToHostException - definitive network routing failure
+- **E7, E22**: 178 RM contact failures - confirms ResourceManager unreachable
+- **E9, E21**: 356 lease renewal failures - confirms HDFS NameNode unreachable
+- **E8, E20**: 356 address change detections - indicates connection instability
+
+**Secondary Evidence:**
+- **E1, E2, E3**: Failed MapReduce job and tasks - downstream impact
+- **E15, E16, E17**: Affected components align with network dependency chain
+- **E10-E14**: Timestamps show failures clustered within ~30 second window
+
+## Recommended Actions
+
+### Immediate (Priority 1):
+1. **Verify network connectivity** between MININT-FNANLI5 and msra-sa-41
+   - Check routing tables, firewall rules, and network interface status
+   - Test connectivity: `ping msra-sa-41` and `telnet msra-sa-41 9000/8030`
+
+2. **Restart failed job** (job_1445144423722_0020) once connectivity is restored
+
+### Short-term (Priority 2):
+3. **Investigate network infrastructure** between client and cluster
+   - Review switch/router logs for the time window (18:05-18:07 on 2015-10-18)
+   - Check for network maintenance, hardware failures, or configuration changes
+
+4. **Review DNS resolution** - address change detection suggests possible DNS issues
+   - Verify DNS consistency for msra-sa-41 hostname
+   - Consider using IP addresses in configuration if DNS is unstable
+
+### Long-term (Priority 3):
+5. **Implement monitoring** for network connectivity to critical Hadoop services
+   - Set up alerts for NoRouteToHostException patterns
+   - Monitor lease renewal success rates
+
+6. **Configure retry policies** with exponential backoff for transient network issues
+
+7. **Consider network redundancy** if this is a critical production environment
+   - Multiple network paths to master nodes
+   - High availability configuration for NameNode and ResourceManager
+
+## Additional Notes
+The client hostname "MININT-FNANLI5" suggests a Windows-based client, which may have different network stack behavior. Verify Windows firewall and network adapter settings if this is a recurring issue.

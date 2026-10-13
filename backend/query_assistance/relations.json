@@ -1,0 +1,20 @@
+{
+  "$comment": "PLACEHOLDER, same as schema.json. Each relation names its column pairs in full, so a composite key cannot be joined on one column.",
+  "relations": {
+    "commitment_supplier": {
+      "from": "commitments",
+      "to": "suppliers",
+      "on": [["commitments.supplier_id", "suppliers.supplier_id"]]
+    },
+    "commitment_part": {
+      "from": "commitments",
+      "to": "parts",
+      "on": [["commitments.part_id", "parts.part_id"]]
+    },
+    "part_forecast": {
+      "from": "parts",
+      "to": "forecast",
+      "on": [["parts.part_id", "forecast.part_id"]]
+    }
+  }
+}

@@ -1,0 +1,8 @@
+# Development and CI only (classic test set, items 4 and 5). Not needed to run the chat.
+# python -m pip install -r requirements.txt -r requirements-dev.txt
+bandit==1.9.4
+hypothesis==6.169.0
+mypy==2.4.0
+pip-audit==2.10.1
+pytest-cov==7.1.0
+ruff==0.17.0

@@ -1,0 +1,133 @@
+# Root Cause Analysis Report
+
+## Primary Causal Explanation
+
+**This system is experiencing a sustained brute-force attack campaign targeting SSH and FTP services, combined with a secondary logrotate configuration issue.**
+
+### Confidence Score: **0.92**
+
+---
+
+## Analysis Breakdown
+
+### 1. **Brute-Force Attack Pattern** (Confidence: 0.95)
+
+**Supporting Evidence:**
+- **E1, E3, E4, E5**: Multiple authentication services (sshd, ftpd) showing authentication failures and unknown user attempts
+- **E56**: 189 SSH authentication failures - abnormally high
+- **E59**: 67 "user unknown" attempts - indicates username enumeration
+- **E60**: 89 failed attempts specifically targeting root account - classic attack vector
+- **E61**: 25 failed attempts targeting guest account - secondary common target
+- **E58**: 15 FTP connection bursts - coordinated attack behavior
+- **E27-E54**: 28 distinct source IPs from geographically diverse locations (Asia-Pacific, Europe, North America) - distributed attack pattern
+- **E7-E26**: 20 anomaly events over 15 days (Jun 14-29) with clustering around 04:00-04:10 UTC - automated attack scheduling
+
+**Attack Characteristics:**
+- Distributed sources suggest botnet or coordinated attack infrastructure
+- Temporal clustering (predominantly 04:00 hours) indicates automated scanning tools
+- Targeting of privileged accounts (root) and common accounts (guest)
+- Multi-protocol approach (SSH + FTP)
+
+### 2. **Logrotate Operational Issue** (Confidence: 0.85)
+
+**Supporting Evidence:**
+- **E2, E6**: Logrotate exiting abnormally with error code [1]
+- **E57**: 16 occurrences of logrotate failures
+- **E11-E26**: Logrotate failures align with daily 04:00 timeframe - matches typical cron scheduling
+
+**Likely Cause:**
+- Logrotate failures coinciding with attack traffic suggest log file locking issues or disk I/O saturation from excessive logging
+- Could also indicate permission issues or misconfigured rotation policies
+
+---
+
+## Evidence Correlation
+
+### Timeline Pattern:
+- **Jun 14-15**: Initial attack phase with irregular timing (E7-E10)
+- **Jun 15-29**: Sustained daily attacks at ~04:00 UTC (E11-E26) - automated pattern established
+- Logrotate typically runs via cron at similar times, creating resource contention
+
+### Geographic Distribution:
+Sources span multiple continents and ISPs, indicating:
+- Compromised hosts or proxy infrastructure
+- Not a single-source attack
+- Sophisticated threat actor or botnet operation
+
+---
+
+## Recommended Actions
+
+### **IMMEDIATE (Priority 1 - Within 24 hours):**
+
+1. **Implement IP-based blocking** (E27-E54)
+   - Block all 28 identified source IPs at firewall level
+   - Deploy fail2ban or similar intrusion prevention system with aggressive thresholds
+
+2. **Disable root SSH login** (E60)
+   ```
+   Set "PermitRootLogin no" in /etc/ssh/sshd_config
+   ```
+
+3. **Restrict FTP access** (E3, E58)
+   - Consider disabling FTP entirely if not business-critical
+   - If required, implement IP whitelisting and move to SFTP
+
+4. **Enable SSH key-only authentication**
+   - Disable password authentication to eliminate brute-force vector
+
+### **SHORT-TERM (Priority 2 - Within 72 hours):**
+
+5. **Fix logrotate configuration** (E2, E6, E57)
+   - Review /etc/logrotate.conf and /etc/logrotate.d/* for errors
+   - Check file permissions on log directories
+   - Verify disk space availability
+   - Test rotation manually: `logrotate -d /etc/logrotate.conf`
+
+6. **Implement rate limiting**
+   - Configure iptables/firewall rules to limit connection attempts per IP
+   - Example: max 3 SSH attempts per minute per source
+
+7. **Deploy monitoring and alerting**
+   - Set up real-time alerts for authentication failure spikes
+   - Monitor for new attacking IPs
+
+### **LONG-TERM (Priority 3 - Within 2 weeks):**
+
+8. **Security hardening**
+   - Change SSH to non-standard port (security through obscurity as additional layer)
+   - Implement multi-factor authentication
+   - Deploy intrusion detection system (IDS)
+
+9. **Audit user accounts** (E59, E61)
+   - Remove/disable unnecessary accounts (especially "guest")
+   - Enforce strong password policies
+   - Review account creation logs for compromise indicators
+
+10. **Log management optimization**
+    - Implement log aggregation to external SIEM
+    - Ensure logrotate can handle high-volume logging scenarios
+    - Consider separate partition for logs to prevent disk exhaustion
+
+11. **Threat intelligence integration**
+    - Subscribe to threat feeds to proactively block known malicious IPs
+    - Implement geofencing if business operations don't require global access
+
+---
+
+## Risk Assessment
+
+- **Current Risk Level**: HIGH
+- **Data Breach Probability**: Medium (no evidence of successful compromise yet)
+- **Service Availability Impact**: Low-Medium (logrotate issues may lead to disk exhaustion)
+- **Reputational Risk**: Medium (if system becomes compromised and used for further attacks)
+
+---
+
+## Validation Steps
+
+To confirm this analysis:
+1. Review actual authentication logs for the identified IPs
+2. Check system logs around 04:00 daily for logrotate error details
+3. Verify no successful authentications from suspicious sources
+4. Audit current user sessions for unauthorized access

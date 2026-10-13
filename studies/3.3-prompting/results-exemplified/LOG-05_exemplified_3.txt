@@ -1,0 +1,9 @@
+```json
+{
+  "anomaly_type": "Network connectivity failure",
+  "causal_hypothesis": "A MapReduce job failed because network routing to the HDFS NameNode (msra-sa-41:9000) and ResourceManager (msra-sa-41:8030) was lost, causing 356 lease renewal failures, 178 RM contact errors, and NoRouteToHostException errors, triggered by address resolution changes detected 356 times",
+  "confidence_score": 0.85,
+  "evidence_references": ["E1", "E2", "E3", "E4", "E6", "E7", "E8", "E9", "E15", "E16", "E17", "E18", "E20", "E21", "E22", "E24"],
+  "recommended_action": "Investigate network routing and DNS resolution for msra-sa-41; verify NameNode and ResourceManager accessibility; check for network configuration changes or firewall rules blocking connectivity to ports 9000 and 8030"
+}
+```

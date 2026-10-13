@@ -1,0 +1,9 @@
+```json
+{
+  "anomaly_type": "Network connectivity failure causing distributed system coordination loss",
+  "causal_hypothesis": "A network partition or routing failure prevented communication with the ResourceManager, triggering NoRouteToHostException and address change detection, which cascaded into lease renewal failures for HDFS client operations and ultimately caused MapReduce job attempts to fail",
+  "confidence_score": 0.85,
+  "evidence_references": ["E13", "E14", "E15", "E16", "E17", "E18", "E19", "E20", "E21", "E22", "E23", "E24"],
+  "recommended_action": "Investigate network connectivity between compute nodes and ResourceManager; verify routing tables and network interface configurations; check for network partitions or switch failures that occurred around 2015-10-18 18:05-18:06; review HDFS lease management settings and RM failover configuration"
+}
+```

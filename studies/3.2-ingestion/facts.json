@@ -1,0 +1,191 @@
+{
+ "LOG-01": [
+  {
+   "type": "error_code",
+   "needle": "error state 6",
+   "note": "קוד השגיאה השכיח"
+  },
+  {
+   "type": "error_code",
+   "needle": "error state 7",
+   "note": "קוד שגיאה משני"
+  },
+  {
+   "type": "entity",
+   "needle": "mod_jk",
+   "note": "הרכיב שנכשל"
+  },
+  {
+   "type": "count",
+   "needle": "42",
+   "note": "מספר המופעים של error state 6"
+  },
+  {
+   "type": "timestamp",
+   "needle": "Dec 04",
+   "note": "תאריך האירועים"
+  }
+ ],
+ "LOG-02": [
+  {
+   "type": "error_code",
+   "needle": "authentication failure",
+   "note": "סוג הכשל"
+  },
+  {
+   "type": "source",
+   "needle": "218.188.2.4",
+   "note": "הכתובת עם הכי הרבה כשלים"
+  },
+  {
+   "type": "count",
+   "needle": "14",
+   "note": "כמות הכשלים מאותה כתובת"
+  },
+  {
+   "type": "entity",
+   "needle": "sshd",
+   "note": "השירות שנכשל"
+  },
+  {
+   "type": "count",
+   "needle": "181",
+   "note": "סך כשלי האימות"
+  }
+ ],
+ "LOG-03": [
+  {
+   "type": "error_code",
+   "needle": "ERROR",
+   "note": "נוכחות רמת ERROR"
+  },
+  {
+   "type": "count",
+   "needle": "13",
+   "note": "מספר שורות ERROR"
+  },
+  {
+   "type": "source",
+   "needle": "10.10.34.11",
+   "note": "הצומת הפעיל ביותר"
+  },
+  {
+   "type": "entity",
+   "needle": "QuorumCnxManager",
+   "note": "הרכיב המעורב"
+  },
+  {
+   "type": "timestamp",
+   "needle": "2015-07-29",
+   "note": "תאריך האירועים"
+  }
+ ],
+ "LOG-04": [
+  {
+   "type": "entity",
+   "needle": "blk_-8775602795571523802",
+   "note": "הבלוק שחוזר הכי הרבה"
+  },
+  {
+   "type": "error_code",
+   "needle": "WARN",
+   "note": "רמת החומרה"
+  },
+  {
+   "type": "count",
+   "needle": "80",
+   "note": "מספר שורות WARN"
+  },
+  {
+   "type": "source",
+   "needle": "10.251.203.149",
+   "note": "הצומת הפעיל ביותר"
+  },
+  {
+   "type": "timestamp",
+   "needle": "081109",
+   "note": "תאריך הלוג"
+  }
+ ],
+ "LOG-05": [
+  {
+   "type": "error_code",
+   "needle": "FATAL",
+   "note": "הרמה החמורה ביותר שהופיעה"
+  },
+  {
+   "type": "count",
+   "needle": "2",
+   "note": "מספר שורות FATAL"
+  },
+  {
+   "type": "count",
+   "needle": "298",
+   "note": "מספר שורות ERROR"
+  },
+  {
+   "type": "source",
+   "needle": "10.190.173.170",
+   "note": "הכתובת הדומיננטית"
+  },
+  {
+   "type": "entity",
+   "needle": "maxTaskFailuresPerNode",
+   "note": "פרמטר התצורה הרלוונטי"
+  }
+ ],
+ "LOG-06": [
+  {
+   "type": "entity",
+   "needle": "mod_jk",
+   "note": "הרכיב שנכשל"
+  },
+  {
+   "type": "error_code",
+   "needle": "error state 6",
+   "note": "קוד השגיאה השכיח"
+  },
+  {
+   "type": "count",
+   "needle": "369",
+   "note": "מספר המופעים של error state 6"
+  },
+  {
+   "type": "source",
+   "needle": "218.188.2.4",
+   "note": "הכתובת עם כשלי האימות"
+  },
+  {
+   "type": "count",
+   "needle": "490",
+   "note": "סך כשלי האימות"
+  }
+ ],
+ "LOG-07": [
+  {
+   "type": "entity",
+   "needle": "mod_jk",
+   "note": "הרכיב שנכשל"
+  },
+  {
+   "type": "error_code",
+   "needle": "error state 6",
+   "note": "קוד השגיאה השכיח"
+  },
+  {
+   "type": "count",
+   "needle": "369",
+   "note": "מספר המופעים של error state 6"
+  },
+  {
+   "type": "source",
+   "needle": "218.188.2.4",
+   "note": "הכתובת עם כשלי האימות"
+  },
+  {
+   "type": "count",
+   "needle": "490",
+   "note": "סך כשלי האימות"
+  }
+ ]
+}

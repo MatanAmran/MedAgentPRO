@@ -1,0 +1,96 @@
+# Root Cause Analysis Report
+
+## Primary Causal Explanation
+
+**CONCLUSION: Coordinated brute-force attack campaign targeting SSH and FTP services, with secondary system impact on logrotate functionality**
+
+**Confidence Score: 0.92**
+
+## Analysis
+
+### Attack Pattern Identification
+
+This is a **distributed brute-force authentication attack** with the following characteristics:
+
+1. **SSH Brute-Force Campaign** (Primary Attack Vector)
+   - Supporting Evidence: E1, E4, E56, E60, E61
+   - 189 SSH authentication failures targeting privileged accounts
+   - 89 attempts against root user specifically
+   - 25 attempts against guest user
+   - Pattern indicates credential stuffing/dictionary attack
+
+2. **FTP Service Exploitation Attempts** (Secondary Vector)
+   - Supporting Evidence: E3, E5, E58, E59
+   - 15 connection bursts indicating automated scanning
+   - 67 "user unknown" errors suggesting username enumeration
+   - Coordinated with SSH attacks
+
+3. **Distributed Attack Infrastructure**
+   - Supporting Evidence: E27-E55
+   - 29 unique source IPs from multiple geographic regions
+   - Sources span Asia-Pacific (218.*, 220.*, 210.*), Europe (62.*, 82.*, 217.*), and North America
+   - Mix of residential ISPs, hosting providers, and compromised systems
+
+4. **Sustained Campaign Timeline**
+   - Supporting Evidence: E7-E26
+   - 20-day attack duration (June 14-29)
+   - Daily recurring pattern around 04:00 hours (E11-E26)
+   - Suggests automated attack scheduling
+
+5. **Collateral System Impact**
+   - Supporting Evidence: E2, E6, E57
+   - 16 logrotate failures during attack period
+   - Likely caused by resource exhaustion or log file corruption from attack volume
+
+## Supporting Evidence Chain
+
+**High Confidence Evidence:**
+- E56, E60, E61: Quantifies attack scale and target prioritization
+- E27-E55: Confirms distributed nature, rules out single-source misconfiguration
+- E11-E26: Daily 04:00 pattern indicates automated botnet activity
+
+**Moderate Confidence Evidence:**
+- E2, E6, E57: Logrotate failures correlate temporally but causation is indirect
+- E58, E59: FTP activity pattern consistent with reconnaissance phase
+
+## Recommended Actions
+
+### Immediate (0-24 hours)
+1. **Implement IP-based blocking** for all sources E27-E55
+2. **Enable fail2ban or equivalent** with aggressive thresholds (3 failures = 24hr ban)
+3. **Disable root SSH login** - modify `/etc/ssh/sshd_config`: `PermitRootLogin no`
+4. **Audit active sessions** for any successful unauthorized access
+5. **Review logrotate configuration** and repair corrupted logs (E2, E6)
+
+### Short-term (1-7 days)
+1. **Implement SSH key-based authentication only** - disable password authentication
+2. **Change SSH default port** from 22 to non-standard port
+3. **Deploy geographic IP filtering** - whitelist known regions if applicable
+4. **Enable multi-factor authentication (MFA)** for all remote access
+5. **Disable FTP service** if not business-critical; migrate to SFTP/FTPS
+6. **Implement rate limiting** at firewall level for authentication services
+
+### Long-term (1-4 weeks)
+1. **Deploy intrusion detection system (IDS)** - Snort, Suricata, or OSSEC
+2. **Implement centralized logging** with SIEM correlation
+3. **Conduct security audit** of all exposed services
+4. **Establish baseline monitoring** for authentication patterns
+5. **Create incident response playbook** for future attack scenarios
+6. **Review and rotate all service credentials** as precautionary measure
+
+### Monitoring & Validation
+1. **Track authentication failure rates** - should drop to near-zero post-mitigation
+2. **Monitor logrotate health** - verify E6 errors cease after remediation
+3. **Establish alerting** for >5 failed authentications from single IP within 1 hour
+4. **Weekly review** of blocked IP lists and attack pattern evolution
+
+## Risk Assessment
+
+- **Current Risk Level**: HIGH
+- **Data Breach Likelihood**: Moderate (no evidence of successful compromise in provided data)
+- **Service Availability Impact**: Low-Moderate (logrotate failures indicate resource strain)
+- **Reputational Risk**: Low (appears to be opportunistic scanning, not targeted)
+
+---
+
+**Analysis Confidence: 0.92** - High confidence based on clear attack signatures, but limited visibility into whether any attempts succeeded or what other services may be affected.

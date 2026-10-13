@@ -1,0 +1,33 @@
+## Summary
+
+**Primary Failure Pattern:**
+The mod_jk module repeatedly enters error states immediately after successful worker environment initialization. This cycle occurs continuously throughout the log period (04:47 to 06:16 on December 4, 2005).
+
+**Error Details:**
+- **Error Type:** mod_jk child workerEnv in error state
+- **Error States:** State 6 and State 7
+- **Configuration File:** /etc/httpd/conf/workers2.properties
+
+**Error State Frequency:**
+- Error state 6: Approximately 47 occurrences
+- Error state 7: Approximately 18 occurrences
+- Total: 65 error state entries
+
+**Failure Pattern:**
+Each failure follows the same sequence:
+1. workerEnv.init() reports "ok" for workers2.properties
+2. Within 1-4 seconds, mod_jk child workerEnv enters error state 6 or 7
+3. New child processes spawn (jk2_init() finds children in scoreboard slots)
+4. Cycle repeats
+
+**Child Process Activity:**
+Multiple child processes repeatedly initialized across scoreboard slots 6-12. Child process IDs range from 6725 to 32434, indicating frequent process recycling.
+
+**Additional Anomaly:**
+- **Timestamp:** 05:15:09
+- **Error:** Directory index forbidden by rule: /var/www/html/
+- **Client:** 222.166.160.184
+- This appears unrelated to the mod_jk failures
+
+**Time Distribution:**
+Errors occur consistently throughout the entire log period with no successful stabilization. The pattern persists across multiple restart attempts.

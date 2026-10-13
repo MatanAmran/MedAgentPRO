@@ -1,0 +1,69 @@
+# Summary of MapReduce Job Failure
+
+## Job Identifier
+- **Application**: job_1445144423722_0020 (appattempt_1445144423722_0020_000001)
+- **Start Time**: 2015-10-18 18:01:47
+
+## Job Configuration
+- **Input Size**: 1,256,521,728 bytes (~1.2 GB)
+- **Map Tasks**: 10 splits
+- **Reduce Tasks**: 1
+- **Resource Request**: 1024 MB memory, 1 vCore per task
+
+## Task Execution Summary
+
+### Successful Task
+- **attempt_1445144423722_0020_m_000003_0** completed successfully at 18:04:50 on container_1445144423722_0020_01_000005 (MSRA-SA-41)
+
+### Failed Tasks
+1. **attempt_1445144423722_0020_m_000002_0** 
+   - Container: container_1445144423722_0020_01_000004 on MININT-FNANLI5
+   - Failed at: 18:06:26
+   - Error: `java.net.NoRouteToHostException: No Route to Host from MININT-FNANLI5/127.0.0.1 to msra-sa-41:9000`
+   - Retry created: attempt_1445144423722_0020_m_000002_1
+
+2. **attempt_1445144423722_0020_m_000001_0**
+   - Container: container_1445144423722_0020_01_000003 on MININT-FNANLI5  
+   - Failed at: 18:06:28
+   - Error: `java.net.NoRouteToHostException: No Route to Host from MININT-FNANLI5/127.0.0.1 to msra-sa-41:9000`
+   - Retry created: attempt_1445144423722_0020_m_000001_1
+
+### Node Failure Tracking
+- **MININT-FNANLI5**: 2 failures recorded, node blacklisting threshold tracking active
+
+## Critical System Failures
+
+### HDFS Connectivity Issues
+- **LeaseRenewer failures**: Started at 18:05:27, continued through end of log (357+ seconds of failures)
+- **Pattern**: Repeated "Address change detected" warnings and lease renewal failures for DFSClient_NONMAPREDUCE_1537864556_1
+- **Target**: msra-sa-41:9000 (HDFS NameNode)
+
+### Resource Manager Connectivity Issues  
+- **RMCommunicator failures**: Started at 18:06:01, continued through end of log
+- **Pattern**: Continuous "ERROR IN CONTACTING RM" messages with retry attempts
+- **Target**: msra-sa-41:8030 (ResourceManager)
+- **Retry Policy**: RetryUpToMaximumCountWithFixedSleep(maxRetries=10, sleepTime=1000ms)
+
+### Job History Event Handler Failure
+- **Time**: 18:06:26
+- **Error**: Failed to write TaskAttemptUnsuccessfulCompletionEvent
+- **Exception**: YarnUncaughtExceptionHandler caught exception in eventHandlingThread
+- **Impact**: Job history recording disrupted
+
+## Network Issues
+- Recurring "Address change detected" warnings indicating DNS or network instability
+- NoRouteToHost exceptions from MININT-FNANLI5 to msra-sa-41 (both port 9000 HDFS and port 8030 RM)
+- DataStreamer exception for block BP-1347369012-10.190.173.170-1444972147527:blk_1073743512_2731
+
+## Resource Allocation Status at Failure
+- **Completed Maps**: 1 of 10
+- **Scheduled Maps**: 3  
+- **Assigned Maps**: 9
+- **Pending Reduces**: 1 (slow start threshold not met)
+- **Containers Allocated**: 11
+- **Containers Released**: 1
+
+## Recurring Patterns
+- Address resolution issues between msra-sa-41 (10.190.173.170) and hostname lookups
+- Network connectivity loss from MININT-FNANLI5 node to cluster infrastructure
+- Continuous retry loops without recovery for both HDFS and YARN ResourceManager connections

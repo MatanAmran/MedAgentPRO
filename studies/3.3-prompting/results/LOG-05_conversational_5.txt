@@ -1,0 +1,92 @@
+# Root Cause Analysis Report
+
+## Causal Explanation
+
+**Primary Root Cause: Network Connectivity Failure to Critical Hadoop Infrastructure Nodes**
+
+The anomaly was caused by a **network-level failure preventing communication with the Hadoop cluster's master nodes** (msra-sa-41), specifically affecting connectivity to:
+- HDFS NameNode (port 9000)
+- YARN ResourceManager (port 8030)
+
+This network disruption triggered a cascade of failures across the MapReduce job execution pipeline, ultimately causing job failure.
+
+**Confidence Score: 0.92**
+
+---
+
+## Supporting Evidence Analysis
+
+### Network Layer Failures (Primary Indicators)
+- **E6, E24**: NoRouteToHostException from MININT-FNANLI5 to msra-sa-41:9000 - Direct evidence of network routing failure
+- **E8, E20**: Address change detected (356 occurrences) - Indicates DNS resolution instability or network interface flapping
+- **E7, E22**: ERROR IN CONTACTING RM (178 occurrences) - ResourceManager unreachable
+
+### HDFS Layer Failures (Secondary Impact)
+- **E9, E21**: Failed to renew lease (356 occurrences) - HDFS client unable to maintain file locks due to NameNode communication failure
+- **E4, E15, E18**: DFSClient and LeaseRenewer failures - Direct consequence of NameNode connectivity loss
+
+### Job Execution Failures (Tertiary Impact)
+- **E1, E2, E3**: MapReduce job and task attempts failed - Expected outcome when infrastructure is unreachable
+- **E16, E19**: RMCommunicator and JobHistoryEventHandler failures - Unable to report status or write history
+
+### Temporal Pattern
+- **E10-E14**: Failures clustered within ~30 seconds (18:05:57 to 18:06:28) - Indicates sudden network event rather than gradual degradation
+
+---
+
+## Failure Cascade Sequence
+
+1. **T0**: Network connectivity lost between worker node (MININT-FNANLI5) and master node (msra-sa-41)
+2. **T+0s**: HDFS lease renewal fails (356 attempts over failure window)
+3. **T+0s**: ResourceManager communication fails (178 attempts)
+4. **T+4s**: Map tasks begin failing (E10→E11)
+5. **T+29s**: Job declared failed (E3)
+
+---
+
+## Recommended Actions
+
+### Immediate (Priority 1)
+1. **Verify network connectivity** between MININT-FNANLI5 and msra-sa-41
+   - Check routing tables, firewall rules, and physical network infrastructure
+   - Test connectivity: `ping msra-sa-41` and `telnet msra-sa-41 9000/8030`
+
+2. **Check DNS resolution stability**
+   - Investigate why address changes were detected 356 times
+   - Verify DNS server health and configuration
+
+3. **Restart failed job** (job_1445144423722_0020) once connectivity is restored
+
+### Short-term (Priority 2)
+4. **Review network logs** on switches/routers between these nodes around 18:05-18:06 timeframe
+   - Look for interface flaps, routing changes, or hardware errors
+
+5. **Examine msra-sa-41 server health**
+   - Check for network interface issues, high load, or system errors
+   - Review NameNode and ResourceManager logs for corresponding timeframe
+
+6. **Implement monitoring alerts** for:
+   - NoRouteToHostException patterns
+   - Lease renewal failure rates
+   - RM communication failures
+
+### Long-term (Priority 3)
+7. **Enhance network resilience**
+   - Implement redundant network paths if not already present
+   - Configure Hadoop HA (High Availability) for NameNode and ResourceManager
+
+8. **Tune timeout configurations**
+   - Review and adjust `ipc.client.connect.max.retries` and related parameters
+   - Configure appropriate lease renewal timeout values
+
+9. **Establish network SLA monitoring** between critical Hadoop infrastructure nodes
+
+---
+
+## Evidence Confidence Breakdown
+- **Network failure indicators**: E6, E7, E8, E24 (High confidence: 0.95)
+- **Correlation with job failures**: E1, E2, E3 (High confidence: 0.95)
+- **Temporal clustering**: E10-E14 (Medium-high confidence: 0.85)
+- **Occurrence patterns**: E20-E24 (High confidence: 0.95)
+
+**Overall Confidence: 0.92** - Strong evidence chain with clear causal relationship between network failure and job failure.

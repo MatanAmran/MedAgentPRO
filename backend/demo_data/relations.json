@@ -1,0 +1,79 @@
+{
+  "$comment": "DEMO ONLY, pairs with demo_data/schema.json.",
+  "relations": {
+    "commitment_order": {
+      "from": "commitments",
+      "to": "purchase_orders",
+      "on": [
+        [
+          "commitments.po_id",
+          "purchase_orders.po_id"
+        ]
+      ]
+    },
+    "commitment_supplier": {
+      "from": "commitments",
+      "to": "suppliers",
+      "on": [
+        [
+          "commitments.supplier_id",
+          "suppliers.supplier_id"
+        ]
+      ]
+    },
+    "commitment_part": {
+      "from": "commitments",
+      "to": "parts",
+      "on": [
+        [
+          "commitments.part_id",
+          "parts.part_id"
+        ]
+      ]
+    },
+    "order_supplier": {
+      "from": "purchase_orders",
+      "to": "suppliers",
+      "on": [
+        [
+          "purchase_orders.supplier_id",
+          "suppliers.supplier_id"
+        ]
+      ]
+    },
+    "receipt_commitment": {
+      "from": "receipts",
+      "to": "commitments",
+      "on": [
+        [
+          "receipts.commitment_id",
+          "commitments.commitment_id"
+        ]
+      ]
+    },
+    "part_forecast": {
+      "from": "parts",
+      "to": "forecast",
+      "on": [
+        [
+          "parts.part_id",
+          "forecast.part_id"
+        ]
+      ]
+    },
+    "commitment_forecast": {
+      "from": "commitments",
+      "to": "forecast",
+      "on": [
+        [
+          "commitments.part_id",
+          "forecast.part_id"
+        ],
+        [
+          "commitments.week",
+          "forecast.week"
+        ]
+      ]
+    }
+  }
+}

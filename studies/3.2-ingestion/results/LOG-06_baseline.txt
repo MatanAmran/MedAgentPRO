@@ -1,0 +1,61 @@
+# Summary of Operational Log Data
+
+## Apache mod_jk Errors (Primary Issue)
+
+**Error Pattern:** Recurring `mod_jk child workerEnv in error state` failures
+- **Error States:** States 6, 7, 8, 9, and 10 observed
+- **Most Common:** Error state 6 (hundreds of occurrences)
+- **Frequency:** Continuous failures from December 4, 2005 through July 27, 2005
+- **Timing:** Errors occur 2-4 seconds after `workerEnv.init() ok` messages
+- **Configuration File:** `/etc/httpd/conf/workers2.properties`
+
+**Additional mod_jk Issues:**
+- Multiple instances of `mod_jk child init 1 -2` errors
+- Several `jk2_init() Can't find child [PID] in scoreboard` errors (children 1566, 1567, 2082, 2085-2087, 5053-5054, 5619-5622)
+
+## SSH Authentication Failures
+
+**Pattern:** Brute force login attempts from multiple sources
+- **Targeted Accounts:** root, test, guest
+- **Attack Sources:** 60+ unique IP addresses from various countries (China, Taiwan, Korea, Netherlands, Poland, etc.)
+- **Frequency:** Clusters of 3-10 simultaneous authentication failures
+- **Notable Sources:** 
+  - 150.183.249.110 (70+ failed attempts on July 10)
+  - Multiple attempts from 218.x.x.x, 211.x.x.x ranges
+
+## FTP Connection Floods
+
+**Pattern:** Simultaneous connection bursts from single IPs
+- **Typical Burst Size:** 15-25 concurrent connections
+- **Attack Sources:** 20+ unique IPs
+- **Examples:**
+  - 222.33.90.199 (12 connections)
+  - 211.107.232.1 (22 connections)
+  - 82.68.222.194 (23 connections)
+- **Some Successful:** Anonymous FTP logins from 84.102.20.2
+
+## Kerberos Authentication Failures
+
+**Date:** June 30, 2005 (20:53:04)
+- **Source:** 163.27.187.39
+- **Error:** "Permission denied in replay cache code"
+- **Count:** 24 klogind authentication failures
+
+## HTTP Directory Index Errors
+
+**Error:** "Directory index forbidden by rule: /var/www/html/"
+- **Frequency:** 30+ occurrences
+- **Sources:** Various client IPs
+- **Timeframe:** Throughout the log period
+
+## System Events
+
+- **Logrotate Failures:** Daily "ALERT exited abnormally with [1]" messages
+- **DNS Issues:** Multiple "notify question section contains no SOA" errors (July 25)
+- **Network Errors:** Several "Transport endpoint is not connected" ftpd errors
+- **ZooKeeper Issues:** (July 29, 2015) Connection breaks, send/receive worker failures for node 188978561024
+
+## Recurring Timestamps
+
+- Errors cluster heavily between 04:00-07:00 and 16:00-20:00 UTC
+- mod_jk failures occur in rapid succession (multiple per minute during active periods)

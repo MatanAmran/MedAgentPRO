@@ -1,0 +1,58 @@
+# Root Cause Analysis Report
+
+## Causal Explanation
+
+**Primary Root Cause: Network connectivity failure to critical Hadoop infrastructure nodes (msra-sa-41)**
+
+The anomaly was triggered by a **network-level failure preventing communication with the master nodes** (NameNode at port 9000 and ResourceManager at port 8030) on host msra-sa-41. This resulted in cascading failures across HDFS lease renewal, ResourceManager communication, and ultimately MapReduce job execution.
+
+**Confidence Score: 0.92**
+
+## Supporting Evidence Chain
+
+### Network Layer Failure (Primary)
+- **E6, E24**: NoRouteToHostException indicates complete network path failure from MININT-FNANLI5 to msra-sa-41:9000
+- **E8, E20**: 356 occurrences of "Address change detected" suggests network instability or DNS/routing reconfiguration
+- **E7, E22**: 178 instances of "ERROR IN CONTACTING RM" at msra-sa-41:8030 confirms ResourceManager unreachability
+
+### HDFS Impact (Secondary)
+- **E9, E21**: 356 failed lease renewals for DFSClient_NONMAPREDUCE_1537864556_1 
+- **E4, E15, E18**: DFSClient and LeaseRenewer components unable to maintain HDFS connections
+- **E5**: eventHandlingThread failure indicates event processing breakdown
+
+### Job Execution Failure (Tertiary)
+- **E1, E2, E3**: MapReduce job (job_1445144423722_0020) and its map tasks failed
+- **E16, E17, E19**: RMCommunicator, IPC Client, and JobHistoryEventHandler all impacted
+- **E10-E14**: Failures clustered within 31-second window (18:05:57 - 18:06:28)
+
+## Failure Sequence
+
+1. **T0 (18:05:57)**: Network connectivity to msra-sa-41 degrades/fails
+2. **T+4s**: HDFS lease renewal begins failing; RM communication errors start
+3. **T+29s**: Accumulated failures cause MapReduce tasks to abort
+4. **T+31s**: Job-level failure declared
+
+## Recommended Actions
+
+### Immediate (Priority 1)
+1. **Verify network connectivity** between MININT-FNANLI5 and msra-sa-41 (ping, traceroute, port connectivity tests)
+2. **Check msra-sa-41 host status** - confirm NameNode and ResourceManager services are running
+3. **Review network infrastructure** - switches, routers, firewalls between these hosts
+4. **Examine DNS resolution** - verify msra-sa-41 resolves consistently to 10.190.173.170
+
+### Short-term (Priority 2)
+5. **Analyze network logs** from the 18:05-18:07 timeframe for routing changes or failures
+6. **Review firewall rules** - verify ports 9000 and 8030 are accessible
+7. **Check for IP address changes** on msra-sa-41 that might explain the 356 address change detections
+8. **Restart affected MapReduce job** (job_1445144423722_0020) once connectivity is restored
+
+### Long-term (Priority 3)
+9. **Implement HA configuration** for NameNode and ResourceManager to prevent single points of failure
+10. **Configure network monitoring** with alerts for connectivity issues to critical infrastructure
+11. **Tune timeout/retry parameters** to better handle transient network issues
+12. **Document network topology** and dependencies for faster troubleshooting
+
+## Risk Assessment
+- **Impact**: HIGH - Complete job failure affecting data processing pipeline
+- **Scope**: Cluster-wide (all clients connecting to msra-sa-41)
+- **Recurrence Risk**: HIGH if network issue remains unresolved

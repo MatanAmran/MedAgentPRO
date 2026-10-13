@@ -1,0 +1,52 @@
+```json
+{
+  "failed_entities": [
+    "mod_jk child workerEnv",
+    "/etc/httpd/conf/workers2.properties",
+    "/var/www/html/",
+    "client 222.166.160.184"
+  ],
+  "error_codes": [
+    "error state 6",
+    "error state 7",
+    "Directory index forbidden by rule"
+  ],
+  "anomaly_timestamps": [
+    "Sun Dec 04 04:47:44 2005",
+    "Sun Dec 04 04:51:18 2005",
+    "Sun Dec 04 04:52:15 2005",
+    "Sun Dec 04 04:52:52 2005",
+    "Sun Dec 04 04:54:18 2005",
+    "Sun Dec 04 05:04:04 2005",
+    "Sun Dec 04 05:15:09 2005",
+    "Sun Dec 04 06:02:02 2005",
+    "Sun Dec 04 06:02:07 2005",
+    "Sun Dec 04 06:06:26 2005",
+    "Sun Dec 04 06:12:40 2005"
+  ],
+  "recurring_sources": [
+    "mod_jk",
+    "workerEnv",
+    "jk2_init()"
+  ],
+  "occurrence_counts": [
+    {
+      "item": "mod_jk child workerEnv in error state 6",
+      "count": 42
+    },
+    {
+      "item": "mod_jk child workerEnv in error state 7",
+      "count": 18
+    },
+    {
+      "item": "workerEnv.init() ok",
+      "count": 54
+    },
+    {
+      "item": "jk2_init() Found child",
+      "count": 62
+    }
+  ],
+  "narrative": "The mod_jk connector repeatedly failed to initialize child worker environments between 04:47:44 and 06:13:01 on Dec 04 2005. After successful initialization of workers2.properties configuration, mod_jk child processes consistently entered error state 6 (42 occurrences) and error state 7 (18 occurrences) within seconds. The pattern repeats cyclically: jk2_init finds children in scoreboard slots, workerEnv.init reports success, then immediately mod_jk children enter error states. This suggests a persistent failure in the mod_jk to Tomcat connector communication or backend availability. One unrelated directory index access denial from client 222.166.160.184 occurred at 05:15:09."
+}
+```

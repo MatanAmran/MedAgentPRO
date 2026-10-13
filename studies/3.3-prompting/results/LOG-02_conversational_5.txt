@@ -1,0 +1,95 @@
+# Root Cause Analysis Report
+
+## Primary Causal Explanation
+
+**CONCLUSION: Coordinated brute-force attack campaign targeting SSH and FTP services, with secondary system impact on logrotate functionality**
+
+**Confidence Score: 0.92**
+
+## Analysis
+
+### Attack Pattern Identification
+
+This is a **distributed brute-force authentication attack** with the following characteristics:
+
+1. **SSH Brute-Force Campaign** (Primary Attack Vector)
+   - 189 SSH authentication failures (E56)
+   - 89 attempts targeting root account (E60)
+   - 25 attempts targeting guest account (E61)
+   - 67 "user unknown" attempts (E59) - attackers probing for valid usernames
+   - Supporting evidence: E1, E4, E27-E54
+
+2. **FTP Attack Component** (Secondary Vector)
+   - 15 FTP connection bursts (E58)
+   - Failed FTP daemon events (E3)
+   - Supporting evidence: E3, E58
+
+3. **Distributed Attack Infrastructure**
+   - 28+ unique source IPs from multiple countries/ISPs (E27-E54)
+   - Geographic diversity indicates botnet or coordinated attack
+   - Sources span Asia-Pacific, Europe, and North America
+
+4. **Temporal Pattern Analysis**
+   - Daily recurring pattern around 04:00 hours (E11-E26)
+   - Suggests automated attack scripts on timer
+   - 20-day sustained campaign (June 14-29)
+   - Initial anomaly at 15:16 (E7), then shift to early morning attacks
+
+5. **Collateral System Impact**
+   - Logrotate failures (E2, E6, E57) - 16 occurrences
+   - Likely caused by system resource exhaustion or log file corruption from attack volume
+   - Timing correlation with attack windows
+
+## Supporting Evidence Chain
+
+**Primary Evidence:**
+- E1, E4, E56, E60, E61 (SSH authentication attack)
+- E27-E54 (distributed attack sources)
+- E11-E26 (temporal attack pattern)
+
+**Secondary Evidence:**
+- E3, E58 (FTP attack component)
+- E2, E6, E57 (system degradation)
+- E5, E59 (reconnaissance activity)
+
+**Temporal Evidence:**
+- E7-E26 (attack timeline and persistence)
+
+## Recommended Actions
+
+### IMMEDIATE (0-4 hours)
+1. **Block attacking IPs** - Implement firewall rules for all sources E27-E54
+2. **Enable fail2ban** or similar intrusion prevention for SSH/FTP
+3. **Disable root SSH login** - Edit `/etc/ssh/sshd_config`: `PermitRootLogin no`
+4. **Review active sessions** - Check for any successful compromises
+
+### SHORT-TERM (4-24 hours)
+5. **Implement SSH key-only authentication** - Disable password authentication
+6. **Change SSH default port** - Move from port 22 to non-standard port
+7. **Fix logrotate issues** - Investigate and repair (E2, E6, E57)
+8. **Enable rate limiting** - Limit connection attempts per IP
+9. **Audit FTP service necessity** - Disable if not required; use SFTP instead
+
+### MEDIUM-TERM (1-7 days)
+10. **Deploy GeoIP blocking** - Block regions not required for business
+11. **Implement multi-factor authentication** for all remote access
+12. **Set up SIEM alerting** - Monitor for similar attack patterns
+13. **Conduct security audit** - Review all exposed services
+14. **Patch and harden systems** - Ensure all security updates applied
+
+### MONITORING
+15. **Track these indicators:**
+    - Authentication failure rates
+    - New source IPs attempting access
+    - Logrotate health status
+    - System resource utilization during 04:00 window
+
+## Risk Assessment
+
+- **Current Risk Level: HIGH**
+- **Probability of Compromise: MODERATE** (no evidence of successful breach, but sustained pressure)
+- **Business Impact: MEDIUM-HIGH** (service availability and potential data breach risk)
+
+---
+
+**Confidence Justification:** High confidence (0.92) based on clear attack signatures, consistent temporal patterns, distributed source infrastructure, and classic brute-force indicators. Minor uncertainty regarding logrotate root cause linkage.

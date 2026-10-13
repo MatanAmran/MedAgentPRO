@@ -1,0 +1,58 @@
+{
+ "$id": "medagentpro/support_scoring.schema.json",
+ "$schema": "https://json-schema.org/draft/2020-12/schema",
+ "additionalProperties": false,
+ "description": "Output of the gate applied before an answer is presented (4.9). The model returns a verdict for each assertion the drafted answer makes, judged only against the material retrieved for it. It returns no score. An assertion the material does not support is removed in code, and the answer is redrafted from those that remain.",
+ "properties": {
+  "claims": {
+   "$comment": "Every assertion the drafted answer makes, in the order it makes them.",
+   "description": "Note: minimum number of items: 1, maximum number of items: 20.",
+   "items": {
+    "additionalProperties": false,
+    "properties": {
+     "evidence": {
+      "$comment": "Required and may be empty. supported and contradicted require at least one entry; uncovered requires none. Enforced in code.",
+      "description": "Note: maximum number of items: 10.",
+      "items": {
+       "$comment": "label.alias, naming a reading from the intent analysis stage and a field of the row it returned. NFR 6.",
+       "pattern": "^[a-z][a-z0-9_]{0,39}\\.[a-z][a-z0-9_]{0,39}$",
+       "type": "string"
+      },
+      "type": "array"
+     },
+     "sentence": {
+      "$comment": "[demo extension, 12.10] The number of the answer sentence the claim comes from. The gate receives the sentences numbered, so code can check that none was skipped.",
+      "description": "Note: minimum value: 1, maximum value: 20.",
+      "type": "integer"
+     },
+     "text": {
+      "$comment": "The assertion as the answer states it, not a paraphrase. A paraphrase lets a weak assertion be softened and then approved.",
+      "description": "Note: maximum length: 300.",
+      "type": "string"
+     },
+     "verdict": {
+      "$comment": "supported: the retrieved material states it. contradicted: the material states otherwise. uncovered: the material neither states nor denies it. Three categories rather than a number, because 34 measured calls showed a numeric score does not separate sufficient evidence from insufficient, and all 72 outputs fell between 0.65 and 0.95.",
+      "enum": [
+       "supported",
+       "contradicted",
+       "uncovered"
+      ]
+     }
+    },
+    "required": [
+     "sentence",
+     "text",
+     "verdict",
+     "evidence"
+    ],
+    "type": "object"
+   },
+   "type": "array"
+  }
+ },
+ "required": [
+  "claims"
+ ],
+ "title": "Support Scoring",
+ "type": "object"
+}

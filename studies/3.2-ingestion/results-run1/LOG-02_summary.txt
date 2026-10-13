@@ -1,0 +1,76 @@
+# Summary of Operational Log Analysis
+
+## Primary Failure Pattern
+
+**logrotate abnormal exits**: The process `logrotate` exited abnormally with exit code [1] on 11 occasions:
+- Jun 15 04:06:20
+- Jun 16 04:10:24
+- Jun 17 04:03:36
+- Jun 18 04:07:06
+- Jun 19 04:09:11
+- Jun 20 04:02:55
+- Jun 21 04:06:59
+- Jun 22 04:06:00
+- Jun 23 04:05:30
+- Jun 24 04:05:35
+- Jun 25 04:04:26
+- Jun 26 04:04:31
+- Jun 27 04:02:49
+- Jun 28 04:03:17
+- Jun 29 04:03:12
+
+Each failure occurred during early morning hours (between 04:02 and 04:10), immediately following cyrus user session activity.
+
+## SSH Authentication Failures
+
+### Failures with "check pass; user unknown"
+Multiple authentication attempts for non-existent users from various remote hosts. Total occurrences: approximately 70+ attempts across multiple sources:
+
+**Key attacking hosts:**
+- 218.188.2.4: 14 attempts (Jun 14-15)
+- 061092085098.ctinets.com: 10 attempts (Jun 15 14:53)
+- d211-116-254-214.rev.krline.net: 5 attempts (Jun 15 20:05)
+- adsl-70-242-75-179.dsl.ksc2mo.swbell.net: 10 attempts (Jun 18 01:30)
+- 65.166.159.14: 10 attempts (Jun 20 09:20)
+- ip-216-69-169-168.ip.secureserver.net: 10 attempts (Jun 22 04:30)
+- massive.merukuru.org: 10 attempts (Jun 25 04:41)
+- 211.115.206.155: 5 attempts (Jun 28 21:42)
+
+### Failures with known usernames
+**root user**: approximately 80+ failed authentication attempts from:
+- 220-135-151-1.hinet-ip.hinet.net: 10 attempts (Jun 15 02:04)
+- n219076184117.netvigator.com: 23 attempts (Jun 22 03:17-03:18)
+- 218.22.3.51: 9 attempts (Jun 23 23:30)
+- troi.bluesky-technologies.com: 5 attempts (Jun 27 08:05)
+- 61.53.154.93: 9 attempts (Jun 28 08:10)
+- 62-192-102-94.dsl.easynet.nl: 10 attempts (Jun 28 20:58)
+- csnsu.nsuok.edu: 10 attempts (Jun 29 10:08)
+- h64-187-1-131.gtconnect.net: 13 attempts (Jun 29 12:11-12:12)
+
+**guest user**: approximately 25 failed attempts from:
+- 211.46.224.253: 1 attempt (Jun 17 19:43)
+- 217.60.212.66: 6 attempts (Jun 21 08:56)
+- 209.152.168.249: 10 attempts (Jun 23 01:41)
+
+## FTP Connection Bursts
+
+Multiple simultaneous FTP connections from single sources (potential scanning or attack activity):
+
+- 24.54.76.216 (24-54-76-216.bflony.adelphia.net): 8 connections (Jun 17 07:07)
+- 82.252.162.81 (lns-vlq-45-tou-82-252-162-81.adsl.proxad.net): 22 connections across two incidents (Jun 17 20:55, Jun 18 02:08)
+- 222.33.90.199: 12 connections (Jun 20 03:40)
+- 210.245.165.136: 23 connections (Jun 22 13:16)
+- 218.69.108.57: 13 connections (Jun 24 18:55)
+- 210.118.170.95: 18 connections (Jun 25 09:20)
+- 211.167.68.59: 13 connections (Jun 25 19:25)
+- 61.74.96.178: 23 connections (Jun 29 03:22)
+- 208.62.55.75: 23 connections (Jun 29 10:48)
+- 210.223.97.117: 5 connections (Jun 29 14:44)
+
+One FTP timeout: ftpd[31277] "User unknown timed out after 900 seconds" (Jun 18 02:23)
+
+## Other Events
+
+- SNMP packet received from 67.170.148.126 (Jun 20 04:44:39)
+- Successful SSH session for user "test" (Jun 17 20:29-20:34)
+- System restarts: syslogd and cupsd restarted on Jun 19 and Jun 26

@@ -1,0 +1,9 @@
+```json
+{
+  "anomaly_type": "Network connectivity failure causing distributed system coordination breakdown",
+  "causal_hypothesis": "A Hadoop MapReduce job failed because the HDFS client lost network connectivity to the ResourceManager and NameNode, triggering NoRouteToHostException and lease renewal failures across multiple task attempts",
+  "confidence_score": 0.75,
+  "evidence_references": ["E13", "E14", "E15", "E16", "E17", "E18", "E19", "E20", "E21", "E22", "E23", "E24"],
+  "recommended_action": "Verify network connectivity between the client node and ResourceManager/NameNode hosts; check for network configuration changes, routing table updates, or firewall rules that occurred around 2015-10-18 18:05:57; investigate address change detection trigger"
+}
+```

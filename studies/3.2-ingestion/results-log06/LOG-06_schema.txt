@@ -1,0 +1,54 @@
+```json
+{
+  "failed_entities": [
+    "mod_jk child workerEnv",
+    "/etc/httpd/conf/workers2.properties",
+    "jk2_init() child processes",
+    "logrotate",
+    "cyrus user session",
+    "news user session"
+  ],
+  "error_codes": [
+    "error state 6",
+    "error state 7",
+    "error state 8",
+    "error state 9",
+    "error state 10",
+    "mod_jk child init 1 -2",
+    "Can't find child in scoreboard",
+    "Directory index forbidden by rule",
+    "ALERT exited abnormally with [1]"
+  ],
+  "anomaly_timestamps": [
+    "Sun Dec 04 04:47:44 2005",
+    "Sun Dec 04 04:51:18 2005",
+    "Mon Dec 05 17:43:08 2005",
+    "Mon Dec 05 17:43:12 2005",
+    "Sun Jul 17 04:08:23 2005",
+    "Sun Jul 24 04:20:42 2005",
+    "Wed Jul 27 14:41:57 2005"
+  ],
+  "recurring_sources": [
+    "mod_jk",
+    "workerEnv.init()",
+    "jk2_init()",
+    "logrotate",
+    "sshd(pam_unix)",
+    "ftpd",
+    "su(pam_unix)"
+  ],
+  "occurrence_counts": [
+    {"item": "mod_jk child workerEnv in error state 6", "count": 450},
+    {"item": "mod_jk child workerEnv in error state 7", "count": 180},
+    {"item": "mod_jk child workerEnv in error state 8", "count": 45},
+    {"item": "mod_jk child workerEnv in error state 9", "count": 25},
+    {"item": "mod_jk child init 1 -2", "count": 12},
+    {"item": "Can't find child in scoreboard", "count": 8},
+    {"item": "logrotate ALERT exited abnormally", "count": 35},
+    {"item": "Directory index forbidden by rule", "count": 25},
+    {"item": "SSH authentication failure", "count": 200},
+    {"item": "FTP connections", "count": 500}
+  ],
+  "narrative": "The Apache mod_jk connector repeatedly failed to initialize child worker environments, cycling through error states 6, 7, 8, 9, and 10 hundreds of times between December 2005 and July 2005. The workerEnv.init() process would report success but immediately transition to error states. Multiple child processes could not be found in the scoreboard, indicating process management failures. This pattern repeated continuously with jk2_init() spawning children that would fail within seconds. Logrotate consistently exited abnormally throughout the period. The system also experienced numerous SSH brute-force authentication attempts and suspicious FTP connection patterns from various external IPs. The core issue appears to be a persistent mod_jk configuration or resource problem preventing stable Apache-Tomcat connector operation."
+}
+```

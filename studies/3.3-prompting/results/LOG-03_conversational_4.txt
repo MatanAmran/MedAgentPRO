@@ -1,0 +1,98 @@
+# Root Cause Analysis: ZooKeeper Cluster Quorum Instability
+
+## Causal Explanation
+
+The evidence indicates a **chronic network connectivity failure** causing ZooKeeper cluster quorum instability and repeated leader election failures. The root cause is persistent network communication breakdown between ZooKeeper ensemble members, specifically affecting connections to nodes at 10.10.34.12 (myid=2) and 10.10.34.13 (myid=3).
+
+### Failure Chain:
+1. **Network connectivity issues** prevent QuorumCnxManager from establishing/maintaining channels to peer nodes (E11, E43, E44)
+2. **Connection failures** cascade to worker threads (SendWorker/RecvWorker) causing thread interruptions and exits (E12-E15, E45-E48)
+3. **Learner synchronization failures** occur as LearnerHandlers cannot maintain connections (E16, E17, E49, E50)
+4. **Quorum loss** triggers repeated leader elections and LOOKING states (E51, E52)
+5. **Service degradation** as ZooKeeperServer becomes unavailable (E19)
+
+## Confidence Score: **0.92**
+
+### Justification:
+- Clear causal chain from network errors to service failure
+- High occurrence counts indicate systemic rather than transient issues
+- Multiple corroborating evidence points across different components
+- Temporal pattern shows recurring failures over extended period (July-August 2015)
+- Specific IP addresses and error patterns are consistent
+
+## Supporting Evidence
+
+**Primary Evidence:**
+- **E43, E44**: 89 and 78 occurrences of "Cannot open channel" to specific nodes - indicates persistent network issues
+- **E11**: QuorumCnxManager channel opening failures - root network problem
+- **E45-E48**: 156-187 occurrences of worker thread failures - downstream impact
+- **E1, E2**: QuorumPeer failures on myid=1 and myid=2 - quorum members affected
+
+**Secondary Evidence:**
+- **E12-E15**: Connection broken and thread interruption patterns - cascading failures
+- **E16, E17, E49, E50**: LearnerHandler failures (24 GOODBYEs, 13 unexpected shutdowns)
+- **E19**: ZooKeeperServer not running - service impact
+- **E20-E33**: Recurring timestamps over 27-day period - chronic issue
+- **E40-E42**: Consistent failure to three specific election addresses
+
+## Recommended Actions
+
+### Immediate (Priority 1):
+1. **Network Diagnostics**
+   - Perform connectivity tests between all ZooKeeper nodes, specifically to 10.10.34.12:3888 and 10.10.34.13:3888
+   - Check for packet loss, latency spikes, and firewall rules blocking port 3888
+   - Verify network equipment (switches, routers) between nodes for failures
+
+2. **Verify Node Health**
+   - Check if nodes with myid=2 and myid=3 are operational
+   - Review system resources (CPU, memory, disk) on all nodes
+   - Verify ZooKeeper processes are running on all ensemble members
+
+### Short-term (Priority 2):
+3. **Configuration Review**
+   - Validate ZooKeeper ensemble configuration (zoo.cfg) on all nodes
+   - Verify tickTime, initLimit, and syncLimit settings are appropriate
+   - Confirm all nodes have correct server list with proper IP addresses
+
+4. **Firewall and Security**
+   - Ensure ports 2888 (follower), 3888 (election), and 2181 (client) are open
+   - Check iptables/firewall rules on all nodes
+   - Verify no security policies blocking inter-node communication
+
+5. **Increase Monitoring**
+   - Set up alerts for connection failures and quorum loss
+   - Monitor network metrics between ensemble members
+   - Track leader election frequency
+
+### Long-term (Priority 3):
+6. **Infrastructure Hardening**
+   - Consider dedicated network segment for ZooKeeper cluster communication
+   - Implement network redundancy if not present
+   - Review and optimize network topology
+
+7. **Capacity Planning**
+   - Evaluate if current 3-node ensemble is sufficient
+   - Consider expanding to 5-node ensemble for better fault tolerance
+   - Document recovery procedures for quorum loss scenarios
+
+8. **Root Cause Validation**
+   - After network fixes, monitor for 7-14 days to confirm resolution
+   - Analyze historical network logs for correlation with anomaly timestamps
+   - Document findings for post-mortem analysis
+
+### Diagnostic Commands:
+```bash
+# Test connectivity
+telnet 10.10.34.12 3888
+telnet 10.10.34.13 3888
+
+# Check ZooKeeper status
+echo stat | nc localhost 2181
+
+# Verify ensemble membership
+echo mntr | nc localhost 2181 | grep zk_peer
+
+# Network diagnostics
+ping -c 100 10.10.34.12
+traceroute 10.10.34.12
+```

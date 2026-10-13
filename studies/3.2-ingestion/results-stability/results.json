@@ -1,0 +1,293 @@
+{
+ "run_timestamp": "2026-09-05T01:22:10",
+ "model": "claude-sonnet-4-5-20250929",
+ "temperature": 0.0,
+ "max_tokens": 2000,
+ "context_limit": 200000,
+ "prompts": {
+  "baseline": "You are the summarization stage of an automated root cause analysis pipeline. You will be given raw operational log data.\n\nProduce a condensed summary that a later reasoning stage will use to determine why something failed. The later stage will not see the raw data, so anything you omit is lost.\n\nRetain:\n- identifiers of entities that failed\n- error codes and error types\n- timestamps of anomalous events\n- sources that recur across failures\n- how many times each anomaly occurred\n\nDiscard repetitive routine entries that carry no diagnostic value.\n\nWrite plain prose and lists. Do not add commentary about your own process.\n\nRaw data:\n---\n{data}\n---",
+  "schema": "You are the summarization stage of an automated root cause analysis pipeline. You will be given raw operational log data.\n\nProduce a condensed summary that a later reasoning stage will use to determine why something failed. The later stage will not see the raw data, so anything you omit is lost.\n\nRetain:\n- identifiers of entities that failed\n- error codes and error types\n- timestamps of anomalous events\n- sources that recur across failures\n- how many times each anomaly occurred\n\nDiscard repetitive routine entries that carry no diagnostic value.\n\nRespond with a single JSON object and nothing else. No prose before or after it, no code fences. The object must have exactly these keys:\n\n{{\n  \"failed_entities\": [string],\n  \"error_codes\": [string],\n  \"anomaly_timestamps\": [string],\n  \"recurring_sources\": [string],\n  \"occurrence_counts\": [{{\"item\": string, \"count\": integer}}],\n  \"narrative\": string\n}}\n\nEvery list must contain at least one element. \"narrative\" is a short factual account of what went wrong.\n\nRaw data:\n---\n{data}\n---"
+ },
+ "runs": [
+  {
+   "sample_id": "LOG-01",
+   "condition": "baseline",
+   "label": "baseline-1",
+   "input_tokens": 7442,
+   "outcome": "summarized",
+   "output_truncated": false,
+   "schema_valid": null,
+   "repair_used": false,
+   "repair_reason": null,
+   "summary_tokens": 385,
+   "compression_ratio": 19.3,
+   "facts_total": 5,
+   "facts_found_auto": 3,
+   "elapsed_seconds": 10.7,
+   "facts": [
+    {
+     "type": "error_code",
+     "needle": "error state 6",
+     "note": "קוד השגיאה השכיח",
+     "auto_found": true,
+     "needs_review": false
+    },
+    {
+     "type": "error_code",
+     "needle": "error state 7",
+     "note": "קוד שגיאה משני",
+     "auto_found": true,
+     "needs_review": false
+    },
+    {
+     "type": "entity",
+     "needle": "mod_jk",
+     "note": "הרכיב שנכשל",
+     "auto_found": true,
+     "needs_review": false
+    },
+    {
+     "type": "count",
+     "needle": "42",
+     "note": "מספר המופעים של error state 6",
+     "auto_found": false,
+     "needs_review": true
+    },
+    {
+     "type": "timestamp",
+     "needle": "Dec 04",
+     "note": "תאריך האירועים",
+     "auto_found": false,
+     "needs_review": false
+    }
+   ],
+   "source_file": "LOG-01.log",
+   "input_bytes": 16911,
+   "repetition": 1
+  },
+  {
+   "sample_id": "LOG-01",
+   "condition": "baseline",
+   "label": "baseline-2",
+   "input_tokens": 7442,
+   "outcome": "summarized",
+   "output_truncated": false,
+   "schema_valid": null,
+   "repair_used": false,
+   "repair_reason": null,
+   "summary_tokens": 397,
+   "compression_ratio": 18.7,
+   "facts_total": 5,
+   "facts_found_auto": 3,
+   "elapsed_seconds": 11.6,
+   "facts": [
+    {
+     "type": "error_code",
+     "needle": "error state 6",
+     "note": "קוד השגיאה השכיח",
+     "auto_found": true,
+     "needs_review": false
+    },
+    {
+     "type": "error_code",
+     "needle": "error state 7",
+     "note": "קוד שגיאה משני",
+     "auto_found": true,
+     "needs_review": false
+    },
+    {
+     "type": "entity",
+     "needle": "mod_jk",
+     "note": "הרכיב שנכשל",
+     "auto_found": true,
+     "needs_review": false
+    },
+    {
+     "type": "count",
+     "needle": "42",
+     "note": "מספר המופעים של error state 6",
+     "auto_found": false,
+     "needs_review": true
+    },
+    {
+     "type": "timestamp",
+     "needle": "Dec 04",
+     "note": "תאריך האירועים",
+     "auto_found": false,
+     "needs_review": false
+    }
+   ],
+   "source_file": "LOG-01.log",
+   "input_bytes": 16911,
+   "repetition": 2
+  },
+  {
+   "sample_id": "LOG-01",
+   "condition": "baseline",
+   "label": "baseline-3",
+   "input_tokens": 7442,
+   "outcome": "summarized",
+   "output_truncated": false,
+   "schema_valid": null,
+   "repair_used": false,
+   "repair_reason": null,
+   "summary_tokens": 436,
+   "compression_ratio": 17.1,
+   "facts_total": 5,
+   "facts_found_auto": 3,
+   "elapsed_seconds": 12.4,
+   "facts": [
+    {
+     "type": "error_code",
+     "needle": "error state 6",
+     "note": "קוד השגיאה השכיח",
+     "auto_found": true,
+     "needs_review": false
+    },
+    {
+     "type": "error_code",
+     "needle": "error state 7",
+     "note": "קוד שגיאה משני",
+     "auto_found": true,
+     "needs_review": false
+    },
+    {
+     "type": "entity",
+     "needle": "mod_jk",
+     "note": "הרכיב שנכשל",
+     "auto_found": true,
+     "needs_review": false
+    },
+    {
+     "type": "count",
+     "needle": "42",
+     "note": "מספר המופעים של error state 6",
+     "auto_found": false,
+     "needs_review": true
+    },
+    {
+     "type": "timestamp",
+     "needle": "Dec 04",
+     "note": "תאריך האירועים",
+     "auto_found": false,
+     "needs_review": false
+    }
+   ],
+   "source_file": "LOG-01.log",
+   "input_bytes": 16911,
+   "repetition": 3
+  },
+  {
+   "sample_id": "LOG-01",
+   "condition": "baseline",
+   "label": "baseline-4",
+   "input_tokens": 7442,
+   "outcome": "summarized",
+   "output_truncated": false,
+   "schema_valid": null,
+   "repair_used": false,
+   "repair_reason": null,
+   "summary_tokens": 385,
+   "compression_ratio": 19.3,
+   "facts_total": 5,
+   "facts_found_auto": 3,
+   "elapsed_seconds": 11.0,
+   "facts": [
+    {
+     "type": "error_code",
+     "needle": "error state 6",
+     "note": "קוד השגיאה השכיח",
+     "auto_found": true,
+     "needs_review": false
+    },
+    {
+     "type": "error_code",
+     "needle": "error state 7",
+     "note": "קוד שגיאה משני",
+     "auto_found": true,
+     "needs_review": false
+    },
+    {
+     "type": "entity",
+     "needle": "mod_jk",
+     "note": "הרכיב שנכשל",
+     "auto_found": true,
+     "needs_review": false
+    },
+    {
+     "type": "count",
+     "needle": "42",
+     "note": "מספר המופעים של error state 6",
+     "auto_found": false,
+     "needs_review": true
+    },
+    {
+     "type": "timestamp",
+     "needle": "Dec 04",
+     "note": "תאריך האירועים",
+     "auto_found": false,
+     "needs_review": false
+    }
+   ],
+   "source_file": "LOG-01.log",
+   "input_bytes": 16911,
+   "repetition": 4
+  },
+  {
+   "sample_id": "LOG-01",
+   "condition": "baseline",
+   "label": "baseline-5",
+   "input_tokens": 7442,
+   "outcome": "summarized",
+   "output_truncated": false,
+   "schema_valid": null,
+   "repair_used": false,
+   "repair_reason": null,
+   "summary_tokens": 385,
+   "compression_ratio": 19.3,
+   "facts_total": 5,
+   "facts_found_auto": 3,
+   "elapsed_seconds": 10.7,
+   "facts": [
+    {
+     "type": "error_code",
+     "needle": "error state 6",
+     "note": "קוד השגיאה השכיח",
+     "auto_found": true,
+     "needs_review": false
+    },
+    {
+     "type": "error_code",
+     "needle": "error state 7",
+     "note": "קוד שגיאה משני",
+     "auto_found": true,
+     "needs_review": false
+    },
+    {
+     "type": "entity",
+     "needle": "mod_jk",
+     "note": "הרכיב שנכשל",
+     "auto_found": true,
+     "needs_review": false
+    },
+    {
+     "type": "count",
+     "needle": "42",
+     "note": "מספר המופעים של error state 6",
+     "auto_found": false,
+     "needs_review": true
+    },
+    {
+     "type": "timestamp",
+     "needle": "Dec 04",
+     "note": "תאריך האירועים",
+     "auto_found": false,
+     "needs_review": false
+    }
+   ],
+   "source_file": "LOG-01.log",
+   "input_bytes": 16911,
+   "repetition": 5
+  }
+ ]
+}
