@@ -925,6 +925,13 @@ workflow ב-GitHub Actions · בדיקות Playwright, **על שלושת המנ�
 
 צילום המסך `task7_screen.png` עודכן.
 
+**PR (13.10):** [MatanAmran/MedAgentPRO#2](https://github.com/MatanAmran/MedAgentPRO/pull/2), ‏`task7/chat-screen` ← `master`.
+- **אביתר אישר את ה-push**, ופתח את ה-PR בדפדפן.
+- **הריצה הראשונה של ה-CI נכשלה** בעבודה `frontend`, בצעד `tsc`: ‏"Cannot find name 'LayoutProps'". את הטיפוסים של הנתיבים Next מייצר תחת `.next` רק ב-`dev` או ב-`build`, וב-checkout נקי אין `.next`. במחשב זה עבר כי `.next` כבר היה קיים.
+  - **שוחזר** ב-worktree נקי.
+  - **תוקן** ב-`dbf1ef1`: הצעד `npx next typegen` לפני `tsc` ב-workflow, וגם בפקודות ב-`CLAUDE.md`.
+- **CI על ה-PR אחרי התיקון:** [ריצה 38445289783](https://github.com/MatanAmran/MedAgentPRO/actions/runs/38445289783) **עברה.** העבודות `tests`, ‏`frontend` ו-`e2e` ירוקות, ו-`stress` מדולגת כמתוכנן. זו הפעם הראשונה ש-Playwright רץ ב-CI על Chromium, והוא עבר.
+
 **לאביתר — סטיות מאיור 15:** רובן מוצדקות (פירוט למעלה). אחרי סעיף 2, סטייה 6 נסגרת ברובה. **לא חובה לעדכן את האיור בספר** — האיור הוא איור של הכוונה, והמסך עומד בו. אם בכל זאת: כותרת הקריאה וטקסט התשובה הם השינויים היחידים שקורא יבחין בהם.
 
 ## מה שנסגר בסבב האחרון
