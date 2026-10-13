@@ -756,6 +756,7 @@ workflow ב-GitHub Actions · בדיקות Playwright, **על שלושת המנ�
 - **4, push:** `demo/chat-pipeline` עלה ל-`MedAgentPRO`, ו-GitHub לא חסם אותו. **CI על ה-push עבר:** [ריצה 38383161017](https://github.com/MatanAmran/MedAgentPRO/actions/runs/38383161017), עבודת `tests`, כל הצעדים ירוקים. mypy לא חוסם, ו-`stress` מדולגת כמתוכנן. משך: כדקה
 - **4, PR ל-`master`:** [MatanAmran/MedAgentPRO#1](https://github.com/MatanAmran/MedAgentPRO/pull/1), "Chat pipeline demo: tasks 0–6 and the test suite". אביתר פתח אותו בדפדפן, כי `gh` לא מותקן במחשב. CI על ה-PR: [ריצה 38384035744](https://github.com/MatanAmran/MedAgentPRO/actions/runs/38384035744) — **עברה**: עבודת `tests` ירוקה, כל הצעדים (כדקה וחצי), ו-`stress` מדולגת כמתוכנן
 - **5:** לא נגעו ב-`main`. **פתוח לאביתר ומתן:** להפוך את `master` לברירת המחדל ולמחוק את `main`. עד אז הבדיקה היומית לא רצה
+- **מיזוג (13.10):** אביתר מיזג את PR #1 ל-`master` ב-merge commit (`b9c922d`). במחשב: הענף המקומי `master` עודכן ב-fast-forward מ-`MedAgentPRO/master`, ומעכשיו הוא עוקב אחריו. העץ זהה ל-`demo/chat-pipeline` (`a4914bf`). **על `master`:** `seed`, ואז 635 עוברות ו-1 מדולגת, כיסוי 95.8%. ruff, bandit ו-pip-audit נקיים. **העבודה ממשיכה מ-`master`.** הענף `demo/chat-pipeline` נשאר מקומית וב-GitHub, ולא נמחק
 
 ## מה שנסגר בסבב האחרון
 
