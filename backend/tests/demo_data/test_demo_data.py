@@ -207,3 +207,28 @@ def test_schema_renders_for_the_intent_prompt():
     for table in CAT.entities:
         assert f"CREATE TABLE {table}" in text
     assert "metric late_by_promise" in text and "relation commitment_order" in text
+
+
+# --------------------------------------------------------------------------
+# readable names (task 7 review, item 2)
+# --------------------------------------------------------------------------
+
+def test_every_table_column_and_metric_has_a_readable_label():
+    """A new column with no label would be shown by its technical name in Examined and the headers."""
+    missing = [t for t, e in CAT.entities.items() if not e.get("label")]
+    missing += [f"{t}.{col}" for t, e in CAT.entities.items() for col, s in e["columns"].items() if not s.get("label")]
+    missing += [f"metric {m}" for m, s in CAT.metrics.items() if not s.get("label")]
+    assert not missing, f"add a label in demo_data/schema.json: {missing}"
+
+
+def test_a_label_is_shared_only_by_columns_of_the_same_name():
+    """Two different columns under one label would make Examined ambiguous, the one defence against a
+    plausible but wrong column (8.1). supplier_id in several tables may share "supplier"; quantity on an
+    order line and on a goods receipt may not share a label."""
+    by_label: dict[str, set[str]] = {}
+    for e in CAT.entities.values():
+        for col, s in e["columns"].items():
+            by_label.setdefault(s["label"], set()).add(col)
+    assert {lab: cols for lab, cols in by_label.items() if len(cols) > 1} == {}
+    tables = [e["label"] for e in CAT.entities.values()]
+    assert len(tables) == len(set(tables))

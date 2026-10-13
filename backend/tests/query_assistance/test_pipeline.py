@@ -105,7 +105,7 @@ def test_answer_with_every_sentence_supported(db_path, storage):
     assert r["outcome"] == "answered" and "withheld" not in r
     view, = r["readings"]
     assert view["answer"].startswith(view["rows"][0]["supplier_id"] + " had the most late lines, ")
-    assert view["checked"].startswith("Examined: commitments") and view["evidence"] == ["late.supplier_id",
+    assert view["checked"].startswith("Examined: purchase order lines") and view["evidence"] == ["late.supplier_id",
                                                                                          "late.late_count"]
     assert len(gw.calls) == 3 and out.recorded
 

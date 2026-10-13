@@ -2,15 +2,19 @@
   "$comment": "DEMO ONLY. A synthetic supply-chain store for demonstrating the query assistance pipeline. Not the company inventory, which has not been received. Columns that exist but are sparsely filled (notes, bin_location, promised_date, delay_reason) are deliberate: they let the demo show record-level gaps.",
   "entities": {
     "suppliers": {
+      "label": "suppliers",
       "columns": {
         "supplier_id": {
+          "label": "supplier",
           "type": "text",
           "identifier": true
         },
         "name": {
+          "label": "supplier name",
           "type": "text"
         },
         "region": {
+          "label": "region",
           "type": "text",
           "values": [
             "EMEA",
@@ -19,6 +23,7 @@
           ]
         },
         "country": {
+          "label": "country",
           "type": "text"
         }
       },
@@ -32,15 +37,19 @@
       }
     },
     "parts": {
+      "label": "parts",
       "columns": {
         "part_id": {
+          "label": "part",
           "type": "text",
           "identifier": true
         },
         "description": {
+          "label": "part description",
           "type": "text"
         },
         "category": {
+          "label": "part category",
           "type": "text",
           "values": [
             "Catheter components",
@@ -53,15 +62,19 @@
           ]
         },
         "planner_id": {
+          "label": "part planner",
           "type": "text"
         },
         "on_hand": {
+          "label": "stock on hand",
           "type": "integer"
         },
         "reorder_point": {
+          "label": "reorder point",
           "type": "integer"
         },
         "bin_location": {
+          "label": "bin location",
           "type": "text"
         }
       },
@@ -75,23 +88,29 @@
       }
     },
     "purchase_orders": {
+      "label": "purchase orders",
       "columns": {
         "po_id": {
+          "label": "purchase order",
           "type": "text",
           "identifier": true
         },
         "supplier_id": {
+          "label": "supplier",
           "type": "text",
           "identifier": true,
           "references": "suppliers.supplier_id"
         },
         "planner_id": {
+          "label": "planner",
           "type": "text"
         },
         "order_date": {
+          "label": "order date",
           "type": "date"
         },
         "status": {
+          "label": "order status",
           "type": "text",
           "values": [
             "open",
@@ -100,6 +119,7 @@
           ]
         },
         "notes": {
+          "label": "order notes",
           "type": "text"
         }
       },
@@ -114,55 +134,70 @@
       }
     },
     "commitments": {
+      "label": "purchase order lines",
       "$comment": "One purchase order line. supplier_id and planner_id are carried from the order, as an ERP line view does.",
       "columns": {
         "commitment_id": {
+          "label": "order line",
           "type": "text",
           "identifier": true
         },
         "po_id": {
+          "label": "purchase order",
           "type": "text",
           "identifier": true,
           "references": "purchase_orders.po_id"
         },
         "supplier_id": {
+          "label": "supplier",
           "type": "text",
           "identifier": true,
           "references": "suppliers.supplier_id"
         },
         "part_id": {
+          "label": "part",
           "type": "text",
           "identifier": true,
           "references": "parts.part_id"
         },
         "planner_id": {
+          "label": "planner",
           "type": "text"
         },
         "week": {
+          "label": "week",
           "type": "integer"
         },
         "quantity": {
+          "label": "ordered quantity",
           "type": "integer"
         },
         "unit_price": {
+          "label": "unit price",
           "type": "real"
         },
         "line_value": {
+          "label": "line value",
           "type": "real"
         },
         "due_date": {
+          "label": "requested date",
           "type": "date"
         },
         "promised_date": {
+          "label": "date the supplier committed to",
           "type": "date"
         },
         "delivered_at": {
+          "label": "delivery date",
           "type": "date"
         },
         "received_qty": {
+          "label": "received so far",
           "type": "integer"
         },
         "delay_reason": {
+          "label": "delay reason",
           "type": "text"
         }
       },
@@ -177,20 +212,25 @@
       }
     },
     "receipts": {
+      "label": "goods receipts",
       "columns": {
         "receipt_id": {
+          "label": "goods receipt",
           "type": "text",
           "identifier": true
         },
         "commitment_id": {
+          "label": "order line",
           "type": "text",
           "identifier": true,
           "references": "commitments.commitment_id"
         },
         "received_on": {
+          "label": "receipt date",
           "type": "date"
         },
         "quantity": {
+          "label": "receipt quantity",
           "type": "integer"
         }
       },
@@ -204,16 +244,20 @@
       }
     },
     "forecast": {
+      "label": "demand forecast",
       "columns": {
         "part_id": {
+          "label": "part",
           "type": "text",
           "identifier": true,
           "references": "parts.part_id"
         },
         "week": {
+          "label": "forecast week",
           "type": "integer"
         },
         "demand": {
+          "label": "forecast demand",
           "type": "integer"
         }
       },
@@ -229,6 +273,7 @@
   },
   "metrics": {
     "late_by_delivery": {
+      "label": "delivered late",
       "entity": "commitments",
       "type": "boolean",
       "expr": {
@@ -245,6 +290,7 @@
       "description": "Delivered after the requested date."
     },
     "late_by_promise": {
+      "label": "committed late",
       "entity": "commitments",
       "type": "boolean",
       "expr": {
@@ -261,6 +307,7 @@
       "description": "The supplier committed to a date after the requested date."
     },
     "missed_promise": {
+      "label": "missed commitment",
       "entity": "commitments",
       "type": "boolean",
       "expr": {
@@ -277,6 +324,7 @@
       "description": "Delivered after the date the supplier committed to."
     },
     "days_late": {
+      "label": "days late",
       "entity": "commitments",
       "type": "real",
       "expr": {
@@ -293,6 +341,7 @@
       "description": "Days between the requested date and the delivery."
     },
     "short_received": {
+      "label": "short delivered",
       "entity": "commitments",
       "type": "boolean",
       "expr": {
@@ -309,6 +358,7 @@
       "description": "Less received so far than ordered on the line."
     },
     "below_reorder_point": {
+      "label": "below reorder point",
       "entity": "parts",
       "type": "boolean",
       "expr": {

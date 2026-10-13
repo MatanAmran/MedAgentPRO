@@ -53,7 +53,7 @@ def _chain_key(mode: str) -> bytes:
     return secrets.token_bytes(32)
 
 
-def create_app(mode: str = "scripted", db_path: Path = seed.DEFAULT_OUT) -> FastAPI:
+def create_app(mode: str = "scripted", db_path: Path = seed.DEFAULT_OUT, scripted_delay: float = 0.0) -> FastAPI:
     if not Path(db_path).exists():
         raise SystemExit(f"{db_path} is missing. Build it first: python -m demo_data.seed")
     catalog = Catalog.load(seed.HERE / "schema.json", seed.HERE / "relations.json")
@@ -65,7 +65,7 @@ def create_app(mode: str = "scripted", db_path: Path = seed.DEFAULT_OUT) -> Fast
     else:
         scripts = load_scripts()
         gateway, model = None, SCRIPTED_MODEL
-        gateway_for = lambda question: ScriptedDemoGateway(question, scripts)   # noqa: E731
+        gateway_for = lambda question: ScriptedDemoGateway(question, scripts, scripted_delay)   # noqa: E731
     deps = pipeline.Deps(gateway, model, catalog, pipeline.connect_readonly(db_path), audit,
                          prompts.load(seed.HERE / "intent_analysis.md"))
     app = FastAPI(title="MedAgentPro chat (demo)")
@@ -85,7 +85,12 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument("--real", action="store_true", help="the real model behind the spending cap")
     ap.add_argument("--reload", action="store_true", help="reload on code changes (scripted model only)")
     ap.add_argument("--port", type=int, default=8000)
+    ap.add_argument("--scripted-delay", type=float, default=0.0, metavar="SECONDS",
+                    help="wait before each scripted model output, so end-to-end tests can act mid-stream")
     args = ap.parse_args(argv)
+    if args.real and args.scripted_delay:
+        print("--scripted-delay applies to the scripted model only")
+        return 2
     if args.real and args.reload:
         print("--reload is refused with --real: each reload would start another counter (R8, T2)")
         return 2
@@ -94,7 +99,7 @@ def main(argv: list[str] | None = None) -> int:
         uvicorn.run("main:scripted_app", factory=True, host=HOST, port=args.port, reload=True)
         return 0
     try:
-        app = create_app("real" if args.real else "scripted")
+        app = create_app("real" if args.real else "scripted", scripted_delay=args.scripted_delay)
     except BudgetConfigError as e:
         print(e)
         return 1

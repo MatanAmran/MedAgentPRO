@@ -164,6 +164,23 @@ def test_rating(client):
     assert client.post("/api/exchanges/EX-none/rating", headers=AP, json={"rating": "up"}).status_code == 404
 
 
+def test_the_conversation_shows_the_last_rating_after_a_reload(client):
+    """Task 7, Q5: the screen reads the rating from the conversation, so a reload keeps it. A refused
+    rating changes nothing."""
+    cid = conversation(client)
+    eid = result(ask(client, cid, TWO))["exchange_id"]
+
+    def shown():
+        return client.get(f"/api/conversations/{cid}", headers=AP).json()["exchanges"][0]["rating"]
+
+    assert shown() is None
+    client.post(f"/api/exchanges/{eid}/rating", headers=AP, json={"rating": "up"})
+    client.post(f"/api/exchanges/{eid}/rating", headers=AP, json={"rating": "down"})
+    assert shown() == "down"
+    client.post(f"/api/exchanges/{eid}/rating", headers=PL, json={"rating": "up"})
+    assert shown() == "down"
+
+
 @pytest.mark.parametrize("body", [{"question": "", "request_id": "abcdefgh1"},
                                   {"question": "x" * 1001, "request_id": "abcdefgh2"},
                                   {"question": "q", "request_id": "short"},
@@ -226,6 +243,24 @@ def test_a_client_that_leaves_stops_the_next_model_call(db_path):
 def test_reload_with_the_real_model_is_refused(capsys):
     assert main.main(["--real", "--reload"]) == 2
     assert "refused" in capsys.readouterr().out
+
+
+def test_scripted_delay_is_refused_with_the_real_model(capsys):
+    """The delay is a test aid for the scripted model (task 7, end-to-end tests); it never slows the
+    real one, where waiting holds a budget reservation."""
+    assert main.main(["--real", "--scripted-delay", "1"]) == 2
+    assert "scripted model only" in capsys.readouterr().out
+
+
+def test_scripted_delay_waits_before_each_output(db_path, monkeypatch):
+    waits: list[float] = []
+    monkeypatch.setattr("demo_data.scripted.time.sleep", waits.append)
+    app = main.create_app("scripted", db_path, scripted_delay=0.5)
+    with TestClient(app) as c:
+        cid = c.post("/api/conversations", headers=AP).json()["conversation_id"]
+        out = result(c.post(f"/api/conversations/{cid}/exchanges", headers=AP,
+                            json={"question": WHY, "request_id": uuid.uuid4().hex}))
+    assert out["response"]["outcome"] == "referred_to_investigation" and waits == [0.5]
 
 
 def test_the_real_model_needs_its_chain_key_and_never_builds_under_pytest(db_path, monkeypatch):

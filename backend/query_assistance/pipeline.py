@@ -275,6 +275,14 @@ def _retrieve(readings: list[CompiledReading], connect: Callable[[], sqlite3.Con
     return out
 
 
+def ambiguous_terms(intent: dict, question: str) -> list[str]:
+    """Task 7, Q4 [demo extension]: the terms declared ambiguous, for the interface to name. The
+    compiler accepts a span of the rewritten question as well (_check_span), and the rewrite is model
+    text, so only a span of the question as posed is passed on; any other is dropped, never shown."""
+    posed = _norm(question)
+    return [a["term"] for a in intent.get("ambiguous", []) if _norm(a["term"]) in posed]
+
+
 def _presented(response: dict, plans: dict[str, dict], cat: Catalog, answer: Draft | None) -> list[str]:
     """NFR 27: the identifier-column values of the rows shown, in display order, then any in the
     answer text. Never a free-text value (NFR 21, review F5)."""
@@ -393,6 +401,7 @@ def run(question: str, history: list[prompts.Exchange], user: dict, deps: Deps,
                               "total": res.total, "started": s, "finished": f} for res, s, f in retrieved])
 
         plans = {r["label"]: r["plan"] for r in intent["readings"]}
+        terms = ambiguous_terms(intent, question)
         results = {res.label: res for res, _, _ in retrieved}
         materials = [synthesis.material(label, plans[label], res.rows, res.truncated, cat)
                      for label, res in results.items()]
@@ -408,7 +417,7 @@ def run(question: str, history: list[prompts.Exchange], user: dict, deps: Deps,
             return out
 
         if not any(m.rows for m in materials):   # an empty result is a finding (Test 35), no model call
-            return finish(contract.answered(views(), gaps, understood), presented=[])
+            return finish(contract.answered(views(), gaps, understood, ambiguous_terms=terms), presented=[])
 
         # R7a: stop before the first synthesis call if the whole path cannot fit
         if hasattr(deps.gateway, "ensure_path"):
@@ -443,7 +452,7 @@ def run(question: str, history: list[prompts.Exchange], user: dict, deps: Deps,
 
         if not final.sentences:   # NFR 19, strict reading: records included are replaced (Test 17)
             return finish(contract.no_supported_assertion(views(), understood))
-        response = contract.answered(views(final), gaps, understood, withheld)
+        response = contract.answered(views(final), gaps, understood, withheld, ambiguous_terms=terms)
         return finish(response, final, presented=_presented(response, plans, cat, final))
 
     except _Rejected as e:

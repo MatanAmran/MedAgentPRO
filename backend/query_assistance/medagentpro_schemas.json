@@ -962,12 +962,32 @@
               "additionalProperties": false,
               "required": [
                 "label",
+                "title",
                 "checked",
                 "row_count"
               ],
               "properties": {
                 "label": {
                   "type": "string"
+                },
+                "headers": {
+                  "type": "object",
+                  "additionalProperties": {
+                    "type": "string"
+                  },
+                  "$comment": "[demo extension, task 7 review] The name each column is shown by: the label in schema.json, or for an aggregate a phrase built from its expression in code. Never the model's alias, never model text."
+                },
+                "identifiers": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  },
+                  "$comment": "[demo extension, task 7 Q3] The columns, in display order, that select an identifier column of schema.json. The interface groups and tags by them; no meaning is read."
+                },
+                "title": {
+                  "type": "string",
+                  "maxLength": 120,
+                  "$comment": "[demo extension, task 7 Q2] Built in code: the business description of the one metric the plan names, from schema.json, else 'Reading N'. Never model text."
                 },
                 "checked": {
                   "type": "string",
@@ -1093,6 +1113,15 @@
           "withheld": {
             "type": "string",
             "$comment": "[demo extension, 12.10] A fixed sentence from code, present where the gate removed a statement and something remains. Never says what was removed."
+          },
+          "ambiguous_terms": {
+            "type": "array",
+            "maxItems": 3,
+            "items": {
+              "type": "string",
+              "maxLength": 60
+            },
+            "$comment": "[demo extension, task 7 Q4] The terms intent analysis declared ambiguous (ambiguous[].term), only those that are a span of the question as posed. Lets the interface say which term was read in more than one way. Present only on answered with more than one reading."
           },
           "request_for_input": {
             "type": "object",

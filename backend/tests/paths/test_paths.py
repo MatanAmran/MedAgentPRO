@@ -204,7 +204,17 @@ A_PATHS = [
     ("answered_two_readings", Q, APPROVER, False,
      dict(intent_analysis_demo=[INTENT_TWO], synthesis=[SYN_TWO_READINGS], support_scoring=[gate_says("supported")]),
      "answered", True, 3, lambda r: [v["label"] for v in r["readings"]] == ["late", "promise"]
-                                    and all(v["checked"].startswith("Examined") for v in r["readings"])),
+                                    and all(v["checked"].startswith("Examined") for v in r["readings"])
+                                    and [v["title"] for v in r["readings"]] == [
+                                        "Delivered after the requested date",
+                                        "The supplier committed to a date after the requested date"]
+                                    and r["ambiguous_terms"] == ["late"]),
+    # Task 7, Q4: a term found only in the rewrite (model text) compiles, but is never named on screen
+    ("ambiguous_term_only_in_rewrite_not_named", "And in weeks 1 to 13?", APPROVER, True,
+     dict(question_rewriting=[{"question": Q, "carried_from_history": True}], intent_analysis_demo=[INTENT_TWO],
+          synthesis=[SYN_TWO_READINGS], support_scoring=[gate_says("supported")]),
+     "answered", True, 4, lambda r: "ambiguous_terms" not in r and r["understood_as"] == Q
+                                    and len(r["readings"]) == 2),
     ("planner_sees_own_rows_only", Q, PLANNER, False,
      dict(intent_analysis_demo=[INTENT], synthesis=[SYN], support_scoring=[gate_says("supported")]),
      "answered", True, 3, lambda r: "limited to the records you hold" in r["readings"][0]["checked"]),
@@ -527,12 +537,14 @@ AP, PL = {"X-Demo-User": "AP-01"}, {"X-Demo-User": "PL-02"}
 class Server:
     """The app as main.create_app builds it, with the model chosen per question by the test."""
 
-    def __init__(self, db_path, by_question: dict[str, Script] | None = None, gateway_for=None):
+    def __init__(self, db_path, by_question: dict[str, Script] | None = None, gateway_for=None,
+                 wait_seconds: float = 10.0):
         self.storage = MemoryStorage()
         audit = AuditRepository(self.storage, CircuitBreaker("system_store", MemoryStore()), b"test-key")
         self.by_question = by_question or {}
         deps = pl.Deps(None, "scripted", CAT, pl.connect_readonly(db_path), audit, INTENT_PROMPT)
-        self.state = AppState(deps, "scripted", gateway_for or (lambda q: self.by_question[q]))
+        self.state = AppState(deps, "scripted", gateway_for or (lambda q: self.by_question[q]),
+                              wait_seconds=wait_seconds)
         app = FastAPI()
         app.include_router(router(self.state))
         self.client = TestClient(app)
@@ -748,13 +760,53 @@ def test_server_one_question_at_a_time_per_conversation(db_path):
     first: dict = {}
     t = threading.Thread(target=lambda: first.setdefault("r", s.ask(cid, Q)))
     t.start()
-    for _ in range(100):
-        if s.state.conversation(cid, {"user_id": "AP-01"}).busy:
-            break
-        threading.Event().wait(0.02)
-    assert s.ask(cid, "Other?").status_code == 409
+    wait_until_busy(s, cid)
+    # T7-B1: the second question waits for the conversation instead of a 409, and runs after the first
+    second: dict = {}
+    t2 = threading.Thread(target=lambda: second.setdefault("r", s.ask(cid, "Other?")))
+    t2.start()
     cid2 = s.conversation()
     assert check_stream(s.ask(cid2, "Other?"))["response"]["outcome"] == "referred_to_investigation"
+    assert t2.is_alive()                       # still waiting: the first holds the conversation
+    gate_open.set()
+    t.join(10)
+    t2.join(10)
+    assert check_stream(first["r"])["response"]["outcome"] == "referred_to_investigation"
+    assert check_stream(second["r"])["response"]["outcome"] == "referred_to_investigation"
+    assert ("stage", {"stage": "waiting"}) in events(second["r"].text)
+    held = s.client.get(f"/api/conversations/{cid}", headers=AP).json()["exchanges"]
+    assert [x["posed"] for x in held] == [Q, "Other?"]   # one after the other, never interleaved
+
+
+def wait_until_busy(s, cid):
+    for _ in range(100):
+        if s.state.conversation(cid, {"user_id": "AP-01"}).busy:
+            return
+        threading.Event().wait(0.02)
+    raise AssertionError("the conversation never became busy")
+
+
+def test_server_waits_for_abandoned_exchange_then_refuses_when_the_wait_runs_out(db_path):
+    """T7-B1 (c): the wait is bounded. When it runs out the stream ends with an error event carrying
+    409, the conversation is untouched, and the first exchange still ends and frees it."""
+    gate_open = threading.Event()
+
+    def slow_intent(prompt):
+        gate_open.wait(10)
+        return REFER
+    s = Server(db_path, {Q: Script(intent_analysis_demo=[slow_intent]),
+                         "Other?": Script(intent_analysis_demo=[REFER], question_rewriting=[
+                             {"question": "Other?", "carried_from_history": False}])}, wait_seconds=0.3)
+    cid = s.conversation()
+    first: dict = {}
+    t = threading.Thread(target=lambda: first.setdefault("r", s.ask(cid, Q)))
+    t.start()
+    wait_until_busy(s, cid)
+    refused = s.ask(cid, "Other?")
+    assert check_stream(refused) == {"error": "a question in this conversation is still being answered",
+                                     "status": 409}
+    assert ("stage", {"stage": "waiting"}) in events(refused.text)
+    assert s.state.conversation(cid, {"user_id": "AP-01"}).busy   # still the first one's
     gate_open.set()
     t.join(10)
     assert check_stream(first["r"])["response"]["outcome"] == "referred_to_investigation"

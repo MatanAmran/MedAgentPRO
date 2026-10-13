@@ -31,7 +31,7 @@ from starlette.background import BackgroundTask
 from query_assistance import pipeline
 from shared.circuit_breaker import log as operational_log
 
-from .state import AppState, ConflictError, Conversation
+from .state import BUSY, AppState, ConflictError, Conversation
 
 # PROVISIONAL. How often the stream checks that the client is still there while it waits for a stage.
 DISCONNECT_POLL_SECONDS = 0.25
@@ -44,6 +44,11 @@ class AskBody(BaseModel):
 
 class RatingBody(BaseModel):
     rating: str = Field(pattern=r"^(up|down)$")
+
+
+class ConversationBusy(Exception):
+    """T7-B1: the wait for the conversation ran out. Sent as an error event with status 409, since the
+    stream (and its 200) began when the wait did."""
 
 
 class _Claim:
@@ -79,6 +84,8 @@ async def exchange_events(work: Callable[[Callable[[str], None]], dict],
     def run():
         try:
             put(("result", work(lambda name: put(("stage", {"stage": name})))))
+        except ConversationBusy:
+            put(("error", {"error": BUSY, "status": 409}))
         except Exception as e:   # run() ends every exchange itself; this is a bug in the server
             operational_log.error("exchange worker failed: %s: %s", type(e).__name__, e)
             put(("error", {"error": "The request could not be completed."}))
@@ -145,9 +152,12 @@ def router(state: AppState) -> APIRouter:
     async def ask(conversation_id: str, body: AskBody, request: Request, user: dict = Depends(demo_user)):
         conv = owned(conversation_id, user)
         try:
-            history = state.begin(conv, body.request_id)
+            state.claim_request(body.request_id)
         except ConflictError as e:
             raise HTTPException(409, str(e)) from None
+        # T7-B1: a busy conversation is waited for on the worker, with a "waiting" stage meanwhile
+        history = state.take(conv)
+        held = history is not None
         # B1: the conversation is never left busy. Whichever comes first claims the exchange: the worker,
         # which then runs it and frees the conversation when done, or the response's end, which frees it
         # without running anything. Starlette runs the background task after the body ends, even where the
@@ -159,8 +169,16 @@ def router(state: AppState) -> APIRouter:
             deps = state.deps_for(body.question, cancelled)
 
             def work(on_stage):
+                nonlocal history
                 if not claim.take():
                     return {}                  # the response already ended: nothing runs, nothing is paid
+                if history is None:
+                    on_stage("waiting")
+                    history = state.wait_and_take(conv, cancelled)
+                    if history is None:
+                        if cancelled.is_set():
+                            return {}          # the client left while waiting: nothing ran
+                        raise ConversationBusy()
                 outcome = None
                 try:
                     outcome = pipeline.run(body.question, history, user, deps, on_stage)
@@ -172,14 +190,15 @@ def router(state: AppState) -> APIRouter:
             def release_if_unstarted():
                 if claim.take():
                     cancelled.set()
-                    state.finish(conv, body.question, None)
+                    if held:                   # only the conversation this request took, never another's
+                        state.finish(conv, body.question, None)
 
             return StreamingResponse(exchange_events(work, request.is_disconnected, cancelled),
                                      media_type="text/event-stream",
                                      headers={"Cache-Control": "no-store", "X-Accel-Buffering": "no"},
                                      background=BackgroundTask(release_if_unstarted))
         except Exception:
-            if claim.take():
+            if claim.take() and held:
                 state.finish(conv, body.question, None)
             raise
 
@@ -193,6 +212,7 @@ def router(state: AppState) -> APIRouter:
             raise HTTPException(403, "only the person who asked rates the answer") from None
         except ValueError as e:
             raise HTTPException(422, str(e)) from None
+        state.rated(exchange_id, user, body.rating)
         return {"exchange_id": exchange_id, "rating": body.rating}
 
     return r

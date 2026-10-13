@@ -46,10 +46,13 @@ def run(db, plan, user=APPROVER, question="Which suppliers delivered late in Sep
 # --------------------------------------------------------------------------
 
 def test_checked_reads_the_metric_as_its_business_term():
+    """Task 7 review, item 2: labels from schema.json, aggregates named from their expression, never
+    the model's alias."""
     text = k.render_checked(LATE, CAT, "APPROVER")
-    assert text == ("Examined: commitments where commitments.delivered_at between '2026-09-01' and '2026-09-30' "
-                    "and delivered after the requested date (late_by_delivery) · grouped by supplier_id · "
-                    "computed the number of records as late_lines")
+    assert text == ("Examined: purchase order lines where delivery date between '2026-09-01' and '2026-09-30' "
+                    "and delivered after the requested date · grouped by supplier · "
+                    "computed the number of records")
+    assert "late_lines" not in text and "commitments" not in text
 
 
 def test_two_readings_differ_exactly_where_the_term_was_open():
@@ -69,7 +72,7 @@ def test_checked_states_a_restricted_joined_table():
     plan = {"SELECT": [{"expr": {"col": "suppliers.name"}, "as": "name"}], "FROM": "suppliers",
             "JOIN": [{"rel": "commitment_supplier", "type": "INNER"}]}
     text = k.render_checked(plan, CAT, "PLANNER")
-    assert text.startswith("Examined: suppliers with commitments") and "limited" in text
+    assert text.startswith("Examined: suppliers with purchase order lines") and "limited" in text
 
 
 def test_checked_covers_each_clause():
@@ -84,16 +87,28 @@ def test_checked_covers_each_clause():
                               {"EQ": [{"metric": "late_by_promise"}, {"value": False}]}]},
             "GROUP_BY": ["part_id"], "HAVING": [{"agg": "value", "op": "GTE", "value": 1000}]}
     text = k.render_checked(plan, CAT, "APPROVER")
-    assert "with purchase_orders with suppliers where held" in text
-    assert "(commitments.supplier_id in ('S-001', 'S-002') or commitments.quantity > 100)" in text
-    assert "commitments.delivered_at not recorded" in text
-    assert "not the supplier committed to a date after the requested date (late_by_promise)" in text
-    assert "computed summed commitments.line_value as value" in text and "kept where value ≥ 1000" in text
+    assert "with purchase orders with suppliers where held" in text
+    assert "(supplier in ('S-001', 'S-002') or ordered quantity > 100)" in text
+    assert "delivery date not recorded" in text
+    assert "not the supplier committed to a date after the requested date" in text
+    assert "grouped by part" in text
+    assert "computed the total line value" in text and "kept where total line value ≥ 1000" in text
 
 
 def test_order_caption():
-    assert k.render_order(LATE) == "ordered by late_lines, highest first"
+    assert k.render_order(LATE, CAT) == "ordered by number of records, highest first"
+    assert k.render_order(LATE) == "ordered by late_lines, highest first"   # no catalog: the alias
     assert k.render_order({"SELECT": [], "FROM": "x"}) is None
+
+
+def test_headers_name_each_column_from_the_catalog_or_its_expression():
+    plan = {"SELECT": [{"expr": {"col": "commitments.supplier_id"}, "as": "s"},
+                       {"expr": {"func": "COUNT", "arg": "*"}, "as": "n"},
+                       {"expr": {"func": "COUNT", "arg": {"col": "commitments.po_id"}}, "as": "c"},
+                       {"expr": {"func": "MAX", "arg": {"col": "commitments.quantity"}}, "as": "m"},
+                       {"expr": {"metric": "days_late"}, "as": "d"}], "FROM": "commitments"}
+    assert k.headers(plan, CAT) == {"s": "supplier", "n": "number of records", "c": "count of purchase order",
+                                    "m": "highest ordered quantity", "d": "days late"}
 
 
 # --------------------------------------------------------------------------
@@ -104,7 +119,9 @@ def test_view_carries_the_records_and_the_ordering(db):
     res = run(db, LATE)
     v = k.reading_view("late", LATE, res, CAT, "APPROVER")
     assert v["result"] == "rows_returned" and v["rows"] == res.rows and v["row_count"] == len(res.rows)
-    assert v["columns"] == ["supplier_id", "late_lines"] and v["ordered_by"].startswith("ordered by late_lines")
+    assert v["columns"] == ["supplier_id", "late_lines"]
+    assert v["headers"] == {"supplier_id": "supplier", "late_lines": "number of records"}
+    assert v["ordered_by"].startswith("ordered by number of records")
     assert "answer" not in v and "notice" not in v
 
 
@@ -162,6 +179,27 @@ def test_answered_with_two_readings_and_a_gap(db):
                       understood_as="Which suppliers delivered late in September?")
     assert resp["outcome"] == "answered" and len(resp["readings"]) == 2 and resp["gaps"][0]["text"]
     assert resp["understood_as"]
+
+
+def test_a_reading_is_titled_by_its_one_metric_else_numbered(db):
+    """Task 7, Q2: the title comes from schema.json, never from a model. One metric: its description.
+    None, or more than one: the reading's place in the answer."""
+    none = {"SELECT": [{"expr": {"col": "commitments.po_id"}, "as": "po_id"}], "FROM": "commitments",
+            "WHERE": {"EQ": [{"col": "commitments.supplier_id"}, {"value": "S-001"}]}}
+    both = dict(LATE, WHERE={"AND": [LATE["WHERE"]["AND"][1],
+                                     {"EQ": [{"metric": "late_by_promise"}, {"value": True}]}]})
+    assert k.reading_title(LATE, CAT) == "Delivered after the requested date"
+    assert k.reading_title(none, CAT) is None and k.reading_title(both, CAT) is None
+    views = [k.reading_view("a", LATE, run(db, LATE), CAT, "APPROVER"),
+             k.reading_view("b", both, run(db, both), CAT, "APPROVER")]
+    resp = k.answered(views, ambiguous_terms=["late"])
+    assert [r["title"] for r in resp["readings"]] == ["Delivered after the requested date", "Reading 2"]
+    assert resp["ambiguous_terms"] == ["late"]
+
+
+def test_ambiguous_terms_only_where_more_than_one_reading_is_shown(db):
+    resp = k.answered([k.reading_view("a", LATE, run(db, LATE), CAT, "APPROVER")], ambiguous_terms=["late"])
+    assert "ambiguous_terms" not in resp
 
 
 def test_referred_offers_an_investigation_and_carries_nothing_else():

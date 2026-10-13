@@ -3,8 +3,16 @@
  "outcome": "answered",
  "readings": [
   {
-   "checked": "Examined: commitments where commitments.supplier_id = 'S-040' · limited to the records you hold",
+   "checked": "Examined: purchase order lines where supplier = 'S-040' · limited to the records you hold",
    "columns": [
+    "po_id",
+    "part_id"
+   ],
+   "headers": {
+    "part_id": "part",
+    "po_id": "purchase order"
+   },
+   "identifiers": [
     "po_id",
     "part_id"
    ],
@@ -13,6 +21,7 @@
    "result": "empty_no_match",
    "row_count": 0,
    "rows": [],
+   "title": "Reading 1",
    "total": 0
   }
  ]
