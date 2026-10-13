@@ -12,8 +12,7 @@
 - **משימות 0–7 בנויות, נסקרו ומוזגו ל-`master`** (משימה 6 = שרת FastAPI עם SSE; משימה 7 = מסך הצ׳אט ב-Next.js). **647 בדיקות שרת, 40 Vitest, 8 Playwright** (`master` אחרי PR #2, ‏`a240086`)
 - **סט הבדיקות של צד השרת:** מפת מסלולים עם בדיקת שמירה · 18 בדיקות היתכנות · אבטחה · golden · עומס (`-m stress`) · property (`hypothesis`) · כלים (ruff, mypy, bandit, pip-audit, כיסוי 96%) · CI ב-`.github\workflows\tests.yml`, רץ ב-GitHub. באגים B1, G1–G3 נסגרו, G4 נרשם
 - **PR #1** (צד השרת) ו-**PR #2** (המסך) מוזגו ל-`master`. העבודה ממשיכה מ-`master`. CI רץ ב-GitHub על כל push ו-PR, בשלוש עבודות: `tests`, ‏`frontend`, ‏`e2e` (Playwright על המודל המתוסרט)
-- **הדמו:** `python -m main` מתוך `backend\`, ואז `npm run build` ו-`npm run start` מתוך `frontend\` (`CLAUDE.md`, ‏Commands). צילום מסך: `docs
-otes	ask7_screen.png`
+- **הדמו:** `python -m main` מתוך `backend\`, ואז `npm run build` ו-`npm run start` מתוך `frontend\` (`CLAUDE.md`, ‏Commands). צילום מסך: `docs\notes\task7_screen.png`
 
 **הבא בצ׳אט:**
 1. **צד השרת והמסך סגורים** ב-`master`: 647 בדיקות שרת (כיסוי 95.6%), 40 Vitest, 8 Playwright. ruff, bandit, pip-audit ו-`npm audit` נקיים
