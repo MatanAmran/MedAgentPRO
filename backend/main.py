@@ -26,7 +26,7 @@ from api.routes import router
 from api.state import AppState
 from demo_data import seed
 from demo_data.scripted import ScriptedDemoGateway, load_scripts
-from model_client.budget import ENV_FILE, BudgetConfigError, real_gateway
+from model_client.budget import ENV_FILE, BudgetConfigError, BudgetedGateway, real_gateway
 from persistence.audit_repository import AuditRepository, MemoryStorage
 from query_assistance import pipeline, prompts
 from query_assistance.compiler import Catalog
@@ -53,13 +53,16 @@ def _chain_key(mode: str) -> bytes:
     return secrets.token_bytes(32)
 
 
-def create_app(mode: str = "scripted", db_path: Path = seed.DEFAULT_OUT, scripted_delay: float = 0.0) -> FastAPI:
+def create_app(mode: str = "scripted", db_path: Path = seed.DEFAULT_OUT, scripted_delay: float = 0.0,
+               gateway: BudgetedGateway | None = None) -> FastAPI:
+    """gateway: on the real model, the budgeted gateway to use instead of real_gateway(). Only the fake
+    provider of the end-to-end tests passes one (tools/fake_real_server.py, task 9)."""
     if not Path(db_path).exists():
         raise SystemExit(f"{db_path} is missing. Build it first: python -m demo_data.seed")
     catalog = Catalog.load(seed.HERE / "schema.json", seed.HERE / "relations.json")
     audit = AuditRepository(MemoryStorage(), CircuitBreaker("system_store", MemoryStore()), _chain_key(mode))  # S6
     if mode == "real":
-        gateway = real_gateway()
+        gateway = gateway or real_gateway()
         model = gateway.config.model_id
         gateway_for = lambda question: gateway            # noqa: E731  one gateway, one budget
     else:

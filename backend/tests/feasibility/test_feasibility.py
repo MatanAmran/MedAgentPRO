@@ -392,3 +392,24 @@ def test_every_constraint_has_a_check_and_every_check_a_constraint():
     assert rows == here, {"rows without a check": sorted(rows - here), "checks without a row": sorted(here - rows)}
     ids = [c.id for c in CONSTRAINTS]
     assert len(ids) == len(set(ids))
+
+
+def test_L05_every_demo_question_fits_the_default_cap_on_the_real_path(db_path, tmp_path):
+    """Task 9: found while building the fake provider. The largest demo question (30 rows) reserves
+    about USD 0.135 for its worst path; the demo's default cap is 0.25. Tighten the cap, or grow a
+    question's records, and this fails before the demo does."""
+    from fastapi.testclient import TestClient
+
+    from tools.fake_real_server import build_app
+    app, _ = build_app(db_path, tmp_path, MODEL_MAX_USD_PER_EXCHANGE="0.25")
+    ap = {"X-Demo-User": "AP-01"}
+    with TestClient(app) as c:
+        cid = None
+        for entry in load_scripts().values():
+            if not entry["expect"].get("follows"):
+                cid = c.post("/api/conversations", headers=ap).json()["conversation_id"]
+            r = c.post(f"/api/conversations/{cid}/exchanges", headers=ap,
+                       json={"question": entry["question"], "request_id": os.urandom(8).hex()})
+            last = json.loads(r.text.strip().split("\n\n")[-1].split("data: ", 1)[1])
+            assert last["response"]["outcome"] == entry["expect"]["outcome"], (entry["question"], last)
+            assert last["cost"]["exchange_usd"] > 0
