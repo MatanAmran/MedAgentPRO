@@ -486,7 +486,8 @@ def run(question: str, history: list[prompts.Exchange], user: dict, deps: Deps,
 
 def rate(exchange_id: str, rating: str, user: dict, audit: AuditRepository) -> dict:
     """Held with the recorded exchange, as a later entry on its chain. It does not decide whether
-    the exchange is kept (4.9). Only an answer is rated, and only by the person who asked."""
+    the exchange is kept (4.9). Only an answer with at least one reading is rated (task 8 review: a
+    declined action holds no records to rate), and only by the person who asked."""
     if rating not in ("up", "down"):
         raise ValueError("a rating is up or down")
     doc = audit.storage.get_investigation(exchange_id)
@@ -496,5 +497,7 @@ def rate(exchange_id: str, rating: str, user: dict, audit: AuditRepository) -> d
         raise PermissionError("only the person who asked rates the answer")
     if doc["outcome"] != "answered":
         raise ValueError("only an answer is rated")
+    if not doc["response"].get("readings"):
+        raise ValueError("only an answer with records is rated")
     return audit.write_event(AuditEntry(exchange_id, RATING, STAGE_NAMES[RATING], "answer_rated", user["role"],
                                         actor_id=user.get("user_id")), {"rating": rating})

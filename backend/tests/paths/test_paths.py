@@ -738,14 +738,18 @@ def test_server_refuses_what_it_should(db_path):
 def test_server_rating_rules(db_path):
     s = Server(db_path, {Q: Script(intent_analysis_demo=[INTENT], synthesis=[SYN],
                                    support_scoring=[gate_says("supported")]),
-                         "Why?": Script(intent_analysis_demo=[REFER])})
+                         "Why?": Script(intent_analysis_demo=[REFER]),
+                         "Change PO-87006.": Script(intent_analysis_demo=[ACTION])})
     cid = s.conversation()
     ex = check_stream(s.ask(cid, Q))["exchange_id"]
     ref = check_stream(s.ask(cid, "Why?"))["exchange_id"]
+    declined = check_stream(s.ask(s.conversation(), "Change PO-87006."))
+    assert declined["response"]["outcome"] == "answered" and declined["response"]["readings"] == []
     rate = lambda eid, h=AP, v="up": s.client.post(f"/api/exchanges/{eid}/rating", headers=h, json={"rating": v})  # noqa
     assert rate(ex).status_code == 200
     assert rate(ex, PL).status_code == 403
     assert rate(ref).status_code == 422
+    assert rate(declined["exchange_id"]).status_code == 422   # task 8 review: no records, nothing to rate
     assert rate("EX-nope").status_code == 404
     assert rate(ex, v="sideways").status_code == 422
 

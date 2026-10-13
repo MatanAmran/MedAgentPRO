@@ -78,8 +78,9 @@ export function ExchangeView({
 }) {
   const r = item.response;
   const sentence = readingsSentence(r);
-  // K4: thumbs under an answered exchange only; the conversation is the asker's own (S3)
-  const ratable = r.outcome === "answered" && item.recorded;
+  // K4: thumbs under an answered exchange only, with at least one reading (task 8 review: a declined
+  // action holds no records to rate); the conversation is the asker's own (S3)
+  const ratable = r.outcome === "answered" && item.recorded && r.readings.length > 0;
   return (
     <div className="flex flex-col gap-3" data-testid="exchange" data-outcome={r.outcome}>
       <Question text={item.posed} />

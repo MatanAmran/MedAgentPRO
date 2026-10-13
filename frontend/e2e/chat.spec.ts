@@ -137,8 +137,10 @@ const SHOWN: Record<string, (last: import("@playwright/test").Locator) => Promis
   not_held: (x) => expect(x.getByTestId("reading-notice")).toContainText("does not appear in"),
   withheld: (x) => expect(x.getByTestId("withheld")).toBeVisible(),
   request_for_input: (x) => expect(x.getByTestId("request-for-input")).toBeVisible(),
-  action_declined: (x) =>
-    expect(x.getByTestId("notice")).toHaveText("This assistant reads records. It does not change them."),
+  action_declined: async (x) => {
+    await expect(x.getByTestId("notice")).toHaveText("This assistant reads records. It does not change them.");
+    await expect(x.getByTestId("rating")).toHaveCount(0);
+  },
 };
 
 test("the demo set: every example question ends as its script expects", async ({ page }) => {

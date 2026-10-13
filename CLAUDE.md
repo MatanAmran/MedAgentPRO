@@ -209,6 +209,21 @@ python -m pip_audit               # the installed environment, against known vul
 python -m pytest --cov --cov-branch
 ```
 
+**Pre-commit hook (task 8 review).** No commit while `ruff` or `bandit` fails on `backend\`. The hook is not in git; install it once per clone by writing this to `.git\hooks\pre-commit` (Git for Windows runs it with its own `sh`):
+
+```sh
+#!/bin/sh
+# MedAgentPro: no commit while ruff or bandit fails on backend/ (task 8 review). Not in git; see CLAUDE.md.
+root=$(git rev-parse --show-toplevel)
+py="$root/backend/venv/Scripts/python.exe"
+[ -x "$py" ] || py=python
+cd "$root/backend" || exit 1
+"$py" -m ruff check . || { echo "pre-commit: ruff failed, commit stopped"; exit 1; }
+"$py" -m bandit -c pyproject.toml -r . -q >/dev/null 2>&1 || {
+  "$py" -m bandit -c pyproject.toml -r . -q
+  echo "pre-commit: bandit failed, commit stopped"; exit 1; }
+```
+
 Application Control also blocks compiled (mypyc) extensions from unverified publishers, shown as a Windows Security notice ("Part of this app has been blocked … .pyd"). mypy and tomli (a pip-audit dependency) are installed as pure Python for that reason: `pip install --no-binary mypy mypy==<v>`, and tomli from its `py3-none-any` wheel (`pip download --only-binary :all: --implementation py --platform any`). Do not change the security policy.
 
 ```powershell
