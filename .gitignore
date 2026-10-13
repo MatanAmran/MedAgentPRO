@@ -16,3 +16,4 @@ backend/.coverage
 backend/htmlcov/
 backend/.mypy_cache/
 backend/.ruff_cache/
+.claude/
