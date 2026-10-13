@@ -488,7 +488,9 @@ class _ReadingCompiler:
         limit_injected = "LIMIT" not in p
 
         # assemble
-        body = f"SELECT {', '.join(select_sql)} FROM {_q(p['FROM'])}"
+        # bandit B608: identifiers from the catalog, quoted; every value is a bound parameter
+        # (tests/security, tests/property)
+        body = f"SELECT {', '.join(select_sql)} FROM {_q(p['FROM'])}"  # nosec B608
         params = list(select_params)
         for jsql, jparams in joins:
             body += f" {jsql}"
@@ -503,7 +505,9 @@ class _ReadingCompiler:
             params += having_params
 
         sql = f"{body} ORDER BY {', '.join(order)} LIMIT ?"
-        count_sql = f"SELECT COUNT(*) FROM ({body})"
+        # bandit B608: identifiers from the catalog, quoted; every value is a bound parameter
+        # (tests/security, tests/property)
+        count_sql = f"SELECT COUNT(*) FROM ({body})"  # nosec B608
         return CompiledReading(self.label, sql, params + [limit], count_sql, list(params),
                                limit, limit_injected, self._probes())
 
@@ -533,7 +537,9 @@ class _ReadingCompiler:
             if ent:
                 where.append(ent[0])
                 params += ent[1]
-            sql = f"SELECT 1 FROM {_q(table)} WHERE {' AND '.join(where)} LIMIT 1"
+            # bandit B608: identifiers from the catalog, quoted; every value is a bound parameter
+            # (tests/security, tests/property)
+            sql = f"SELECT 1 FROM {_q(table)} WHERE {' AND '.join(where)} LIMIT 1"  # nosec B608
             out.append(Probe(column, value, sql, params, target))
         return out
 

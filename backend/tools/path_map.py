@@ -10,10 +10,10 @@ No model call and no network: the suites it runs never reach a real model (6.1).
 from __future__ import annotations
 
 import argparse
-import subprocess
+import subprocess  # runs only pytest itself, see run_suites  # nosec B404
 import sys
 import tempfile
-import xml.etree.ElementTree as ET
+import xml.etree.ElementTree as ET  # parses only the report pytest wrote in this run  # nosec B405
 from collections import defaultdict
 from datetime import datetime
 from pathlib import Path
@@ -29,10 +29,12 @@ def run_suites() -> dict[str, str]:
     """{'file.py::name[param]': status} from one pytest run of both suites."""
     with tempfile.TemporaryDirectory() as tmp:
         report = Path(tmp) / "report.xml"
-        subprocess.run([sys.executable, "-m", "pytest", "-q", "-p", "no:cacheprovider", "tests/paths",
+        # bandit B603: this interpreter's pytest, fixed arguments, no shell
+        subprocess.run([sys.executable, "-m", "pytest", "-q", "-p", "no:cacheprovider", "tests/paths",  # nosec B603
                         "tests/feasibility", f"--junitxml={report}"], cwd=BACKEND)
         out: dict[str, str] = {}
-        for case in ET.parse(report).getroot().iter("testcase"):
+        # bandit B314: the XML pytest wrote in this run, in our temp dir
+        for case in ET.parse(report).getroot().iter("testcase"):  # nosec B314
             file = case.get("classname", "").rsplit(".", 1)[-1] + ".py"
             status = "passed"
             for child in case:

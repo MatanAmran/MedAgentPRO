@@ -126,7 +126,7 @@ def _iso(d: date | None) -> str | None:
 
 
 def build(out: Path = DEFAULT_OUT, seed: int = 20261009) -> dict:
-    rng = random.Random(seed)
+    rng = random.Random(seed)  # demo data generator, not security  # nosec B311
     schema = json.loads(SCHEMA.read_text(encoding="utf-8"))
     out = Path(out)
     if out.exists():
@@ -266,7 +266,8 @@ def build(out: Path = DEFAULT_OUT, seed: int = 20261009) -> dict:
     conn.executemany("INSERT INTO commitments VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)", line_rows)
     conn.executemany("INSERT INTO receipts VALUES (?,?,?,?)", rc_rows)
     conn.commit()
-    counts = {t: conn.execute(f'SELECT COUNT(*) FROM "{t}"').fetchone()[0] for t in schema["entities"]}
+    counts = {t: conn.execute(f'SELECT COUNT(*) FROM "{t}"').fetchone()[0]  # table names from schema.json, quoted  # nosec B608
+              for t in schema["entities"]}
     conn.close()
     return counts
 
