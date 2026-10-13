@@ -758,6 +758,52 @@ workflow ב-GitHub Actions · בדיקות Playwright, **על שלושת המנ�
 - **5:** לא נגעו ב-`main`. **פתוח לאביתר ומתן:** להפוך את `master` לברירת המחדל ולמחוק את `main`. עד אז הבדיקה היומית לא רצה
 - **מיזוג (13.10):** אביתר מיזג את PR #1 ל-`master` ב-merge commit (`b9c922d`). במחשב: הענף המקומי `master` עודכן ב-fast-forward מ-`MedAgentPRO/master`, ומעכשיו הוא עוקב אחריו. העץ זהה ל-`demo/chat-pipeline` (`a4914bf`). **על `master`:** `seed`, ואז 635 עוברות ו-1 מדולגת, כיסוי 95.8%. ruff, bandit ו-pip-audit נקיים. **העבודה ממשיכה מ-`master`.** הענף `demo/chat-pipeline` נשאר מקומית וב-GitHub, ולא נמחק
 
+### משימה 7 — תוכנית של Code (13.10). **ממתינה לאישור, לא נכתב קוד**
+
+**מה נקרא:** `40_CHAT` §6 ו-§11 · איור 15 (`02_Figures\Screens\Fig15_QueryAssistance.png`) · `frontend\AGENTS.md` ותיעוד Next 16 (proxy, rewrites, upgrade 16) · `api\routes.py`, `api\state.py`, סכמת `exchange_response`, ה-snapshots ב-`tests\golden`. **נבדק:** הקומפיילר המקומי (native) של Next נטען במחשב, למרות Application Control.
+
+**התוכנית:**
+1. **ענף `task7/chat-screen` מ-`master`**, ו-PR אליו (merge commit)
+2. **חיבור לשרת:** הדפדפן פונה ישירות ל-`http://127.0.0.1:8000` (`NEXT_PUBLIC_API_BASE`). ה-CORS כבר מוגדר ב-`main.py`. **בלי rewrite ובלי proxy של Next**, שעלולים לאגור את הזרם. `lib/api.ts`:
+   - כל בקשה עם `X-Demo-User`
+   - הזרם נקרא ב-`fetch` עם `ReadableStream` ומפענח SSE משלנו (S1)
+   - `request_id` חדש לכל שאלה (`crypto.randomUUID`), **בלי ניסיון חוזר** (R8)
+   - `AbortController` במעבר שיחה או ביציאה מהדף
+3. **טיפוסים:** TypeScript שנכתבים ידנית לפי `exchange_response`. ה-snapshots ב-`tests\golden` משמשים כ-fixtures, ובדיקה שוברת אם הסכמה זזה
+4. **המסך — client component אחד** (`app/page.tsx`, `"use client"`), כי אין רינדור בשרת שמוסיף משהו כשהשרת הוא localhost. הרכיבים:
+   - **כותרת:** בחירת משתמש דמו (S2), מסומנת "demo, no authentication"
+   - **צד:** "+ New conversation" ורשימת השיחות של המשתמש
+   - **שרשור:** השאלה · "Understood as" רק כשהשדה קיים (K6) · שורת התקדמות לפי אירועי `stage` · כרטיס לכל קריאה (טקסט התשובה, טבלת השורות, "Showing N of total", מיון, "No records matched" ו-`not_held`, ו-**"Examined" תמיד**) · פערים (`text` כמו שהוא) · `withheld` · `notice` · `request_for_input` · תיבת הפניה לחקירה · אגודלים
+   - **שדה ההקלדה:** נעול בזמן בקשה (R8), עד 1,000 תווים
+   - **הכפתור הנעול נגזר מהמצב בקוד**, לא מ-`disabled` שמוגדר בנפרד
+5. **בדיקות (סעיף 6), דורשות התקנה:**
+   - **רכיבים:** Vitest, ‏Testing Library ו-jsdom. בודקים: כל snapshot ב-golden מוצג, "Examined" על כל קריאה, אגודלים רק ב-`answered`, הכפתור נעול, ופענוח SSE כשהזרם נחתך באמצע אירוע
+   - **Playwright מקצה לקצה** מול השרת על המודל המתוסרט: שאלה, שתי קריאות, הפניה, תוצאה ריקה, ניתוק ורענון באמצע, כפתור נעול
+   - **במחשב:** Playwright עם **Edge המותקן** (`channel: "msedge"`, חתום על ידי Microsoft), כי ייתכן ש-Application Control חוסם את Chromium שמורד. **ב-CI:** Chromium
+6. **CI:** עבודה `frontend` ב-workflow — `npm ci`, ‏lint, ‏`tsc`, ‏Vitest. ועבודת e2e: מריצה את השרת המתוסרט, ואז Playwright
+7. **הורדות שדורשות אישור:** `vitest`, `@testing-library/react`, `jsdom`, `@playwright/test` (devDependencies). בלי ספריית UI ובלי ספריית אייקונים — Tailwind בלבד
+
+**שאלות לצ׳אט (לא מכריע לבד):**
+- **Q1, כפתור "Open an investigation"** — מה הוא עושה בדמו, כשאין חקירה. אפשרויות: (א) מוצג ונעול, עם "Investigations are not part of this demo" · (ב) לא מוצג · (ג) פותח חלון שמסביר מה חקירה הייתה מקבלת. **(א) שומר על המבנה של איור 15**
+- **Q2, איור 15 מול החוזה — כותרת קריאה.** באיור: "Reading 1 — Received after the requested date". בחוזה אין כותרת קריאה, רק `label` (`late_by_delivery`) ו-`checked`. אפשרויות: (א) "Reading 1 · late_by_delivery" · (ב) שדה `title` חדש מהתיאור העסקי של המדד ב-`schema.json`, שינוי בחוזה, `[demo extension]` · (ג) "Reading 1" בלבד, ו-"Examined" נושא את ההבדל. ‏CLAUDE.md מזכיר "readable names" ב-`schema.json` כמתוכנן למשימה 4 או 7
+- **Q3, איור 15 מול החוזה — שורות כתגים.** באיור הספקים וההזמנות מוצגים כתגים מקובצים לפי ספק. החוזה מחזיר `columns` ו-`rows` בלי קיבוץ, וכן `answer` בטקסט (שלא מופיע באיור). **הצעה:** טקסט התשובה מעל טבלה גנרית, וערכים של עמודות `identifier` מוצגים כתגים בתוך הטבלה. קיבוץ לפי ספק דורש לדעת מה מקבץ מה, וזה קריאת משמעות בקוד
+- **Q4, המשפט "'Late' can be read in two ways, so both are shown."** אין שדה בחוזה למונח העמום. אפשרויות: (א) משפט קבוע מהקוד כשיש יותר מקריאה אחת, בלי המונח: "The question can be read in 2 ways, so each is shown." · (ב) שדה חדש מניתוח הכוונה, שינוי בסכמה 1 · (ג) בלי משפט
+- **Q5, דירוג אחרי רענון.** `GET /conversations/{id}` לא מחזיר את הדירוג שניתן. אחרי רענון האגודלים יוצגו כלא מסומנים, והדירוג הבא נרשם ("האחרון קובע"). אפשרות: להוסיף `rating` לפריט בשיחה (`api/state.py`), שינוי ב-API ולא בחוזה התשובה
+
+### משימה 7 — **התוכנית מאושרת בצ׳אט (13.10), עם ההכרעות על Q1–Q5.** Code רשאי להתחיל
+
+**התוכנית — מאושרת כמו שהיא**, כולל ההורדות (`vitest`, `@testing-library/react`, `jsdom`, `@playwright/test`, devDependencies בלבד) ו-Edge המותקן ל-Playwright במחשב. **תוספות:**
+- **Playwright — תרחיש B1 במפורש:** רענון באמצע זרם, ומיד שאלה חדשה באותה שיחה ← מתקבלת (לא 409)
+- **עלות (T3):** במצב המודל האמיתי, שורה קטנה מתחת לתשובה — עלות התשובה ומה שנשאר מהתקציב, מתוך `cost` שליד התגובה. במצב המתוסרט (`cost: null`) — לא מוצג כלום
+- **סטיות מאיור 15** — לרשום כאן ברשימה אחת בסוף המשימה (לא לשנות את הספר; אביתר יחליט אם לעדכן את האיור)
+
+**ההכרעות:**
+- **Q1 — (א).** הכפתור מוצג ונעול, עם "Investigations are not part of this demo". שומר על המבנה של איור 15 ועל FR 14
+- **Q2 — (ב), עם כלל:** שדה `title` לכל קריאה, **נבנה בקוד** (`contract.py`), `[demo extension]`: אם התוכנית נוקבת **מדד אחד בדיוק** — התיאור העסקי שלו מ-`schema.json` ("Delivered after the requested date"); אחרת — `"Reading N"`. אין כאן טקסט מודל. זה ה-"readable names" שתוכנן. golden יתעדכן — לעבור על הדיף
+- **Q3 — עודכן (אביתר): קיבוץ כמו באיור 15, בכלל מבני.** סידור של שורות שחזרו אינו ניסוח חדש — כל זוג כבר באותה שורה במסד. **הכלל:** מקבצים לפי **עמודת ה-`identifier` הראשונה** בטבלה, רק אם יש בטבלה **עוד עמודת `identifier`** ו**ערך הקיבוץ חוזר** ביותר משורה אחת; אחרת — טבלה רגילה (למשל ספירה לכל ספק). ההחלטה מ-`schema.json` בלבד, לא מקריאת משמעות. **שלושה תנאים:** (1) סדר הקבוצות לפי ההופעה הראשונה בשורות — המיון (`ordered_by`) לא נשבר · (2) "Showing N of total" נשאר מעל הקבוצות (קבוצה אחרונה יכולה להיות חלקית) · (3) מתג "Show as table" שמציג את כל העמודות. מזהים — תגים. **בדיקות רכיב:** קיבוץ, בלי קיבוץ, סדר נשמר, חיתוך מוצג
+- **Q4 — (ב'), בלי שינוי בסכמה 1:** ניתוח הכוונה **כבר מחזיר** `ambiguous[].term`, והמהדר **כבר מאמת** שהוא קטע מהשאלה כפי שנשאלה (`_check_span`, `compiler.py:612`). להעביר את המונחים לתשובה בשדה `ambiguous_terms` (`[demo extension]`), והמסך כותב "'late' can be read in N ways, so each is shown." כשאין מונח ויש יותר מקריאה אחת — המשפט הקבוע של (א), בלי מונח. **מסלול חדש במפה + בדיקה:** מונח שאינו קטע מהשאלה לא מגיע לתשובה (כבר נדחה במהדר — לוודא)
+- **Q5 — כן.** `rating` בפריט של השיחה ב-`GET /conversations/{id}` (שינוי ב-API, לא בחוזה התשובה). צילום `openapi.json` יתעדכן
+
 ## מה שנסגר בסבב האחרון
 
 - **הקוד עבר לריפו** — `MedAgentPro\backend` (`query_assistance`, `model_client`, `persistence`, `shared`, `tests`). **`03_Code` נשאר כמקור ומעודכן.** `python -m pytest -q` מתוך `backend`
