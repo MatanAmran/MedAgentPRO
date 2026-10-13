@@ -1,0 +1,34 @@
+{
+ "gaps": [],
+ "outcome": "answered",
+ "readings": [
+  {
+   "checked": "Examined: purchase order lines where supplier = 'S-099'",
+   "columns": [
+    "po_id",
+    "part_id"
+   ],
+   "headers": {
+    "part_id": "part",
+    "po_id": "purchase order"
+   },
+   "identifiers": [
+    "po_id",
+    "part_id"
+   ],
+   "label": "supplied",
+   "not_held": [
+    {
+     "checked_in": "suppliers.supplier_id",
+     "value": "S-099"
+    }
+   ],
+   "notice": "S-099 does not appear in suppliers.",
+   "result": "empty_unknown_entity",
+   "row_count": 0,
+   "rows": [],
+   "title": "Reading 1",
+   "total": 0
+  }
+ ]
+}

@@ -21,7 +21,7 @@ describe("every golden response renders", () => {
     show(r);
     expect(screen.queryAllByTestId("examined")).toHaveLength(r.readings.length);
     screen.queryAllByTestId("examined").forEach((e, i) => expect(e.textContent).toBe(r.readings[i].checked));
-    expect(screen.queryAllByTestId("rating")).toHaveLength(r.outcome === "answered" ? 1 : 0);
+    expect(screen.queryAllByTestId("rating")).toHaveLength(r.outcome === "answered" && r.readings.length > 0 ? 1 : 0);
     r.readings.forEach((x) => expect(screen.getByText(x.title)).toBeTruthy());
   });
 });
@@ -45,6 +45,12 @@ describe("the exchange", () => {
   it("shows the withheld notice", () => {
     show({ ...late, withheld: "Some statements were withheld because the records do not support them." });
     expect(screen.getByTestId("withheld").textContent).toMatch(/withheld/);
+  });
+
+  it("no thumbs under a declined action, which holds no records (task 8 review)", () => {
+    show({ outcome: "answered", readings: [], gaps: [], notice: "This assistant reads records. It does not change them." });
+    expect(screen.getByTestId("notice").textContent).toBe("This assistant reads records. It does not change them.");
+    expect(screen.queryByTestId("rating")).toBeNull();
   });
 
   it("no thumbs under an answer that was not recorded", () => {

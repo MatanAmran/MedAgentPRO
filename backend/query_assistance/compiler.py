@@ -601,8 +601,8 @@ def compile_intent(intent: dict, question: "str | Conversation", user: dict, cat
         e = errors[0]
         raise CompileError("schema_violation", e.message, path="/".join(map(str, e.path)))
 
-    if intent["disposition"] == "refer_to_investigation":
-        return CompiledIntent("refer_to_investigation")
+    if intent["disposition"] in ("refer_to_investigation", "out_of_scope_action"):
+        return CompiledIntent(intent["disposition"])
 
     for u in intent.get("unresolved", []):
         _check_span(u["asked"], conv, "unresolved.asked")

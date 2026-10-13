@@ -61,11 +61,14 @@ class _Recording(ModelGateway):
         return self.inner.invoke(prompt, config)
 
 
-def run(question, user, db_path):
+def run(question, user, db_path, history=()):
     gw = _Recording(ScriptedDemoGateway(question, load_scripts()))
     d = pl.Deps(gw, "scripted-demo", CAT, pl.connect_readonly(db_path),
                 AuditRepository(MemoryStorage(), CircuitBreaker("s", MemoryStore()), b"k"), INTENT_PROMPT)
-    return pl.run(question, [], user, d), gw
+    return pl.run(question, list(history), user, d), gw
+
+
+QUESTIONS = [e["question"] for e in load_scripts().values()]   # as written, in the demo's order
 
 
 def _slug(question: str) -> str:
@@ -77,10 +80,13 @@ def _slug(question: str) -> str:
 # --------------------------------------------------------------------------
 
 @pytest.mark.parametrize("user", list(USERS))
-@pytest.mark.parametrize("question", list(load_scripts()), ids=_slug)
+@pytest.mark.parametrize("question", QUESTIONS, ids=_slug)
 def test_response(question, user, db_path):
-    """exchange_response as presented, "Examined" included. It holds no id or time by design."""
-    out, _ = run(question, USERS[user], db_path)
+    """exchange_response as presented, "Examined" included. It holds no id or time by design. A
+    follow-up (task 8) runs after the question it follows, as in the demo."""
+    follows = load_scripts()[" ".join(question.casefold().split())]["expect"].get("follows")
+    history = [run(follows, USERS[user], db_path)[0].exchange] if follows else []
+    out, _ = run(question, USERS[user], db_path, history)
     golden(f"response__{_slug(question)}__{user}.json", as_json(out.response))
 
 

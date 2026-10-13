@@ -1,0 +1,27 @@
+{
+ "gaps": [],
+ "outcome": "answered",
+ "readings": [
+  {
+   "checked": "Examined: purchase order lines where supplier = 'S-038' and delay reason recorded · limited to the records you hold",
+   "columns": [
+    "po_id",
+    "delay_reason"
+   ],
+   "headers": {
+    "delay_reason": "delay reason",
+    "po_id": "purchase order"
+   },
+   "identifiers": [
+    "po_id"
+   ],
+   "label": "recorded_reasons",
+   "notice": "No records matched.",
+   "result": "empty_no_match",
+   "row_count": 0,
+   "rows": [],
+   "title": "Reading 1",
+   "total": 0
+  }
+ ]
+}

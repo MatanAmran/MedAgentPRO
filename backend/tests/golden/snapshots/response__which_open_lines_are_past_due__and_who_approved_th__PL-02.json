@@ -1,0 +1,85 @@
+{
+ "gaps": [
+  {
+   "asked": "who approved them",
+   "missing": {
+    "entity": "purchase_orders",
+    "kind": "no_such_column"
+   },
+   "text": "On who approved them there is no data. No column in purchase orders records it."
+  }
+ ],
+ "outcome": "answered",
+ "readings": [
+  {
+   "answer": "PO-89382 has the earliest requested date, 2026-09-07.",
+   "checked": "Examined: purchase order lines with purchase orders where order status = 'open' and delivery date not recorded and requested date < '2026-10-09' · limited to the records you hold",
+   "columns": [
+    "supplier_id",
+    "po_id",
+    "due_date"
+   ],
+   "evidence": [
+    "past_due.po_id",
+    "past_due.due_date"
+   ],
+   "headers": {
+    "due_date": "requested date",
+    "po_id": "purchase order",
+    "supplier_id": "supplier"
+   },
+   "identifiers": [
+    "supplier_id",
+    "po_id"
+   ],
+   "label": "past_due",
+   "ordered_by": "ordered by requested date, lowest first",
+   "result": "rows_returned",
+   "row_count": 8,
+   "rows": [
+    {
+     "due_date": "2026-09-07",
+     "po_id": "PO-89382",
+     "supplier_id": "S-014"
+    },
+    {
+     "due_date": "2026-09-10",
+     "po_id": "PO-89388",
+     "supplier_id": "S-007"
+    },
+    {
+     "due_date": "2026-09-10",
+     "po_id": "PO-89382",
+     "supplier_id": "S-014"
+    },
+    {
+     "due_date": "2026-09-13",
+     "po_id": "PO-88896",
+     "supplier_id": "S-031"
+    },
+    {
+     "due_date": "2026-10-02",
+     "po_id": "PO-89322",
+     "supplier_id": "S-001"
+    },
+    {
+     "due_date": "2026-10-02",
+     "po_id": "PO-89640",
+     "supplier_id": "S-001"
+    },
+    {
+     "due_date": "2026-10-06",
+     "po_id": "PO-89259",
+     "supplier_id": "S-001"
+    },
+    {
+     "due_date": "2026-10-06",
+     "po_id": "PO-89322",
+     "supplier_id": "S-001"
+    }
+   ],
+   "title": "Reading 1",
+   "total": 8
+  }
+ ]
+}

@@ -124,3 +124,15 @@ def test_server_listing_and_health(db_path):
     listed = s.client.get("/api/conversations", headers=AP).json()
     assert [c["conversation_id"] for c in listed] == [cid] and listed[0]["title"] == Q
     assert s.client.get("/api/conversations", headers={"X-Demo-User": "PL-01"}).json() == []
+
+
+def test_server_examples_on_the_scripted_model_only(db_path):
+    """Task 8, A4: the empty screen offers the scripted questions in the demo's order; the real model,
+    whose answers are not scripted, offers none."""
+    s = Server(db_path)
+    listed = s.client.get("/api/examples").json()
+    assert [e["question"] for e in listed][:2] == ["Which suppliers were late in weeks 1 to 13?",
+                                                   "And in weeks 14 to 26?"]
+    assert listed[1]["follows"] == listed[0]["question"] and all(e["outcome"] for e in listed)
+    s.state.mode = "real"
+    assert s.client.get("/api/examples").json() == []

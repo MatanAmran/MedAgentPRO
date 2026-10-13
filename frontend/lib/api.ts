@@ -6,6 +6,7 @@ import { createSseParser } from "./sse";
 import type {
   ConversationSummary,
   DemoUserId,
+  Example,
   ExchangeItem,
   Health,
   Rating,
@@ -47,6 +48,8 @@ async function detail(res: Response): Promise<string> {
 
 export const api = {
   health: () => fetch(`${API_BASE}/api/health`).then((r) => r.json() as Promise<Health>),
+
+  examples: () => fetch(`${API_BASE}/api/examples`).then((r) => r.json() as Promise<Example[]>),
 
   conversations: (user: DemoUserId) => call<ConversationSummary[]>(user, "/api/conversations"),
 

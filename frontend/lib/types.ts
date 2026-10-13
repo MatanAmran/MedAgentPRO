@@ -73,6 +73,14 @@ export interface ConversationSummary {
   exchanges: number;
 }
 
+// Task 8, A4: a scripted demo question (GET /api/examples), in the demo's order
+export interface Example {
+  question: string;
+  follows: string | null; // asked after this question, in the same conversation
+  outcome: Outcome;
+  shows: string[];
+}
+
 export interface Health {
   mode: "scripted" | "real";
   model: string;

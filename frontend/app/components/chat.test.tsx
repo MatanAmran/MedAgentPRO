@@ -14,6 +14,12 @@ vi.mock("@/lib/api", async (original) => {
     ...real,
     api: {
       health: vi.fn(async () => ({ mode: "scripted", model: "scripted", authentication: "none (demo)" })),
+      examples: vi.fn(async () => [
+        { question: "Which suppliers were late in weeks 1 to 13?", follows: null, outcome: "answered", shows: [] },
+        { question: "And in weeks 14 to 26?", follows: "Which suppliers were late in weeks 1 to 13?",
+          outcome: "answered", shows: [] },
+        { question: "Why is S-014 late so often?", follows: null, outcome: "referred_to_investigation", shows: [] },
+      ]),
       conversations: vi.fn(async () => []),
       newConversation: vi.fn(async () => ({ conversation_id: "CV-1" })),
       conversation: vi.fn(async () => ({ conversation_id: "CV-1", exchanges: [...held] })),
@@ -89,5 +95,37 @@ describe("one question at a time (R8)", () => {
     expect(api.ask).toHaveBeenCalledTimes(1);
     fireEvent.change(screen.getByLabelText("Question"), { target: { value: "Again?" } });
     expect((screen.getByLabelText("Send") as HTMLButtonElement).disabled).toBe(false);
+  });
+});
+
+describe("scripted examples (task 8, A4)", () => {
+  it("offers the questions that stand alone on an empty screen, and sends one on a click", async () => {
+    render(<Chat />);
+    const box = await screen.findByTestId("examples");
+    const offered = Array.from(box.querySelectorAll("button")).map((b) => b.textContent);
+    expect(offered).toEqual(["Which suppliers were late in weeks 1 to 13?", "Why is S-014 late so often?"]);
+    expect(box.textContent).toContain("scripted examples");
+    fireEvent.click(screen.getByRole("button", { name: "Which suppliers were late in weeks 1 to 13?" }));
+    await waitFor(() => expect(api.ask).toHaveBeenCalledTimes(1));
+    expect(vi.mocked(api.ask).mock.calls[0][2]).toBe("Which suppliers were late in weeks 1 to 13?");
+    expect(screen.queryByTestId("examples")).toBeNull();   // not while the question runs
+  });
+
+  it("offers a follow-up under the question it follows, once answered", async () => {
+    render(<Chat />);
+    fireEvent.click(await screen.findByRole("button", { name: "Which suppliers were late in weeks 1 to 13?" }));
+    await waitFor(() => expect(api.ask).toHaveBeenCalledTimes(1));
+    await act(async () => release?.());
+    await waitFor(() => expect(screen.getAllByTestId("exchange")).toHaveLength(1));
+    const box = await screen.findByTestId("examples");
+    expect(Array.from(box.querySelectorAll("button")).map((b) => b.textContent)).toEqual(["And in weeks 14 to 26?"]);
+  });
+
+  it("offers nothing where the server lists none (the real model)", async () => {
+    vi.mocked(api.examples).mockResolvedValueOnce([]);
+    render(<Chat />);
+    await screen.findByLabelText("Question");
+    await waitFor(() => expect(api.examples).toHaveBeenCalled());
+    expect(screen.queryByTestId("examples")).toBeNull();
   });
 });

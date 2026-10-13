@@ -69,6 +69,7 @@ INTENT = {"disposition": "retrieve", "readings": [LATE]}
 INTENT_TWO = {"disposition": "retrieve", "ambiguous": [{"term": "late", "alternatives": [
     {"metric": "late_by_delivery"}, {"metric": "late_by_promise"}]}], "readings": [LATE, PROMISE]}
 REFER = {"disposition": "refer_to_investigation"}
+ACTION = {"disposition": "out_of_scope_action"}
 EMPTY = {"disposition": "retrieve", "readings": [{"label": "s40", "plan": {
     "SELECT": [{"expr": {"col": "commitments.po_id"}, "as": "po_id"}], "FROM": "commitments",
     "WHERE": {"EQ": [{"col": "commitments.supplier_id"}, {"value": "S-040"}]}}}]}
@@ -215,6 +216,10 @@ A_PATHS = [
           synthesis=[SYN_TWO_READINGS], support_scoring=[gate_says("supported")]),
      "answered", True, 4, lambda r: "ambiguous_terms" not in r and r["understood_as"] == Q
                                     and len(r["readings"]) == 2),
+    # Task 8, A1: a request to change records retrieves nothing and is answered by a fixed sentence
+    ("action_declined", "Update the promised date of PO-87006 to 20 October.", APPROVER, False,
+     dict(intent_analysis_demo=[ACTION]), "answered", True, 1,
+     lambda r: r["readings"] == [] and r["gaps"] == [] and r["notice"] == contract.ACTION_DECLINED),
     ("planner_sees_own_rows_only", Q, PLANNER, False,
      dict(intent_analysis_demo=[INTENT], synthesis=[SYN], support_scoring=[gate_says("supported")]),
      "answered", True, 3, lambda r: "limited to the records you hold" in r["readings"][0]["checked"]),
@@ -733,14 +738,18 @@ def test_server_refuses_what_it_should(db_path):
 def test_server_rating_rules(db_path):
     s = Server(db_path, {Q: Script(intent_analysis_demo=[INTENT], synthesis=[SYN],
                                    support_scoring=[gate_says("supported")]),
-                         "Why?": Script(intent_analysis_demo=[REFER])})
+                         "Why?": Script(intent_analysis_demo=[REFER]),
+                         "Change PO-87006.": Script(intent_analysis_demo=[ACTION])})
     cid = s.conversation()
     ex = check_stream(s.ask(cid, Q))["exchange_id"]
     ref = check_stream(s.ask(cid, "Why?"))["exchange_id"]
+    declined = check_stream(s.ask(s.conversation(), "Change PO-87006."))
+    assert declined["response"]["outcome"] == "answered" and declined["response"]["readings"] == []
     rate = lambda eid, h=AP, v="up": s.client.post(f"/api/exchanges/{eid}/rating", headers=h, json={"rating": v})  # noqa
     assert rate(ex).status_code == 200
     assert rate(ex, PL).status_code == 403
     assert rate(ref).status_code == 422
+    assert rate(declined["exchange_id"]).status_code == 422   # task 8 review: no records, nothing to rate
     assert rate("EX-nope").status_code == 404
     assert rate(ex, v="sideways").status_code == 422
 

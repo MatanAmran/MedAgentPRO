@@ -1,0 +1,14 @@
+{
+ "gaps": [],
+ "outcome": "no_supported_assertion",
+ "readings": [],
+ "request_for_input": {
+  "readings": [
+   {
+    "checked": "Examined: purchase order lines where week between 1 and 13 and delivery date recorded and not delivered after the requested date · grouped by supplier · computed the number of records · limited to the records you hold",
+    "label": "on_time"
+   }
+  ],
+  "text": "No statement could be established from the records retrieved. Which of these did you mean, or what should be looked up instead?"
+ }
+}

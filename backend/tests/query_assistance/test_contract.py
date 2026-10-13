@@ -166,6 +166,17 @@ def test_gap_is_filled_from_its_template(kind, entity, text):
     assert g["text"] == text and "because" not in g["text"]
 
 
+def test_gap_text_names_the_table_or_column_by_its_label():
+    """Task 7 review, item 2, applied to gaps (task 8): the text reads the label; missing keeps the name."""
+    g = k.render_gap({"asked": "who approved them", "needs": {"kind": "no_such_column", "entity": "purchase_orders"}},
+                     CAT)
+    assert g["text"] == "On who approved them there is no data. No column in purchase orders records it."
+    assert g["missing"] == {"kind": "no_such_column", "entity": "purchase_orders"}
+    col = k.render_gap({"asked": "x", "needs": {"kind": "value_not_present",
+                                                "entity": "commitments.delay_reason"}}, CAT)
+    assert col["text"] == "x does not appear in delay reason."
+
+
 # --------------------------------------------------------------------------
 # outcomes: every constructor validates against the schema
 # --------------------------------------------------------------------------

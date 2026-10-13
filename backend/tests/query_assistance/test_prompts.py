@@ -52,7 +52,7 @@ def test_prompt_text_has_no_semicolons_or_dashes(file):
 def test_intent_examples_validate_and_compile():
     pr = p.load("intent_analysis.md")
     exs = examples(pr)
-    assert len(exs) == 3
+    assert len(exs) == 4   # task 8, A1: the request to change records
     v = c.intent_validator()
     for inp, out in exs:
         q = re.search(r"Question: (.*)", inp).group(1)

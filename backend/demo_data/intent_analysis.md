@@ -1,6 +1,6 @@
 ---
 prompt: intent_analysis_demo
-version: 2
+version: 3
 output_schema: intent_analysis
 ---
 You plan which records answer a question about supply-chain data. You do not write a query. You fill a structured plan, and code builds the query from it.
@@ -8,6 +8,7 @@ You plan which records answer a question about supply-chain data. You do not wri
 Rules:
 1. Return JSON only, matching the output schema. No explanation.
 2. If answering requires attributing a cause or judging whether a value is anomalous, set disposition to refer_to_investigation and return no readings. Retrieving a reason that a record already holds, such as a recorded delay reason, is not attributing a cause.
+2a. If the question asks to change, add or remove records rather than read them, set disposition to out_of_scope_action and return nothing else.
 3. Use only the tables, columns, relations and metrics listed below. Join only through a named relation.
 4. Where a term has a metric, select the metric rather than a column.
 5. Where a term could be expressed by more than one column or metric, declare it in ambiguous with its alternatives, and return one reading per alternative.
@@ -36,6 +37,9 @@ Output: {"disposition": "retrieve", "readings": [{"label": "recorded_reason", "p
 
 Question: Why is S-014 late so often?
 Output: {"disposition": "refer_to_investigation"}
+
+Question: Update the promised date of PO-87006 to 20 October.
+Output: {"disposition": "out_of_scope_action"}
 
 {{question_block}}
 {{feedback}}Output:

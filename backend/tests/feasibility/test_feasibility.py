@@ -25,7 +25,7 @@ from model_client import budget as b
 from model_client import client as client_mod
 from model_client.client import ModelConfig, ModelGateway, ModelResponse
 from persistence.audit_repository import AuditRepository, MemoryStorage
-from query_assistance import calls, compiler, prompts, synthesis
+from query_assistance import calls, compiler, contract, prompts, synthesis
 from query_assistance import pipeline as pl
 from query_assistance.compiler import ROW_LIMIT, Catalog, CompileError, compile_intent, execute, intent_validator
 from shared.circuit_breaker import CircuitBreaker, MemoryStore
@@ -286,16 +286,61 @@ def test_T14_no_hidden_retries_in_litellm():
 # logical
 # --------------------------------------------------------------------------
 
+def _grouped(r: dict) -> bool:
+    """Task 7, Q3: the first identifier repeats and another identifier exists (as the screen decides)."""
+    ids, rows = r.get("identifiers", []), r.get("rows", [])
+    keys = [row.get(ids[0]) for row in rows] if ids else []
+    return len(ids) >= 2 and len(set(keys)) < len(keys)
+
+
+# Task 8: what each behaviour named in a script's expect.shows means in the response
+SHOWS = {
+    "two_readings": lambda r: len(r["readings"]) == 2
+    and all(x["checked"].startswith("Examined") for x in r["readings"]),
+    "one_reading": lambda r: len(r["readings"]) == 1 and r["readings"][0]["checked"].startswith("Examined"),
+    "understood_as": lambda r: bool(r.get("understood_as")),
+    "grouped": lambda r: _grouped(r["readings"][0]),
+    "gap": lambda r: bool(r["gaps"]) and all(g.get("text") for g in r["gaps"]),
+    "recorded_reason": lambda r: "recorded as" in r["readings"][0]["answer"]
+    and "because" not in r["readings"][0]["answer"],
+    "referral": lambda r: r.get("offer_investigation") is True,
+    "no_match": lambda r: r["readings"][0].get("notice") == "No records matched.",
+    "not_held": lambda r: bool(r["readings"][0].get("not_held")),
+    "withheld": lambda r: bool(r.get("withheld")),
+    "request_for_input": lambda r: bool(r.get("request_for_input")) and r["readings"] == [],
+    "action_declined": lambda r: r["readings"] == [] and r.get("notice") == contract.ACTION_DECLINED,
+}
+
+
+def _run_scripted(db_path, scripts, question, history):
+    audit = AuditRepository(MemoryStorage(), CircuitBreaker("s", MemoryStore()), b"k")
+    d = pl.Deps(ScriptedDemoGateway(question, scripts), "scripted-demo", CAT,
+                pl.connect_readonly(db_path), audit, prompts.load(seed.HERE / "intent_analysis.md"))
+    return pl.run(question, history, USERS["APPROVER"], d), audit
+
+
 def test_L01_every_scripted_demo_question_runs_through_the_real_checks(db_path):
+    """Task 8: each scripted question ends exactly as its expect says, through every real check, and
+    shows each behaviour it is in the set for. A follow-up runs after the question it follows."""
     scripts = load_scripts()
-    assert scripts
+    assert len(scripts) >= 12
     for entry in scripts.values():
-        audit = AuditRepository(MemoryStorage(), CircuitBreaker("s", MemoryStore()), b"k")
-        d = pl.Deps(ScriptedDemoGateway(entry["question"], scripts), "scripted-demo", CAT,
-                    pl.connect_readonly(db_path), audit, prompts.load(seed.HERE / "intent_analysis.md"))
-        out = pl.run(entry["question"], [], USERS["APPROVER"], d)
-        assert out.response["outcome"] not in ("request_not_completed", "source_unreachable"), (
-            entry["question"], audit.storage.get_investigation(out.exchange_id).get("failure"))
+        expect = entry["expect"]
+        history = []
+        if expect.get("follows"):
+            before, _ = _run_scripted(db_path, scripts, expect["follows"], [])
+            history = [before.exchange]
+        out, audit = _run_scripted(db_path, scripts, entry["question"], history)
+        r = out.response
+        assert r["outcome"] == expect["outcome"], (
+            entry["question"], r["outcome"], audit.storage.get_investigation(out.exchange_id).get("failure"))
+        for shown in expect["shows"]:
+            assert SHOWS[shown](r), (entry["question"], shown, r)
+
+
+def test_L01b_every_behaviour_named_is_one_the_test_knows():
+    named = {s for e in load_scripts().values() for s in e["expect"]["shows"]}
+    assert named <= set(SHOWS), named - set(SHOWS)
 
 
 @pytest.mark.parametrize("role", ROLES)
