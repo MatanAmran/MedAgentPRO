@@ -221,7 +221,7 @@ cd frontend; npm run build; npm run start                        # the screen, h
 ```powershell
 # Frontend (from frontend\)
 npm run dev                       # the screen, http://localhost:3000, against the server on 127.0.0.1:8000
-npx tsc --noEmit; npx eslint .    # types and lint
+npx next typegen; npx tsc --noEmit; npx eslint .   # types (typegen: route types a clean checkout lacks) and lint
 npx vitest run                    # component and library tests (fixtures: backend golden snapshots)
 npx playwright test               # end to end: starts the scripted server (--scripted-delay) and next dev
                                   # itself on 8000 and 3000, so stop any dev server first. Locally on the
