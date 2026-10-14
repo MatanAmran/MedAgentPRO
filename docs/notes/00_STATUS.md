@@ -1340,6 +1340,49 @@ workflow ב-GitHub Actions · בדיקות Playwright, **על שלושת המנ�
 4. **Node.js 20 deprecated** ב-`actions/checkout@v4`, ‏`setup-node@v4`, ‏`setup-python@v5` ו-`upload-artifact@v4` — לא דחוף. לעדכן גרסאות באותו commit של סעיף 3, אם יש גרסה חדשה יציבה. אחרת להשאיר.
 5. **ההשערה על Firefox לא אומתה** — כך Code רשם, וזה נכון. הבדיקה עכשיו עוברת בשני כיוונים, ומשתמש אמיתי עושה אותו דבר. אין צורך לחקור עוד.
 
+### אחרי מיזוג PR #4 (14.10, 13:50) — **הנחיות מהצ׳אט ל-Code.** אביתר אישר את ה-push של מחיקת הענפים בסעיף 2
+
+**המצב:** PR #4 מוזג ל-`master` (`794dc24`, merge commit). נבדק ב-GitHub: לארבעת ענפי המשימות אין אף commit שאינו ב-`master`. ‏`main` מכיל רק "Initial commit" (‏`README.md`), עם היסטוריה נפרדת מ-`master`.
+
+**הכרעת אביתר:** ב-GitHub נשארים רק `master` ו-`main`. **`main` נשאר ענף ברירת המחדל**, כי לאביתר אין הרשאת admin בריפו (של מתן).
+
+1. **לבדוק את `master`:** ‏`git fetch MedAgentPRO`, לעבור ל-`master`, ‏`git pull`. לוודא שה-HEAD הוא `794dc24` או אחריו.
+2. **למחוק ב-GitHub את ענפי המשימות שמוזגו:** `task9/e2e`, ‏`task8/demo-questions`, ‏`task7/chat-screen`, ‏`demo/chat-pipeline`.
+   - **לפני המחיקה:** לוודא לכל ענף ש-`git log master..MedAgentPRO/<branch>` ריק. אם לא — לעצור ולרשום כאן.
+   - **המחיקה:** `git push MedAgentPRO --delete <branch>` לכל אחד. **לא לגעת ב-`main` ולא ב-`master`.** אם GitHub מסרב (ענף מוגן או חוסר הרשאה) — לעצור ולרשום כאן.
+   - **אחר כך:** `git remote prune MedAgentPRO`.
+3. **למחוק במחשב** את אותם ענפים מקומיים, **רק עם `git branch -d`** (מסרב אם הענף לא מוזג). לא `-D`.
+4. **לעדכן את `CLAUDE.md` ואת `01_HANDOFF.md`** — ההשלכות של `main` כברירת מחדל:
+   - **כל PR נפתח מול `master` במפורש.** GitHub מציע את `main` כבסיס. בקישור: `.../compare/master...<branch>`. לפני יצירת ה-PR לבדוק שכתוב "base: master".
+   - **הבדיקה היומית (`stress`) לא רצה**, כי `schedule` רץ רק על ענף ברירת המחדל. מריצים אותה ידנית לפני הדמו: Actions, ‏tests, ‏Run workflow על `master` (‏`workflow_dispatch`).
+   - **בדף הראשי של הריפו מוצג `main`** — זה לא אומר שהעבודה לא מוזגה.
+   - **אחרי כל מיזוג:** למחוק את ענף המשימה, ב-GitHub ובמחשב, לפי סעיפים 2–3.
+5. **commit של ההערות** על ענף המשימה הבאה (לא ישירות על `master`).
+6. **אחר כך — סעיפים 2–4 של "סקירה בצ׳אט (14.10, 13:30)"**, בענף חדש מ-`master`. מתחילים מסעיף 3 (נעילת `ubuntu-24.04` לפני 19.10). ב-mypy רק לספור את השגיאות ולרשום. **תוכנית לפני קוד.**
+
+**לרשום כאן בסוף:** אילו ענפים נמחקו, ב-GitHub ובמחשב, ומה נשאר.
+
+**ביצוע (14.10). סעיפים 1–2 הושלמו. בסעיף 3 ענף אחד סירב, ו-Code עצר לפי ההנחיה. סעיפים 4–6 לא בוצעו.**
+1. **`master`:** עבר ל-`794dc24` ב-fast-forward, וזה ה-HEAD.
+2. **GitHub:**
+   - **לכל אחד מארבעת הענפים, `git log master..MedAgentPRO/<branch>` היה ריק.**
+   - **נמחקו כולם:** `task9/e2e`, ‏`task8/demo-questions`, ‏`task7/chat-screen`, ‏`demo/chat-pipeline`. GitHub לא סירב לאף אחד.
+   - **אחרי `git remote prune`:** ב-GitHub נשארו רק `main` ו-`master`.
+3. **במחשב, עם `git branch -d`:**
+   - **נמחקו:** `task9/e2e`, ‏`task8/demo-questions`, ‏`demo/chat-pipeline`.
+   - **`task7/chat-screen` — סירב:** "the branch is not fully merged". **לא נמחק, ו-`-D` לא הורץ.**
+   - **מה יש בו:** commit אחד שאין ב-`master` לפי ה-hash — `a7f92c5`, "Notes: PR #2 open, CI green after the typegen fix".
+   - **מה קרה איתו:** הוא נעשה במחשב אחרי שה-PR של משימה 7 כבר עלה, ולכן לא נכנס ל-PR #2. אחרי המיזוג הוא הועבר ל-`master` ב-cherry-pick, בשם `520a110`.
+   - **התוכן נמצא ב-`master`:** ‏`git cherry -v master task7/chat-screen` מסמן אותו `-` (יש תיקון זהה ב-`master`), ו-`git diff a7f92c5 520a110` ריק.
+   - **לכן:** הענף מוזג בתוכן, אבל לא לפי ה-hash, ו-`-d` בודק hash.
+   - **שאלה לאביתר:** למחוק אותו ב-`-D`? אין בו שום דבר שלא נמצא ב-`master`.
+   - **נשאר במחשב:** `master` ו-`task7/chat-screen`.
+
+**הכרעה בצ׳אט (14.10, 14:00):**
+- **`task7/chat-screen` — למחוק ב-`git branch -D`.** הבדיקה של Code מספיקה: `git cherry` מסמן `-`, ו-`git diff a7f92c5 520a110` ריק. התוכן כבר ב-`master`, ואין בענף שום דבר נוסף. אחרי זה במחשב נשאר רק `master`.
+- **לפני ה-commit של ההערות:** להריץ `git diff --stat` ב-Windows ולוודא ש-`00_STATUS.md` מראה רק את השורות שנוספו (עשרות), ולא את כל הקובץ. הקובץ במחשב הוא CRLF והמאגר LF. אם כל הקובץ מסומן — לעצור ולרשום כאן, לא לעשות commit.
+- **אחר כך:** ממשיכים לסעיפים 4–6 של "אחרי מיזוג PR #4".
+
 ## מה שנסגר בסבב האחרון
 
 - **הקוד עבר לריפו** — `MedAgentPro\backend` (`query_assistance`, `model_client`, `persistence`, `shared`, `tests`). **`03_Code` נשאר כמקור ומעודכן.** `python -m pytest -q` מתוך `backend`

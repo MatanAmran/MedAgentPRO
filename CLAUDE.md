@@ -45,7 +45,7 @@ When a decision is made in a session, record it in the relevant note (and here, 
 | 6 | FastAPI endpoint for the chat | done (12.10): `main.py`, `api/`, `demo_data/scripted*`; S1–S6 in `docs/notes/00_STATUS.md` |
 | 7 | Chat screen in Next.js, after Figure 15 of the book | done (13.10), merged in PR #2: `frontend/app`, `frontend/lib`, `frontend/e2e`; Q1–Q5, T7-B1 and the deviations from Figure 15 in `docs/notes/00_STATUS.md` |
 | 8 | Demo question set covering each behaviour | done (13.10), merged in PR #3: `demo_data/scripted_exchanges.json` (12 questions, each with `expect`), `out_of_scope_action` (A1), `GET /api/examples` and the examples on screen (A4), `docs/notes/70_DEMO.md` for the presenter |
-| 9 | End-to-end tests on the scripted model | built (14.10), branch `task9/e2e`: both roles from golden, three engines in CI, keyboard, contrast (axe), grayscale captures; the real-model path with a fake provider; `tools/preflight.py`; the book-test table in `60_PATHS.md` |
+| 9 | End-to-end tests on the scripted model | done (14.10), merged in PR #4: both roles from golden, three engines in CI, keyboard, contrast (axe), grayscale captures; the real-model path with a fake provider; `tools/preflight.py`; the book-test table in `60_PATHS.md` |
 
 ## Task 4 decisions (settled in the Claude chat, 12.10)
 
@@ -148,6 +148,14 @@ Evyatar pays for the model himself, with a total budget of **USD 10**. The code 
 - **P9:** 429 (non-monetary), 5xx and 529: no retry, `request_not_completed`, counted by the breaker.
 - **P10:** a refusal is `finish_reason == "content_filter"` in LiteLLM; it is billed and recorded.
 - P4–P8 approved as proposed; P5 after the R6 `fill` fix; P6 is `[demo extension]`.
+
+## GitHub: branches and pull requests (14.10)
+
+The remote is `MedAgentPRO` (`github.com/MatanAmran/MedAgentPRO`, Matan's repository; Evyatar has no admin rights). **`main` stays the default branch** and holds only the initial README; the work lives on `master`. So:
+- **Every pull request is opened against `master` explicitly:** `https://github.com/MatanAmran/MedAgentPRO/compare/master...<branch>?expand=1`. GitHub offers `main` as the base; check that it says "base: master" before creating it. Merge with "Create a merge commit".
+- **The repository's front page shows `main`**: that does not mean the work was not merged.
+- **The daily run (`stress`) does not run**, since `schedule` runs on the default branch only. Run it by hand before a demo: Actions, tests, Run workflow on `master` (`workflow_dispatch`).
+- **After each merge, delete the task branch:** on GitHub with `git push MedAgentPRO --delete <branch>` once `git log master..MedAgentPRO/<branch>` is empty, then `git remote prune MedAgentPRO`; locally with `git branch -d` (never `-D` without a decision). A notes commit made after a PR was pushed is carried to `master` by cherry-pick, so `-d` refuses that branch: check with `git cherry -v master <branch>` before asking.
 
 ## Path map and feasibility (Claude chat, 13.10): a standing rule
 
