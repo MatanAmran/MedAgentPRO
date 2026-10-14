@@ -159,6 +159,11 @@ The remote is `MedAgentPRO` (`github.com/MatanAmran/MedAgentPRO`, Matan's reposi
 - **After the demo:** the actions' major versions (`checkout@v4`, `setup-node@v4`, `setup-python@v5`, `upload-artifact@v4`, all forced onto Node 24 by GitHub with a warning) to `@v7`, and the runners from `ubuntu-24.04` back to a current image; mypy made blocking. Deferred on purpose before the demo (CI maintenance decisions, 14.10).
 - **After each merge, delete the task branch:** on GitHub with `git push MedAgentPRO --delete <branch>` once `git log master..MedAgentPRO/<branch>` is empty, then `git remote prune MedAgentPRO`; locally with `git branch -d` (never `-D` without a decision). A notes commit made after a PR was pushed is carried to `master` by cherry-pick, so `-d` refuses that branch: check with `git cherry -v master <branch>` before asking.
 
+## R9: `backend/.env` is closed to Code's tools (14.10, Evyatar approved)
+
+- `.claude/settings.json` (project root, gitignored, so local to this clone) denies `Read`, `Edit` and `Write` on `./backend/.env`. Checked: a `Read` is refused. In a new clone, recreate it.
+- The rule does not cover shell commands. Never display the file (`type`, `cat`, `Get-Content`, or anything else). Only `python -m tools.preflight --real` checks it, and it prints names only.
+
 ## Path map and feasibility (Claude chat, 13.10): a standing rule
 
 - `tests/paths/branches.py` reads every branch from the code and the schemas (outcomes, stages, model failure kinds, `except` clauses in `pipeline.run`, notices, endpoints, HTTP codes, gap kinds, roles). **`tests/paths/test_registry.py` fails when a branch has no path in `tests/paths/registry.py`, or a path names a test or branch that does not exist.** Adding a branch means adding its test and its registry entry in the same change.
