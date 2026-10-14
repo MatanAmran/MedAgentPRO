@@ -1769,6 +1769,39 @@ workflow ב-GitHub Actions · בדיקות Playwright, **על שלושת המנ�
 
 **המצב עכשיו:** השרת עדיין רץ במצב האמיתי (תהליך 10032), ומחזיק את הנעילה על `.model_spend.json`. **שאלה 1 תישלח רק אחרי "כן" של אביתר בשיחה.** אם לא ממשיכים — עוצרים את השרת, ומוודאים שהנעילה שוחררה.
 
+### R9 — **שאלה 1 נשלחה (14.10, 18:04), באישור אביתר.** עצירה לפני שאלה 2
+
+**הבקשה:** ‏`POST /api/conversations/CV-11e21e173c97/exchanges`, ‏AP-01, ‏`request_id=r9-q1-1791990273`, פעם אחת, בלי retry. ‏"Which suppliers were late in weeks 1 to 13?"
+
+**התוצאה: `answered`,** ‏`recorded: true`, ‏`EX-1d826aa9c2cb`. בלי withheld ובלי notice.
+- **שתי קריאות,** כמו במתוסרט (מבחן 32):
+  - `late_by_delivery` ("Delivered after the requested date"): 28 שורות. "S-038 had the highest late count in weeks 1 to 13, with 10. S-005 followed with 8, then S-001 with 6."
+  - `late_by_promise` ("The supplier committed to a date after the requested date"): 13 שורות. "By promised date, S-008 had the highest late count, 6. S-018 followed with 5, and S-036 with 5."
+- **"Examined" מוצג בשתיהן.** כל המספרים בתשובה הגיעו מהפניות שהקוד מילא. השער אישר את כל המשפטים בניסיון הראשון.
+
+**העלות: ‏0.046844$.** אותו סכום ב-`cost.exchange_usd`, ב-`exchange cost` וב-`.model_spend.json` (סך הכול, ‏`by_day`, ‏`by_model`). ‏**החישוב מהטוקנים:** ‏10,562 בקלט × 2$ + ‏2,572 בפלט × 10$, למיליון = 0.046844$. **מתאים בדיוק.**
+
+**השורות מהלוג** (מסוננות. שורות עם `Authorization`, ‏`x-api-key` או `sk-ant`: 0):
+```
+model call: exchange=EX-1d826aa9c2cb request=r9-q1-1791990273 conversation=CV-11e21e173c97 stage=intent_analysis prompt_identity=intent_analysis_demo@3 model=claude-sonnet-5-5 attempt_number=1 feedback_attempt=False status=accepted finish_reason=stop input_tokens=3054 output_tokens=777 temperature=provider default max_tokens=2000 duration_ms=23570.0 check=-
+model call: exchange=EX-1d826aa9c2cb request=r9-q1-1791990273 conversation=CV-11e21e173c97 stage=synthesis prompt_identity=synthesis@6 model=claude-sonnet-5-5 attempt_number=1 feedback_attempt=False status=accepted finish_reason=stop input_tokens=3866 output_tokens=305 temperature=provider default max_tokens=2000 duration_ms=24335.5 check=-
+model call: exchange=EX-1d826aa9c2cb request=r9-q1-1791990273 conversation=CV-11e21e173c97 stage=support_gate prompt_identity=support_scoring@3 model=claude-sonnet-5-5 attempt_number=1 feedback_attempt=False status=accepted finish_reason=stop input_tokens=3642 output_tokens=1490 temperature=provider default max_tokens=2000 duration_ms=15236.9 check=-
+exchange cost: attempt=EX-1d826aa9c2cb usd=0.046844 remaining=1.953156
+```
+
+**V01–V04 עד כאן:**
+- **V01:** הסכמות של synthesis ושל gate התקבלו (אין 400). הסכמה של השכתוב עוד לא נבדקה: היא רצה רק בשאלה 2.
+- **V02:** ‏temperature לא נשלח (provider default), ‏`max_tokens=2000` בכל קריאה. ‏**עבר.**
+- **V03:** ההשוואה מול Usage ב-Console — **אביתר.** הצפוי: ‏0.046844$, ‏10,562 טוקנים בקלט ו-2,572 בפלט, 3 בקשות. ‏Usage מתעדכן באיחור.
+- **V04:** ‏3 מ-3 קריאות התקבלו בניסיון הראשון, ולא היה ניסיון משוב. השיעור: 0 ניסיונות משוב, ולכן אין עדיין נתון על הצלחה שלהם.
+
+**ממצאים:**
+1. **העלות גבוהה מההערכה שלי** (0.01–0.03$): ‏0.047$. הפלט האמיתי ארוך בהרבה מהמתוסרט — intent ‏777 טוקנים, ‏gate ‏1,490. ‏**עדיין רבע מהתקרה לשאלה** (0.25$). ההערכה המעודכנת לשאלה 2, שיש בה גם שכתוב: כ-0.05–0.06$.
+2. **השער כתב 1,490 טוקנים מתוך `max_tokens=2000` (75%).** בתשובה עם יותר משפטים או יותר קריאות, השער עלול להגיע לתקרה, וזה `finish_reason=length`, כלומר `request_not_completed` בלי ניסיון נוסף (R4). **לא משנים עכשיו.** להכרעה בצ׳אט אחרי R9: להעלות את `MODEL_MAX_OUTPUT_TOKENS`, או לקצר את פלט השער (למשל בלי לחזור על טקסט המשפט בכל claim).
+3. **הזמן: כ-63 שניות לשאלה** (‏24, ‏24 ו-15 שניות לקריאה). רלוונטי לדמו: המציג צריך לדעת שהתשובה לוקחת כדקה. שלבי ההתקדמות מוצגים ב-SSE בזמן הזה.
+
+**המצב:** השרת עדיין רץ (תהליך 10032). **שאלה 2 תישלח רק אחרי "כן" של אביתר.**
+
 ## מה שנסגר בסבב האחרון
 
 - **הקוד עבר לריפו** — `MedAgentPro\backend` (`query_assistance`, `model_client`, `persistence`, `shared`, `tests`). **`03_Code` נשאר כמקור ומעודכן.** `python -m pytest -q` מתוך `backend`
