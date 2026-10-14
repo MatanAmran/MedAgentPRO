@@ -260,6 +260,25 @@ def test_T13_every_table_and_metric_runs_on_the_installed_sqlite(db_path, role):
     conn.close()
 
 
+def test_T15_the_model_thinks_always_and_we_send_nothing_that_sets_it():
+    """Found in task 10a: output_tokens near one per visible character in every stage. The map says the
+    model always thinks, so the hidden share is not something a prompt or a parameter of ours removes."""
+    assert model_entry().get("thinking_always_on") is True
+    sent = {}
+
+    class Resp:
+        class _C:
+            class message:
+                content = "{}"
+            finish_reason = "stop"
+        choices = [_C]
+        usage = {"prompt_tokens": 1, "completion_tokens": 3, "completion_tokens_details": {"reasoning_tokens": 2}}
+        model = "m"
+    gw = client_mod.LiteLLMGateway(CircuitBreaker("m", MemoryStore()), completion=lambda **k: sent.update(k) or Resp())
+    r = gw.invoke("hi", ModelConfig("m", prompt_identity="x@1", max_tokens=2000))
+    assert not {"thinking", "reasoning_effort"} & set(sent) and r.reasoning_tokens == 2 and r.output_tokens == 3
+
+
 def test_T14_no_hidden_retries_in_litellm():
     sent = {}
 

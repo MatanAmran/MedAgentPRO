@@ -156,6 +156,60 @@ def test_the_real_path_line_carries_max_tokens_and_no_temperature_and_never_the_
         assert secret not in everything, f"{secret} surfaced"
 
 
+THOUGHT = "PRIVATE-THINKING-S-014-and-S-036-tie"
+
+
+def _thinking_provider(seen: list):
+    """As the fake provider above, but every response also carries thinking: its count in usage, as
+    LiteLLM 1.105 fills completion_tokens_details for Anthropic, and its text, which must go nowhere."""
+    outputs = [lambda prompt: INTENT, lambda prompt: SYN, gate_says("supported")]
+
+    def completion(**kw):
+        seen.append(kw)
+        content = json.dumps(outputs[len(seen) - 1](kw["messages"][0]["content"]))
+        message = type("M", (), {"content": content, "reasoning_content": THOUGHT,
+                                 "thinking_blocks": [{"type": "thinking", "thinking": THOUGHT}]})()
+
+        class R:
+            model = "anthropic/test-model"
+            usage = {"prompt_tokens": 40, "completion_tokens": 90,
+                     "completion_tokens_details": {"reasoning_tokens": 70}}
+            choices = [type("C", (), {"finish_reason": "stop", "message": message})()]
+        return R()
+    return completion
+
+
+def test_the_thinking_count_is_logged_and_the_thinking_never_is(db_path, caplog, tmp_path):
+    """Task 10a (chat, 22:40): Claude 5 thinks always (LiteLLM map: thinking_always_on). The line carries
+    how many output tokens were thinking, never the thinking: not in any log, the audit or the answer."""
+    seen: list = []
+    cfg = b.BudgetConfig.from_env(ENV)
+    inner = LiteLLMGateway(CircuitBreaker("model_provider", MemoryStore()), completion=_thinking_provider(seen),
+                           api_key=cfg.api_key, provider="anthropic")
+    ledger, storage = b.SpendLedger(tmp_path / "spend.json"), MemoryStorage()
+    try:
+        with caplog.at_level(logging.DEBUG):
+            out = run(b.BudgetedGateway(inner, cfg, ledger), db_path, caplog, storage, model_name=cfg.model_id)
+    finally:
+        ledger.close()
+    assert out.response["outcome"] == "answered"
+    got = [fields(x) for x in lines(caplog)]
+    assert [f["reasoning_tokens"] for f in got] == ["70", "70", "70"]
+    assert all(f["output_tokens"] == "90" for f in got)   # thinking is inside output_tokens, priced as output
+    assert all("thinking" not in s for s in seen)            # nothing that turns thinking on or off is sent
+    surfaces = caplog.text + json.dumps([storage.audit_log, storage.investigations], default=str) \
+        + json.dumps(out.response)
+    assert THOUGHT not in surfaces and "PRIVATE-THINKING" not in surfaces
+
+
+def test_a_count_that_is_not_an_int_is_not_taken():
+    from model_client.client import _reasoning_tokens
+    assert _reasoning_tokens({"reasoning_tokens": 5}) == 5 and _reasoning_tokens(None) is None
+    assert _reasoning_tokens({"reasoning_tokens": True}) is None
+    assert _reasoning_tokens({"reasoning_tokens": "5"}) is None
+    assert _reasoning_tokens(type("D", (), {"reasoning_tokens": 0})()) == 0
+
+
 # --------------------------------------------------------------------------
 # the server's handler: the operational channel reaches stdout at INFO
 # --------------------------------------------------------------------------

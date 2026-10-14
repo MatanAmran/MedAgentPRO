@@ -33,6 +33,7 @@ class CallTrace:
     input_tokens: int | None
     output_tokens: int | None
     output_chars: int | None          # the length of the model's text, never the text
+    reasoning_tokens: int | None      # of output_tokens, those spent thinking; never the thinking itself
     claims: int | None                # the gate only: how many claims its output made
     temperature: float | None         # what was sent; None where nothing was (R1)
     max_tokens: int | None            # what was sent; None where nothing was
@@ -77,7 +78,8 @@ def traces(stage: str, made: list[Call], model: str) -> list[CallTrace]:
             status="failed" if r is None else "rejected" if c.rejection else "accepted",
             finish_reason=r.finish_reason if r else None,
             input_tokens=r.input_tokens if r else None, output_tokens=r.output_tokens if r else None,
-            output_chars=len(r.text) if r and r.text is not None else None, claims=_claims(c),
+            output_chars=len(r.text) if r and r.text is not None else None,
+            reasoning_tokens=r.reasoning_tokens if r else None, claims=_claims(c),
             temperature=r.temperature if r else None, max_tokens=r.max_tokens if r else None,
             duration_ms=c.duration_ms, check=c.check))
     return out

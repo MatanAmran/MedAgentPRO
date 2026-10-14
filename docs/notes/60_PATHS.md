@@ -1,6 +1,6 @@
 # MedAgentPro — מפת המסלולים וההיתכנות
 
-**נוצר אוטומטית** ב-`python -m tools.path_map` (מתוך `backend\`), 14.10.2026 22:10. **לא לערוך ידנית** — המקור הוא `backend\tests\paths\registry.py` ו-`backend\tests\feasibility\constraints.py`.
+**נוצר אוטומטית** ב-`python -m tools.path_map` (מתוך `backend\`), 14.10.2026 22:41. **לא לערוך ידנית** — המקור הוא `backend\tests\paths\registry.py` ו-`backend\tests\feasibility\constraints.py`.
 
 **איך זה גדל:** `tests\paths\branches.py` קורא מהקוד ומהסכמות כל הסתעפות (מצב סיום, שלב, סוג כשל, `except`, הודעה, נקודת קצה, קוד HTTP, סוג פער, תפקיד). **הסתעפות בלי מסלול מפילה את `pytest`.** מגבלה שמתגלה (כמו הטמפרטורה) נכנסת כשורה ב-`constraints.py`, ושורה בלי בדיקה מפילה את `pytest`.
 
@@ -122,6 +122,7 @@
 | ✅ | T12 | technical | The total budget covers at least 10 exchanges each spending its whole cap. | Task 5 budget (USD 10 total) |
 | ✅ | T13 | technical | Every metric and every table compiles to SQL the installed SQLite runs. | compiler.py · sqlite3 |
 | ✅ | T14 | technical | LiteLLM's own retries are off; the only retries are counted ones. | Task 5 'no hidden retries' |
+| ✅ | T15 | technical | The model thinks always and cannot be told not to; its thinking is billed inside output_tokens and counts against max_tokens. We send nothing that sets it, and the per-call line counts it. | LiteLLM 1.105 map: thinking_always_on (task 10a, chat 22:40); R9: ~1 output token per visible character |
 | ✅ | L01 | logical | Every scripted demo question runs through the real checks to the outcome its script means. | S5 |
 | ✅ | L02 | logical | Every table a role is shown in the intent prompt is one it may read, and every table it may read is shown. | NFR 17 · prompts.visible_tables |
 | ✅ | L03 | logical | Every metric in schema.json compiles for every role, with entitlement applied. | NFR 17 · 40_CHAT §7 |

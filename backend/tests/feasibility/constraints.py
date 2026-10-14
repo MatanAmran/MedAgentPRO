@@ -69,6 +69,11 @@ CONSTRAINTS: list[Constraint] = [
                "compiler.py · sqlite3"),
     Constraint("T14", "technical", "LiteLLM's own retries are off; the only retries are counted ones.",
                "Task 5 'no hidden retries'"),
+    Constraint("T15", "technical",
+               "The model thinks always and cannot be told not to; its thinking is billed inside output_tokens and "
+               "counts against max_tokens. We send nothing that sets it, and the per-call line counts it.",
+               "LiteLLM 1.105 map: thinking_always_on (task 10a, chat 22:40); R9: ~1 output token per visible "
+               "character", "map"),
     # --- logical: the design on the demo data ------------------------------------------------------
     Constraint("L01", "logical",
                "Every scripted demo question runs through the real checks to the outcome its script means.",

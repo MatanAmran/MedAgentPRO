@@ -163,7 +163,7 @@ The remote is `MedAgentPRO` (`github.com/MatanAmran/MedAgentPRO`, Matan's reposi
 
 - `.claude/settings.json` (project root, gitignored, so local to this clone) denies `Read`, `Edit` and `Write` on `./backend/.env`. Checked: a `Read` is refused. In a new clone, recreate it.
 - The rule does not cover shell commands. Never display the file (`type`, `cat`, `Get-Content`, or anything else). Only `python -m tools.preflight --real` checks it, and it prints names only.
-- **A metadata-only line per model call on the operational channel** (`model call: exchange=… request=… stage=… attempt_number=… feedback_attempt=… check=… max_tokens=… temperature=…`), built from `query_assistance/call_trace.py` (`CallTrace`), the one source for these fields (the audit entry uses it; task 10's panel is to reuse it). It never holds the question, model output, a record value, a rejection message or the key; `check` is a kind or a class name. Operational, not a requirement in the book (chat, 14.10, 15:30). `main.log_to_stdout()` gives the channel a stdout handler at INFO. **Fixed in `f74aed7`: until then the channel had no handler, so its INFO lines (the exchange cost among them) reached nowhere, and WARNING and up reached stderr only through Python's last resort.**
+- **A metadata-only line per model call on the operational channel** (`model call: exchange=… request=… stage=… attempt_number=… feedback_attempt=… check=… max_tokens=… temperature=…`), built from `query_assistance/call_trace.py` (`CallTrace`), the one source for these fields (the audit entry uses it; task 10's panel is to reuse it). It never holds the question, model output, a record value, a rejection message or the key; `check` is a kind or a class name. Task 10a added `output_chars`, the gate's `claims` count and `reasoning_tokens` (how many output tokens were thinking: Claude 5 thinks always, T15). Thinking text (`reasoning_content`, thinking blocks) is never read, kept or shown. Operational, not a requirement in the book (chat, 14.10, 15:30). `main.log_to_stdout()` gives the channel a stdout handler at INFO. **Fixed in `f74aed7`: until then the channel had no handler, so its INFO lines (the exchange cost among them) reached nowhere, and WARNING and up reached stderr only through Python's last resort.**
 - **No test reads `backend/.env`** (chat, 14.10, 17:50): `tests/feasibility` runs on the defaults in code, so CI and this machine run the same checks and no failure prints a local value. The configuration in use is checked by `tools.preflight --real`, which also carries T12 as a count of worst-case exchanges left: ❌ below 1, ⚠️ below 15 ("enough for a smoke test, not for a demo").
 
 ## Path map and feasibility (Claude chat, 13.10): a standing rule
@@ -214,7 +214,7 @@ On Evyatar's machine an Application Control policy blocks `.exe` files in the ve
 # Backend (from backend\, venv active)
 python -m pip install -r requirements.txt
 python -m demo_data.seed          # builds demo_data\demo.db
-python -m pytest -q               # the default run; 729 after task 10a (14.10)
+python -m pytest -q               # the default run; 732 after task 10a (14.10)
 python -m tools.path_map          # runs tests/paths and tests/feasibility, writes docs/notes/60_PATHS.md
 python -m query_assistance.dry_run   # prices two scripted exchanges at the .env prices, no model call, no key
 python -m query_assistance.dry_run --model claude-sonnet-5-5   # the same, prices from LiteLLM's local map, no .env
