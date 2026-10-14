@@ -251,20 +251,29 @@ def render_intent(cat: Catalog, role: str, posed: str, rewritten: str | None = N
                 question_block=question_block(posed, rewritten), feedback=feedback_block(feedback))
 
 
-def render_records(results: list[tuple[str, list[dict[str, Any]]]]) -> str:
+def render_records(results: list[tuple[str, list[dict[str, Any]]]], ordered_by: dict[str, str] | None = None) -> str:
+    """ordered_by maps a reading label to the alias its rows are ordered by (the first ORDER_BY key of
+    the plan that ran). A row holding the same value there as the row before it says so, by name and
+    row number only: a fact about the rows, given by code, so that no place is named between equal
+    values (task 10a, chat 21:50). The marker repeats no value."""
     out = []
     for label, rows in results:
         if not rows:
             out.append(f"[{label}] no rows")
+        by = (ordered_by or {}).get(label)
         for n, row in enumerate(rows, 1):
-            out.append(f"[{label}] row {n}: " + ", ".join(f"{label}.{k} = {v}" for k, v in row.items()))
+            line = f"[{label}] row {n}: " + ", ".join(f"{label}.{k} = {v}" for k, v in row.items())
+            if by and n > 1 and row.get(by) is not None and row[by] == rows[n - 2].get(by):
+                line += f" (same {label}.{by} as row {n - 1})"
+            out.append(line)
     return "\n".join(out)
 
 
 def render_gate(answer: str, results: list[tuple[str, list[dict[str, Any]]]],
-                prompt: Prompt | None = None, feedback: str | None = None) -> str:
+                prompt: Prompt | None = None, feedback: str | None = None,
+                ordered_by: dict[str, str] | None = None) -> str:
     """The question is not passed. The gate judges support, not relevance."""
-    return fill(prompt or load("gate.md"), answer=answer, records=render_records(results),
+    return fill(prompt or load("gate.md"), answer=answer, records=render_records(results, ordered_by),
                 feedback=feedback_block(feedback))
 
 

@@ -278,8 +278,13 @@ def check(output: dict, materials: list[Material], question: str) -> dict[str, l
 # rendering and the calls
 # --------------------------------------------------------------------------
 
+def ordered_by(materials: list[Material]) -> dict[str, str]:
+    """Each reading's first ORDER_BY alias, for the tie markers in the records (task 10a)."""
+    return {m.label: m.order_by[0]["by"] for m in materials if m.order_by and m.order_by[0].get("by")}
+
+
 def _records(materials: list[Material]) -> str:
-    return prompts.render_records([(m.label, m.rows) for m in materials if m.rows])
+    return prompts.render_records([(m.label, m.rows) for m in materials if m.rows], ordered_by(materials))
 
 
 def _rejected(rejected: list[str] | None) -> str:

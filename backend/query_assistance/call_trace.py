@@ -7,7 +7,8 @@ meant to show the same fields, so both are built from this one record (chat deci
 
 A CallTrace is built from a Call and holds names, numbers and fixed words only: never the prompt, the
 model's output, a value from a record (NFR 21) or the API key (G3). A Call's rejection can hold
-model-written text, so only the name of the check that failed is kept.
+model-written text, so only the name of the check that failed is kept. Of the output itself only its
+length and, for the gate, how many claims it made are kept (task 10a, chat 21:50).
 """
 
 from __future__ import annotations
@@ -17,6 +18,7 @@ from dataclasses import asdict, dataclass
 from .calls import Call
 
 PROVIDER_DEFAULT = "provider default"
+GATE_PROMPT = "support_scoring"
 
 
 @dataclass(frozen=True)
@@ -30,6 +32,8 @@ class CallTrace:
     finish_reason: str | None
     input_tokens: int | None
     output_tokens: int | None
+    output_chars: int | None          # the length of the model's text, never the text
+    claims: int | None                # the gate only: how many claims its output made
     temperature: float | None         # what was sent; None where nothing was (R1)
     max_tokens: int | None            # what was sent; None where nothing was
     duration_ms: float | None
@@ -49,6 +53,19 @@ class CallTrace:
         return "model call: " + " ".join(f"{k}={'-' if v is None else v}" for k, v in fields.items())
 
 
+def _claims(c: Call) -> int | None:
+    """The gate's claim count, read from its output's shape only; None for any other prompt, or where
+    the output holds no list of claims."""
+    if c.response is None or c.prompt_identity.split("@")[0] != GATE_PROMPT:
+        return None
+    try:
+        out = c.response.json()
+    except (ValueError, TypeError):
+        return None
+    claims = out.get("claims") if isinstance(out, dict) else None
+    return len(claims) if isinstance(claims, list) else None
+
+
 def traces(stage: str, made: list[Call], model: str) -> list[CallTrace]:
     """One trace per call, in the order made; the attempt number is the position."""
     out = []
@@ -60,6 +77,7 @@ def traces(stage: str, made: list[Call], model: str) -> list[CallTrace]:
             status="failed" if r is None else "rejected" if c.rejection else "accepted",
             finish_reason=r.finish_reason if r else None,
             input_tokens=r.input_tokens if r else None, output_tokens=r.output_tokens if r else None,
+            output_chars=len(r.text) if r and r.text is not None else None, claims=_claims(c),
             temperature=r.temperature if r else None, max_tokens=r.max_tokens if r else None,
             duration_ms=c.duration_ms, check=c.check))
     return out

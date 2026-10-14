@@ -73,16 +73,24 @@ def test_rewrite_examples_validate_and_name_no_new_identifier():
         assert ids <= set(re.findall(r"\b[A-Z]{1,2}-\d+\b", inp)), out["question"]
 
 
-def test_gate_example_validates_and_evaluates():
+def test_gate_examples_validate_and_evaluate():
+    """v4 (task 10a): one claim per sentence, and a place named between tied rows is contradicted."""
     pr = p.load("gate.md")
-    (inp, out), = examples(pr)
-    assert pr.version == "3"
-    assert not list(validator("support_scoring").iter_errors(out))
+    (inp, out), (tie_in, tie_out) = examples(pr)
+    assert pr.version == "4"
+    for o in (out, tie_out):
+        assert not list(validator("support_scoring").iter_errors(o))
     sentences = [(m.group(1), m.group(2)) for m in re.finditer(r"^\d+\. \[(\w+)\] (.*)$", inp, re.M)]
     assert gate.render_answer(sentences) in inp
     res = gate.evaluate(out, sentences, {"late_suppliers": {"supplier_id", "late_count"}})
     assert res.decision == "keep" and len(res.kept) == 1 and len(res.removed) == 1
     assert res.supported == [True, False]
+    tied = [(m.group(1), m.group(2)) for m in re.finditer(r"^\d+\. \[(\w+)\] (.*)$", tie_in, re.M)]
+    assert "(same late_by_delivery.late_lines as row 1)" in tie_in
+    res = gate.evaluate(tie_out, tied, {"late_by_delivery": {"supplier_id", "late_lines"}})
+    assert res.supported == [False, True] and [c["verdict"] for c in tie_out["claims"]] == ["contradicted", "supported"]
+    assert all(len([c for c in o["claims"] if c["sentence"] == n]) == 1      # one claim per sentence
+               for o in (out, tie_out) for n in {c["sentence"] for c in o["claims"]})
 
 # --------------------------------------------------------------------------
 # rendering

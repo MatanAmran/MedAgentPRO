@@ -90,6 +90,9 @@ def test_one_line_per_call_with_its_attempt_feedback_and_check(db_path, caplog):
         ("intent_analysis", "1", "False", "accepted"), ("synthesis", "1", "False", "accepted"),
         ("support_gate", "1", "False", "rejected"), ("support_gate", "2", "True", "accepted")]
     assert got[2]["check"] == "GateOutputError" and got[3]["check"] == "-"
+    # task 10a: the output's length, and for the gate its claim count (the first skipped one of two)
+    assert [f["claims"] for f in got] == ["-", "-", "1", "2"]
+    assert all(int(f["output_chars"]) > 0 for f in got)
     for f in got:
         assert (f["exchange"], f["request"], f["conversation"]) == (out.exchange_id, *CONTEXT.values())
         assert f["finish_reason"] == "stop" and float(f["duration_ms"]) >= 0 and int(f["input_tokens"]) > 0

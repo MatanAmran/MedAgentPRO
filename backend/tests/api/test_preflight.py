@@ -66,8 +66,8 @@ def test_real_setup_checks_env_map_key_and_budget_without_asking_the_model(db_pa
     checks = pf.run("real", fetch_for(app), env=env, db_path=db_path)
     assert all(c.ok for c in checks), [str(c) for c in checks]
     left = next(c for c in checks if "worst-case exchanges left" in c.text)
-    assert "38" in left.text and not left.warn   # 5 / 0.13, the fake run's caps
-    assert all("5.0" not in c.text and "0.13" not in c.text for c in checks)   # a count, never an amount
+    assert "36" in left.text and not left.warn   # 5 / 0.137, the fake run's caps
+    assert all("5.0" not in c.text and "0.137" not in c.text for c in checks)   # a count, never an amount
     assert provider.requests == []   # nothing was sent to the model
 
 

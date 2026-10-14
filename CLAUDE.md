@@ -178,6 +178,8 @@ The remote is `MedAgentPRO` (`github.com/MatanAmran/MedAgentPRO`, Matan's reposi
 - **The model never writes a query.** It fills a plan (schema 1); `compiler.py` validates it, injects entitlement and LIMIT, and builds parameterised SQL.
 - **The model never writes a value.** Synthesis writes text with symbolic references `{label.alias#row}`; code fills them (book 4.9, [25]). No digit outside a reference unless the question holds that token. Whether the words around references are true is the gate's job, not code's.
 - **Code does not read meaning.** Do not add word-list heuristics over model text. Constrain the shape of model output instead.
+  - **Text we wrote is not model text (task 10a, chat 14.10, 21:50).** A word list may check the scripted answers in `demo_data/scripted_exchanges.json` (`tests/demo_data/test_scripted_places.py`: no place word between rows tied on the ordering field). Never extend it to model output: there the gate judges the words.
+  - **Code gives facts about the rows, the model words them.** `prompts.render_records` marks a row that holds the same value as the row before it in the field the rows are ordered by, `(same label.alias as row n)`, for synthesis, the redraft and the gate. The marker names a field and a row, never a value, and never reaches the history or the identifier check.
 - **NFR 19, strict reading.** If no assertion survives the gate after the single redraft, the whole answer is replaced by a request for input, records included (Test 17).
 - **NFR 21.** Text held in a record never reaches the rewriting call or the identifier check: the history gets free-text values as references (`Draft.answer(..., for_history=True)`), presented identifiers come from identifier columns only.
 - **Existence of an identifier** is checked where it is held (`references` in `schema.json`), so a supplier with no orders is "no records matched", not "absent".
@@ -211,7 +213,7 @@ On Evyatar's machine an Application Control policy blocks `.exe` files in the ve
 # Backend (from backend\, venv active)
 python -m pip install -r requirements.txt
 python -m demo_data.seed          # builds demo_data\demo.db
-python -m pytest -q               # the default run; 705 after T12 moved to preflight (14.10)
+python -m pytest -q               # the default run; 729 after task 10a (14.10)
 python -m tools.path_map          # runs tests/paths and tests/feasibility, writes docs/notes/60_PATHS.md
 python -m query_assistance.dry_run   # prices two scripted exchanges at the .env prices, no model call, no key
 python -m query_assistance.dry_run --model claude-sonnet-5-5   # the same, prices from LiteLLM's local map, no .env

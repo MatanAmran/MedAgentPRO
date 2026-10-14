@@ -402,8 +402,8 @@ def test_a_live_row_records_what_the_smoke_test_saw_and_only_a_live_row_does():
 
 def test_L05_every_demo_question_fits_the_default_cap_on_the_real_path(db_path, tmp_path):
     """Task 9: found while building the fake provider. The largest demo question (30 rows) reserves
-    about USD 0.135 for its worst path; the demo's default cap is 0.25. Tighten the cap, or grow a
-    question's records, and this fails before the demo does."""
+    about USD 0.14 for its worst path (0.135 before the task 10a prompts); the demo's default cap is 0.25.
+    Tighten the cap, or grow a question's records, and this fails before the demo does."""
     from fastapi.testclient import TestClient
 
     from tools.fake_real_server import build_app

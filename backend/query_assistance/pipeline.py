@@ -203,8 +203,9 @@ def _gate(deps: Deps, rec: _Record, ordinal: int, d: Draft) -> gate.GateResult:
     records = [(label, m.rows) for label, m in d.materials.items() if m.rows]
     aliases = {label: set(m.columns) for label, m in d.materials.items()}
     answer = gate.render_answer(sentences)
+    order = synthesis.ordered_by(list(d.materials.values()))
     return _ask(deps, rec, ordinal, prompts.load("gate.md"),
-                lambda fb: prompts.render_gate(answer, records, feedback=fb),
+                lambda fb: prompts.render_gate(answer, records, feedback=fb, ordered_by=order),
                 lambda out: gate.evaluate(out, sentences, aliases), _GATE_V.schema, _GATE_V)
 
 
@@ -219,7 +220,7 @@ def _path_inputs(question: str, rewritten: str | None, materials: list) -> list[
     answer = gate.render_answer([("label", "x" * longest)] * n)
     records = [(m.label, m.rows) for m in materials if m.rows]
     syn = estimate_input_tokens(synthesis.render(question, materials, rewritten=rewritten))
-    gate_in = estimate_input_tokens(prompts.render_gate(answer, records))
+    gate_in = estimate_input_tokens(prompts.render_gate(answer, records, ordered_by=synthesis.ordered_by(materials)))
     redraft_in = estimate_input_tokens(synthesis.render_redraft(question, materials, {"label": [answer]},
                                                                 rewritten=rewritten))
     return [syn, gate_in, redraft_in, gate_in]

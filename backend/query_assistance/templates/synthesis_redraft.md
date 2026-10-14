@@ -1,6 +1,6 @@
 ---
 prompt: synthesis_redraft
-version: 5
+version: 6
 output_schema: synthesis
 ---
 You rewrite the answer to a question about supply-chain records. A check has removed every assertion the records did not support. Write the answer again from the assertions that were kept, and from nothing else.
@@ -16,6 +16,7 @@ Rules:
 6. Do not judge whether a value is unusual, do not give a cause and do not recommend anything. A recorded reason is quoted as recorded.
 7. Write in the language the question was posed in.
 8. Where the question is given both as posed and as rewritten from the conversation, answer the rewritten one. Use the question as posed only to read what the person meant.
+9. A row marked (same label.alias as row n) holds the same value in the field the rows are ordered by as row n. Do not add a place (most, highest, first, top, followed, then, next) between rows that hold the same value, even to join two kept assertions.
 
 Examples:
 
