@@ -29,7 +29,7 @@
 - **`main` נשאר ענף ברירת המחדל**, כי לאביתר אין הרשאת admin בריפו של מתן. מה זה אומר:
   - **כל PR נפתח מול `master` במפורש:** `https://github.com/MatanAmran/MedAgentPRO/compare/master...<branch>?expand=1`. GitHub מציע את `main`, אז לפני יצירת ה-PR לבדוק שכתוב "base: master".
   - **בדף הראשי של הריפו מוצג `main`** (רק README). זה לא אומר שהעבודה לא מוזגה.
-  - **הבדיקה היומית (`stress`) לא רצה,** כי `schedule` רץ רק על ענף ברירת המחדל. **מריצים אותה ידנית לפני הדמו:** Actions ← tests ← Run workflow על `master`.
+  - **`stress` רצה על כל PR מול `master`,** וחוסמת כמו שאר העבודות (כ-45 שניות במחשב). `schedule` ו-`workflow_dispatch` רצים רק כשה-workflow בענף ברירת המחדל, וב-`main` יש רק README, ולכן אין הרצה יומית ואין כפתור "Run workflow" (תחזוקת CI, 14.10).
   - **אחרי כל מיזוג:** למחוק את ענף המשימה ב-GitHub (`git push MedAgentPRO --delete <branch>`, אחרי `git log master..MedAgentPRO/<branch>` ריק) ובמחשב (`git branch -d`).
 - **CI** רץ ב-GitHub על כל push ו-PR, בעבודות `tests`, ‏`frontend` ו-`e2e`. ב-`e2e` רצים שלושה מנועים, ואחריהם המצב האמיתי עם הספק המזויף.
 - **hook לפני commit** (ruff ו-bandit) — לא ב-git. ההתקנה ב-`CLAUDE.md`.

@@ -1450,6 +1450,50 @@ workflow ב-GitHub Actions · בדיקות Playwright, **על שלושת המנ�
   - **אפשרות:** לתקן רק את שני הקבצים בהיקף ש-mypy מצביע עליהם הכי הרבה (`compiler.py`, ‏`budget.py`, 17 שגיאות), ולהפוך את הצעד לחוסם עם `follow_imports = silent` למה שמחוץ להיקף.
   - **או:** להשאיר לא חוסם עד אחרי הדמו, ולשנות את ההערה ב-workflow ל-"does not block until after the demo", כי היום כתוב בה "after task 7".
 
+### תחזוקת CI — **הכרעות בצ׳אט (14.10, 14:10).** Code רשאי להתחיל, לפי מה שכאן
+
+1. **`runs-on: ubuntu-24.04` בארבע העבודות — מאושר**, עם ההערה המוצעת.
+2. **שדרוג ה-actions ל-`@v7` — נדחה לאחרי הדמו.** ההתראה על Node 20 היא אזהרה בלבד: GitHub כבר מריץ אותם על Node 24, והריצות ירוקות. לקפוץ שלוש או ארבע גרסאות ראשיות לפני הדמו, כש-`setup-node@v7` בן שישה ימים, זה סיכון בלי תועלת. נשארים על הגרסאות של היום. לרשום ב-`CLAUDE.md` כמשימה לאחרי הדמו.
+3. **תיקון להנחיה של הצ׳אט (סעיף 4 ב"אחרי מיזוג PR #4") — טעות שלנו:** ‏`workflow_dispatch`, כמו `schedule`, עובד רק כשה-workflow נמצא בענף ברירת המחדל. ב-`main` יש רק `README.md`, ולכן **אין כפתור "Run workflow", ואי אפשר להריץ את `stress` ידנית.** כרגע `stress` לא רצה בשום מצב.
+   - **ההכרעה:** ‏`stress` רצה גם על **`pull_request` מול `master`**: ‏`if: github.event_name == 'pull_request' || github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'`. את `schedule` ואת `workflow_dispatch` משאירים, למקרה ש-`master` יהפוך לברירת מחדל.
+   - **לפני כן — לרשום כאן כמה זמן `-m stress` לוקח במחשב.** אם יותר מ-10 דקות, לעצור ולשאול. אחרת היא חוסמת כמו שאר העבודות.
+   - **לתקן ב-`CLAUDE.md` וב-`01_HANDOFF.md`:** במקום "הרצה ידנית לפני הדמו" — "רצה על כל PR מול `master`".
+   - **הבדיקה:** ה-PR של הענף הזה עצמו מריץ אותה על 24.04. אין צורך בפעולה של אביתר.
+4. **mypy — נשאר לא חוסם עד אחרי הדמו.** לשנות את ההערה ב-`tests.yml` ל-"does not block until after the demo". **בלי `follow_imports`, ובלי לתקן.**
+   - **בדיקה אחת בלבד, קריאה ולא קוד:** לרשום כאן את שגיאות `union-attr` ו-`operator` (10) שבתוך ההיקף (`query_assistance`, ‏`model_client`) — קובץ, שורה, ההודעה, **והאם ערך `None` יכול להגיע לשם בזמן ריצה בדמו**, לפי הקוד. הסוגים האלה הם היחידים מתוך ה-33 שעלולים להיות באג אמיתי. הצ׳אט יחליט אם משהו מהן מתקנים לפני הדמו.
+5. **commit אחד** לסעיפים 1, 3 ו-4. ‏push באישור אביתר. ‏PR מול `master` במפורש, ובדיקה שכתוב "base: master". **לאמת אחרי ה-CI:** ש-`stress` רצה ועברה, ושה-artifact של צילומי גווני האפור נוצר.
+
+**בוצע (14.10). commit בענף `ci/maintenance`, בלי push:**
+- **זמן `-m stress` במחשב:** 8 עוברות, ‏**37.5 שניות לבדיקות ו-44 שניות לכל ההרצה.** הרבה מתחת ל-10 דקות, ולכן היא חוסמת כמו שאר העבודות.
+- **`tests.yml`:**
+  - `runs-on: ubuntu-24.04` בארבע העבודות, עם הערה בראש הקובץ.
+  - `stress` רצה גם על `pull_request`, עם התנאי שהוכרע ועם הערה ליד ה-trigger-ים. `schedule` ו-`workflow_dispatch` נשארו.
+  - ההערה של mypy: "does not block until after the demo", בראש הקובץ ובשם הצעד.
+  - **ה-actions לא שונו,** לפי ההכרעה.
+- **`CLAUDE.md`:**
+  - בסעיף GitHub — `stress` רצה על כל PR, במקום "הרצה ידנית".
+  - שורה חדשה, **"After the demo"**: ה-actions ל-`@v7`, ‏runners לגרסה עדכנית, ו-mypy חוסם.
+- **`01_HANDOFF.md`:** אותו תיקון לגבי `stress`.
+
+**mypy — 10 השגיאות מסוג `union-attr` ו-`operator`:**
+- **רק 6 מהן בתוך ההיקף** (`query_assistance`, ‏`model_client`). את 4 האחרות, ב-`demo_data\seed.py`, mypy פותח דרך ה-imports.
+- **קראתי את הקוד בכל אחת. אף אחת אינה באג בזמן ריצה בדמו:**
+
+| # | קובץ:שורה | ההודעה | האם `None` (או טיפוס אחר) מגיע לשם בזמן ריצה? |
+|---|---|---|---|
+| 1 | `query_assistance\compiler.py:335` | Item "None" of `dict \| None` has no attribute "get" (‏`_is_identifier`: ‏`self.cat.column(side.column).get(...)`) | **לא.** ‏`side.column` נוצר רק ב-`self.col()` (שורה 272), שקורא ל-`self.fail(...)` כש-`cat.column()` מחזיר `None`. ‏`fail` תמיד זורק `CompileError` (שורה 240), אבל mypy לא יודע את זה (אין לו `NoReturn`) |
+| 2 | `query_assistance\compiler.py:385` | Item "None" of `str \| None` has no attribute "split" (‏`c.column.split(".")` ב-`IS_NULL`) | **לא.** ‏`c = self.col(arg["col"])`, ו-`col()` תמיד בונה `Expr` עם `column=qualified`. ‏`column` הוא `Optional` רק בגלל ביטויים של מדדים ופונקציות, שלא עוברים בדרך הזו |
+| 3 | `query_assistance\compiler.py:521` | Item "None" of `dict \| None` has no attribute "get" (‏`_probe_target`: ‏`self.cat.column(column).get("references")`) | **לא.** ‏`column` מגיע מ-`self.identities`, שמתמלא רק מעמודות שכבר עברו ב-`col()` ונמצאו בקטלוג |
+| 4 | `query_assistance\pipeline.py:416` | Item "None" of `Draft \| None` has no attribute "sentences" | **לא.** השורה רצה רק כש-`said` אמת, ו-`said = d is not None and ...` בשורה שמעליה. ‏mypy לא מצמצם את הטיפוס דרך משתנה ביניים |
+| 5 | `query_assistance\pipeline.py:418` | Item "None" of `Draft \| None` has no attribute "answer" | **לא.** אותה סיבה: ‏`d.answer(label) if said else None` |
+| 6 | `model_client\budget.py:186` | Unsupported operand types for + ("object" and "float") (‏`SpendLedger.add`: ‏`d["total_usd"] + usd`) | **לא בדמו.** ‏`self.data` הוא `dict[str, object]`. בזמן ריצה `total_usd` הוא float — מברירת המחדל `0.0`, או מקובץ ההוצאות שהקוד עצמו כותב. **הסיכון היחיד:** עריכה ידנית של `.model_spend.json` עם מחרוזת. אז `add` נכשל **אחרי** קריאה ששולמה, והעלות לא נרשמת. לא בדמו |
+| 7 | `demo_data\seed.py:192` | Unsupported right operand type for in ("object") (‏`sup in p["suppliers"]`) | **לא.** ‏`parts` נבנה בתוך `seed.py` עם רשימת ספקים. ‏`seed` רץ בכל הרצת בדיקות ובכל `demo_data.seed` |
+| 8 | `demo_data\seed.py:203` | Unsupported operand types for * ("object" and "float") (‏`p["price"] * ...`) | **לא,** אותה סיבה: `price` הוא float שנבנה בקוד |
+| 9 | `demo_data\seed.py:208` | Unsupported operand types for < ("float" and "str") (‏`rng.random() < prof["p_promise_late"]`) | **לא:** ‏`PROFILES` קבוע בקוד עם ערכי float. ‏mypy מסיק `str \| float` מערבוב מפתחות בפרופיל |
+| 10 | `demo_data\seed.py:214` | Unsupported operand types for < ("float" and "str") (‏`... < prof["p_miss_promise"]`) | **לא,** כמו 9 |
+
+- **שורה תחתונה לצ׳אט:** אין מה לתקן לפני הדמו. היחידה עם סיכון כלשהו בעולם האמיתי היא 6, ורק בעריכה ידנית של קובץ ההוצאות. **אם רוצים לסגור אותה בזול** (הכרעה של הצ׳אט): ‏`float(d["total_usd"]) + usd` ב-`add`, כמו שכבר עושה `total`.
+
 ## מה שנסגר בסבב האחרון
 
 - **הקוד עבר לריפו** — `MedAgentPro\backend` (`query_assistance`, `model_client`, `persistence`, `shared`, `tests`). **`03_Code` נשאר כמקור ומעודכן.** `python -m pytest -q` מתוך `backend`
