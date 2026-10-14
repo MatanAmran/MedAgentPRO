@@ -1391,6 +1391,65 @@ workflow ב-GitHub Actions · בדיקות Playwright, **על שלושת המנ�
   - **`01_HANDOFF.md`:** המצב עודכן — משימה 9 מוזגה, הענפים נוקו, ההשלכות של `main`. ההמשך: תחזוקת ה-CI.
 - **סעיף 5:** ה-commit של ההערות (`8a8b112`) על הענף `ci/maintenance`, ענף המשימה הבאה.
 
+### תחזוקת CI — תוכנית של Code (14.10). **ממתינה לאישור, לא נכתב קוד.** הענף `ci/maintenance`
+
+הבסיס הוא סעיפים 2–4 של "סקירה בצ׳אט (14.10, 13:30)". **מה נבדק לפני התוכנית** (בלי לשנות דבר):
+- **ב-`tests.yml`:** ארבע עבודות, ‏`tests`, ‏`stress`, ‏`frontend` ו-`e2e`. כולן `runs-on: ubuntu-latest`.
+- **ה-actions היום:**
+
+| ה-action | בשימוש היום | הגרסה האחרונה | מתי שוחררה | ה-Node שלה |
+|---|---|---|---|---|
+| `checkout` | ‏`@v4` (×4) | v7.0.1 | 20.7 | `node24` |
+| `setup-node` | ‏`@v4` (×2) | v7.1.0 | **8.10** | `node24` |
+| `setup-python` | ‏`@v5` (×3) | v7.0.0 | 20.7 | `node24` |
+| `upload-artifact` | ‏`@v4` (×2) | v7.0.2 | 7.10 | `node24` |
+
+  ה-Node נלקח מה-`action.yml` של התג `v7`.
+
+**התוכנית — commit אחד** (סעיפים 3 ו-4 יחד, כמו שהצ׳אט ביקש):
+1. **`runs-on: ubuntu-24.04`** בארבע העבודות, עם הערה: "pinned before ubuntu-latest moves to 26 on 19.10, which changes what `playwright install --with-deps` installs; revisit after the demo".
+2. **ה-actions ל-`@v7`** (התג הראשי, לא גרסה מדויקת), כולם על `node24`. זה מעלה שלוש או ארבע גרסאות ראשיות בבת אחת. **הסיכונים:**
+   - `setup-node` ו-`setup-python` מתנהלים את ה-cache. שינוי בהתנהגות שלו יכול להאט ריצה, אבל לא להפיל אותה.
+   - `upload-artifact` נשאר באותו פורמט מאז v4.
+   - **לאמת אחרי ה-push:** שהריצה ירוקה, ושה-artifact של צילומי גווני האפור עדיין נוצר.
+   - **אם `v7` של `setup-node` (בן שישה ימים) נכשל:** חוזרים לגרסה הקודמת היציבה שלו, ורושמים כאן.
+3. **ה-push הוא הבדיקה:** ‏`stress` לא רצה על push, ולכן בנוסף **הרצה ידנית אחת** (`workflow_dispatch`) על הענף, שבודקת גם אותה על 24.04. **זה דורש מאביתר "Run workflow" ב-GitHub,** ואני לא יכול להפעיל אותה בלי התחברות.
+
+**mypy — ספירה בלבד (סעיף 2). לא נגעתי בקוד:**
+- **סך הכול:** 33 שגיאות ב-8 קבצים מתוך 12 שנבדקו (`python -m mypy`, ‏mypy 2.4).
+- **לפי סוג:**
+
+| סוג | כמה |
+|---|---|
+| `index` | 8 |
+| `arg-type` | 8 |
+| `union-attr` | 5 |
+| `operator` | 5 |
+| `assignment` | 3 |
+| `var-annotated` | 2 |
+| `attr-defined` | 2 |
+
+  בנוסף 4 הערות `annotation-unchecked`, שאינן שגיאות.
+- **לפי קובץ** (שגיאות והערות יחד):
+
+| קובץ | כמה |
+|---|---|
+| `query_assistance\compiler.py` | 10 |
+| `demo_data\seed.py` | 10 |
+| `model_client\budget.py` | 7 |
+| `persistence\audit_repository.py` | 3 |
+| `query_assistance\pipeline.py` | 2 |
+| `query_assistance\dry_run.py` | 2 |
+| `model_client\client.py` | 2 |
+| `query_assistance\gate.py` | 1 |
+| `query_assistance\calls.py` | 1 |
+
+  **`seed.py` ו-`audit_repository.py` מחוץ להיקף** (`files` ב-`pyproject.toml` הוא `query_assistance` ו-`model_client`). mypy מגיע אליהם דרך ה-imports.
+- **מה הייתי מציע (לצ׳אט, לא הכרעה שלי):**
+  - **בדוח של סעיף 5 (13.10)** היו 38 שגיאות. אחרי שני התיקונים שהוכרעו אז (`prompts.load` ו-`calls.py`) נשארו 33, וזה המספר גם היום. **רובן הגדול `Optional` ו-`dict` בלי טיפוס,** לא באגים.
+  - **אפשרות:** לתקן רק את שני הקבצים בהיקף ש-mypy מצביע עליהם הכי הרבה (`compiler.py`, ‏`budget.py`, 17 שגיאות), ולהפוך את הצעד לחוסם עם `follow_imports = silent` למה שמחוץ להיקף.
+  - **או:** להשאיר לא חוסם עד אחרי הדמו, ולשנות את ההערה ב-workflow ל-"does not block until after the demo", כי היום כתוב בה "after task 7".
+
 ## מה שנסגר בסבב האחרון
 
 - **הקוד עבר לריפו** — `MedAgentPro\backend` (`query_assistance`, `model_client`, `persistence`, `shared`, `tests`). **`03_Code` נשאר כמקור ומעודכן.** `python -m pytest -q` מתוך `backend`
