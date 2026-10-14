@@ -2278,6 +2278,62 @@ exchange cost: attempt=EX-cfe09a07b776 usd=0.050066 remaining=1.855634
 
 **הבא:** שאלה 3, ‏"Which purchase orders were delivered late in September?" — **רק אחרי "כן" של אביתר.** בדיווח: ‏`output_tokens`, ‏`reasoning_tokens`, ‏`output_chars` ו-`claims` של השער, כמה רחוק מ-2,000, הנוסח, העלות והזמן.
 
+### משימה 10א — **סקירה בצ׳אט (14.10, 22:45).** ‏`dddc506` מאושר. שאלה 3 באישור אביתר
+
+- **המדידה והבדיקה — מאושר.** הבדיקה עם מחרוזת מסומנת ב-`reasoning_content` וב-`thinking_blocks`, שלא מופיעה בשום מקום, היא בדיוק מה שהתבקש. גם T15.
+- **הממצא שהמודל חושב תמיד, וזה נספר מול `max_tokens` — חשוב.** הוא מסביר את היחס של טוקן לתו. ‏**לא משנים פרמטר עכשיו.** אחרי שאלה 3 מחליטים בין: להשאיר; לכוון effort (אם LiteLLM מעביר את זה ל-anthropic ב-1.105 — לבדוק בקוד, בלי קריאה); או `max_tokens` נפרד לשער. ההחלטה לפי המספרים של שאלה 3.
+- **שאלה 3 — כן, באישור אביתר בשיחה.** תנאי עצירה: אם השער מגיע ל-`finish_reason=length`, או ל-`request_not_completed` מכל סיבה — לא שולחים שוב. מדווחים.
+
+### משימה 10א — **שאלה 3 מול המודל האמיתי (14.10), באישור אביתר.** ‏`answered`, אבל **הכוונה לא סיננה לספטמבר.** השרת נעצר. לסקירה בצ׳אט
+
+**הבקשה:** שיחה חדשה `CV-2cb677c68796`, ‏AP-01, ‏`request_id=t10a-q3-1792007105`, פעם אחת, בלי retry. ‏"Which purchase orders were delivered late in September?"
+
+**התוצאה:** ‏`answered`, ‏`recorded: true`, ‏`EX-28cdba4b7c3f`. בלי withheld. **תנאי העצירה** (`finish_reason=length` או `request_not_completed`) **לא התקיימו.**
+- **שתי קריאות** (`ambiguous: ["late"]`):
+  - `late_by_delivery` — ‏**30 מתוך 357**: "PO-87003 had 1 line delivered after the requested date, as did PO-87006 with 1. PO-87036 had 3 lines delivered late, and PO-87093 had 3. PO-87045 had 2 late lines."
+  - `missed_promise` — ‏**30 מתוך 256**: "PO-87003 had 1 line whose promised date was missed. PO-87036 had 2 such lines, and PO-87312 had 3. PO-87069 had 2 such lines."
+  - **בלי מילות דירוג.** כל ערך נכון לשורה שלו.
+- **⚠️ הממצא העיקרי — אין סינון לספטמבר:**
+  - "Examined" בשתי הקריאות: "purchase order lines where delivered after the requested date · grouped by purchase order · computed the number of records". ‏**בלי תנאי תאריך.**
+  - בתשובה יש **פער:** `{"asked": "in September", "missing": {"kind": "no_such_column", "entity": "commitments"}}` ← "**On in September there is no data. No column in purchase order lines records it.**"
+  - **הפער הזה שגוי:** ל-`commitments` יש `delivered_at`. התוכנית המתוסרטת של אותה שאלה מסננת `BETWEEN commitments.delivered_at '2026-09-01' AND '2026-09-30'`. ‏**המודל הכריז שאין עמודה, וענה על כל החודשים.**
+  - **ההגנות עבדו כמו שתוכננו:** "Examined" מראה שאין תאריך (ספר 8.1), והפער מוצג למשתמש. אבל משתמש שלא קורא אותם יקבל תשובה על "September" שאינה על ספטמבר.
+  - **השערה (לא מאומתת):** בפרומפט הכוונה (`intent_analysis_demo@3`) אין דוגמה של סינון לפי תאריך, רק לפי `week`. הניסיון הראשון נדחה (`SchemaBreach`, ייתכן בגלל ניסיון לבטא חודש), וניסיון המשוב "הצליח" כשוויתר על הסינון והכריז על פער. **את סיבת הדחייה לא רואים,** כי היא ברשומת הביקורת בזיכרון בלבד, ובכוונה לא בלוג.
+- **באג ניסוח קטן בקוד שלנו:** התבנית `no_such_column` היא "On {asked} there is no data…" (`medagentpro_schemas.json:950`), והמודל מילא `asked = "in September"`. יוצא "On in September". התבנית מניחה שם עצם, והמודל נתן ביטוי עם מילת יחס.
+
+**השורות מהלוג** (מסוננות. שורות עם `Authorization`, ‏`x-api-key` או `sk-ant`: ‏0):
+```
+model call: exchange=EX-28cdba4b7c3f request=t10a-q3-1792007105 conversation=CV-2cb677c68796 stage=intent_analysis prompt_identity=intent_analysis_demo@3 model=claude-sonnet-5-5 attempt_number=1 feedback_attempt=False status=rejected finish_reason=stop input_tokens=3050 output_tokens=1638 output_chars=977 reasoning_tokens=1092 claims=- temperature=provider default max_tokens=2000 duration_ms=13536.1 check=SchemaBreach
+model call: exchange=EX-28cdba4b7c3f request=t10a-q3-1792007105 conversation=CV-2cb677c68796 stage=intent_analysis prompt_identity=intent_analysis_demo@3 model=claude-sonnet-5-5 attempt_number=2 feedback_attempt=True status=accepted finish_reason=stop input_tokens=3102 output_tokens=1794 output_chars=831 reasoning_tokens=1332 claims=- temperature=provider default max_tokens=2000 duration_ms=14618.6 check=-
+model call: exchange=EX-28cdba4b7c3f request=t10a-q3-1792007105 conversation=CV-2cb677c68796 stage=synthesis prompt_identity=synthesis@7 model=claude-sonnet-5-5 attempt_number=1 feedback_attempt=False status=accepted finish_reason=stop input_tokens=5150 output_tokens=402 output_chars=874 reasoning_tokens=0 claims=- temperature=provider default max_tokens=2000 duration_ms=5289.0 check=-
+model call: exchange=EX-28cdba4b7c3f request=t10a-q3-1792007105 conversation=CV-2cb677c68796 stage=support_gate prompt_identity=support_scoring@4 model=claude-sonnet-5-5 attempt_number=1 feedback_attempt=False status=accepted finish_reason=stop input_tokens=4973 output_tokens=829 output_chars=974 reasoning_tokens=380 claims=6 temperature=provider default max_tokens=2000 duration_ms=8705.6 check=-
+exchange cost: attempt=EX-28cdba4b7c3f usd=0.079180 remaining=1.776454
+```
+
+**הטוקנים — לראשונה עם `reasoning_tokens`** (הספק מדווח אותם):
+| שלב | `output_tokens` | חשיבה | טקסט (פלט פחות חשיבה) | ‏% מ-2,000 |
+|---|---|---|---|---|
+| intent, ניסיון 1 (נדחה) | 1,638 | 1,092 | 546 | 82% |
+| **intent, ניסיון 2 (משוב)** | **1,794** | **1,332** | 462 | **90%** |
+| synthesis | 402 | **0** | 402 | 20% |
+| **gate** | **829** | 380 | 449 | **41%** |
+- **השער רחוק מהתקרה (41%),** גם בשאלה הגדולה. ‏`claims=6`, טענה אחת למשפט.
+- **הסיכון האמיתי עבר לשלב הכוונה:** ‏90% מ-`max_tokens`, ‏74% מזה חשיבה. שאלה קשה קצת יותר עלולה להגיע ל-`finish_reason=length`, כלומר `request_not_completed` בלי ניסיון נוסף.
+- **בסינתזה אין חשיבה בכלל (0)**, ובשאר השלבים יש. המודל מחליט לבד כמה לחשוב (adaptive).
+
+**V04 — ניסיון המשוב הראשון שנצפה:** ‏**1 מתוך 1 התקבל.** אבל "הצלחה" כאן פירושה פלט שעבר את הבדיקות, **ולא פלט נכון:** הוא ויתר על הסינון והכריז על פער שגוי. ‏**לא לעדכן את V04 לפי זה בלי הכרעה.**
+
+**העלות: ‏0.079180$** (16,275 בקלט, ‏4,663 בפלט). החישוב מתאים בדיוק. **סך הכול מאז R9: ‏0.2235$.** נשארו 1.7765$.
+**הזמן: ‏42.5 שניות.** ‏intent לקח 28.2 מתוכן (שני ניסיונות), ‏synthesis ‏5.3, ‏gate ‏8.7.
+
+**השרת נעצר.** פורט 8000 לא עונה, והנעילה שוחררה.
+
+**להכרעה בצ׳אט:**
+1. **סינון לפי תאריך בכוונה:** דוגמה של חודש לפי `delivered_at` ב-`intent_analysis.md` (‏`intent_analysis_demo@4`)? או כלל מפורש שחודש הוא טווח על עמודת תאריך? זה שינוי פרומפט, ובדיקה אמיתית נוספת של שאלה 3 (כ-0.08$).
+2. **`max_tokens` של שלב הכוונה:** ‏90% בשאלה 3. להעלות לשלב הזה בלבד? לכוון effort? (צריך לבדוק בקוד של LiteLLM 1.105 אם `reasoning_effort` עובר ל-anthropic, בלי קריאה.) או להשאיר? ‏**השער לא דורש שינוי** (41%).
+3. **ניסוח הפער** "On {asked}": לתקן את התבנית, למשל "{asked}: no data…", או להנחות את המודל למלא `asked` כשם עצם.
+4. **V04:** איך לרשום משוב שהצליח טכנית אבל ויתר על חלק מהשאלה.
+
 ## מה שנסגר בסבב האחרון
 
 - **הקוד עבר לריפו** — `MedAgentPro\backend` (`query_assistance`, `model_client`, `persistence`, `shared`, `tests`). **`03_Code` נשאר כמקור ומעודכן.** `python -m pytest -q` מתוך `backend`
