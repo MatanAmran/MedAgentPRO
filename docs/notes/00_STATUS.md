@@ -1519,6 +1519,22 @@ workflow ב-GitHub Actions · בדיקות Playwright, **על שלושת המנ�
 
 **סקירה בצ׳אט (14.10, 14:25) — `002529f` מאושר.** האימות נעשה בטעינה, כמו שהוכרע, ונבדק בקוד. מעבר למה שהתבקש, Code הוסיף שלושה דברים, וכולם נכונים: NaN ומספר שלילי נדחים (NaN היה עובר כל בדיקת תקרה, ושלילי היה מגדיל את התקרה), הנעילה משתחררת כשהטעינה נכשלת, והודעת השגיאה לא מציגה ערכים. **ה-push של `ci/maintenance` מאושר**, ואחריו PR מול `master`.
 
+### תחזוקת CI — **PR #5 פתוח, ה-CI ירוק (14.10).** ‏`stress` רצה ב-CI בפעם הראשונה, ועברה
+
+- **ה-PR:** ‏[#5](https://github.com/MatanAmran/MedAgentPRO/pull/5), ‏"9 commits into **master** from ci/maintenance". הבסיס נבדק בעמוד. אביתר פתח אותו בדפדפן שלו: ‏`gh` לא מותקן, והחלונית של Code לא מחוברת ל-GitHub.
+- **ריצה #25 (`pull_request`, ‏`7e44062`) — success.** כל העבודות על `ubuntu-24.04`:
+  | עבודה | תוצאה | זמן |
+  |---|---|---|
+  | `tests` | עברה | 65 ש׳ |
+  | `frontend` | עברה | 27 ש׳ |
+  | **`stress`** | **עברה** | **90 ש׳:** ‏`pytest -m stress` לבד 46 ש׳ (במחשב כ-45), התקנת התלויות 31 ש׳ |
+  | `e2e` | עברה | 430 ש׳ |
+- **ריצה #24 (`push`, אותו commit) — success:** ‏`tests` 86 ש׳, ‏`frontend` 34 ש׳, ‏`e2e` 432 ש׳. ‏**`stress` דולגה**, כמו שצריך: היא רצה רק על `pull_request`.
+- **ה-artifact של גווני האפור (`grayscale`) נוצר** בשתי הריצות, ‏806,311 בתים.
+- **אזהרה אחת (צפויה):** ‏"Node.js 20 is deprecated", על `actions/checkout@v4` ו-`actions/setup-node@v4`. השדרוג ל-`@v7` נדחה בכוונה לאחרי הדמו (`CLAUDE.md`, "After the demo").
+- **מה לא ראיתי:** מספר בדיקות ה-stress ב-CI. הלוג המלא דורש התחברות ל-GitHub, ו-Code קרא רק את ה-API הציבורי. במחשב: 8.
+- **הבא:** מיזוג PR #5 (‏"Create a merge commit"), ואחריו מחיקת `ci/maintenance` ב-GitHub ובמחשב, לפי `CLAUDE.md`. **ה-commit של ההערות האלה מקומי.** הוא יעבור ל-`master` ב-cherry-pick אחרי המיזוג, או ב-push נוסף לענף לפני המיזוג. אחת מהשתיים, לפי אביתר.
+
 ## מה שנסגר בסבב האחרון
 
 - **הקוד עבר לריפו** — `MedAgentPro\backend` (`query_assistance`, `model_client`, `persistence`, `shared`, `tests`). **`03_Code` נשאר כמקור ומעודכן.** `python -m pytest -q` מתוך `backend`
