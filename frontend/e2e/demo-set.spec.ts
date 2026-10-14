@@ -110,13 +110,25 @@ for (const role of ROLES) {
   });
 }
 
-/** Tab until the locator holds the focus; the keyboard alone, as Test 40 asks. */
+/** Tab until the locator holds the focus; the keyboard alone, as Test 40 asks. Forward first, then back
+ * with Shift+Tab: past the last control, focus may move into the browser's own interface and, depending on
+ * the engine, not come back to the top of the page (task 9, CI fix: Firefox, not reproducible here). A
+ * control neither way reaches fails, and the failure names the controls the focus went through. */
 async function tabTo(page: Page, target: Locator, what: string) {
-  for (let i = 0; i < 120; i++) {
-    if (await target.evaluate((el) => el === document.activeElement)) return;
-    await page.keyboard.press("Tab");
+  const trail: string[] = [];
+  for (const key of ["Tab", "Shift+Tab"]) {
+    for (let i = 0; i < 200; i++) {
+      if (await target.evaluate((el) => el === document.activeElement)) return;
+      await page.keyboard.press(key);
+      trail.push(
+        await page.evaluate(() => {
+          const a = document.activeElement;
+          return a && a !== document.body ? `${a.tagName}:${(a.getAttribute("aria-label") ?? a.textContent ?? "").slice(0, 24)}` : "(page)";
+        }),
+      );
+    }
   }
-  throw new Error(`the keyboard does not reach ${what}`);
+  throw new Error(`the keyboard does not reach ${what}; last focus: ${trail.slice(-8).join(" > ")}`);
 }
 
 test("the demo set from the keyboard alone (Test 40)", async ({ page }) => {

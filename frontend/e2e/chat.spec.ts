@@ -113,10 +113,23 @@ test("a rating is kept after a reload", async ({ page }) => {
   await expect(page.getByLabel("Rate up")).toHaveAttribute("aria-pressed", "true");
 });
 
+// One server serves every engine in a run, so PL-02 may already hold conversations from another engine's
+// run of the demo set (task 9, CI fix): the test checks that the approver's own conversation is not the
+// planner's, and that the planner's list on screen is the one the server holds for them, whatever it holds
 test("a planner's conversations are their own", async ({ page }) => {
+  const created = page.waitForResponse((r) => r.url().endsWith("/api/conversations") && r.request().method() === "POST");
   await ask(page, WHY);
+  const { conversation_id } = await (await created).json();
   await answered(page, 1);
+  const listed = async (user: string) =>
+    ((await (await page.request.get("http://127.0.0.1:8000/api/conversations", { headers: { "X-Demo-User": user } })).json()) as {
+      conversation_id: string;
+    }[]).map((c) => c.conversation_id);
+  expect(await listed("AP-01")).toContain(conversation_id);
+  const planners = await listed("PL-02");
+  expect(planners).not.toContain(conversation_id);
   await page.getByLabel("Demo user").selectOption("PL-02");
-  await expect(page.getByTestId("conversations").getByRole("button")).toHaveCount(0);
+  await expect(page.getByTestId("conversations").getByRole("button")).toHaveCount(planners.length);
+  await expect(page.getByTestId("thread").getByTestId("exchange")).toHaveCount(0);   // nothing of the approver's shown
   await expect(page.getByText("demo, no authentication")).toBeVisible();
 });

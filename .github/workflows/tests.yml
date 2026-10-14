@@ -157,5 +157,6 @@ jobs:
           path: frontend/test-results/
           retention-days: 7
       - name: the real-model path with a fake provider, three engines
+        if: ${{ !cancelled() }}   # runs even when the step before failed: the whole picture in one run
         run: npx playwright test -c playwright.real.config.ts
         working-directory: frontend

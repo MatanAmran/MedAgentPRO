@@ -22,20 +22,32 @@ export const screen = {
   timeout: 240_000,
 };
 
+// E2E_ENGINES picks the engines by name, comma separated (task 9, CI fix, item 1): CI runs the three,
+// locally the default is Edge. Firefox's Playwright build is blocked on Evyatar's machine by Application
+// Control (00_STATUS, 14.10), so it runs in CI only; WebKit runs locally with E2E_ENGINES=webkit, but
+// as a Windows build that calls itself Safari on macOS, so CI decides
+const ENGINES = {
+  chromium: { name: "chromium", use: { browserName: "chromium" as const } },
+  firefox: { name: "firefox", use: { browserName: "firefox" as const } },
+  webkit: { name: "webkit", use: { browserName: "webkit" as const } },
+  edge: { name: "edge", use: { browserName: "chromium" as const, channel: "msedge" } },
+};
+const chosen = (process.env.E2E_ENGINES ?? (CI ? "chromium,firefox,webkit" : "edge"))
+  .split(",")
+  .map((e) => e.trim()) as (keyof typeof ENGINES)[];
+
 export const shared: PlaywrightTestConfig = {
   fullyParallel: false,
   workers: 1,
   retries: 0,
   timeout: 30_000,
-  reporter: "list",
+  // github: each failure as an annotation on the run, readable without signing in (up to 10 per step)
+  reporter: CI ? [["github"], ["list"]] : "list",
   use: { baseURL: "http://localhost:3000", trace: "retain-on-failure" },
-  projects: CI
-    ? [
-        { name: "chromium", use: { browserName: "chromium" } },
-        { name: "firefox", use: { browserName: "firefox" } },
-        { name: "webkit", use: { browserName: "webkit" } },
-      ]
-    : [{ name: "edge", use: { browserName: "chromium", channel: "msedge" } }],
+  projects: chosen.map((e) => {
+    if (!ENGINES[e]) throw new Error(`E2E_ENGINES: unknown engine ${e}`);
+    return ENGINES[e];
+  }),
 };
 
 export default defineConfig({
