@@ -1802,6 +1802,45 @@ exchange cost: attempt=EX-1d826aa9c2cb usd=0.046844 remaining=1.953156
 
 **המצב:** השרת עדיין רץ (תהליך 10032). **שאלה 2 תישלח רק אחרי "כן" של אביתר.**
 
+### R9 — **שאלה 2 נשלחה (14.10, 18:08), באישור אביתר. בדיקת העשן הושלמה, והשרת נעצר.** לסקירה בצ׳אט
+
+**הבקשה:** אותה שיחה (`CV-11e21e173c97`), ‏AP-01, ‏`request_id=r9-q2-1791990516`, פעם אחת, בלי retry. ‏"And in weeks 14 to 26?"
+
+**התוצאה: `answered`,** ‏`recorded: true`, ‏`EX-7668ca781ce9`.
+- **השלבים:** ‏rewriting ← intent ← retrieval ← synthesis ← gate ← contract.
+- **"Understood as": "Which suppliers were late in weeks 14 to 26?"** (FR 25, מבחן 44).
+- **שתי קריאות:**
+  - `late_by_delivery`: ‏30 שורות, ‏**"Showing 30 of 35."** (‏`ROW_LIMIT`). ‏"In weeks 14 to 26, S-014 had the highest late count by delivery, 14. S-036 followed with 14, then S-008 with 10."
+  - `late_by_promise`: ‏23 שורות. ‏"By promised date, S-036 had the highest late count in weeks 14 to 26, 14. S-032 followed with 11, then S-008 with 9."
+
+**העלות: ‏0.047456$.** ‏13,103 בקלט, ‏2,125 בפלט. החישוב מתאים בדיוק. ‏**שתי השאלות יחד: ‏0.0943$,** כמו ב-`.model_spend.json`.
+
+**השורות מהלוג** (מסוננות. שורות עם `Authorization`, ‏`x-api-key` או `sk-ant` בכל הלוג: 0):
+```
+model call: exchange=EX-7668ca781ce9 request=r9-q2-1791990516 conversation=CV-11e21e173c97 stage=question_rewriting prompt_identity=question_rewriting@2 model=claude-sonnet-5-5 attempt_number=1 feedback_attempt=False status=accepted finish_reason=stop input_tokens=1445 output_tokens=37 temperature=provider default max_tokens=2000 duration_ms=4184.3 check=-
+model call: exchange=EX-7668ca781ce9 request=r9-q2-1791990516 conversation=CV-11e21e173c97 stage=intent_analysis prompt_identity=intent_analysis_demo@3 model=claude-sonnet-5-5 attempt_number=1 feedback_attempt=False status=accepted finish_reason=stop input_tokens=3073 output_tokens=799 temperature=provider default max_tokens=2000 duration_ms=5421.2 check=-
+model call: exchange=EX-7668ca781ce9 request=r9-q2-1791990516 conversation=CV-11e21e173c97 stage=synthesis prompt_identity=synthesis@6 model=claude-sonnet-5-5 attempt_number=1 feedback_attempt=False status=accepted finish_reason=stop input_tokens=4407 output_tokens=319 temperature=provider default max_tokens=2000 duration_ms=3651.9 check=-
+model call: exchange=EX-7668ca781ce9 request=r9-q2-1791990516 conversation=CV-11e21e173c97 stage=support_gate prompt_identity=support_scoring@3 model=claude-sonnet-5-5 attempt_number=1 feedback_attempt=False status=accepted finish_reason=stop input_tokens=4178 output_tokens=970 temperature=provider default max_tokens=2000 duration_ms=7501.9 check=-
+exchange cost: attempt=EX-7668ca781ce9 usd=0.047456 remaining=1.905700
+```
+
+**עצירה:** השרת נעצר. פורט 8000 לא עונה, ותהליך 10032 לא קיים. ‏**הנעילה על `.model_spend.json` שוחררה:** פתחתי `SpendLedger`, הוא קיבל את הנעילה, ושחררתי אותה מיד. הקובץ נשאר (0.0943$).
+
+**V01–V04 — הסיכום** (את שורות `live` ב-`constraints.py` ממלאים רק אחרי הכרעה כאן):
+| | תוצאה |
+|---|---|
+| **V01** — הספק מקבל את 3 הסכמות | **עבר.** ‏rewriting (שאלה 2), ‏synthesis ו-gate (בשתיהן). אין 400 |
+| **V02** — בלי temperature, ועם `max_tokens` שהוגדר | **עבר.** בכל 7 הקריאות: ‏`temperature=provider default`, ‏`max_tokens=2000` |
+| **V03** — העלות = Usage ב-Console | **ממתין לאביתר.** הצפוי: ‏**0.0943$**, ‏7 בקשות, ‏23,665 בקלט, ‏4,697 בפלט. בקוד שלושת המקורות זהים |
+| **V04** — שיעור ניסיונות המשוב | **7 מ-7 התקבלו בניסיון הראשון.** אף ניסיון משוב — ולכן אין נתון על כמה הם מצליחים. לפי R4, ‏"set attempts to 1" נשען על הנתון הזה, והוא חסר |
+
+**ממצאים לצ׳אט** (בנוסף לשלושה של שאלה 1: עלות, השער ב-75% מ-`max_tokens`, וזמן):
+4. **ניסוח של "highest" כשיש תיקו.** ‏"S-014 had the highest late count by delivery, 14. S-036 followed with 14" — לשניהם 14. **השער אישר.** כל ערך נכון, אבל "had the highest" ו-"followed" מרמזים על דירוג שהרשומות לא מראות. זה בדיוק מה שהשער אמור לבדוק: המילים סביב ההפניות. ‏**לא בודקים את זה בקוד** (לפי "Code does not read meaning"). ההצעה שלי: לבדוק את פרומפט השער (או הסינתזה) מול תיקו, בהכרעת הצ׳אט.
+5. **הזמן ירד:** ‏4–8 שניות לקריאה בשאלה 2, לעומת 15–24 בשאלה 1 (כ-21 שניות לשאלה, לעומת 63). כנראה הקריאה הראשונה אחרי עלייה, או עומס אצל הספק. לא בטוח.
+6. **השער בשאלה 2:** ‏970 טוקנים בפלט (בשאלה 1: ‏1,490). הסיכון שבממצא 2 תלוי במספר המשפטים.
+
+**הבא:** אביתר משווה ל-Usage ב-Console (V03). אחר כך הצ׳אט מחליט: דמו על המודל האמיתי או על המתוסרט, ומה עושים עם ממצאים 2 ו-4. אחרי זה ממלאים את V01–V04 ב-`constraints.py`, ו-PR של הענף מול `master`.
+
 ## מה שנסגר בסבב האחרון
 
 - **הקוד עבר לריפו** — `MedAgentPro\backend` (`query_assistance`, `model_client`, `persistence`, `shared`, `tests`). **`03_Code` נשאר כמקור ומעודכן.** `python -m pytest -q` מתוך `backend`
