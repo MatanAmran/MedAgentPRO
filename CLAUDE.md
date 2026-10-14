@@ -165,6 +165,7 @@ Evyatar pays for the model himself, with a total budget of **USD 10**. The code 
 - **NFR 21.** Text held in a record never reaches the rewriting call or the identifier check: the history gets free-text values as references (`Draft.answer(..., for_history=True)`), presented identifiers come from identifier columns only.
 - **Existence of an identifier** is checked where it is held (`references` in `schema.json`), so a supplier with no orders is "no records matched", not "absent".
 - **"Examined" is shown on every reading**, rendered in code. It is the only defence against a plan that used a plausible but wrong column (book 8.1).
+- **End-to-end tests share one server across engines (task 9, CI fix).** Every engine in a Playwright run talks to the same server and database, in order, so what one engine leaves behind (conversations, ratings) is there for the next. A test that assumes a starting state (an empty list, a count) takes that state from the server, never assumes it.
 - **Streaming:** stream stage progress, show the answer only after the gate (never unchecked model text).
 - **Readable names** in "Examined" are to be added to `demo_data/schema.json` (planned, task 4 or 7).
 - `project filles\03_Code` is frozen: it keeps the book's state (synthesis blocked). New work happens here only.
