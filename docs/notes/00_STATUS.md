@@ -2149,6 +2149,36 @@ exchange cost: attempt=EX-7668ca781ce9 usd=0.047456 remaining=1.905700
 - העלות והזמן.
 - **אם בתיקו מופיע "highest" ולא נדחה** — לעצור. לא שולחים את שאלה 3 לפני שהצ׳אט מחליט.
 
+### משימה 10א — **השרת במצב האמיתי, ו-preflight (14.10).** עצירה. **שום שאלה עוד לא נשלחה**
+
+- **לפני כן:** האילוץ של מפתח המיון הראשון נרשם ב-`CLAUDE.md` (‏`4b3299c`).
+- **השרת:** ‏`python -m main --real` ברקע, בלי `--reload`, תהליך 4232. הלוג בקובץ חדש ב-scratchpad.
+  - **שורות עם `Authorization`, ‏`x-api-key` או `sk-ant`: ‏0.**
+  - **שורות העלייה:**
+    ```
+    INFO:     Started server process [4232]
+    INFO:     Waiting for application startup.
+    INFO:     Application startup complete.
+    INFO:     Uvicorn running on http://127.0.0.1:8000 (Press CTRL+C to quit)
+    ```
+    ואחריהן רק `GET /api/health` ו-`GET /api/examples` של preflight, כולן 200.
+- **`python -m tools.preflight --real`:**
+  ```
+  ✅ demo database matches the schema
+  ✅ backend/.env is complete
+  ✅ model and prices agree with LiteLLM's map
+  ✅ audit chain key set
+  ✅ chat server answers, real model (claude-sonnet-5-5)
+  ❌ screen not answering at http://localhost:3000 (npm run build; npm run start)
+  ✅ examples: none on the real model, as expected
+  ⚠️ worst-case exchanges left in the budget: 7: enough for a smoke test, not for a demo
+  ✅ no question sent: on the real model it would cost
+  ```
+  - **❌ המסך — צפוי:** השאלות נשלחות דרך ה-API.
+  - **⚠️ 7:** ‏1.9057 / 0.25. כצפוי אחרי R9.
+  - **תיקון הקידוד עובד:** הפלט עבר ב-pipe בלי `PYTHONIOENCODING`, וה-✅ הודפס.
+- **הבא:** "Which suppliers were late in weeks 14 to 26?" — רק אחרי "כן" של אביתר.
+
 ## מה שנסגר בסבב האחרון
 
 - **הקוד עבר לריפו** — `MedAgentPro\backend` (`query_assistance`, `model_client`, `persistence`, `shared`, `tests`). **`03_Code` נשאר כמקור ומעודכן.** `python -m pytest -q` מתוך `backend`
