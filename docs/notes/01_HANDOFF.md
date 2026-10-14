@@ -38,7 +38,18 @@
 **הבא בצ׳אט:**
 1. ~~תחזוקת CI~~ — **הושלמה ומוזגה** (PR #5, ‏`312666d`).
 2. **לאביתר — בדיקה בעין:** 9 הצילומים בגווני אפור — כל מצב מזוהה בלי צבע
-3. **בדיקת העשן מול המודל האמיתי (R9) — הצעד הבא, מתוכנן בצ׳אט:** מפתח API נפרד (`medagentpro-demo`), ‏`backend\.env` שאביתר ממלא (`MODEL_ID=claude-sonnet-5-5`, בלי `MODEL_TEMPERATURE`, תקרה כוללת מתחת לקרדיט), ‏`MEDAGENTPRO_CHAIN_KEY`, ‏`python -m tools.preflight --real`, ואז שאלה אחת באישור אביתר. בודקים: הספק מקבל את 3 הסכמות (V01), בלי temperature (V02), העלות שנרשמה = Usage ב-Console (V03), שיעור ניסיונות המשוב (V04). **אחריה מחליטים:** דמו על המודל האמיתי או על המתוסרט
+3. **בדיקת העשן מול המודל האמיתי (R9) — בוצעה (14.10, 18:04–18:09). לסקירה בצ׳אט.** הפירוט המלא ב-`00_STATUS.md`, מ"R9 — שאלה 1 נשלחה" ועד "R9 — זמני התגובה":
+   - **שתי שאלות** (1, ואחריה שאלת ההמשך 2), שתיהן `answered` ונרשמו. 7 קריאות, כולן התקבלו בניסיון הראשון. **סך הכול 0.0943$** (0.046844 + 0.047456). ‏23,665 טוקנים בקלט, ‏4,697 בפלט.
+   - **V01 עבר** (3 הסכמות, אין 400) · **V02 עבר** (בלי temperature, ‏`max_tokens=2000`) · **V03 ממתין לאביתר** (Usage ב-Console) · **V04:** אף ניסיון משוב, ולכן אין נתון על ההצלחה שלו.
+   - **זמני התגובה:** שאלה 1 — **63.2 שניות** (intent 23.6, ‏synthesis 24.3, ‏gate 15.2). שאלה 2 — **20.8 שניות** (rewrite 4.2, ‏intent 5.4, ‏synthesis 3.7, ‏gate 7.5).
+   - **הזמן לא נבע מהמגבלות שלנו.** כמעט כל הזמן הוא זמן הספק, ובין הקריאות עוברות 4–16 אלפיות שנייה. מגבלת הקצב דוחה ולא מעכבת, בדיקת התקציב לוקחת מיקרו-שניות, ‏`max_tokens` לא הגיע לתקרה, ולא היו timeout, ‏retry או ניסיון משוב. הסיבה המבנית: השלבים רצים בזה אחר זה. ‏**שאלה 1 הייתה פי 3 איטית יותר באותו קוד** (33 לעומת 147 טוקנים לשנייה ב-intent): עומס אצל הספק, או הקריאה הראשונה אחרי עלייה.
+   - **לדיון בצ׳אט:**
+     - (א) דמו על המודל האמיתי או על המתוסרט.
+     - (ב) **20–60 שניות לשאלה בדמו.** שאלת חימום לפני שהלקוח מגיע (כ-0.05$)?
+     - (ג) **השער כתב 1,490 מתוך 2,000 טוקנים** בשאלה 1. אם יגיע לתקרה, התוצאה `request_not_completed`. להעלות את `MODEL_MAX_OUTPUT_TOKENS`, או לקצר את פלט השער?
+     - (ד) **תיקו שנוסח כדירוג:** ‏"S-014 had the highest… 14. S-036 followed with 14". השער אישר. לבדוק את פרומפט השער או הסינתזה.
+     - (ה) מילוי V01–V04 ב-`constraints.py`, ו-PR של `r9/smoke-test`.
+     - (ו) ממצא קטן: ‏preflight נופל ב-`UnicodeEncodeError` כשהפלט עובר ב-pipe בקונסולת Windows.
 4. **חזרה על הדמו** לפי `70_DEMO.md`
 5. **לאביתר לספר:** בקשת פעולה (הרחבה של FR 14) — שלושה שינויים מדויקים: משפט בסוף פסקת השער ב-4.9 ("…receives an offer to open an investigation instead." ← להוסיף: "A request to change records rather than read them retrieves nothing and receives a fixed statement that the assistant does not change records."), משפט שני ב-FR 14 ("Where a question asks to change records rather than read them, the system shall retrieve nothing and state that it does not change records."), וצעד רביעי במבחן 22 ("Pose a request to change a value held in the records, and read what is returned." / תוצאה: "The third changes nothing and retrieves nothing. What returns states that the assistant does not change records."). ובנוסף: גרש מעוגל `user’s` ב-4.9, ורענון תוכן העניינים
 
@@ -48,12 +59,16 @@
 
 `CLAUDE.md` נטען אוטומטית.
 
-**איפה העבודה עומדת (14.10, אחר הצהריים):**
-- **תחזוקת ה-CI הושלמה ומוזגה:** ‏PR #5, ‏`master` = ‏`312666d` ("Merge pull request #5 from MatanAmran/ci/maintenance"). ה-CI על `411dcfc` היה ירוק לפני המיזוג (ריצה #26: ‏`tests`, ‏`frontend`, ‏`stress`, ‏`e2e`).
-- **`ci/maintenance` נמחק** ב-GitHub ובמחשב, אחרי ש-`git log master..MedAgentPRO/ci/maintenance` יצא ריק.
-- **הענף:** ‏`r9/smoke-test`, מ-`master` (`312666d`). עליו רק commit של הערות (ההנחיות של 14:57, ‏`CLAUDE.md`, ה-handoff הזה). **מקומי, בלי push.**
-- **הבא: בדיקת העשן מול המודל האמיתי (R9).** **מתוכננת בצ׳אט. לא מתחילים בלי הנחיות ב-`00_STATUS.md`.** אין מפתח ואין קריאה למודל עד אז.
+**איפה העבודה עומדת (14.10, ערב):**
+- **הענף:** ‏`r9/smoke-test`, מ-`master` (`312666d`). **כל ה-commits מקומיים, בלי push.**
+- **הקוד בענף:**
+  - `f74aed7` — שורת `model call` לכל קריאה (`query_assistance/call_trace.py`) והתיקון של הערוץ התפעולי (`main.log_to_stdout`).
+  - `d9b393b` — אין בדיקה שקוראת את `.env`, ו-T12 עברה ל-`preflight --real`.
+  - **705 בדיקות עוברות.**
+- **בדיקת העשן (R9) בוצעה. השרת נעצר, והנעילה על `.model_spend.json` שוחררה** (0.0943$ נרשמו בקובץ).
+- **הבא:** אביתר בודק V03 ב-Console, ואז הסקירה בצ׳אט (ראו סעיף 3 למעלה). **בלי שאלה נוספת למודל בלי אישור אביתר.**
+- **`backend\.env` חסום לכלים של Code** (`.claude\settings.json`), ואסור להציג אותו גם ב-shell.
 
 **משפט פתיחה:**
 
-> קרא את `docs/notes/01_HANDOFF.md` (במיוחד "איפה העבודה עומדת") ואת הסעיף האחרון ב-`docs/notes/00_STATUS.md`. בדוק ב-`git log` וב-`git status` שהענף `r9/smoke-test` עומד כמו שכתוב. בדיקת העשן (R9) מתחילה רק לפי הנחיות מהצ׳אט ב-`00_STATUS.md`. בלי push ובלי קריאה למודל בלי אישור אביתר.
+> קרא את `docs/notes/01_HANDOFF.md` (במיוחד "איפה העבודה עומדת") ואת הסעיפים של R9 בסוף `docs/notes/00_STATUS.md`. בדוק ב-`git log` וב-`git status` שהענף `r9/smoke-test` עומד כמו שכתוב. בדיקת העשן כבר בוצעה. ממשיכים רק לפי הכרעות הצ׳אט ב-`00_STATUS.md`. בלי push ובלי קריאה למודל בלי אישור אביתר.
