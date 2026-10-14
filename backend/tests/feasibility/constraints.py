@@ -92,7 +92,11 @@ CONSTRAINTS: list[Constraint] = [
                "R1 · R9", result="confirmed",
                observed="R9, 14.10: all 7 calls sent no temperature (provider default) and max_tokens=2000, "
                         "per the model call line (00_STATUS, R9)"),
-    Constraint("V03", "live", "The cost recorded for one exchange matches Usage in the Console.", "R9"),
+    Constraint("V03", "live", "The cost recorded for one exchange matches Usage in the Console.", "R9",
+               result="confirmed",
+               observed="R9, 14.10: the tokens are the provider's own usage report on each response; priced at "
+                        "the card they give USD 0.0943, and the credit balance fell 3.82 -> 3.72, consistent at "
+                        "cent precision. Usage and the key's Last used showed nothing yet (reporting lag)"),
     Constraint("V04", "live", "Real outputs pass the checks often enough: the feedback attempt rate is measured.",
                "R4 · R9", result="partial",
                observed="R9, 14.10: 0/7, feedback success not yet observed. All 7 calls passed at the first "
