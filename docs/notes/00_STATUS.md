@@ -1383,6 +1383,14 @@ workflow ב-GitHub Actions · בדיקות Playwright, **על שלושת המנ�
 - **לפני ה-commit של ההערות:** להריץ `git diff --stat` ב-Windows ולוודא ש-`00_STATUS.md` מראה רק את השורות שנוספו (עשרות), ולא את כל הקובץ. הקובץ במחשב הוא CRLF והמאגר LF. אם כל הקובץ מסומן — לעצור ולרשום כאן, לא לעשות commit.
 - **אחר כך:** ממשיכים לסעיפים 4–6 של "אחרי מיזוג PR #4".
 
+**בוצע (14.10):**
+- **`task7/chat-screen`** נמחק ב-`git branch -D` (היה `a7f92c5`). **במחשב נשאר רק `master`, וב-GitHub רק `main` ו-`master`.**
+- **בדיקת ה-CRLF:** ‏`git diff --stat` מ-PowerShell הראה ב-`00_STATUS.md` רק 43 שורות שנוספו, לא את כל הקובץ.
+- **סעיף 4:**
+  - **`CLAUDE.md`:** סעיף חדש, "GitHub: branches and pull requests" — ‏PR מול `master` במפורש, `main` בדף הראשי, הבדיקה היומית ידנית, מחיקת ענפים אחרי מיזוג, ו-`git cherry` כש-`-d` מסרב. וגם שורת משימה 9: "done, merged in PR #4".
+  - **`01_HANDOFF.md`:** המצב עודכן — משימה 9 מוזגה, הענפים נוקו, ההשלכות של `main`. ההמשך: תחזוקת ה-CI.
+- **סעיף 5:** ה-commit של ההערות (`8a8b112`) על הענף `ci/maintenance`, ענף המשימה הבאה.
+
 ## מה שנסגר בסבב האחרון
 
 - **הקוד עבר לריפו** — `MedAgentPro\backend` (`query_assistance`, `model_client`, `persistence`, `shared`, `tests`). **`03_Code` נשאר כמקור ומעודכן.** `python -m pytest -q` מתוך `backend`
