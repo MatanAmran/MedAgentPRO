@@ -1,6 +1,6 @@
 # MedAgentPro — מפת המסלולים וההיתכנות
 
-**נוצר אוטומטית** ב-`python -m tools.path_map` (מתוך `backend\`), 14.10.2026 00:37. **לא לערוך ידנית** — המקור הוא `backend\tests\paths\registry.py` ו-`backend\tests\feasibility\constraints.py`.
+**נוצר אוטומטית** ב-`python -m tools.path_map` (מתוך `backend\`), 14.10.2026 18:17. **לא לערוך ידנית** — המקור הוא `backend\tests\paths\registry.py` ו-`backend\tests\feasibility\constraints.py`.
 
 **איך זה גדל:** `tests\paths\branches.py` קורא מהקוד ומהסכמות כל הסתעפות (מצב סיום, שלב, סוג כשל, `except`, הודעה, נקודת קצה, קוד HTTP, סוג פער, תפקיד). **הסתעפות בלי מסלול מפילה את `pytest`.** מגבלה שמתגלה (כמו הטמפרטורה) נכנסת כשורה ב-`constraints.py`, ושורה בלי בדיקה מפילה את `pytest`.
 
@@ -127,12 +127,12 @@
 | ✅ | L03 | logical | Every metric in schema.json compiles for every role, with entitlement applied. | NFR 17 · 40_CHAT §7 |
 | ✅ | L04 | logical | Every example in the intent prompt passes the same checks as real output. | 40_CHAT §15 · tests/demo_data/test_demo_prompt.py |
 | ✅ | L05 | logical | On the real-model path (budget, LiteLLM gateway, fake provider), every demo question fits the default per-exchange cap (USD 0.25) at Sonnet 5.5's prices; the largest needs about 0.135. | Task 9 · R7a · tools/fake_real_server.py |
-| ⏳ | V01 | live | The provider accepts the three reduced schemas (no 400). | R2 · R9 |
-| ⏳ | V02 | live | The provider accepts a request with no temperature and the configured max_tokens. | R1 · R9 |
+| ✅ | V01 | live | The provider accepts the three reduced schemas (no 400). **נצפה:** R9, 14.10: rewriting (question 2), synthesis and the gate (both) accepted, no 400 (00_STATUS, R9) | R2 · R9 |
+| ✅ | V02 | live | The provider accepts a request with no temperature and the configured max_tokens. **נצפה:** R9, 14.10: all 7 calls sent no temperature (provider default) and max_tokens=2000, per the model call line (00_STATUS, R9) | R1 · R9 |
 | ⏳ | V03 | live | The cost recorded for one exchange matches Usage in the Console. | R9 |
-| ⏳ | V04 | live | Real outputs pass the checks often enough: the feedback attempt rate is measured. | R4 · R9 |
+| ◐ | V04 | live | Real outputs pass the checks often enough: the feedback attempt rate is measured. **נצפה:** R9, 14.10: 0/7, feedback success not yet observed. All 7 calls passed at the first attempt; the sample is small, so no claim on a rate (chat, 18:20) | R4 · R9 |
 
-✅ עובר · ❌ נכשל · ⚠️ פער ידוע (xfail) · ⏭️ דולג (חסרה הטבלה של LiteLLM בסביבה) · ⏳ רק מול המודל האמיתי, בבדיקת העשן (R9)
+✅ עובר · ❌ נכשל · ⚠️ פער ידוע (xfail) · ⏭️ דולג (חסרה הטבלה של LiteLLM בסביבה) · ⏳ רק מול המודל האמיתי, בבדיקת העשן (R9), עוד לא נבדק · ◐ נצפה בבדיקת העשן, אבל לא כל מה שנטען (למשל: אין עדיין שיעור)
 
 ## מבחני הספר ← הבדיקות
 

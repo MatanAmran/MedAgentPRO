@@ -200,6 +200,10 @@ def main(argv: list[str] | None = None) -> int:
     ap = argparse.ArgumentParser(prog="python -m tools.preflight")
     ap.add_argument("--real", action="store_true", help="the real model: also .env, the map and the budget left")
     args = ap.parse_args(argv)
+    # ✅ ⚠️ ❌ on a Windows console whose code page has none of them (cp1255 here), or through a pipe
+    reconfigure = getattr(sys.stdout, "reconfigure", None)
+    if reconfigure is not None:
+        reconfigure(encoding="utf-8")
     checks = run("real" if args.real else "scripted")
     for c in checks:
         print(c)

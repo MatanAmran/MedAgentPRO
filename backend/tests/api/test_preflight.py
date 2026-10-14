@@ -3,8 +3,10 @@ The checks before a demo (task 9, review addition 3): each one passes on a ready
 what to do, on a broken one. The HTTP goes to the app in process; no server, no model, no network.
 """
 
+import io
 import shutil
 import sqlite3
+import sys
 
 import pytest
 from fastapi.testclient import TestClient
@@ -99,3 +101,15 @@ def test_worst_case_exchanges_left_fail_warn_or_pass(left, ok, warn, says):
 
 def test_an_unreported_budget_fails():
     assert not pf.check_worst_case_left(None, CAP).ok
+
+
+def test_the_marks_print_on_a_console_without_them(monkeypatch):
+    """R9: printed through a pipe on a cp1255 console, ✅ raised UnicodeEncodeError before the fix."""
+    raw = io.BytesIO()
+    monkeypatch.setattr(sys, "stdout", io.TextIOWrapper(raw, encoding="cp1255"))
+    monkeypatch.setattr(pf, "run", lambda mode: [pf.Check(True, "a"), pf.Check(True, "b", warn=True),
+                                                 pf.Check(False, "c")])
+    assert pf.main([]) == 1
+    sys.stdout.flush()
+    out = raw.getvalue().decode("utf-8")
+    assert "✅ a" in out and "⚠️ b" in out and "❌ c" in out

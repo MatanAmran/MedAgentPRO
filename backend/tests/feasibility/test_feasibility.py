@@ -390,6 +390,16 @@ def test_every_constraint_has_a_check_and_every_check_a_constraint():
     assert len(ids) == len(set(ids))
 
 
+def test_a_live_row_records_what_the_smoke_test_saw_and_only_a_live_row_does():
+    """R9: a live row marked confirmed or partial says what was observed; a row not yet run says nothing."""
+    for c in CONSTRAINTS:
+        if c.kind != "live":
+            assert not c.result and not c.observed, c.id
+            continue
+        assert c.result in ("", "confirmed", "partial"), c.id
+        assert bool(c.result) == bool(c.observed), c.id
+
+
 def test_L05_every_demo_question_fits_the_default_cap_on_the_real_path(db_path, tmp_path):
     """Task 9: found while building the fake provider. The largest demo question (30 rows) reserves
     about USD 0.135 for its worst path; the demo's default cap is 0.25. Tighten the cap, or grow a

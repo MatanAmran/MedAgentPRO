@@ -13,6 +13,9 @@ kind:  technical  a provider or library limit
        logical    the design holding together on the demo data
        live       only the real model can confirm it (R9)
 needs: map        needs LiteLLM's local model map of the pinned version (skipped where it is absent)
+
+A live row records what the smoke test saw: `observed` says what, when and where it is written up, and
+`result` is "confirmed", "partial" (seen, but not all it claims) or "" (not yet run against the model).
 """
 
 from __future__ import annotations
@@ -27,6 +30,8 @@ class Constraint:
     statement: str
     source: str
     needs: str = ""
+    result: str = ""      # live rows only: confirmed | partial | "" (not yet)
+    observed: str = ""    # live rows only: what the smoke test saw
 
 
 CONSTRAINTS: list[Constraint] = [
@@ -79,10 +84,17 @@ CONSTRAINTS: list[Constraint] = [
                "default per-exchange cap (USD 0.25) at Sonnet 5.5's prices; the largest needs about 0.135.",
                "Task 9 · R7a · tools/fake_real_server.py"),
     # --- live: only the real model can confirm (R9) -------------------------------------------
-    Constraint("V01", "live", "The provider accepts the three reduced schemas (no 400).", "R2 · R9"),
+    Constraint("V01", "live", "The provider accepts the three reduced schemas (no 400).", "R2 · R9",
+               result="confirmed",
+               observed="R9, 14.10: rewriting (question 2), synthesis and the gate (both) accepted, no 400 "
+                        "(00_STATUS, R9)"),
     Constraint("V02", "live", "The provider accepts a request with no temperature and the configured max_tokens.",
-               "R1 · R9"),
+               "R1 · R9", result="confirmed",
+               observed="R9, 14.10: all 7 calls sent no temperature (provider default) and max_tokens=2000, "
+                        "per the model call line (00_STATUS, R9)"),
     Constraint("V03", "live", "The cost recorded for one exchange matches Usage in the Console.", "R9"),
     Constraint("V04", "live", "Real outputs pass the checks often enough: the feedback attempt rate is measured.",
-               "R4 · R9"),
+               "R4 · R9", result="partial",
+               observed="R9, 14.10: 0/7, feedback success not yet observed. All 7 calls passed at the first "
+                        "attempt; the sample is small, so no claim on a rate (chat, 18:20)"),
 ]
