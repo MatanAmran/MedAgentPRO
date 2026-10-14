@@ -1535,6 +1535,12 @@ workflow ב-GitHub Actions · בדיקות Playwright, **על שלושת המנ�
 - **מה לא ראיתי:** מספר בדיקות ה-stress ב-CI. הלוג המלא דורש התחברות ל-GitHub, ו-Code קרא רק את ה-API הציבורי. במחשב: 8.
 - **הבא:** מיזוג PR #5 (‏"Create a merge commit"), ואחריו מחיקת `ci/maintenance` ב-GitHub ובמחשב, לפי `CLAUDE.md`. **ה-commit של ההערות האלה מקומי.** הוא יעבור ל-`master` ב-cherry-pick אחרי המיזוג, או ב-push נוסף לענף לפני המיזוג. אחת מהשתיים, לפי אביתר.
 
+**סקירה בצ׳אט (14.10, 14:40) — נבדק ישירות ב-GitHub, ‏PR #5 מאושר למיזוג.**
+- **הבסיס של PR #5 הוא `master`.** ריצה #25 ‏(`pull_request`): ‏`tests`, ‏`stress` ‏(1:30), ‏`frontend` ו-`e2e` — כולן success. ‏Playwright: ‏34 עברו ו-2 דולגו, ובמצב האמיתי 9. ריצה #24 ‏(push): אותו דבר, ו-`stress` דולגה כמתוכנן.
+- **"exit code 1" בעבודת `tests`** הוא mypy, שלא חוסם עד אחרי הדמו. זה צפוי.
+- **ה-commit של ההערות (`e7ca4af`): ‏push לענף לפני המיזוג, לא cherry-pick.** cherry-pick ל-`master` הוא commit ישיר על `master`, בלי PR, וזה בניגוד לכלל. אחרי ה-push מחכים שה-CI על ה-PR יהיה ירוק (כ-9 דקות), ורק אז אביתר ממזג. **גם הסקירה הזו נכנסת לאותו push.**
+- **אחרי המיזוג:** למחוק את `ci/maintenance` ב-GitHub ובמחשב, ולעדכן את `01_HANDOFF.md`. הצעד הבא לפי ה-handoff הוא בדיקת העשן מול המודל האמיתי (R9). **לא להתחיל אותה בלי הנחיות מהצ׳אט.**
+
 ## מה שנסגר בסבב האחרון
 
 - **הקוד עבר לריפו** — `MedAgentPro\backend` (`query_assistance`, `model_client`, `persistence`, `shared`, `tests`). **`03_Code` נשאר כמקור ומעודכן.** `python -m pytest -q` מתוך `backend`
