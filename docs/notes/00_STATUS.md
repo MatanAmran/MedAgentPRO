@@ -1729,6 +1729,46 @@ workflow ב-GitHub Actions · בדיקות Playwright, **על שלושת המנ�
   - **הבדיקה ב-pytest נשארת על ברירות המחדל שבקוד** (היחס שם ≥ 10), כמו היום.
 - **commit לשני השינויים, ו-`pytest` מלא.** אחר כך **מאושר:** `python -m main --real` ברקע, לפי התוכנית, ואז `python -m tools.preflight --real`, **ועצירה ודיווח כאן.** בדיווח: כל שורה של preflight (✅/⚠️/❌), ושורות הלוג של עליית השרת. **שום שאלה עד "כן" של אביתר.**
 
+### R9 — **השרת עלה במצב האמיתי, ו-preflight רץ (14.10).** עצירה. **שום שאלה עוד לא נשלחה**
+
+**לפני כן — ההכרעות של 17:50 בוצעו:**
+- **`d9b393b`:**
+  - `tests/feasibility` רצות על ברירות המחדל שבקוד בלבד.
+  - חיפוש של `dotenv_values` ו-`ENV_FILE` תחת `tests`: אין בדיקה אחרת שקוראת את `backend\.env`. ההופעות האחרות הן קובץ זמני או `monkeypatch`.
+  - **T12 עברה ל-`preflight --real`:** מספר השאלות במקרה הגרוע שעוד נכנסות בתקציב, בלי סכום. ❌ מתחת ל-1, ‏⚠️ מתחת ל-15. ל-`Check` נוסף מצב אזהרה, והוא לא מכשיל את הריצה.
+  - 4 בדיקות חדשות. ‏**705 עברו**, על העץ שנכנס ל-commit. ‏ruff ו-bandit נקיים.
+- **`201ae3e`:** ‏`CLAUDE.md` — תיקון הערוץ התפעולי (עד `f74aed7` שורות `INFO` לא הגיעו לשום מקום), ושאין בדיקה שקוראת את `.env`.
+
+**עליית השרת:** ‏`python -m main --real`, ברקע, בלי `--reload`. ‏stdout ו-stderr לקובץ ב-scratchpad של Code, מחוץ לריפו.
+- **שורות עם `Authorization`, ‏`x-api-key` או `sk-ant` בלוג: 0.**
+- **שורות הלוג בעלייה (הכול):**
+  ```
+  INFO:     Started server process [10032]
+  INFO:     Waiting for application startup.
+  INFO:     Application startup complete.
+  INFO:     Uvicorn running on http://127.0.0.1:8000 (Press CTRL+C to quit)
+  ```
+  ואחריהן רק בקשות `GET /api/health` ו-`GET /api/examples` של preflight, כולן 200.
+- **אין שורת `model call` ואין `exchange cost`**, כי לא נשלחה שאלה. אין אזהרה על מפתח השרשרת: היא מופיעה רק במצב המתוסרט.
+
+**`python -m tools.preflight --real` (קוד יציאה 1, בגלל המסך):**
+```
+✅ demo database matches the schema
+✅ backend/.env is complete
+✅ model and prices agree with LiteLLM's map
+✅ audit chain key set
+✅ chat server answers, real model (claude-sonnet-5-5)
+❌ screen not answering at http://localhost:3000 (npm run build; npm run start)
+✅ examples: none on the real model, as expected
+⚠️ worst-case exchanges left in the budget: 8: enough for a smoke test, not for a demo
+✅ no question sent: on the real model it would cost
+```
+- **❌ המסך — צפוי.** לפי ההכרעה של 15:30, השאלות נשלחות דרך ה-API, והמסך לא הופעל.
+- **⚠️ ‏8 שאלות במקרה הגרוע** — לפי התקציב לבדיקת העשן. כצפוי: היחס בין התקציב לתקרת השאלה.
+- **ממצא קטן (לא מתוקן):** כשהפלט של preflight עובר ב-pipe בקונסולה של Windows (cp1255), ההדפסה של ✅ נכשלת ב-`UnicodeEncodeError`. **ההרצה הראשונה שלי נפלה על זה,** והשנייה רצה עם `PYTHONIOENCODING=utf-8`. בטרמינל עצמו זה כנראה לא קורה. **ההצעה:** ‏`sys.stdout.reconfigure(encoding="utf-8")` ב-`preflight.main`, אחרי R9.
+
+**המצב עכשיו:** השרת עדיין רץ במצב האמיתי (תהליך 10032), ומחזיק את הנעילה על `.model_spend.json`. **שאלה 1 תישלח רק אחרי "כן" של אביתר בשיחה.** אם לא ממשיכים — עוצרים את השרת, ומוודאים שהנעילה שוחררה.
+
 ## מה שנסגר בסבב האחרון
 
 - **הקוד עבר לריפו** — `MedAgentPro\backend` (`query_assistance`, `model_client`, `persistence`, `shared`, `tests`). **`03_Code` נשאר כמקור ומעודכן.** `python -m pytest -q` מתוך `backend`
