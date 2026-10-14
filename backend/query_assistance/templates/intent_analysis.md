@@ -1,6 +1,6 @@
 ---
 prompt: intent_analysis
-version: 3
+version: 4
 output_schema: intent_analysis
 ---
 You plan which records answer a question about supply-chain data. You do not write a query. You fill a structured plan, and code builds the query from it.
@@ -24,7 +24,7 @@ Tables, relations and metrics:
 Examples:
 
 Question: Which suppliers were late more than three times in weeks 1 to 13?
-Output: {"disposition": "retrieve", "ambiguous": [{"term": "late", "alternatives": [{"metric": "late_by_delivery"}, {"metric": "late_by_promise"}]}], "readings": [{"label": "late_by_delivery", "plan": {"SELECT": [{"expr": {"col": "commitments.supplier_id"}, "as": "supplier_id"}, {"expr": {"func": "COUNT", "arg": "*"}, "as": "late_count"}], "FROM": "commitments", "WHERE": {"AND": [{"BETWEEN": [{"col": "commitments.week"}, {"value": 1}, {"value": 13}]}, {"EQ": [{"metric": "late_by_delivery"}, {"value": true}]}]}, "GROUP_BY": ["supplier_id"], "HAVING": [{"agg": "late_count", "op": "GT", "value": 3}], "ORDER_BY": [{"by": "late_count", "dir": "DESC"}]}}, {"label": "late_by_promise", "plan": {"SELECT": [{"expr": {"col": "commitments.supplier_id"}, "as": "supplier_id"}, {"expr": {"func": "COUNT", "arg": "*"}, "as": "late_count"}], "FROM": "commitments", "WHERE": {"AND": [{"BETWEEN": [{"col": "commitments.week"}, {"value": 1}, {"value": 13}]}, {"EQ": [{"metric": "late_by_promise"}, {"value": true}]}]}, "GROUP_BY": ["supplier_id"], "HAVING": [{"agg": "late_count", "op": "GT", "value": 3}], "ORDER_BY": [{"by": "late_count", "dir": "DESC"}]}}]}
+Output: {"disposition": "retrieve", "ambiguous": [{"term": "late", "alternatives": [{"metric": "late_by_delivery"}, {"metric": "late_by_promise"}]}], "readings": [{"label": "late_by_delivery", "plan": {"SELECT": [{"expr": {"col": "commitments.supplier_id"}, "as": "supplier_id"}, {"expr": {"func": "COUNT", "arg": "*"}, "as": "late_count"}], "FROM": "commitments", "WHERE": {"AND": [{"BETWEEN": {"col": "commitments.week", "from": {"value": 1}, "to": {"value": 13}}}, {"EQ": [{"metric": "late_by_delivery"}, {"value": true}]}]}, "GROUP_BY": ["supplier_id"], "HAVING": [{"agg": "late_count", "op": "GT", "value": 3}], "ORDER_BY": [{"by": "late_count", "dir": "DESC"}]}}, {"label": "late_by_promise", "plan": {"SELECT": [{"expr": {"col": "commitments.supplier_id"}, "as": "supplier_id"}, {"expr": {"func": "COUNT", "arg": "*"}, "as": "late_count"}], "FROM": "commitments", "WHERE": {"AND": [{"BETWEEN": {"col": "commitments.week", "from": {"value": 1}, "to": {"value": 13}}}, {"EQ": [{"metric": "late_by_promise"}, {"value": true}]}]}, "GROUP_BY": ["supplier_id"], "HAVING": [{"agg": "late_count", "op": "GT", "value": 3}], "ORDER_BY": [{"by": "late_count", "dir": "DESC"}]}}]}
 
 Question: What is on hand for P-11862, and where is it shelved?
 Output: {"disposition": "retrieve", "readings": [{"label": "on_hand", "plan": {"SELECT": [{"expr": {"col": "parts.part_id"}, "as": "part_id"}, {"expr": {"col": "parts.on_hand"}, "as": "on_hand"}], "FROM": "parts", "WHERE": {"EQ": [{"col": "parts.part_id"}, {"value": "P-11862"}]}}}], "unresolved": [{"asked": "where is it shelved", "needs": {"kind": "no_such_column", "entity": "parts"}}]}

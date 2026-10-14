@@ -31,11 +31,11 @@ LATE = {"label": "late", "plan": {
     "SELECT": [{"expr": {"col": "commitments.supplier_id"}, "as": "supplier_id"},
                {"expr": {"func": "COUNT", "arg": "*"}, "as": "late_count"}],
     "FROM": "commitments",
-    "WHERE": {"AND": [{"BETWEEN": [{"col": "commitments.week"}, {"value": 1}, {"value": 13}]},
+    "WHERE": {"AND": [{"BETWEEN": {"col": "commitments.week", "from": {"value": 1}, "to": {"value": 13}}},
                       {"EQ": [{"metric": "late_by_delivery"}, {"value": True}]}]},
     "GROUP_BY": ["supplier_id"], "ORDER_BY": [{"by": "late_count", "dir": "DESC"}], "LIMIT": 5}}
 PROMISE = {"label": "promise", "plan": dict(LATE["plan"], WHERE={"AND": [
-    {"BETWEEN": [{"col": "commitments.week"}, {"value": 1}, {"value": 13}]},
+    {"BETWEEN": {"col": "commitments.week", "from": {"value": 1}, "to": {"value": 13}}},
     {"EQ": [{"metric": "late_by_promise"}, {"value": True}]}]})}
 INTENT = {"disposition": "retrieve", "readings": [LATE]}
 TWO = {"disposition": "retrieve", "ambiguous": [{"term": "late", "alternatives": [

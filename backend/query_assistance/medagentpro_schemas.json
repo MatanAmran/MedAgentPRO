@@ -486,14 +486,17 @@
                 ],
                 "properties": {
                   "IN": {
-                    "type": "array",
-                    "minItems": 2,
-                    "maxItems": 2,
-                    "prefixItems": [
-                      {
-                        "$ref": "#/$defs/col"
+                    "type": "object",
+                    "additionalProperties": false,
+                    "required": [
+                      "col",
+                      "values"
+                    ],
+                    "properties": {
+                      "col": {
+                        "$ref": "#/$defs/qualified"
                       },
-                      {
+                      "values": {
                         "type": "array",
                         "minItems": 1,
                         "maxItems": 20,
@@ -501,8 +504,8 @@
                           "$ref": "#/$defs/value"
                         }
                       }
-                    ],
-                    "items": false
+                    },
+                    "$comment": "[15.10] An object, not a tuple: Anthropic's structured outputs do not enforce prefixItems, and LiteLLM 1.105 drops prefixItems but keeps items: false, which leaves an array that must be empty. An object with every field required is enforced by any provider (00_STATUS, task 10a, chat 01:40)."
                   }
                 }
               },
@@ -514,21 +517,25 @@
                 ],
                 "properties": {
                   "BETWEEN": {
-                    "type": "array",
-                    "minItems": 3,
-                    "maxItems": 3,
-                    "prefixItems": [
-                      {
-                        "$ref": "#/$defs/col"
+                    "type": "object",
+                    "additionalProperties": false,
+                    "required": [
+                      "col",
+                      "from",
+                      "to"
+                    ],
+                    "properties": {
+                      "col": {
+                        "$ref": "#/$defs/qualified"
                       },
-                      {
+                      "from": {
                         "$ref": "#/$defs/value"
                       },
-                      {
+                      "to": {
                         "$ref": "#/$defs/value"
                       }
-                    ],
-                    "items": false
+                    },
+                    "$comment": "[15.10] An object, not a tuple: Anthropic's structured outputs do not enforce prefixItems, and LiteLLM 1.105 drops prefixItems but keeps items: false, which leaves an array that must be empty. An object with every field required is enforced by any provider (00_STATUS, task 10a, chat 01:40). Both ends included, as SQL BETWEEN."
                   }
                 }
               },

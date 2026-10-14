@@ -59,7 +59,8 @@ def test_the_ordering_field_comes_from_the_plan_that_ran():
 
 Q = "Which suppliers were late in weeks 14 to 26?"
 LATE_14_26 = copy.deepcopy(LATE)
-LATE_14_26["plan"]["WHERE"]["AND"][0] = {"BETWEEN": [{"col": "commitments.week"}, {"value": 14}, {"value": 26}]}
+LATE_14_26["plan"]["WHERE"]["AND"][0] = {"BETWEEN": {"col": "commitments.week",
+                                                       "from": {"value": 14}, "to": {"value": 26}}}
 INTENT = {"disposition": "retrieve", "readings": [LATE_14_26]}
 @pytest.fixture
 def storage():

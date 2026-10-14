@@ -79,7 +79,7 @@ case("intent_analysis", "aggregate with group by and having",
      intent([{"label": "late_by_supplier", "plan": plan(
          SELECT=[{"expr": {"col": "commitments.supplier_id"}, "as": "supplier_id"},
                  {"expr": {"func": "COUNT", "arg": "*"}, "as": "late_count"}],
-         WHERE={"BETWEEN": [{"col": "commitments.week"}, {"value": 1}, {"value": 13}]},
+         WHERE={"BETWEEN": {"col": "commitments.week", "from": {"value": 1}, "to": {"value": 13}}},
          GROUP_BY=["supplier_id"],
          HAVING=[{"agg": "late_count", "op": "GT", "value": 3}],
          ORDER_BY=[{"by": "late_count", "dir": "DESC"}],
@@ -165,7 +165,7 @@ case("intent_analysis", "JOIN carrying its own condition",
 
 case("intent_analysis", "subquery in IN",
      intent([{"label": "r", "plan": plan(
-         WHERE={"IN": [{"col": "commitments.item_id"}, {"SELECT": []}]})}]),
+         WHERE={"IN": {"col": "commitments.item_id", "values": {"SELECT": []}}})}]),
      False, "Subqueries are outside the permitted subset.")
 
 case("intent_analysis", "predicate nested three deep",

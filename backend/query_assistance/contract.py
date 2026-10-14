@@ -101,10 +101,10 @@ def _predicate(node: dict, cat: Catalog) -> str:
                 return _metric_phrase(m["metric"], cat, negate=(v["value"] is False) != (op == "NE"))
         return f"{_operand(a, cat)} {CMP[op]} {_operand(b, cat)}"
     if op == "IN":
-        vals = ", ".join(_operand(v, cat) for v in arg[1])
-        return f"{_column(arg[0]['col'], cat)} in ({vals})"
+        vals = ", ".join(_operand(v, cat) for v in arg["values"])
+        return f"{_column(arg['col'], cat)} in ({vals})"
     if op == "BETWEEN":
-        return f"{_column(arg[0]['col'], cat)} between {_operand(arg[1], cat)} and {_operand(arg[2], cat)}"
+        return f"{_column(arg['col'], cat)} between {_operand(arg['from'], cat)} and {_operand(arg['to'], cat)}"
     if op == "IS_NULL":
         return f"{_column(arg['col'], cat)} not recorded"
     if op == "IS_NOT_NULL":

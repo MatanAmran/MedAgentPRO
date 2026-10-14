@@ -364,18 +364,18 @@ class _ReadingCompiler:
             elif not _types_match(a.type, b.type):
                 self.fail("type_mismatch", f"{op} compares {a.type} with {b.type}.")
             return f"{a.sql} {CMP_SQL[op]} {b.sql}", a.params + b.params
-        if op == "IN":
-            c = self.col(arg[0]["col"])
-            vals = [v["value"] for v in arg[1]]
+        if op == "IN":   # an object, not a tuple (task 10a, 15.10): {"col", "values"}
+            c = self.col(arg["col"])
+            vals = [v["value"] for v in arg["values"]]
             for v in vals:
                 self._check_literal(c, v, "IN")
             self._note_named(c, vals)
             if top:
                 self._note_identity(c, vals)
             return f"{c.sql} IN ({', '.join('?' for _ in vals)})", vals
-        if op == "BETWEEN":
-            c = self.col(arg[0]["col"])
-            lo, hi = arg[1]["value"], arg[2]["value"]
+        if op == "BETWEEN":   # an object, not a tuple (task 10a, 15.10): {"col", "from", "to"}
+            c = self.col(arg["col"])
+            lo, hi = arg["from"]["value"], arg["to"]["value"]
             self._check_literal(c, lo, "BETWEEN")
             self._check_literal(c, hi, "BETWEEN")
             self._note_named(c, [lo, hi])

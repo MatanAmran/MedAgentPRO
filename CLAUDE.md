@@ -176,6 +176,7 @@ The remote is `MedAgentPRO` (`github.com/MatanAmran/MedAgentPRO`, Matan's reposi
 ## Decisions in force (details in `docs/notes/40_CHAT.md`)
 
 - **The model never writes a query.** It fills a plan (schema 1); `compiler.py` validates it, injects entitlement and LIMIT, and builds parameterised SQL.
+  - **No tuple in any stage schema (15.10).** `BETWEEN` and `IN` are objects (`{"col", "from", "to"}`, `{"col", "values"}`): Anthropic does not enforce `prefixItems`, and LiteLLM 1.105 drops it but keeps `items: false`. `tests/query_assistance/test_provider_enforced.py` holds every valid output in the set against what the provider would enforce, in both reduced forms.
 - **The model never writes a value.** Synthesis writes text with symbolic references `{label.alias#row}`; code fills them (book 4.9, [25]). No digit outside a reference unless the question holds that token. Whether the words around references are true is the gate's job, not code's.
 - **Code does not read meaning.** Do not add word-list heuristics over model text. Constrain the shape of model output instead.
   - **Text we wrote is not model text (task 10a, chat 14.10, 21:50).** A word list may check the scripted answers in `demo_data/scripted_exchanges.json` (`tests/demo_data/test_scripted_places.py`: no place word between rows tied on the ordering field). Never extend it to model output: there the gate judges the words.
@@ -214,7 +215,7 @@ On Evyatar's machine an Application Control policy blocks `.exe` files in the ve
 # Backend (from backend\, venv active)
 python -m pip install -r requirements.txt
 python -m demo_data.seed          # builds demo_data\demo.db
-python -m pytest -q               # the default run; 732 after task 10a (14.10)
+python -m pytest -q               # the default run; 780 after BETWEEN/IN as objects (15.10)
 python -m tools.path_map          # runs tests/paths and tests/feasibility, writes docs/notes/60_PATHS.md
 python -m query_assistance.dry_run   # prices two scripted exchanges at the .env prices, no model call, no key
 python -m query_assistance.dry_run --model claude-sonnet-5-5   # the same, prices from LiteLLM's local map, no .env

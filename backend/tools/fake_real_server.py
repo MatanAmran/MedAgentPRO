@@ -76,7 +76,7 @@ class FakeProvider:
     def __call__(self, **kwargs):
         prompt = kwargs["messages"][0]["content"]
         fmt = (kwargs.get("response_format") or {}).get("json_schema", {}).get("name")
-        identity = _BY_FORMAT.get(fmt, "intent_analysis_demo@3")
+        identity = _BY_FORMAT.get(fmt, "intent_analysis_demo@4")
         stage = identity.split("@")[0]
         with self._lock:
             if stage != "support_scoring":

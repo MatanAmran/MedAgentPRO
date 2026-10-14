@@ -34,7 +34,7 @@ def db(tmp_path_factory):
 
 
 def test_prompt_metadata():
-    assert PROMPT.output_schema == "intent_analysis" and PROMPT.identity == "intent_analysis_demo@3"
+    assert PROMPT.output_schema == "intent_analysis" and PROMPT.identity == "intent_analysis_demo@4"
     assert "—" not in PROMPT.body and "–" not in PROMPT.body
 
 

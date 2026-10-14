@@ -42,7 +42,7 @@ LATE = {"label": "late", "plan": {
     "SELECT": [{"expr": {"col": "commitments.supplier_id"}, "as": "supplier_id"},
                {"expr": {"func": "COUNT", "arg": "*"}, "as": "late_count"}],
     "FROM": "commitments",
-    "WHERE": {"AND": [{"BETWEEN": [{"col": "commitments.week"}, {"value": 1}, {"value": 13}]},
+    "WHERE": {"AND": [{"BETWEEN": {"col": "commitments.week", "from": {"value": 1}, "to": {"value": 13}}},
                       {"EQ": [{"metric": "late_by_delivery"}, {"value": True}]}]},
     "GROUP_BY": ["supplier_id"], "ORDER_BY": [{"by": "late_count", "dir": "DESC"}], "LIMIT": 5}}
 INTENT = {"disposition": "retrieve", "readings": [LATE]}
