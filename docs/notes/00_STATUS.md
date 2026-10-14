@@ -2224,6 +2224,60 @@ exchange cost: attempt=EX-cfe09a07b776 usd=0.050066 remaining=1.855634
 
 **המצב:** השרת רץ (תהליך 4232). **שאלה 3 תישלח רק אחרי "כן" של אביתר.** אין מניעה לפי תנאי העצירה. הממצא החדש רלוונטי לשאלה 3: כדאי לראות אם השער נשאר רחוק מ-2,000.
 
+### משימה 10א — **סקירה בצ׳אט (14.10, 22:40).** התיקו עבר. **מדידת הטוקנים הנסתרים לפני שאלה 3**
+
+- **התיקו: עבר.** ‏"S-014 and S-036 each had 14", ו-"followed" רק אחרי ערך שונה. ‏`claims=6` על 6 משפטים. **זה מה שהתבקש.**
+- **הממצא על הטוקנים — חשוב, והניתוח נכון.** היחס של כטוקן אחד לתו בשלושת השלבים לא מתאים לטקסט באנגלית. **לא קובעים מה הסיבה בלי מדידה** (חשיבה פנימית היא השערה סבירה, אבל לא היחידה).
+- **הכרעה: למדוד לפני שאלה 3.** שאלה 3 היא בדיוק המקרה שבו הפלט הנסתר עלול לדחוף את השער אל 2,000. בלי המדידה נראה רק מספר כולל, ולא נדע ממה הוא מורכב.
+  1. **לעצור את השרת.**
+  2. **לבדוק בלי קריאה למודל** מה LiteLLM 1.105 מחזיר ב-`usage` לספק `anthropic` (בקוד של LiteLLM, ובתשובה המזויפת בבדיקות): האם יש `completion_tokens_details.reasoning_tokens`, או שדה דומה, ואם `reasoning_content` או `thinking_blocks` מגיעים בתשובה.
+  3. **אם יש שדה מספרי — להוסיף לשורת `model call` ול-`CallTrace` את `reasoning_tokens`. מספר בלבד.** תוכן של חשיבה **לעולם לא** נרשם, לא נשמר ולא מוצג (NFR 21, ואין לו מקום בלוח). בדיקה שמוודאת את זה.
+  4. **לבדוק בקוד שלנו** אם נשלח פרמטר שמפעיל חשיבה (`thinking`, ‏`reasoning_effort`). **לא משנים אותו.** רק מדווחים מה נשלח ומה ברירת המחדל לפי LiteLLM.
+  5. **commit, השרת למעלה, ‏preflight — ועצירה.** ‏**שאלה 3 רק אחרי "כן" של אביתר.**
+- **אם אין שדה מספרי:** מדווחים ושולחים את שאלה 3 בלי המדידה. **ההחלטה אם לכבות או להגביל חשיבה לא מתקבלת עכשיו** — היא קודם תימדד.
+
+### משימה 10א — **מדידת טוקני החשיבה בוצעה (14.10, ‏`dddc506`). השרת עלה שוב, ו-preflight רץ.** עצירה לפני שאלה 3
+
+**1. השרת נעצר** לפני השינוי. פורט 8000 לא ענה, והנעילה על `.model_spend.json` שוחררה (סך הכול 0.144366$).
+
+**2. מה LiteLLM 1.105 מחזיר ל-`anthropic`** (נקרא בקוד, `llms/anthropic/chat/transformation.py`, ‏`_build_completion_token_details`, בלי קריאה למודל):
+- **`usage.completion_tokens_details.reasoning_tokens` — כן, שדה מספרי:**
+  - (א) מה שהספק מדווח: `usage.output_tokens_details.thinking_tokens`.
+  - (ב) אם אין דיווח אבל חזר טקסט חשיבה (`reasoning_content`): הערכה של LiteLLM מהטקסט.
+  - (ג) אם חזר בלוק thinking ריק, בלי מספר: `None`.
+  - (ד) אם לא הייתה חשיבה: `0`.
+- **`reasoning_content` ו-`thinking_blocks` עשויים להגיע בתשובה.** ‏**אנחנו לא קוראים אותם בכלל.**
+- **מה ייראה בפועל — לא ידוע עד ההרצה:** אם הספק מדווח `thinking_tokens`, נראה מספר. אם הוא מחזיר רק בלוק ריק (לפי LiteLLM, זו ברירת המחדל של adaptive thinking בלי `display`), נראה `-` (None).
+
+**3. נוסף לשורת `model call` ול-`CallTrace`: ‏`reasoning_tokens`** — מספר בלבד.
+- **בדיקה:** במסלול האמיתי עם ספק מזויף. התשובה מכילה גם `reasoning_content` וגם `thinking_blocks` עם מחרוזת מסומנת. **המחרוזת לא מופיעה בשום לוג** (כולל DEBUG), **לא ברשומת הביקורת ולא בתשובה.** המספר (70 מתוך 90) מופיע בשורה.
+- **תוכן החשיבה לא נרשם, לא נשמר ולא מוצג.** כך נרשם גם ב-`CLAUDE.md`.
+
+**4. מה אנחנו שולחים: לא `thinking` ולא `reasoning_effort`** — נבדק בקוד (`LiteLLMGateway.invoke`) ובבדיקה. לכן חלה ברירת המחדל של הספק.
+- **במפה של LiteLLM ל-`claude-sonnet-5-5`:** ‏`thinking_always_on: true`, ‏`supports_adaptive_thinking: true`, ‏`supports_reasoning: true`.
+- **לפי LiteLLM, מודל כזה "always thinks and rejects `thinking.type=disabled`".** כלומר אי אפשר לכבות חשיבה, רק לכוון אותה (effort).
+- **הטוקנים של החשיבה כלולים ב-`output_tokens`:** הם מחויבים כפלט (התקציב שלנו כבר סופר אותם נכון), **ונספרים מול `max_tokens`.**
+- **לא שיניתי שום פרמטר.**
+- **אילוץ חדש T15 ב-`constraints.py`,** עם בדיקה: המפה אומרת `thinking_always_on`, ואנחנו לא שולחים פרמטר חשיבה.
+
+**הריצה:** ‏**732 בדיקות עוברות** (3 חדשות). ‏ruff ו-bandit נקיים. ‏path_map נוצר מחדש.
+
+**5. השרת שוב למעלה** (תהליך 17488). אין שורות עם מפתח. אותן שורות עלייה כמו קודם.
+```
+✅ demo database matches the schema
+✅ backend/.env is complete
+✅ model and prices agree with LiteLLM's map
+✅ audit chain key set
+✅ chat server answers, real model (claude-sonnet-5-5)
+❌ screen not answering at http://localhost:3000 (npm run build; npm run start)
+✅ examples: none on the real model, as expected
+⚠️ worst-case exchanges left in the budget: 7: enough for a smoke test, not for a demo
+✅ no question sent: on the real model it would cost
+```
+(❌ המסך — צפוי. ⚠️ 7 = ‏1.8556 / 0.25.)
+
+**הבא:** שאלה 3, ‏"Which purchase orders were delivered late in September?" — **רק אחרי "כן" של אביתר.** בדיווח: ‏`output_tokens`, ‏`reasoning_tokens`, ‏`output_chars` ו-`claims` של השער, כמה רחוק מ-2,000, הנוסח, העלות והזמן.
+
 ## מה שנסגר בסבב האחרון
 
 - **הקוד עבר לריפו** — `MedAgentPro\backend` (`query_assistance`, `model_client`, `persistence`, `shared`, `tests`). **`03_Code` נשאר כמקור ומעודכן.** `python -m pytest -q` מתוך `backend`
