@@ -163,6 +163,8 @@ The remote is `MedAgentPRO` (`github.com/MatanAmran/MedAgentPRO`, Matan's reposi
 
 - `.claude/settings.json` (project root, gitignored, so local to this clone) denies `Read`, `Edit` and `Write` on `./backend/.env`. Checked: a `Read` is refused. In a new clone, recreate it.
 - The rule does not cover shell commands. Never display the file (`type`, `cat`, `Get-Content`, or anything else). Only `python -m tools.preflight --real` checks it, and it prints names only.
+- **A metadata-only line per model call on the operational channel** (`model call: exchange=… request=… stage=… attempt_number=… feedback_attempt=… check=… max_tokens=… temperature=…`), built from `query_assistance/call_trace.py` (`CallTrace`), the one source for these fields (the audit entry uses it; task 10's panel is to reuse it). It never holds the question, model output, a record value, a rejection message or the key; `check` is a kind or a class name. Operational, not a requirement in the book (chat, 14.10, 15:30). `main.log_to_stdout()` gives the channel a stdout handler at INFO.
+- `tests/feasibility/test_feasibility.py` reads non-secret names from `backend/.env`, and a failing assertion prints their values: run the suite with `--tb=no` while `.env` is filled (open question in `00_STATUS.md`, R9).
 
 ## Path map and feasibility (Claude chat, 13.10): a standing rule
 
@@ -209,7 +211,7 @@ On Evyatar's machine an Application Control policy blocks `.exe` files in the ve
 # Backend (from backend\, venv active)
 python -m pip install -r requirements.txt
 python -m demo_data.seed          # builds demo_data\demo.db
-python -m pytest -q               # the default run; 695 after the spend-file check (14.10)
+python -m pytest -q               # the default run; 701 after the R9 log line (14.10)
 python -m tools.path_map          # runs tests/paths and tests/feasibility, writes docs/notes/60_PATHS.md
 python -m query_assistance.dry_run   # prices two scripted exchanges at the .env prices, no model call, no key
 python -m query_assistance.dry_run --model claude-sonnet-5-5   # the same, prices from LiteLLM's local map, no .env
