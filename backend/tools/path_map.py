@@ -108,7 +108,27 @@ def render(results: dict[str, str]) -> str:
         lines.append(f"| {mark} | {c.id} | {c.kind} | {c.statement} | {c.source} |")
     lines += ["", "✅ עובר · ❌ נכשל · ⚠️ פער ידוע (xfail) · ⏭️ דולג (חסרה הטבלה של LiteLLM בסביבה) · "
               "⏳ רק מול המודל האמיתי, בבדיקת העשן (R9)", ""]
+    lines += book_section()
     return "\n".join(lines)
+
+
+def book_section() -> list[str]:
+    """Task 9: each of the book's tests for the chat and its screen, and the tests that answer it, read
+    from the tests themselves (tools/book_tests.py). A book test no test answers is marked ❌, and
+    tests/paths/test_registry.py fails on it."""
+    from tools.book_tests import BOOK_TESTS, coverage
+    cov = coverage()
+    out = ["## מבחני הספר ← הבדיקות", "",
+           "מבחני הצ׳אט והמסך מפרק 6 בספר, ומי עונה על כל אחד. **נקרא מהבדיקות עצמן:** בדיקה שכותבת "
+           "\"Test N\" בתיאור, בהערה או בכותרת שלה נחשבת עונה עליו.", "",
+           "| | מבחן | דרישה | מה הספר בודק | הבדיקות |", "|---|---|---|---|---|"]
+    for t in BOOK_TESTS:
+        where = cov.get(t.number, [])
+        mark = "⏳" if t.pending else ("✅" if where else "❌")
+        said = f"ממתין: {t.pending}" if t.pending else ("<br>".join(f"`{w}`" for w in where) or "**אין**")
+        out.append(f"| {mark} | {t.number} | {t.requirement} | {t.title} | {said} |")
+    out += ["", "✅ יש בדיקה שעונה עליו · ⏳ ממתין, ומה חסר · ❌ אין בדיקה", ""]
+    return out
 
 
 def main():

@@ -113,51 +113,23 @@ test("a rating is kept after a reload", async ({ page }) => {
   await expect(page.getByLabel("Rate up")).toHaveAttribute("aria-pressed", "true");
 });
 
+// One server serves every engine in a run, so PL-02 may already hold conversations from another engine's
+// run of the demo set (task 9, CI fix): the test checks that the approver's own conversation is not the
+// planner's, and that the planner's list on screen is the one the server holds for them, whatever it holds
 test("a planner's conversations are their own", async ({ page }) => {
+  const created = page.waitForResponse((r) => r.url().endsWith("/api/conversations") && r.request().method() === "POST");
   await ask(page, WHY);
+  const { conversation_id } = await (await created).json();
   await answered(page, 1);
+  const listed = async (user: string) =>
+    ((await (await page.request.get("http://127.0.0.1:8000/api/conversations", { headers: { "X-Demo-User": user } })).json()) as {
+      conversation_id: string;
+    }[]).map((c) => c.conversation_id);
+  expect(await listed("AP-01")).toContain(conversation_id);
+  const planners = await listed("PL-02");
+  expect(planners).not.toContain(conversation_id);
   await page.getByLabel("Demo user").selectOption("PL-02");
-  await expect(page.getByTestId("conversations").getByRole("button")).toHaveCount(0);
+  await expect(page.getByTestId("conversations").getByRole("button")).toHaveCount(planners.length);
+  await expect(page.getByTestId("thread").getByTestId("exchange")).toHaveCount(0);   // nothing of the approver's shown
   await expect(page.getByText("demo, no authentication")).toBeVisible();
-});
-
-// Task 8: the whole demo set, as the presenter runs it: each question from its example button, a
-// follow-up under the answer it follows, each ending as its script expects and showing what it is for
-type Example = { question: string; follows: string | null; outcome: string; shows: string[] };
-
-const SHOWN: Record<string, (last: import("@playwright/test").Locator) => Promise<void>> = {
-  two_readings: (x) => expect(x.getByTestId("reading")).toHaveCount(2),
-  one_reading: (x) => expect(x.getByTestId("reading")).toHaveCount(1),
-  understood_as: (x) => expect(x.getByTestId("understood-as")).toBeVisible(),
-  grouped: (x) => expect(x.getByTestId("reading-groups")).toBeVisible(),
-  gap: (x) => expect(x.getByTestId("gap")).toHaveCount(1),
-  recorded_reason: (x) => expect(x.getByTestId("reading")).toContainText("recorded as"),
-  referral: (x) => expect(x.getByRole("button", { name: "Open an investigation" })).toBeDisabled(),
-  no_match: (x) => expect(x.getByText("No records matched.")).toBeVisible(),
-  not_held: (x) => expect(x.getByTestId("reading-notice")).toContainText("does not appear in"),
-  withheld: (x) => expect(x.getByTestId("withheld")).toBeVisible(),
-  request_for_input: (x) => expect(x.getByTestId("request-for-input")).toBeVisible(),
-  action_declined: async (x) => {
-    await expect(x.getByTestId("notice")).toHaveText("This assistant reads records. It does not change them.");
-    await expect(x.getByTestId("rating")).toHaveCount(0);
-  },
-};
-
-test("the demo set: every example question ends as its script expects", async ({ page }) => {
-  test.setTimeout(180_000);
-  const examples: Example[] = await (await page.request.get("http://127.0.0.1:8000/api/examples")).json();
-  expect(examples.length).toBeGreaterThanOrEqual(12);
-  let asked = 0;
-  for (const e of examples) {
-    if (!e.follows) {
-      await page.getByRole("button", { name: "+ New conversation" }).click();
-      asked = 0;
-    }
-    await page.getByTestId("examples").getByRole("button", { name: e.question, exact: true }).click();
-    asked += 1;
-    await expect(page.getByTestId("exchange")).toHaveCount(asked, { timeout: 20_000 });
-    const last = page.getByTestId("exchange").last();
-    await expect(last, e.question).toHaveAttribute("data-outcome", e.outcome);
-    for (const s of e.shows) await SHOWN[s](last);
-  }
 });

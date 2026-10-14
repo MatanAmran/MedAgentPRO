@@ -108,10 +108,13 @@ jobs:
       - run: npm audit --omit=dev
 
   # End to end: the screen against the server on the scripted model (book 6.1: never a real model)
+  # Test 38 (NFR 22): every flow on Chromium, Firefox and WebKit, as both demo roles, on the built screen.
+  # Test 40 (NFR 24): keyboard alone, contrast on every state, and grayscale captures kept for review.
+  # Then the real-model path with a fake provider: no key, no network (backend/tools/fake_real_server.py)
   e2e:
     if: github.event_name != 'schedule'
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 40
     steps:
       - name: No API key in this environment
         working-directory: .
@@ -134,13 +137,26 @@ jobs:
           cache-dependency-path: frontend/package-lock.json
       - run: npm ci
         working-directory: frontend
-      - run: npx playwright install --with-deps chromium
+      - run: npx playwright install --with-deps chromium firefox webkit
         working-directory: frontend
-      - run: npx playwright test
+      - name: the scripted model, three engines
+        run: npx playwright test
         working-directory: frontend
+      - name: keep the grayscale captures (Test 40)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: grayscale
+          path: frontend/test-results/grayscale/
+          if-no-files-found: ignore
+          retention-days: 30
       - uses: actions/upload-artifact@v4
         if: failure()
         with:
           name: playwright-traces
           path: frontend/test-results/
           retention-days: 7
+      - name: the real-model path with a fake provider, three engines
+        if: ${{ !cancelled() }}   # runs even when the step before failed: the whole picture in one run
+        run: npx playwright test -c playwright.real.config.ts
+        working-directory: frontend

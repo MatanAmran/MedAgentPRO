@@ -74,6 +74,10 @@ CONSTRAINTS: list[Constraint] = [
                "NFR 17 · 40_CHAT §7"),
     Constraint("L04", "logical", "Every example in the intent prompt passes the same checks as real output.",
                "40_CHAT §15 · tests/demo_data/test_demo_prompt.py"),
+    Constraint("L05", "logical",
+               "On the real-model path (budget, LiteLLM gateway, fake provider), every demo question fits the "
+               "default per-exchange cap (USD 0.25) at Sonnet 5.5's prices; the largest needs about 0.135.",
+               "Task 9 · R7a · tools/fake_real_server.py"),
     # --- live: only the real model can confirm (R9) -------------------------------------------
     Constraint("V01", "live", "The provider accepts the three reduced schemas (no 400).", "R2 · R9"),
     Constraint("V02", "live", "The provider accepts a request with no temperature and the configured max_tokens.",

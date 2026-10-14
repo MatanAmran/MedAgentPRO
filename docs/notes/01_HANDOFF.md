@@ -12,7 +12,7 @@
 - **משימות 0–8 בנויות, נסקרו ומוזגו ל-`master`** (משימה 6 = שרת FastAPI עם SSE; משימה 7 = מסך הצ׳אט ב-Next.js; משימה 8 = סט שאלות הדמו). **670 בדיקות שרת, 62 Vitest, 9 Playwright** (`master` אחרי PR #3, ‏`3ec161f`)
 - **סט הבדיקות של צד השרת:** מפת מסלולים עם בדיקת שמירה · 18 בדיקות היתכנות · אבטחה · golden · עומס (`-m stress`) · property (`hypothesis`) · כלים (ruff, mypy, bandit, pip-audit, כיסוי 96%) · CI ב-`.github\workflows\tests.yml`, רץ ב-GitHub. באגים B1, G1–G3 נסגרו, G4 נרשם
 - **PR #1** (צד השרת), **PR #2** (המסך) ו-**PR #3** (סט השאלות) מוזגו ל-`master`. העבודה ממשיכה מ-`master`. CI רץ ב-GitHub על כל push ו-PR, בשלוש עבודות: `tests`, ‏`frontend`, ‏`e2e` (Playwright על המודל המתוסרט)
-- **הדמו:** `python -m main` מתוך `backend\`, ואז `npm run build` ו-`npm run start` מתוך `frontend\` (`CLAUDE.md`, ‏Commands). צילום מסך: `docs\notes\task7_screen.png`. **המסמך למציג:** `docs\notes\70_DEMO.md` — 12 השאלות לפי הסדר, מה כל אחת מראה, ומה לא מודגם. השאלות מופיעות במסך הריק ככפתורים (\"scripted examples\")
+- **הדמו:** `python -m main` מתוך `backend\`, ואז `npm run build` ו-`npm run start` מתוך `frontend\` (`CLAUDE.md`, ‏Commands). צילום מסך: `docs\notes\task7_screen.png`. **המסמך למציג:** `docs\notes\70_DEMO.md` — 12 השאלות לפי הסדר, מה כל אחת מראה, ומה לא מודגם. השאלות מופיעות במסך הריק ככפתורים ("scripted examples")
 - **hook לפני commit** (ruff ו-bandit על `backend\`) — לא ב-git. התקנה ב-`CLAUDE.md`, תחת Commands
 
 **הבא בצ׳אט:**

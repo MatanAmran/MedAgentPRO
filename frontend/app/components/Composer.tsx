@@ -18,7 +18,7 @@ export function Composer({ locked, onSend }: { locked: boolean; onSend: (q: stri
 
   return (
     <form
-      className="flex items-end gap-2 rounded-2xl border border-zinc-400 bg-white p-2 pl-4"
+      className="flex items-end gap-2 rounded-2xl border border-zinc-400 bg-white p-2 pl-4 focus-within:outline-2 focus-within:outline-offset-2 focus-within:outline-zinc-900"
       onSubmit={(e) => {
         e.preventDefault();
         send();
@@ -26,7 +26,7 @@ export function Composer({ locked, onSend }: { locked: boolean; onSend: (q: stri
     >
       <textarea
         aria-label="Question"
-        className="max-h-40 min-h-10 flex-1 resize-none bg-transparent py-2 text-zinc-900 outline-none placeholder:text-zinc-400"
+        className="max-h-40 min-h-10 flex-1 resize-none bg-transparent py-2 text-zinc-900 outline-none placeholder:text-zinc-500"
         placeholder="Ask a question about the data"
         rows={1}
         maxLength={MAX_QUESTION}

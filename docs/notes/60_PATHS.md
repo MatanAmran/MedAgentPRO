@@ -1,6 +1,6 @@
 # MedAgentPro — מפת המסלולים וההיתכנות
 
-**נוצר אוטומטית** ב-`python -m tools.path_map` (מתוך `backend\`), 13.10.2026 23:34. **לא לערוך ידנית** — המקור הוא `backend\tests\paths\registry.py` ו-`backend\tests\feasibility\constraints.py`.
+**נוצר אוטומטית** ב-`python -m tools.path_map` (מתוך `backend\`), 14.10.2026 00:37. **לא לערוך ידנית** — המקור הוא `backend\tests\paths\registry.py` ו-`backend\tests\feasibility\constraints.py`.
 
 **איך זה גדל:** `tests\paths\branches.py` קורא מהקוד ומהסכמות כל הסתעפות (מצב סיום, שלב, סוג כשל, `except`, הודעה, נקודת קצה, קוד HTTP, סוג פער, תפקיד). **הסתעפות בלי מסלול מפילה את `pytest`.** מגבלה שמתגלה (כמו הטמפרטורה) נכנסת כשורה ב-`constraints.py`, ושורה בלי בדיקה מפילה את `pytest`.
 
@@ -126,9 +126,34 @@
 | ✅ | L02 | logical | Every table a role is shown in the intent prompt is one it may read, and every table it may read is shown. | NFR 17 · prompts.visible_tables |
 | ✅ | L03 | logical | Every metric in schema.json compiles for every role, with entitlement applied. | NFR 17 · 40_CHAT §7 |
 | ✅ | L04 | logical | Every example in the intent prompt passes the same checks as real output. | 40_CHAT §15 · tests/demo_data/test_demo_prompt.py |
+| ✅ | L05 | logical | On the real-model path (budget, LiteLLM gateway, fake provider), every demo question fits the default per-exchange cap (USD 0.25) at Sonnet 5.5's prices; the largest needs about 0.135. | Task 9 · R7a · tools/fake_real_server.py |
 | ⏳ | V01 | live | The provider accepts the three reduced schemas (no 400). | R2 · R9 |
 | ⏳ | V02 | live | The provider accepts a request with no temperature and the configured max_tokens. | R1 · R9 |
 | ⏳ | V03 | live | The cost recorded for one exchange matches Usage in the Console. | R9 |
 | ⏳ | V04 | live | Real outputs pass the checks often enough: the feedback attempt rate is measured. | R4 · R9 |
 
 ✅ עובר · ❌ נכשל · ⚠️ פער ידוע (xfail) · ⏭️ דולג (חסרה הטבלה של LiteLLM בסביבה) · ⏳ רק מול המודל האמיתי, בבדיקת העשן (R9)
+
+## מבחני הספר ← הבדיקות
+
+מבחני הצ׳אט והמסך מפרק 6 בספר, ומי עונה על כל אחד. **נקרא מהבדיקות עצמן:** בדיקה שכותבת "Test N" בתיאור, בהערה או בכותרת שלה נחשבת עונה עליו.
+
+| | מבחן | דרישה | מה הספר בודק | הבדיקות |
+|---|---|---|---|---|
+| ✅ | 13 | NFR 6 | Retrieval parameters are validated before execution | `backend/tests/paths/registry.py: intent_fixed_by_feedback`<br>`backend/tests/paths/registry.py: intent_rejected_twice`<br>`backend/tests/query_assistance/test_compiler.py: test_limit_above_range_is_rejected_not_clamped`<br>`backend/tests/query_assistance/test_pipeline.py: test_rejected_plan_is_not_run_and_ends_as_request_not_completed`<br>`backend/tests/query_assistance/test_schemas.py: (the file)` |
+| ✅ | 16 | FR 11, FR 12, FR 13, NFR 4 | Answer from retrieved material, with attribution and rating | `backend/tests/paths/registry.py: server_rating`<br>`backend/tests/query_assistance/test_pipeline.py: test_rating_is_held_with_the_recorded_exchange`<br>`backend/tests/query_assistance/test_pipeline.py: test_rating_again_the_last_one_counts_and_each_stays_in_the_trail` |
+| ✅ | 17 | NFR 19, NFR 20 | An answer with no supported assertion is regenerated once and then replaced | `backend/tests/paths/registry.py: fresh_draft_then_nothing`<br>`backend/tests/paths/registry.py: redraft_then_nothing`<br>`backend/tests/query_assistance/test_contract.py: test_no_supported_assertion_replaces_the_records_and_names_the_readings`<br>`backend/tests/query_assistance/test_pipeline.py: test_no_supported_assertion_is_regenerated_once_then_replaced` |
+| ✅ | 21 | FR 13, NFR 3, NFR 4 | Traceability of an answered question | `backend/tests/paths/registry.py: answered_all_supported`<br>`backend/tests/query_assistance/test_pipeline.py: test_exchange_record_follows_the_declared_stage_order` |
+| ✅ | 22 | FR 14, NFR 20 | A question requiring interpretation is routed rather than answered | `backend/tests/paths/registry.py: referred`<br>`backend/tests/query_assistance/test_pipeline.py: test_question_asking_for_a_cause_is_referred`<br>`backend/tests/query_assistance/test_schemas.py: (the file)` |
+| ✅ | 23 | FR 15 | An unreachable source ends the exchange | `backend/tests/paths/registry.py: source_missing`<br>`backend/tests/query_assistance/test_pipeline.py: test_unreachable_source_is_not_recorded_but_is_logged_without_the_question` |
+| ✅ | 32 | FR 11, NFR 6 | A question carrying more than one reading is not answered by selecting one | `backend/tests/paths/registry.py: answered_two_readings`<br>`backend/tests/query_assistance/test_schemas.py: (the file)` |
+| ✅ | 33 | NFR 21 | Retrieved content does not redirect execution | `backend/tests/security/test_security.py: test_record_text_is_shown_but_never_steers_the_next_retrieval` |
+| ✅ | 34 | FR 11 | What was examined is presented with an answer | `backend/tests/paths/registry.py: answered_two_readings`<br>`backend/tests/query_assistance/test_contract.py: test_checked_reads_the_metric_as_its_business_term` |
+| ✅ | 35 | FR 11, FR 15 | A retrieval that matches no record is answered as such | `backend/tests/paths/registry.py: empty_result_no_synthesis`<br>`backend/tests/paths/registry.py: identifier_not_held`<br>`backend/tests/query_assistance/test_compiler.py: test_empty_with_known_identifier_is_no_match`<br>`backend/tests/query_assistance/test_pipeline.py: test_empty_result_is_an_answer_without_a_model_call`<br>`backend/tests/query_assistance/test_schemas.py: (the file)` |
+| ✅ | 38 | NFR 22 | User flows complete on each browser engine | `frontend/e2e/demo-set.spec.ts: (the file)` |
+| ⏳ | 39 | NFR 23 | Screens presenting stored content load within the configured time | ממתין: in the company's environment, with its records (task 9, B4) |
+| ✅ | 40 | NFR 24 | The interface is operable from the keyboard and does not depend on color | `frontend/e2e/demo-set.spec.ts: (the file)`<br>`frontend/e2e/demo-set.spec.ts: the demo set as ${role.user}: every question ends as that role`<br>`frontend/e2e/demo-set.spec.ts: the demo set from the keyboard alone (Test 40)`<br>`frontend/app/components/components.test.tsx: states are told apart by text, not colour (Test 40, task 9 B3)` |
+| ✅ | 44 | FR 25 | A follow-up question is answered under the question understood | `backend/tests/paths/registry.py: follow_up_rewritten`<br>`backend/tests/query_assistance/test_pipeline.py: test_follow_up_is_rewritten_and_shown_as_understood` |
+| ✅ | 45 | NFR 27 | An identifier from outside the conversation is not retrieved | `backend/tests/paths/registry.py: follow_up_identifier_not_in_conversation`<br>`backend/tests/query_assistance/test_pipeline.py: test_follow_up_is_rewritten_and_shown_as_understood`<br>`backend/tests/query_assistance/test_pipeline.py: test_identifier_introduced_by_the_rewrite_is_rejected` |
+
+✅ יש בדיקה שעונה עליו · ⏳ ממתין, ומה חסר · ❌ אין בדיקה

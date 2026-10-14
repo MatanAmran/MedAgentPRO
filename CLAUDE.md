@@ -45,7 +45,7 @@ When a decision is made in a session, record it in the relevant note (and here, 
 | 6 | FastAPI endpoint for the chat | done (12.10): `main.py`, `api/`, `demo_data/scripted*`; S1–S6 in `docs/notes/00_STATUS.md` |
 | 7 | Chat screen in Next.js, after Figure 15 of the book | done (13.10), merged in PR #2: `frontend/app`, `frontend/lib`, `frontend/e2e`; Q1–Q5, T7-B1 and the deviations from Figure 15 in `docs/notes/00_STATUS.md` |
 | 8 | Demo question set covering each behaviour | done (13.10), merged in PR #3: `demo_data/scripted_exchanges.json` (12 questions, each with `expect`), `out_of_scope_action` (A1), `GET /api/examples` and the examples on screen (A4), `docs/notes/70_DEMO.md` for the presenter |
-| 9 | End-to-end tests on the scripted model | open |
+| 9 | End-to-end tests on the scripted model | built (14.10), branch `task9/e2e`: both roles from golden, three engines in CI, keyboard, contrast (axe), grayscale captures; the real-model path with a fake provider; `tools/preflight.py`; the book-test table in `60_PATHS.md` |
 
 ## Task 4 decisions (settled in the Claude chat, 12.10)
 
@@ -165,6 +165,7 @@ Evyatar pays for the model himself, with a total budget of **USD 10**. The code 
 - **NFR 21.** Text held in a record never reaches the rewriting call or the identifier check: the history gets free-text values as references (`Draft.answer(..., for_history=True)`), presented identifiers come from identifier columns only.
 - **Existence of an identifier** is checked where it is held (`references` in `schema.json`), so a supplier with no orders is "no records matched", not "absent".
 - **"Examined" is shown on every reading**, rendered in code. It is the only defence against a plan that used a plausible but wrong column (book 8.1).
+- **End-to-end tests share one server across engines (task 9, CI fix).** Every engine in a Playwright run talks to the same server and database, in order, so what one engine leaves behind (conversations, ratings) is there for the next. A test that assumes a starting state (an empty list, a count) takes that state from the server, never assumes it.
 - **Streaming:** stream stage progress, show the answer only after the gate (never unchecked model text).
 - **Readable names** in "Examined" are to be added to `demo_data/schema.json` (planned, task 4 or 7).
 - `project filles\03_Code` is frozen: it keeps the book's state (synthesis blocked). New work happens here only.
@@ -193,11 +194,13 @@ On Evyatar's machine an Application Control policy blocks `.exe` files in the ve
 # Backend (from backend\, venv active)
 python -m pip install -r requirements.txt
 python -m demo_data.seed          # builds demo_data\demo.db
-python -m pytest -q               # the default run; 670 after task 8
+python -m pytest -q               # the default run; 684 after task 9
 python -m tools.path_map          # runs tests/paths and tests/feasibility, writes docs/notes/60_PATHS.md
 python -m query_assistance.dry_run   # prices two scripted exchanges at the .env prices, no model call, no key
 python -m query_assistance.dry_run --model claude-sonnet-5-5   # the same, prices from LiteLLM's local map, no .env
 python -m main                    # the chat server on the scripted model, http://127.0.0.1:8000/api/health
+python -m tools.preflight         # before a demo: database, server, screen, examples, one scripted question; --real adds .env, the map, the budget; never a model call
+python -m tools.fake_real_server  # the real-model path with a fake provider (no key, no network), for the end-to-end tests
 python -m pytest -m stress        # load, concurrency, and the property tests at 2000 examples (not in the default run)
 UPDATE_GOLDEN=1 python -m pytest tests/golden   # rewrite golden snapshots, printing the diff for review
 
@@ -238,9 +241,10 @@ cd frontend; npm run build; npm run start                        # the screen, h
 npm run dev                       # the screen, http://localhost:3000, against the server on 127.0.0.1:8000
 npx next typegen; npx tsc --noEmit; npx eslint .   # types (typegen: route types a clean checkout lacks) and lint
 npx vitest run                    # component and library tests (fixtures: backend golden snapshots)
-npx playwright test               # end to end: starts the scripted server (--scripted-delay) and next dev
+npx playwright test               # end to end on the built screen (next build + start) and the scripted server (--scripted-delay)
                                   # itself on 8000 and 3000, so stop any dev server first. Locally on the
-                                  # installed Edge (channel msedge), in CI on Chromium
+                                  # installed Edge (channel msedge), in CI on Chromium, Firefox and WebKit (Test 38)
+npx playwright test -c playwright.real.config.ts   # the real-model path end to end, with the fake provider
 ```
 
 Studies (run from inside the study directory — scripts use relative paths like `samples/`, `results/`):

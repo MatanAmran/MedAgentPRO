@@ -139,7 +139,7 @@ export function ExchangeView({
       {ratable && <Thumbs value={item.rating} onRate={onRate} busy={rating.busy} />}
       {rating.error && <p className="text-sm text-red-700">{rating.error}</p>}
       {item.cost && (
-        <p className="text-xs text-zinc-400" data-testid="cost">
+        <p className="text-xs text-zinc-600" data-testid="cost">
           This answer cost {formatUsd(item.cost.exchange_usd)} · {formatUsd(item.cost.remaining_usd)} of the demo budget
           left
         </p>

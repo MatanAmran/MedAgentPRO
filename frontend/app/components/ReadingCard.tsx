@@ -62,7 +62,7 @@ function Grouped({ reading, by, groups }: { reading: Reading } & NonNullable<Ret
                   ids.includes(c) ? (
                     <Value key={c} column={c} value={row[c] ?? null} ids={ids} />
                   ) : (
-                    <span key={c} className="text-xs text-zinc-400">
+                    <span key={c} className="text-xs text-zinc-600">
                       {reading.headers?.[c] ?? c} {formatCell(row[c] ?? null)}
                     </span>
                   ),
