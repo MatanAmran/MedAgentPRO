@@ -4,13 +4,20 @@
 # No secret of any kind: no API key, no model call at any step (book 6.1). The first step fails if
 # ANTHROPIC_API_KEY exists in the environment, and tests/ci/test_no_key.py checks the same from pytest.
 # Blocking: the tests with coverage at 92% (fail_under in pyproject.toml), ruff, bandit, pip-audit on the
-# installed environment. mypy reports without blocking until after task 7.
+# installed environment. mypy reports without blocking until after the demo.
+#
+# Runners are pinned to ubuntu-24.04: ubuntu-latest moves to 26 on 19.10, which changes what
+# `playwright install --with-deps` installs (WebKit most of all), and that is before the demo. Revisit
+# after the demo, with the actions' major versions (CLAUDE.md, after the demo).
 
 name: tests
 
 on:
   push:
   pull_request:
+  # schedule and workflow_dispatch run only where this file is on the default branch. The default
+  # branch is main, which holds only the README, so neither runs today; stress runs on every pull
+  # request instead (see the stress job). Both stay, in case master becomes the default
   schedule:
     - cron: "0 3 * * *"        # daily: the load and concurrency tests, and property tests at full size
   workflow_dispatch:
@@ -25,7 +32,7 @@ defaults:
 jobs:
   tests:
     if: github.event_name != 'schedule'
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 20
     steps:
       - name: No API key in this environment
@@ -50,13 +57,15 @@ jobs:
       - run: python -m bandit -c pyproject.toml -r . -q
       - name: pip-audit (the installed environment; -r builds a second one and takes minutes)
         run: python -m pip_audit
-      - name: mypy (reports, does not block until after task 7)
+      - name: mypy (reports, does not block until after the demo)
         continue-on-error: true
         run: python -m mypy
 
+  # On every pull request (to master; main stays the default branch), and on the schedule and by hand where
+  # those can run. Blocking like the other jobs: about 45 s locally (14.10)
   stress:
-    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
-    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request' || github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-24.04
     timeout-minutes: 30
     steps:
       - name: No API key in this environment
@@ -80,7 +89,7 @@ jobs:
   # The chat screen (task 7): types, lint, component tests. No server, no key.
   frontend:
     if: github.event_name != 'schedule'
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 15
     defaults:
       run:
@@ -113,7 +122,7 @@ jobs:
   # Then the real-model path with a fake provider: no key, no network (backend/tools/fake_real_server.py)
   e2e:
     if: github.event_name != 'schedule'
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 40
     steps:
       - name: No API key in this environment

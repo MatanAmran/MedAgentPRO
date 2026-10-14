@@ -5,6 +5,8 @@ No test calls a real model (6.1) or reads backend/.env: every configuration is p
 values here are made up for the tests.
 """
 
+import json
+import sys
 import threading
 
 import pytest
@@ -175,6 +177,57 @@ def test_a_second_holder_of_the_spend_file_is_refused(tmp_path):
         b.SpendLedger(path)
     first.close()
     b.SpendLedger(path).close()   # free again once the holder is gone
+
+
+# A damaged spend file fails when it is loaded, before any call, never after a paid one (chat review,
+# 14.10, 14:15). The file format is unchanged.
+DAMAGED = {
+    "string total": '{"total_usd": "0.5", "by_day": {}, "by_model": {}}',
+    "string in by_model": '{"total_usd": 0.5, "by_day": {}, "by_model": {"m": "0.5"}}',
+    "string in by_day": '{"total_usd": 0.5, "by_day": {"2026-10-14": "0.5"}, "by_model": {}}',
+    "bool total": '{"total_usd": true, "by_day": {}, "by_model": {}}',
+    "NaN total": '{"total_usd": NaN, "by_day": {}, "by_model": {}}',
+    "negative total": '{"total_usd": -5, "by_day": {}, "by_model": {}}',
+    "by_model a list": '{"total_usd": 0.5, "by_day": {}, "by_model": [0.5]}',
+    "not an object": '[0.5]',
+    "not JSON": '{"total_usd": 0.5',
+}
+
+
+@pytest.mark.parametrize("text", DAMAGED.values(), ids=DAMAGED.keys())
+def test_a_damaged_spend_file_refuses_to_load(tmp_path, text):
+    path = tmp_path / "spend.json"
+    path.write_text(text, encoding="utf-8")
+    with pytest.raises(b.BudgetConfigError, match=r"spend\.json is damaged") as e:
+        b.SpendLedger(path)
+    assert "0.5" not in str(e.value)        # names the field, never a value
+    assert path.read_text(encoding="utf-8") == text
+    b.SpendLedger(path.with_name("other.json")).close()
+    path.unlink()
+    b.SpendLedger(path).close()              # the lock was released on the refusal
+
+
+def test_a_damaged_spend_file_sends_no_call(tmp_path, monkeypatch):
+    """Through the real builder: the ledger refuses before any gateway is returned, so nothing is sent."""
+    path = tmp_path / "spend.json"
+    path.write_text('{"total_usd": 0.0, "by_day": {}, "by_model": {"m": "x"}}', encoding="utf-8")
+    sent = []
+    monkeypatch.setattr(b.LiteLLMGateway, "invoke", lambda self, *a, **k: sent.append(a))
+    monkeypatch.delitem(sys.modules, "pytest")
+    monkeypatch.setattr(b, "check_against_provider_map", lambda cfg: None)
+    with pytest.raises(b.BudgetConfigError, match="damaged"):
+        b.real_gateway(ENV, spend_file=path)
+    assert sent == []
+
+
+def test_a_sound_spend_file_loads_as_numbers(tmp_path):
+    path = tmp_path / "spend.json"
+    path.write_text('{"total_usd": 1, "by_day": {"2026-10-14": 1}, "by_model": {"m": 1}}', encoding="utf-8")
+    lg = b.SpendLedger(path)
+    assert lg.total == 1.0 and isinstance(lg.total, float)
+    lg.add("m", 0.5)
+    lg.close()
+    assert json.loads(path.read_text(encoding="utf-8"))["by_model"] == {"m": 1.5}
 
 
 # --------------------------------------------------------------------------

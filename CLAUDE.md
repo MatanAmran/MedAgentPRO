@@ -45,7 +45,7 @@ When a decision is made in a session, record it in the relevant note (and here, 
 | 6 | FastAPI endpoint for the chat | done (12.10): `main.py`, `api/`, `demo_data/scripted*`; S1–S6 in `docs/notes/00_STATUS.md` |
 | 7 | Chat screen in Next.js, after Figure 15 of the book | done (13.10), merged in PR #2: `frontend/app`, `frontend/lib`, `frontend/e2e`; Q1–Q5, T7-B1 and the deviations from Figure 15 in `docs/notes/00_STATUS.md` |
 | 8 | Demo question set covering each behaviour | done (13.10), merged in PR #3: `demo_data/scripted_exchanges.json` (12 questions, each with `expect`), `out_of_scope_action` (A1), `GET /api/examples` and the examples on screen (A4), `docs/notes/70_DEMO.md` for the presenter |
-| 9 | End-to-end tests on the scripted model | built (14.10), branch `task9/e2e`: both roles from golden, three engines in CI, keyboard, contrast (axe), grayscale captures; the real-model path with a fake provider; `tools/preflight.py`; the book-test table in `60_PATHS.md` |
+| 9 | End-to-end tests on the scripted model | done (14.10), merged in PR #4: both roles from golden, three engines in CI, keyboard, contrast (axe), grayscale captures; the real-model path with a fake provider; `tools/preflight.py`; the book-test table in `60_PATHS.md` |
 
 ## Task 4 decisions (settled in the Claude chat, 12.10)
 
@@ -149,6 +149,15 @@ Evyatar pays for the model himself, with a total budget of **USD 10**. The code 
 - **P10:** a refusal is `finish_reason == "content_filter"` in LiteLLM; it is billed and recorded.
 - P4–P8 approved as proposed; P5 after the R6 `fill` fix; P6 is `[demo extension]`.
 
+## GitHub: branches and pull requests (14.10)
+
+The remote is `MedAgentPRO` (`github.com/MatanAmran/MedAgentPRO`, Matan's repository; Evyatar has no admin rights). **`main` stays the default branch** and holds only the initial README; the work lives on `master`. So:
+- **Every pull request is opened against `master` explicitly:** `https://github.com/MatanAmran/MedAgentPRO/compare/master...<branch>?expand=1`. GitHub offers `main` as the base; check that it says "base: master" before creating it. Merge with "Create a merge commit".
+- **The repository's front page shows `main`**: that does not mean the work was not merged.
+- **`stress` runs on every pull request** (to `master`), blocking like the other jobs (about 45 s locally). `schedule` and `workflow_dispatch` run only where the workflow is on the default branch, and `main` holds only the README, so there is no daily run and no "Run workflow" button (CI maintenance, 14.10). Both stay in the workflow, in case `master` becomes the default.
+- **After the demo:** the actions' major versions (`checkout@v4`, `setup-node@v4`, `setup-python@v5`, `upload-artifact@v4`, all forced onto Node 24 by GitHub with a warning) to `@v7`, and the runners from `ubuntu-24.04` back to a current image; mypy made blocking. Deferred on purpose before the demo (CI maintenance decisions, 14.10).
+- **After each merge, delete the task branch:** on GitHub with `git push MedAgentPRO --delete <branch>` once `git log master..MedAgentPRO/<branch>` is empty, then `git remote prune MedAgentPRO`; locally with `git branch -d` (never `-D` without a decision). A notes commit made after a PR was pushed is carried to `master` by cherry-pick, so `-d` refuses that branch: check with `git cherry -v master <branch>` before asking.
+
 ## Path map and feasibility (Claude chat, 13.10): a standing rule
 
 - `tests/paths/branches.py` reads every branch from the code and the schemas (outcomes, stages, model failure kinds, `except` clauses in `pipeline.run`, notices, endpoints, HTTP codes, gap kinds, roles). **`tests/paths/test_registry.py` fails when a branch has no path in `tests/paths/registry.py`, or a path names a test or branch that does not exist.** Adding a branch means adding its test and its registry entry in the same change.
@@ -194,7 +203,7 @@ On Evyatar's machine an Application Control policy blocks `.exe` files in the ve
 # Backend (from backend\, venv active)
 python -m pip install -r requirements.txt
 python -m demo_data.seed          # builds demo_data\demo.db
-python -m pytest -q               # the default run; 684 after task 9
+python -m pytest -q               # the default run; 695 after the spend-file check (14.10)
 python -m tools.path_map          # runs tests/paths and tests/feasibility, writes docs/notes/60_PATHS.md
 python -m query_assistance.dry_run   # prices two scripted exchanges at the .env prices, no model call, no key
 python -m query_assistance.dry_run --model claude-sonnet-5-5   # the same, prices from LiteLLM's local map, no .env
