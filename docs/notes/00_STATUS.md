@@ -2179,6 +2179,51 @@ exchange cost: attempt=EX-7668ca781ce9 usd=0.047456 remaining=1.905700
   - **תיקון הקידוד עובד:** הפלט עבר ב-pipe בלי `PYTHONIOENCODING`, וה-✅ הודפס.
 - **הבא:** "Which suppliers were late in weeks 14 to 26?" — רק אחרי "כן" של אביתר.
 
+### משימה 10א — **שאלת התיקו מול המודל האמיתי (14.10), באישור אביתר.** התיקו נוסח נכון. **ממצא חדש על טוקני הפלט.** עצירה לפני שאלה 3
+
+**הבקשה:** שיחה חדשה `CV-27296fc05632`, ‏AP-01, ‏`request_id=t10a-tie-1792006286`, פעם אחת, בלי retry. ‏"Which suppliers were late in weeks 14 to 26?"
+
+**התוצאה:** ‏`answered`, ‏`recorded: true`, ‏`EX-cfe09a07b776`. בלי withheld ובלי notice.
+| קריאה | ארבע השורות הראשונות | התשובה |
+|---|---|---|
+| late_by_delivery (30 מתוך 35) | **S-014 ‏14, ‏S-036 ‏14**, ‏S-008 ‏10, ‏S-001 ‏9 | "**S-014 and S-036 each had 14** late deliveries in weeks 14 to 26. S-008 followed with 10. S-001 had 9." |
+| late_by_promise (23) | S-036 ‏14, ‏S-032 ‏11, ‏S-008 ‏9, ‏S-014 ‏8 | "S-036 had the most late promises in weeks 14 to 26, 14. S-032 followed with 11. S-008 had 9." |
+
+- **התיקו נוסח נכון: "each had".** אין "highest" ואין "followed" בין S-014 ל-S-036. ‏**תנאי העצירה ("highest" בתיקו שלא נדחה) לא התקיים.**
+- **"S-008 followed with 10"** מופיע אחרי קבוצת התיקו, ו-10 שונה מ-14. לפי הכלל זה תקין.
+- **"S-036 had the most… 14"** בקריאה של promise: אין שם תיקו (14 ואז 11), ולכן "most" נכון.
+- **השער:** לא סימן שום דבר כ-contradicted. ‏**`claims=6` על 6 משפטים — טענה אחת למשפט,** כמו שהפרומפט ביקש.
+
+**השורות מהלוג** (מסוננות. שורות עם `Authorization`, ‏`x-api-key` או `sk-ant`: ‏0):
+```
+model call: exchange=EX-cfe09a07b776 request=t10a-tie-1792006286 conversation=CV-27296fc05632 stage=intent_analysis prompt_identity=intent_analysis_demo@3 model=claude-sonnet-5-5 attempt_number=1 feedback_attempt=False status=accepted finish_reason=stop input_tokens=3054 output_tokens=555 output_chars=1027 claims=- temperature=provider default max_tokens=2000 duration_ms=4532.1 check=-
+model call: exchange=EX-cfe09a07b776 request=t10a-tie-1792006286 conversation=CV-27296fc05632 stage=synthesis prompt_identity=synthesis@7 model=claude-sonnet-5-5 attempt_number=1 feedback_attempt=False status=accepted finish_reason=stop input_tokens=5515 output_tokens=756 output_chars=717 claims=- temperature=provider default max_tokens=2000 duration_ms=8156.8 check=-
+model call: exchange=EX-cfe09a07b776 request=t10a-tie-1792006286 conversation=CV-27296fc05632 stage=support_gate prompt_identity=support_scoring@4 model=claude-sonnet-5-5 attempt_number=1 feedback_attempt=False status=accepted finish_reason=stop input_tokens=5294 output_tokens=923 output_chars=919 claims=6 temperature=provider default max_tokens=2000 duration_ms=7236.5 check=-
+exchange cost: attempt=EX-cfe09a07b776 usd=0.050066 remaining=1.855634
+```
+
+**העלות: ‏0.050066$.** ‏13,863 בקלט, ‏2,234 בפלט. החישוב מתאים בדיוק. **סך הכול מאז R9: ‏0.1444$.** נשארו 1.8556$.
+**הזמן:** ‏20.3 שניות מקצה לקצה. הקריאות: ‏4.5, ‏8.2 ו-7.2 שניות.
+
+**השער מול R9:**
+| | משפטים | `output_tokens` | לכל משפט | `claims` | `output_chars` |
+|---|---|---|---|---|---|
+| R9, שאלה 2 (`support_scoring@3`) | 4 | 970 | 243 | לא נמדד | לא נמדד |
+| עכשיו (`support_scoring@4`) | 6 | 923 | 154 | **6** | 919 |
+- **לכל משפט: ‏154 טוקנים במקום 243 (‏37% פחות).** בסך הכול כמעט אותו מספר, כי הסינתזה כתבה 6 משפטים במקום 4.
+
+**ממצא חדש — רוב טוקני הפלט לא נמצאים בטקסט.**
+- **השער:** ‏923 טוקנים מול 919 תווים, כלומר כטוקן אחד לתו. ‏JSON באנגלית הוא בדרך כלל 3–4 תווים לטוקן, ולכן הטקסט עצמו הוא בערך **260 טוקנים בלבד.**
+- **אותו דבר בסינתזה** (756 טוקנים, 717 תווים: כ-205 גלויים), **ובשלב הכוונה** (555 טוקנים, 1,027 תווים: כ-290 גלויים).
+- **השערה (לא מאומתת):** המודל מייצר טוקנים שלא מוחזרים בתוכן, כמו חשיבה פנימית, והם נספרים ומחויבים כפלט. ‏`usage` מהספק כולל אותם.
+- **המשמעות:**
+  1. **קיצור ה-JSON של השער משפיע רק על החלק הגלוי.** מעל 70% מהפלט הוא החלק הנסתר, והפרומפט לא שולט בו.
+  2. **הסיכון של `max_tokens=2000` (ממצא 2 של R9) נקבע בעיקר על ידי החלק הנסתר.** ב-R9 השער כתב 1,490 טוקנים, וכנראה רובם נסתרים.
+  3. **העלות:** כמחצית מכל שאלה היא פלט, ורובו לא נראה.
+- **מה אפשר לבדוק בלי עלות נוספת:** האם LiteLLM מחזיר את מספר הטוקנים הנסתרים (למשל `usage.completion_tokens_details.reasoning_tokens`) או `reasoning_content`. אם כן, להוסיף לשורת `model call` שדה `reasoning_tokens` — **מספר בלבד, לא תוכן.** ‏**הצעה, לא בוצעה.** זה שינוי קוד, ולהכרעה בצ׳אט. אם המודל מאפשר לכבות את החשיבה או להגביל אותה, זו החלטה על ההגדרות של המודל, ושייכת לצ׳אט.
+
+**המצב:** השרת רץ (תהליך 4232). **שאלה 3 תישלח רק אחרי "כן" של אביתר.** אין מניעה לפי תנאי העצירה. הממצא החדש רלוונטי לשאלה 3: כדאי לראות אם השער נשאר רחוק מ-2,000.
+
 ## מה שנסגר בסבב האחרון
 
 - **הקוד עבר לריפו** — `MedAgentPro\backend` (`query_assistance`, `model_client`, `persistence`, `shared`, `tests`). **`03_Code` נשאר כמקור ומעודכן.** `python -m pytest -q` מתוך `backend`
