@@ -30,7 +30,7 @@ from contextvars import ContextVar
 from dataclasses import dataclass, field, replace
 from datetime import date
 from pathlib import Path
-from typing import Callable, Iterator, Mapping
+from typing import Callable, Iterator, Mapping, TypedDict, cast
 
 from shared.circuit_breaker import CircuitBreaker, CircuitOpen, MemoryStore
 
@@ -165,6 +165,47 @@ class _ProcessLock:
             self._f.close()
 
 
+class _Spend(TypedDict):
+    total_usd: float
+    by_day: dict[str, float]
+    by_model: dict[str, float]
+
+
+def _amount(value: object) -> float | None:
+    """A recorded amount: a finite, non-negative int or float, never a bool. Else None. A NaN total
+    would pass every cap comparison, and a negative one would enlarge the cap."""
+    if isinstance(value, bool) or not isinstance(value, (int, float)):
+        return None
+    if not math.isfinite(value) or value < 0:
+        return None
+    return float(value)
+
+
+def _checked_spend(path: Path) -> _Spend:
+    """The spend file, checked when it is loaded, so a damaged file fails before any money is spent,
+    never after a paid call (chat review, 14.10, 14:15). Names the file and the field, never a value."""
+    bad = f"{path.name} is damaged"
+    try:
+        raw = json.loads(path.read_text(encoding="utf-8"))
+    except (ValueError, UnicodeDecodeError):
+        raise BudgetConfigError(f"{bad}: not valid JSON") from None
+    if not isinstance(raw, dict):
+        raise BudgetConfigError(f"{bad}: not a JSON object")
+    total = _amount(raw.get("total_usd", 0.0))
+    if total is None:
+        raise BudgetConfigError(f"{bad}: total_usd is not an amount")
+    parts: dict[str, dict[str, float]] = {}
+    for key in ("by_day", "by_model"):
+        given = raw.get(key, {})
+        if not isinstance(given, dict):
+            raise BudgetConfigError(f"{bad}: {key} is not a JSON object")
+        amounts = {name: _amount(v) for name, v in given.items()}
+        if any(v is None for v in amounts.values()):
+            raise BudgetConfigError(f"{bad}: a value in {key} is not an amount")
+        parts[key] = {name: v for name, v in amounts.items() if v is not None}
+    return cast(_Spend, {**raw, "total_usd": total, **parts})
+
+
 class SpendLedger:
     """Total, per day and per model, in USD. Written whole to a temporary file and swapped in,
     so a crash mid-write leaves the previous record."""
@@ -172,13 +213,17 @@ class SpendLedger:
     def __init__(self, path: Path = SPEND_FILE):
         self.path = Path(path)
         self._lock = _ProcessLock(self.path.with_suffix(".lock"))
-        self.data = {"total_usd": 0.0, "by_day": {}, "by_model": {}}
+        self.data: _Spend = {"total_usd": 0.0, "by_day": {}, "by_model": {}}
         if self.path.exists():
-            self.data.update(json.loads(self.path.read_text(encoding="utf-8")))
+            try:
+                self.data = _checked_spend(self.path)
+            except BudgetConfigError:
+                self._lock.release()
+                raise
 
     @property
     def total(self) -> float:
-        return float(self.data["total_usd"])
+        return self.data["total_usd"]
 
     def add(self, model: str, usd: float):
         d = self.data
