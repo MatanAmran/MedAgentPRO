@@ -42,8 +42,8 @@ from persistence.audit_repository import AuditEntry, AuditRepository
 from shared.circuit_breaker import CircuitBreaker, CircuitOpen, MemoryStore
 from shared.circuit_breaker import log as operational_log
 
+from . import call_trace, contract, gate, prompts, synthesis
 from . import calls as model_calls
-from . import contract, gate, prompts, synthesis
 from .calls import MODEL_CALL_ATTEMPTS, Call, StageFailed, StageRejected
 from .compiler import (
     HERE,
@@ -131,9 +131,10 @@ def _now() -> str:
 # --------------------------------------------------------------------------
 
 class _Record:
-    def __init__(self, exchange_id: str, user: dict):
+    def __init__(self, exchange_id: str, user: dict, context: dict | None = None):
         self.exchange_id = exchange_id
         self.user = user
+        self.context = context or {}     # request and conversation ids, for the log line only
         self.entries: list[AuditEntry] = []
 
     def _entry(self, ordinal: int, event_type: str, **kw) -> AuditEntry:
@@ -149,17 +150,19 @@ class _Record:
     def calls(self, ordinal: int, made: list[Call], model: str):
         """One entry per model call: accepted, rejected, or failed with no response. A repeated
         attempt states why it supersedes the earlier one, and whether it carried feedback (NFR 3, P6).
-        The temperature recorded is what was sent, or the provider's default where none was (R1)."""
-        for n, c in enumerate(made, 1):
-            r = c.response
-            sent = "provider default" if r is None or r.temperature is None else r.temperature
-            event = ("model_call_failed" if r is None else
-                     "model_output_rejected" if c.rejection else "model_output_accepted")
+        The temperature recorded is what was sent, or the provider's default where none was (R1).
+        Each call is also one line on the operational channel, metadata only (R9, call_trace)."""
+        traced = call_trace.traces(STAGE_NAMES[ordinal], made, model)
+        for n, (c, t) in enumerate(zip(made, traced, strict=True), 1):
+            event = {"failed": "model_call_failed", "rejected": "model_output_rejected",
+                     "accepted": "model_output_accepted"}[t.status]
             self._entry(ordinal, event, attempt_number=n,
                         superseded_reason=f"attempt {n - 1} rejected: {made[n - 2].rejection}" if n > 1 else None,
-                        model_identity=f"{r.model if r else model} · {c.prompt_identity} · temperature {sent}",
-                        input_tokens=r.input_tokens if r else None, output_tokens=r.output_tokens if r else None,
-                        feedback_attempt=c.feedback_attempt, rejection_reason=c.rejection)
+                        model_identity=f"{t.model} · {t.prompt_identity} · temperature {t.temperature_sent}",
+                        input_tokens=t.input_tokens, output_tokens=t.output_tokens,
+                        feedback_attempt=t.feedback_attempt, rejection_reason=c.rejection)
+            operational_log.info("%s", t.log_line(exchange=self.exchange_id, request=self.context.get("request_id"),
+                                                  conversation=self.context.get("conversation_id")))
 
 
 # --------------------------------------------------------------------------
@@ -305,11 +308,12 @@ def _presented(response: dict, plans: dict[str, dict], cat: Catalog, answer: Dra
 # --------------------------------------------------------------------------
 
 def run(question: str, history: list[prompts.Exchange], user: dict, deps: Deps,
-        on_stage: Callable[[str], None] | None = None) -> Outcome:
-    """history holds the earlier exchanges of the same conversation, oldest first."""
+        on_stage: Callable[[str], None] | None = None, context: dict | None = None) -> Outcome:
+    """history holds the earlier exchanges of the same conversation, oldest first. context holds the
+    request and conversation ids, which only the operational log line carries (R9)."""
     stage = on_stage or (lambda name: None)
     eid = "EX-" + uuid.uuid4().hex[:12]
-    rec = _Record(eid, user)
+    rec = _Record(eid, user, context)
     cat, role = deps.catalog, user["role"]
     understood: str | None = None
     rewritten: str | None = None

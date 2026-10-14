@@ -53,6 +53,7 @@ class ModelResponse:
     cache_write_tokens: int | None = None
     finish_reason: str | None = None
     temperature: float | None = None          # what was sent, None where nothing was (R1)
+    max_tokens: int | None = None             # what was sent, None where nothing was (R9, V02)
 
     def problem(self) -> str | None:
         """A call that succeeded and was billed but holds no usable output (R4, P10). LiteLLM maps
@@ -197,7 +198,8 @@ class ScriptedModelGateway(ModelGateway):
             return out
         text = out if isinstance(out, str) else json.dumps(out)
         return ModelResponse(text, f"scripted:{config.model}", len(prompt) // 4 + 1, len(text) // 4 + 1,
-                             config.prompt_identity, finish_reason="stop", temperature=config.temperature)
+                             config.prompt_identity, finish_reason="stop", temperature=config.temperature,
+                             max_tokens=config.max_tokens or None)
 
 
 class _Passed:
@@ -269,4 +271,4 @@ class LiteLLMGateway(ModelGateway):
         return ModelResponse(choice.message.content, getattr(resp, "model", config.model),
                              get("prompt_tokens"), get("completion_tokens"), config.prompt_identity,
                              get("cache_read_input_tokens"), get("cache_creation_input_tokens"),
-                             getattr(choice, "finish_reason", None), temperature)
+                             getattr(choice, "finish_reason", None), temperature, kwargs.get("max_tokens"))

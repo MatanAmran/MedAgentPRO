@@ -101,13 +101,15 @@ def render(results: dict[str, str]) -> str:
     lines += ["## היתכנות", "", "| | # | סוג | מה נבדק | מקור |", "|---|---|---|---|---|"]
     for c in CONSTRAINTS:
         if c.kind == "live":
-            mark = "⏳"
+            mark = {"confirmed": "✅", "partial": "◐"}.get(c.result, "⏳")
         else:
             tests = [k for k in results if k.startswith(f"test_feasibility.py::test_{c.id}_")]
             mark = MARK[status_of(tests[0].partition("[")[0], results)] if tests else MARK[None]
-        lines.append(f"| {mark} | {c.id} | {c.kind} | {c.statement} | {c.source} |")
+        seen = f" **נצפה:** {c.observed}" if c.observed else ""
+        lines.append(f"| {mark} | {c.id} | {c.kind} | {c.statement}{seen} | {c.source} |")
     lines += ["", "✅ עובר · ❌ נכשל · ⚠️ פער ידוע (xfail) · ⏭️ דולג (חסרה הטבלה של LiteLLM בסביבה) · "
-              "⏳ רק מול המודל האמיתי, בבדיקת העשן (R9)", ""]
+              "⏳ רק מול המודל האמיתי, בבדיקת העשן (R9), עוד לא נבדק · ◐ נצפה בבדיקת העשן, אבל לא כל "
+              "מה שנטען (למשל: אין עדיין שיעור)", ""]
     lines += book_section()
     return "\n".join(lines)
 

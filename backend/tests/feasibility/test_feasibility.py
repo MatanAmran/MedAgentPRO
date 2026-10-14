@@ -2,8 +2,9 @@
 Feasibility checks: one test per row of constraints.py. No network, no model call.
 
 Checks marked needs="map" read LiteLLM's local model map of the pinned version; where LiteLLM or its
-map is absent they are skipped, and say so. The model, caps and prices are read from backend/.env
-when it exists (only the names below, never printed); otherwise the demo defaults apply.
+map is absent they are skipped, and say so. The model, caps and prices are the defaults below, in
+code: no test reads backend/.env, so CI and this machine run the same checks and a failure never prints
+a local value (chat, R9, 14.10, 17:50). The configured values are checked by tools.preflight --real.
 """
 
 from __future__ import annotations
@@ -47,13 +48,8 @@ DEFAULTS = {"MODEL_ID": "claude-sonnet-5-5", "MODEL_MAX_OUTPUT_TOKENS": "2000", 
 
 
 def settings() -> dict:
-    """The configured values, where backend/.env holds them. Only these names are read."""
-    out = dict(DEFAULTS)
-    if b.ENV_FILE.exists():
-        from dotenv import dotenv_values
-        env = dotenv_values(b.ENV_FILE)
-        out.update({k: env[k] for k in DEFAULTS if env.get(k)})
-    return out
+    """The demo defaults, never backend/.env (chat, R9, 14.10, 17:50)."""
+    return dict(DEFAULTS)
 
 
 def model_entry() -> dict:
@@ -392,6 +388,16 @@ def test_every_constraint_has_a_check_and_every_check_a_constraint():
     assert rows == here, {"rows without a check": sorted(rows - here), "checks without a row": sorted(here - rows)}
     ids = [c.id for c in CONSTRAINTS]
     assert len(ids) == len(set(ids))
+
+
+def test_a_live_row_records_what_the_smoke_test_saw_and_only_a_live_row_does():
+    """R9: a live row marked confirmed or partial says what was observed; a row not yet run says nothing."""
+    for c in CONSTRAINTS:
+        if c.kind != "live":
+            assert not c.result and not c.observed, c.id
+            continue
+        assert c.result in ("", "confirmed", "partial"), c.id
+        assert bool(c.result) == bool(c.observed), c.id
 
 
 def test_L05_every_demo_question_fits_the_default_cap_on_the_real_path(db_path, tmp_path):

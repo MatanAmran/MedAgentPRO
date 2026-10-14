@@ -154,9 +154,17 @@ Evyatar pays for the model himself, with a total budget of **USD 10**. The code 
 The remote is `MedAgentPRO` (`github.com/MatanAmran/MedAgentPRO`, Matan's repository; Evyatar has no admin rights). **`main` stays the default branch** and holds only the initial README; the work lives on `master`. So:
 - **Every pull request is opened against `master` explicitly:** `https://github.com/MatanAmran/MedAgentPRO/compare/master...<branch>?expand=1`. GitHub offers `main` as the base; check that it says "base: master" before creating it. Merge with "Create a merge commit".
 - **The repository's front page shows `main`**: that does not mean the work was not merged.
+- **After a push to `master`, GitHub shows a banner "master had recent pushes — Compare & pull request".** It offers a PR from `master` into `main`: **do not click it.** Likewise "N commits ahead of, 1 commit behind main" is normal, since `main` has a separate history (PR #5 merge, 14.10).
 - **`stress` runs on every pull request** (to `master`), blocking like the other jobs (about 45 s locally). `schedule` and `workflow_dispatch` run only where the workflow is on the default branch, and `main` holds only the README, so there is no daily run and no "Run workflow" button (CI maintenance, 14.10). Both stay in the workflow, in case `master` becomes the default.
 - **After the demo:** the actions' major versions (`checkout@v4`, `setup-node@v4`, `setup-python@v5`, `upload-artifact@v4`, all forced onto Node 24 by GitHub with a warning) to `@v7`, and the runners from `ubuntu-24.04` back to a current image; mypy made blocking. Deferred on purpose before the demo (CI maintenance decisions, 14.10).
 - **After each merge, delete the task branch:** on GitHub with `git push MedAgentPRO --delete <branch>` once `git log master..MedAgentPRO/<branch>` is empty, then `git remote prune MedAgentPRO`; locally with `git branch -d` (never `-D` without a decision). A notes commit made after a PR was pushed is carried to `master` by cherry-pick, so `-d` refuses that branch: check with `git cherry -v master <branch>` before asking.
+
+## R9: `backend/.env` is closed to Code's tools (14.10, Evyatar approved)
+
+- `.claude/settings.json` (project root, gitignored, so local to this clone) denies `Read`, `Edit` and `Write` on `./backend/.env`. Checked: a `Read` is refused. In a new clone, recreate it.
+- The rule does not cover shell commands. Never display the file (`type`, `cat`, `Get-Content`, or anything else). Only `python -m tools.preflight --real` checks it, and it prints names only.
+- **A metadata-only line per model call on the operational channel** (`model call: exchange=… request=… stage=… attempt_number=… feedback_attempt=… check=… max_tokens=… temperature=…`), built from `query_assistance/call_trace.py` (`CallTrace`), the one source for these fields (the audit entry uses it; task 10's panel is to reuse it). It never holds the question, model output, a record value, a rejection message or the key; `check` is a kind or a class name. Operational, not a requirement in the book (chat, 14.10, 15:30). `main.log_to_stdout()` gives the channel a stdout handler at INFO. **Fixed in `f74aed7`: until then the channel had no handler, so its INFO lines (the exchange cost among them) reached nowhere, and WARNING and up reached stderr only through Python's last resort.**
+- **No test reads `backend/.env`** (chat, 14.10, 17:50): `tests/feasibility` runs on the defaults in code, so CI and this machine run the same checks and no failure prints a local value. The configuration in use is checked by `tools.preflight --real`, which also carries T12 as a count of worst-case exchanges left: ❌ below 1, ⚠️ below 15 ("enough for a smoke test, not for a demo").
 
 ## Path map and feasibility (Claude chat, 13.10): a standing rule
 
@@ -203,7 +211,7 @@ On Evyatar's machine an Application Control policy blocks `.exe` files in the ve
 # Backend (from backend\, venv active)
 python -m pip install -r requirements.txt
 python -m demo_data.seed          # builds demo_data\demo.db
-python -m pytest -q               # the default run; 695 after the spend-file check (14.10)
+python -m pytest -q               # the default run; 705 after T12 moved to preflight (14.10)
 python -m tools.path_map          # runs tests/paths and tests/feasibility, writes docs/notes/60_PATHS.md
 python -m query_assistance.dry_run   # prices two scripted exchanges at the .env prices, no model call, no key
 python -m query_assistance.dry_run --model claude-sonnet-5-5   # the same, prices from LiteLLM's local map, no .env

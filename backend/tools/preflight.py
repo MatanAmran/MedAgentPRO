@@ -4,10 +4,12 @@ MedAgentPro - the checks before a demo (task 9, review addition 3). No model cal
     python -m tools.preflight            # the scripted demo: server and screen already running
     python -m tools.preflight --real     # the real model: also .env, LiteLLM's map, and the budget left
 
-Prints one line per check, ✅ or ❌, and exits non-zero if any failed. On the real model nothing is asked
-of the model: the question check runs on the scripted model only. .env values are never printed, only
-the names of those missing. The budget left is read from the running server (/api/health), not from the
-spend file, which the server holds locked (T2).
+Prints one line per check, ✅, ⚠️ or ❌, and exits non-zero if any failed (a warning does not fail).
+On the real model nothing is asked of the model: the question check runs on the scripted model only.
+.env values are never printed, only the names of those missing. The budget left is read from the
+running server (/api/health), not from the spend file, which the server holds locked (T2), and shown
+only as how many exchanges at their whole cap still fit (T12, moved here from the feasibility tests:
+chat, R9, 14.10, 17:50), never as an amount.
 """
 
 from __future__ import annotations
@@ -27,6 +29,8 @@ from demo_data import seed
 from demo_data.scripted import load_scripts
 
 API = "http://127.0.0.1:8000"
+# T12 on the configuration in use: the 12 demo questions with a margin, each spending its whole cap.
+DEMO_WORST_CASE_EXCHANGES = 15
 SCREEN = "http://localhost:3000"
 # the cheapest scripted question end to end: retrieval and the contract, no synthesis (Test 35)
 PROBE = "What did S-040 supply?"
@@ -51,9 +55,10 @@ def http_fetch(method: str, url: str, headers: dict, body: bytes | None) -> tupl
 class Check:
     ok: bool
     text: str
+    warn: bool = False   # passes, but says what it is not enough for
 
     def __str__(self) -> str:
-        return f"{'✅' if self.ok else '❌'} {self.text}"
+        return f"{'❌' if not self.ok else '⚠️' if self.warn else '✅'} {self.text}"
 
 
 def check_database(db_path: Path = seed.DEFAULT_OUT) -> Check:
@@ -153,9 +158,25 @@ def check_chain_key(env: dict | None = None) -> Check:
     return Check(True, "audit chain key set")
 
 
+def check_worst_case_left(left: float | None, cfg) -> Check:
+    """How many exchanges spending their whole cap still fit in what is left (T12). A count, no amount."""
+    if left is None:
+        return Check(False, "budget left unknown: the server did not report it")
+    if cfg is None:
+        return Check(left > 0, "budget left: some" if left > 0 else "budget left: none")
+    n = int(left // cfg.max_usd_per_exchange)
+    text = f"worst-case exchanges left in the budget: {n}"
+    if n < 1:
+        return Check(False, f"{text}. Not even one exchange fits")
+    if n < DEMO_WORST_CASE_EXCHANGES:
+        return Check(True, f"{text}: enough for a smoke test, not for a demo", warn=True)
+    return Check(True, text)
+
+
 def run(mode: str, fetch: Fetch = http_fetch, env: dict | None = None, db_path: Path = seed.DEFAULT_OUT,
         api: str = API, screen: str = SCREEN) -> list[Check]:
     checks = [check_database(db_path)]
+    cfg = None
     if mode == "real":
         env_check, cfg = check_env(env)
         checks.append(env_check)
@@ -170,8 +191,7 @@ def run(mode: str, fetch: Fetch = http_fetch, env: dict | None = None, db_path: 
         if mode == "scripted":
             checks.append(check_question(fetch, api))
         else:
-            left = health.get("budget_remaining_usd")
-            checks.append(Check(left is not None and left > 0, f"budget left: USD {left}"))
+            checks.append(check_worst_case_left(health.get("budget_remaining_usd"), cfg))
             checks.append(Check(True, "no question sent: on the real model it would cost"))
     return checks
 
@@ -180,6 +200,10 @@ def main(argv: list[str] | None = None) -> int:
     ap = argparse.ArgumentParser(prog="python -m tools.preflight")
     ap.add_argument("--real", action="store_true", help="the real model: also .env, the map and the budget left")
     args = ap.parse_args(argv)
+    # ✅ ⚠️ ❌ on a Windows console whose code page has none of them (cp1255 here), or through a pipe
+    reconfigure = getattr(sys.stdout, "reconfigure", None)
+    if reconfigure is not None:
+        reconfigure(encoding="utf-8")
     checks = run("real" if args.real else "scripted")
     for c in checks:
         print(c)

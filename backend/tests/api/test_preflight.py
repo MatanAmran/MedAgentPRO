@@ -3,8 +3,10 @@ The checks before a demo (task 9, review addition 3): each one passes on a ready
 what to do, on a broken one. The HTTP goes to the app in process; no server, no model, no network.
 """
 
+import io
 import shutil
 import sqlite3
+import sys
 
 import pytest
 from fastapi.testclient import TestClient
@@ -63,7 +65,9 @@ def test_real_setup_checks_env_map_key_and_budget_without_asking_the_model(db_pa
     env = {**CONFIG, "MEDAGENTPRO_CHAIN_KEY": "k"}
     checks = pf.run("real", fetch_for(app), env=env, db_path=db_path)
     assert all(c.ok for c in checks), [str(c) for c in checks]
-    assert any("budget left: USD 5.0" in c.text for c in checks)
+    left = next(c for c in checks if "worst-case exchanges left" in c.text)
+    assert "38" in left.text and not left.warn   # 5 / 0.13, the fake run's caps
+    assert all("5.0" not in c.text and "0.13" not in c.text for c in checks)   # a count, never an amount
     assert provider.requests == []   # nothing was sent to the model
 
 
@@ -77,3 +81,35 @@ def test_an_incomplete_env_names_what_is_missing_and_never_a_value(drop):
 
 def test_a_missing_chain_key_fails():
     assert not pf.check_chain_key({}).ok and pf.check_chain_key({"MEDAGENTPRO_CHAIN_KEY": "k"}).ok
+
+
+# T12 on the configuration in use (chat, R9, 14.10, 17:50): exchanges at their whole cap that still fit.
+CAP = type("Cfg", (), {"max_usd_per_exchange": 0.25})()
+
+
+@pytest.mark.parametrize("left, ok, warn, says", [
+    (0.2, False, False, "Not even one exchange fits"),
+    (2.0, True, True, "8: enough for a smoke test, not for a demo"),
+    (3.75, True, False, "left in the budget: 15"),
+])
+def test_worst_case_exchanges_left_fail_warn_or_pass(left, ok, warn, says):
+    c = pf.check_worst_case_left(left, CAP)
+    assert (c.ok, c.warn) == (ok, warn) and says in c.text
+    assert str(left) not in c.text and "0.25" not in c.text
+    assert str(c).startswith("❌" if not ok else "⚠️" if warn else "✅")
+
+
+def test_an_unreported_budget_fails():
+    assert not pf.check_worst_case_left(None, CAP).ok
+
+
+def test_the_marks_print_on_a_console_without_them(monkeypatch):
+    """R9: printed through a pipe on a cp1255 console, ✅ raised UnicodeEncodeError before the fix."""
+    raw = io.BytesIO()
+    monkeypatch.setattr(sys, "stdout", io.TextIOWrapper(raw, encoding="cp1255"))
+    monkeypatch.setattr(pf, "run", lambda mode: [pf.Check(True, "a"), pf.Check(True, "b", warn=True),
+                                                 pf.Check(False, "c")])
+    assert pf.main([]) == 1
+    sys.stdout.flush()
+    out = raw.getvalue().decode("utf-8")
+    assert "✅ a" in out and "⚠️ b" in out and "❌ c" in out
