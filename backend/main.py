@@ -14,6 +14,7 @@ only (S2: demo users, no authentication). Deps is built once and shared by every
 from __future__ import annotations
 
 import argparse
+import logging
 import os
 import secrets
 import sys
@@ -78,8 +79,21 @@ def create_app(mode: str = "scripted", db_path: Path = seed.DEFAULT_OUT, scripte
     return app
 
 
+def log_to_stdout() -> None:
+    """The operational channel (NFR 11) on stdout, INFO and up, so the per-call line (R9) and the
+    exchange cost reach it. Without a handler, Python prints WARNING and up only, on stderr. Once."""
+    if any(getattr(h, "_medagentpro", False) for h in operational_log.handlers):
+        return
+    h = logging.StreamHandler(sys.stdout)
+    h.setFormatter(logging.Formatter("%(asctime)s %(levelname)s %(name)s %(message)s"))
+    h._medagentpro = True   # type: ignore[attr-defined]
+    operational_log.addHandler(h)
+    operational_log.setLevel(logging.INFO)
+
+
 def scripted_app() -> FastAPI:
     """The factory --reload imports. Scripted only: the real model never runs under reload (R8)."""
+    log_to_stdout()   # the reloader's worker is a new process
     return create_app("scripted")
 
 
@@ -98,6 +112,7 @@ def main(argv: list[str] | None = None) -> int:
         print("--reload is refused with --real: each reload would start another counter (R8, T2)")
         return 2
     import uvicorn
+    log_to_stdout()
     if args.reload:
         uvicorn.run("main:scripted_app", factory=True, host=HOST, port=args.port, reload=True)
         return 0

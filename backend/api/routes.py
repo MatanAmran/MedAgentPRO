@@ -193,7 +193,8 @@ def router(state: AppState) -> APIRouter:
                         raise ConversationBusy()
                 outcome = None
                 try:
-                    outcome = pipeline.run(body.question, history, user, deps, on_stage)
+                    outcome = pipeline.run(body.question, history, user, deps, on_stage,
+                                           context={"request_id": body.request_id, "conversation_id": conv.id})
                     return {"exchange_id": outcome.exchange_id, "recorded": outcome.recorded,
                             "response": outcome.response, "cost": outcome.cost}
                 finally:

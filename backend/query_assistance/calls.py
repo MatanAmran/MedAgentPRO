@@ -21,6 +21,7 @@ from __future__ import annotations
 
 import functools
 import json
+import time
 from dataclasses import dataclass
 from typing import Any, Callable
 
@@ -60,6 +61,11 @@ class Call:
     response: ModelResponse | None      # None where the call failed
     feedback_attempt: bool
     rejection: str | None = None        # why the output was rejected, or the call failed
+    # A name for what failed, never text: the failure kind (timeout, budget, refusal, format_not_json,
+    # ...) or the class of the check that rejected the output (CompileError, GateOutputError, ...).
+    # The rejection above may hold model-written text; this never does (R9 log line, P6)
+    check: str | None = None
+    duration_ms: float | None = None    # the gateway call alone, from sending to the response or the error
 
 
 class StageFailed(Exception):
@@ -114,6 +120,10 @@ def provider_schema(schema: dict) -> dict:
     return _provider_validator(json.dumps(schema, sort_keys=True)).schema
 
 
+def _ms(since: float | None) -> float | None:
+    return None if since is None else round((time.monotonic() - since) * 1000, 1)
+
+
 def ask(gateway: ModelGateway, model: str, prompt_identity: str, render: Callable[[str | None], str],
         accept: Callable[[Any], Any], attempts: int = MODEL_CALL_ATTEMPTS, output_schema: dict | None = None,
         validator: Draft202012Validator | None = None, rejected: tuple = ()) -> tuple[Any, list[Call]]:
@@ -126,30 +136,35 @@ def ask(gateway: ModelGateway, model: str, prompt_identity: str, render: Callabl
     for n in range(attempts):
         is_feedback = n > 0
         config = ModelConfig(model=model, prompt_identity=prompt_identity, output_schema=output_schema)
+        started: float | None = None
         try:
-            resp = gateway.invoke(render(feedback), config)
+            prompt = render(feedback)
+            started = time.monotonic()   # the call alone, not the rendering
+            resp = gateway.invoke(prompt, config)
         except ModelCallError as e:
-            calls.append(Call(prompt_identity, None, is_feedback, str(e)))
+            calls.append(Call(prompt_identity, None, is_feedback, str(e), e.kind, _ms(started)))
             raise StageFailed(e.kind, str(e), calls) from e
         except Exception as e:
             # G1: a refusal for money came back from the provider, so the call reached it and is
             # recorded (NFR 3). The budget's own refusals, an open breaker and a cancellation sent nothing
             if isinstance(e, BudgetExceeded) and e.scope == "provider":
-                calls.append(Call(prompt_identity, None, is_feedback, f"budget: {e}"))
+                calls.append(Call(prompt_identity, None, is_feedback, f"budget: {e}", "budget", _ms(started)))
             setattr(e, _CALLS_MADE, calls)
             raise
+        took = _ms(started)
         problem = resp.problem()
         if problem:
-            calls.append(Call(prompt_identity, resp, is_feedback, problem))
+            calls.append(Call(prompt_identity, resp, is_feedback, problem, problem, took))
             raise StageFailed(problem, f"the {prompt_identity} call ended with {problem}", calls)
         try:
             out = resp.json()
         except ValueError as e:
-            calls.append(Call(prompt_identity, resp, is_feedback, f"format: not JSON ({e})"))
+            calls.append(Call(prompt_identity, resp, is_feedback, f"format: not JSON ({e})", "format_not_json", took))
             raise StageFailed("format", "the output is not JSON", calls) from e
         breach = _first(provider, out) if provider else None
         if breach is not None:
-            calls.append(Call(prompt_identity, resp, is_feedback, f"format: {schema_feedback(breach)}"))
+            calls.append(Call(prompt_identity, resp, is_feedback, f"format: {schema_feedback(breach)}",
+                              "format_provider_schema", took))
             raise StageFailed("format", "the output breaks what the provider enforced", calls)
         try:
             breach = _first(validator, out) if validator else None
@@ -157,9 +172,9 @@ def ask(gateway: ModelGateway, model: str, prompt_identity: str, render: Callabl
                 raise SchemaBreach(f"schema: {breach.message}", schema_feedback(breach))
             result = accept(out)
         except content as e:
-            calls.append(Call(prompt_identity, resp, is_feedback, str(e)))
+            calls.append(Call(prompt_identity, resp, is_feedback, str(e), type(e).__name__, took))
             feedback = getattr(e, "feedback", None) or getattr(e, "reason", None) or str(e)
             continue
-        calls.append(Call(prompt_identity, resp, is_feedback))
+        calls.append(Call(prompt_identity, resp, is_feedback, duration_ms=took))
         return result, calls
     raise StageRejected(f"rejected after {attempts} attempt(s): {calls[-1].rejection}", calls)
