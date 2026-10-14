@@ -2,8 +2,9 @@
 Feasibility checks: one test per row of constraints.py. No network, no model call.
 
 Checks marked needs="map" read LiteLLM's local model map of the pinned version; where LiteLLM or its
-map is absent they are skipped, and say so. The model, caps and prices are read from backend/.env
-when it exists (only the names below, never printed); otherwise the demo defaults apply.
+map is absent they are skipped, and say so. The model, caps and prices are the defaults below, in
+code: no test reads backend/.env, so CI and this machine run the same checks and a failure never prints
+a local value (chat, R9, 14.10, 17:50). The configured values are checked by tools.preflight --real.
 """
 
 from __future__ import annotations
@@ -47,13 +48,8 @@ DEFAULTS = {"MODEL_ID": "claude-sonnet-5-5", "MODEL_MAX_OUTPUT_TOKENS": "2000", 
 
 
 def settings() -> dict:
-    """The configured values, where backend/.env holds them. Only these names are read."""
-    out = dict(DEFAULTS)
-    if b.ENV_FILE.exists():
-        from dotenv import dotenv_values
-        env = dotenv_values(b.ENV_FILE)
-        out.update({k: env[k] for k in DEFAULTS if env.get(k)})
-    return out
+    """The demo defaults, never backend/.env (chat, R9, 14.10, 17:50)."""
+    return dict(DEFAULTS)
 
 
 def model_entry() -> dict:
