@@ -49,6 +49,31 @@
 
 ## לשיחת Code החדשה
 
-`CLAUDE.md` נטען אוטומטית. משפט פתיחה:
+`CLAUDE.md` נטען אוטומטית.
 
-> קרא את `docs/notes/01_HANDOFF.md` ואת הסעיף האחרון ב-`docs/notes/00_STATUS.md`. בדוק ב-`git log` וב-`git status` איפה העבודה עומדת, והמשך משם. כל PR מול `master`. בלי push בלי אישור אביתר.
+**איפה העבודה עומדת (14.10, סוף השיחה):**
+- **הענף:** `ci/maintenance`, מ-`master` (`794dc24`, המיזוג של PR #4).
+- **ה-commits** — חמישה, ‏**כולם מקומיים. הענף לא עלה ל-GitHub, ואין לו PR:**
+  - `8a8b112`, ‏`502792b` — הערות: מיזוג PR #4, ניקוי הענפים, ו-`main` כברירת מחדל.
+  - `50d7ad8` — הערות: התוכנית לתחזוקת ה-CI, וספירת mypy.
+  - `3730a91` — **הקוד:** ‏`tests.yml`, ‏`CLAUDE.md` ו-`01_HANDOFF.md`.
+  - ה-commit של העדכון הזה.
+- **`git status` נקי** אחרי ה-commit האחרון.
+
+**מתוך "תחזוקת CI — הכרעות בצ׳אט (14.10, 14:10)":**
+- **בוצע (`3730a91`):**
+  1. `runs-on: ubuntu-24.04` בארבע העבודות, עם הערה.
+  2. ה-actions נשארו כמו שהם. השדרוג ל-`@v7` נרשם ב-`CLAUDE.md`, תחת "After the demo".
+  3. `stress` רצה על `pull_request` (‏`schedule` ו-`workflow_dispatch` נשארו). תוקן ב-`CLAUDE.md` וב-`01_HANDOFF.md`. **הזמן במחשב: כ-45 שניות.**
+  4. ההערה של mypy: "does not block until after the demo". **10 השגיאות (`union-attr`, ‏`operator`) נקראו מול הקוד** ונרשמו ב-`00_STATUS.md`: אף אחת לא מגיעה ל-`None` בזמן ריצה בדמו.
+- **נשאר — סעיף 5:**
+  - **push של `ci/maintenance`, באישור מפורש של אביתר** (עוד לא ניתן לי).
+  - **PR מול `master`:** ‏`https://github.com/MatanAmran/MedAgentPRO/compare/master...ci/maintenance?expand=1`, ולבדוק שכתוב "base: master".
+  - **לאמת ב-CI:** ש-`stress` רצה ועברה על 24.04. **זו הפעם הראשונה שהיא רצה ב-CI אי פעם.** וגם שה-artifact של צילומי גווני האפור נוצר.
+  - **אחרי המיזוג:** למחוק את הענף ב-GitHub ובמחשב, לפי `CLAUDE.md`.
+
+**שאלה פתוחה לצ׳אט (לא חוסמת):** שגיאת mypy מס׳ 6 ב-`budget.py:186` (‏`SpendLedger.add`). אם `.model_spend.json` נערך ידנית עם מחרוזת, הרישום נכשל אחרי קריאה ששולמה. בדמו זה לא קורה. **תיקון של שורה אחת** — ‏`float(d["total_usd"]) + usd`, כמו `total` — מחכה להכרעה: עכשיו או אחרי הדמו.
+
+**משפט פתיחה:**
+
+> קרא את `docs/notes/01_HANDOFF.md` (במיוחד "איפה העבודה עומדת") ואת הסעיף האחרון ב-`docs/notes/00_STATUS.md`. בדוק ב-`git log` וב-`git status` שהענף `ci/maintenance` עומד כמו שכתוב. ההמשך הוא push באישור אביתר, ואחריו PR מול `master`. בלי push בלי אישור אביתר.
