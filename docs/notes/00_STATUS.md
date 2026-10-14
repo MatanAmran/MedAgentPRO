@@ -1541,6 +1541,16 @@ workflow ב-GitHub Actions · בדיקות Playwright, **על שלושת המנ�
 - **ה-commit של ההערות (`e7ca4af`): ‏push לענף לפני המיזוג, לא cherry-pick.** cherry-pick ל-`master` הוא commit ישיר על `master`, בלי PR, וזה בניגוד לכלל. אחרי ה-push מחכים שה-CI על ה-PR יהיה ירוק (כ-9 דקות), ורק אז אביתר ממזג. **גם הסקירה הזו נכנסת לאותו push.**
 - **אחרי המיזוג:** למחוק את `ci/maintenance` ב-GitHub ובמחשב, ולעדכן את `01_HANDOFF.md`. הצעד הבא לפי ה-handoff הוא בדיקת העשן מול המודל האמיתי (R9). **לא להתחיל אותה בלי הנחיות מהצ׳אט.**
 
+### PR #5 מוזג (14.10, 14:57) — **הנחיות מהצ׳אט ל-Code**
+
+**נבדק ב-GitHub:** ‏`master` הוא `312666d`, ‏"Merge pull request #5 from MatanAmran/ci/maintenance". לפני המיזוג, ה-CI על `411dcfc` היה ירוק בשתי הריצות, וב-PR רצה גם `stress`. ה-CI על `master` אחרי המיזוג רץ עכשיו.
+
+1. `git fetch MedAgentPRO`, לעבור ל-`master`, ו-`git pull`. לוודא שה-HEAD הוא `312666d`.
+2. **למחוק את `ci/maintenance`**, לפי `CLAUDE.md`: ‏`git log master..MedAgentPRO/ci/maintenance` ריק, אחריו `git push MedAgentPRO --delete ci/maintenance`, ‏`git branch -d ci/maintenance` ו-`git remote prune MedAgentPRO`. **מאושר.**
+3. **לרשום ב-`CLAUDE.md`, בסעיף GitHub:** אחרי push ל-`master`, ‏GitHub מציג את הבאנר "master had recent pushes — Compare & pull request". הבאנר מציע PR מ-`master` אל `main`, **ולא לוחצים עליו.** כמו כן: ‏"67 commits ahead of, 1 commit behind main" הוא מצב תקין, כי ל-`main` היסטוריה נפרדת.
+4. **לעדכן את `01_HANDOFF.md`:** תחזוקת ה-CI הושלמה ומוזגה. **הצעד הבא, בדיקת העשן מול המודל האמיתי (R9), מתוכנן בצ׳אט.** לא מתחילים בלי הנחיות.
+5. **commit של ההערות** על ענף חדש מ-`master`, בשם `r9/smoke-test`. בלי push.
+
 ## מה שנסגר בסבב האחרון
 
 - **הקוד עבר לריפו** — `MedAgentPro\backend` (`query_assistance`, `model_client`, `persistence`, `shared`, `tests`). **`03_Code` נשאר כמקור ומעודכן.** `python -m pytest -q` מתוך `backend`
