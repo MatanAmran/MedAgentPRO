@@ -48,6 +48,8 @@ from .calls import MODEL_CALL_ATTEMPTS, Call, OutputRejected, StageRejected  # n
 from .compiler import HERE, Catalog
 
 REF_RE = re.compile(r"\{([a-z][a-z0-9_]{0,39})\.([a-z][a-z0-9_]{0,39})#(\d+)\}")
+# D5 (fix round): how many rows a reading matched, before LIMIT. A reference with no row, filled by code
+TOTAL_RE = re.compile(r"\{([a-z][a-z0-9_]{0,39})\.total\}")
 TOKEN_RE = re.compile(r"[^\s,;:()\[\]\"']+")
 
 
@@ -69,6 +71,7 @@ class Material:
                only as references, in any reading (F11)
     examined   what the reading examined, as "Examined" words it, for the records' examined line
                (chat, 18.10, 09:40). From the plan and the catalog only
+    total      D5 (fix round): the rows the query matched before LIMIT, the value of {label.total}
     """
     label: str
     rows: list[dict[str, Any]]
@@ -78,6 +81,7 @@ class Material:
     literals: set[str] = field(default_factory=set)
     id_aliases: set[str] = field(default_factory=set)
     examined: str | None = None
+    total: int | None = None
 
     def identifier_tokens(self) -> set[str]:
         return {t for row in self.rows for a in self.id_aliases if row.get(a) is not None
@@ -96,25 +100,28 @@ def _plan_values(node: Any) -> list[Any]:
 
 
 def material(label: str, plan: dict, rows: list[dict], truncated: bool = False,
-             cat: Catalog | None = None, examined: str | None = None) -> Material:
+             cat: Catalog | None = None, examined: str | None = None, total: int | None = None) -> Material:
     """Builds a Material from a reading's plan, so the alias -> column map and the literals
     come from what ran. The catalog says which columns are identifiers."""
     cols = {i["as"]: i["expr"].get("col") for i in plan["SELECT"]}
     values = _plan_values(plan.get("WHERE")) + _plan_values(plan.get("HAVING", []))
     literals = {t for v in values if not isinstance(v, bool) for t in _tokens_with_digits(format_value(v))}
     ids = {a for a, col in cols.items() if col and cat and (cat.column(col) or {}).get("identifier")}
-    return Material(label, rows, cols, plan.get("ORDER_BY", []), truncated, literals, ids, examined)
+    return Material(label, rows, cols, plan.get("ORDER_BY", []), truncated, literals, ids, examined,
+                    len(rows) if total is None else total)
 
 
 @dataclass
 class Sentence:
     template: str                  # as the model wrote it, with references
     refs: list[tuple[str, str, int]]
+    totals: list[str] = field(default_factory=list)   # D5: labels whose {label.total} the sentence holds
 
     @property
     def evidence(self) -> list[str]:
         """label.alias for each field the sentence rests on, for the gate and the audit entry."""
-        return list(dict.fromkeys(f"{lab}.{alias}" for lab, alias, _ in self.refs))
+        return list(dict.fromkeys([f"{lab}.{alias}" for lab, alias, _ in self.refs]
+                                  + [f"{lab}.total" for lab in self.totals]))
 
 
 @dataclass
@@ -169,8 +176,9 @@ class Draft:
             if i:
                 text(" ")
             at = 0
-            for mt in REF_RE.finditer(s.template):
-                text(s.template[at:mt.start()])
+            tmpl = fill_totals(s.template, self.materials)   # D5: a count has no row, so it is plain text
+            for mt in REF_RE.finditer(tmpl):
+                text(tmpl[at:mt.start()])
                 ref_label, alias, row = mt.group(1), mt.group(2), int(mt.group(3))
                 value = format_value(self.materials[ref_label].rows[row - 1][alias])
                 if ref_label == label and alias not in free:
@@ -178,7 +186,7 @@ class Draft:
                 else:
                     text(value)
                 at = mt.end()
-            text(s.template[at:])
+            text(tmpl[at:])
         return out
 
     def presented_identifiers(self, cat: Catalog) -> list[str]:
@@ -227,9 +235,15 @@ def free_text_aliases(m: Material, cat: Catalog | None) -> set[str]:
     return out
 
 
+def fill_totals(template: str, materials: dict[str, Material]) -> str:
+    """D5: {label.total} is the reading's count of matched rows, from the query, never from the model."""
+    return TOTAL_RE.sub(lambda mt: format_value(materials[mt.group(1)].total), template)
+
+
 def fill(template: str, materials: dict[str, Material],
          masked_aliases: dict[str, set[str]] | None = None) -> str:
     masked_aliases = masked_aliases or {}
+    template = fill_totals(template, materials)
 
     def sub(mt):
         label, alias, row = mt.group(1), mt.group(2), int(mt.group(3))
@@ -269,8 +283,12 @@ def check(output: dict, materials: list[Material], question: str) -> dict[str, l
             text = s["text"]
             at = f"reading {label}, sentence {k}"
             refs = [(a, b, int(n)) for a, b, n in REF_RE.findall(text)]
-            if not refs:
+            totals = TOTAL_RE.findall(text)
+            if not refs and not totals:
                 reject(f"'{text}' references no field (NFR 4)", f"{at} holds no reference. Every sentence holds one")
+            if any(lab != label for lab in totals):
+                reject(f"'{text}' references another reading's total from reading {label}",
+                       f"{at} references another reading's total. A sentence references its own reading only")
             for lab, alias, row in refs:
                 ref = f"{{{lab}.{alias}#{row}}}"
                 if lab != label:
@@ -285,7 +303,7 @@ def check(output: dict, materials: list[Material], question: str) -> dict[str, l
                 if m.rows[row - 1][alias] is None:
                     reject(f"{ref} points at an empty field",
                            f"{at}: {ref} is empty. Say that it is not recorded, without referencing it")
-            outside = REF_RE.sub(" ", text)
+            outside = TOTAL_RE.sub(" ", REF_RE.sub(" ", text))
             if "{" in outside or "}" in outside:
                 reject(f"'{text}' holds a malformed reference", f"{at} holds a malformed reference")
             typed = _tokens_with_digits(outside)
@@ -300,7 +318,7 @@ def check(output: dict, materials: list[Material], question: str) -> dict[str, l
                        f"and identifiers come from the records (NFR 6)",
                        f"{at} types a digit outside a reference. Values, counts and identifiers come "
                        f"from references only")
-            sentences.append(Sentence(text, refs))
+            sentences.append(Sentence(text, refs, totals))
         result[label] = sentences
     missing = set(by_label) - set(result)
     if missing:   # [proposal]
@@ -323,9 +341,14 @@ def examined_of(materials: list[Material]) -> dict[str, str]:
     return {m.label: m.examined for m in materials if m.examined}
 
 
+def totals_of(materials: list[Material]) -> dict[str, int]:
+    """D5: each reading's matched rows, for the count line in the records synthesis and the gate see."""
+    return {m.label: m.total for m in materials if m.total is not None}
+
+
 def _records(materials: list[Material]) -> str:
     return prompts.render_records([(m.label, m.rows) for m in materials if m.rows], ordered_by(materials),
-                                  examined_of(materials))
+                                  examined_of(materials), totals_of(materials))
 
 
 def _rejected(rejected: list[str] | None) -> str:

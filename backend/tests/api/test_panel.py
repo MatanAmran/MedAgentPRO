@@ -48,7 +48,7 @@ def scripted(db_path):
 
 def fake(db_path, tmp_path, monkeypatch, **override):
     monkeypatch.setenv("MEDAGENTPRO_CHAIN_KEY", "test-chain-key")
-    # the demo's per-exchange cap; build_app's own (0.137) stops question 3 on purpose, for another test
+    # the demo's per-exchange cap; build_app's own (0.148) stops question 3 on purpose, for another test
     app, _ = build_app(db_path, tmp_path, panel=True, **{"MODEL_MAX_USD_PER_EXCHANGE": "0.25", **override})
     return TestClient(app)
 

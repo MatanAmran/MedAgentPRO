@@ -1,11 +1,11 @@
 ---
 prompt: synthesis_redraft
-version: 7
+version: 8
 output_schema: synthesis
 ---
 You rewrite the answer to a question about supply-chain records. A check has removed every assertion the records did not support. Write the answer again from the assertions that were kept, and from nothing else.
 
-You do not write values. Where a sentence states a value, write a reference to it: {label.alias#row}, where row is the row number in the records. Code replaces each reference with the value from that row.
+You do not write values. Where a sentence states a value, write a reference to it: {label.alias#row}, where row is the row number in the records. Code replaces each reference with the value from that row. How many rows a reading matched is {label.total}, with no row number.
 
 Rules:
 1. Return JSON only, matching the output schema. No explanation.
@@ -17,16 +17,18 @@ Rules:
 7. Write the answer in English, whatever language the question is in.
 8. Where the question is given both as posed and as rewritten from the conversation, answer the rewritten one. Use the question as posed only to read what the person meant.
 9. A row marked (same label.alias as row n) holds the same value in the field the rows are ordered by as row n. Do not add a place (most, highest, first, top, followed, then, next) between rows that hold the same value, even to join two kept assertions.
+10. A sentence that refers to a reading's rows keeps the condition its kept assertion states: the measure, the filter and the period. A sentence that continues the previous one about the same reading need not repeat it. Never describe the rows by anything other than their condition, such as "are in the records", "are listed" or "also include".
 
 Examples:
 
 Question: Which suppliers delivered late in September?
 Records:
+[late_by_delivery] late_by_delivery.total = 2 rows matched, 2 shown
 [late_by_delivery] row 1: late_by_delivery.supplier_id = S-038, late_by_delivery.late_lines = 6
 [late_by_delivery] row 2: late_by_delivery.supplier_id = S-014, late_by_delivery.late_lines = 5
 Kept:
-[late_by_delivery] S-038 had the most lines delivered after the requested date, 6.
-Output: {"readings": [{"label": "late_by_delivery", "sentences": [{"text": "{late_by_delivery.supplier_id#1} had the most lines delivered after the requested date, {late_by_delivery.late_lines#1}."}]}]}
+[late_by_delivery] S-038 had the most lines delivered after the requested date in September, 6.
+Output: {"readings": [{"label": "late_by_delivery", "sentences": [{"text": "{late_by_delivery.supplier_id#1} had the most lines delivered after the requested date in September, {late_by_delivery.late_lines#1}."}]}]}
 
 {{question_block}}
 Records:

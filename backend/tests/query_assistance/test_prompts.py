@@ -75,10 +75,12 @@ def test_rewrite_examples_validate_and_name_no_new_identifier():
 
 def test_gate_examples_validate_and_evaluate():
     """v4 (task 10a): one claim per sentence, and a place named between tied rows is contradicted.
-    v5 (chat, 18.10, 09:40): a sentence that describes its records unlike their examined line is contradicted."""
+    v5 (chat, 18.10, 09:40): a sentence that describes its records unlike their examined line is contradicted.
+    v6 (fix round, D4 and D5): rows described by anything but their condition are uncovered, and a stated
+    count is supported by label.total."""
     pr = p.load("gate.md")
-    (inp, out), (tie_in, tie_out) = examples(pr)
-    assert pr.version == "5"
+    (inp, out), (tie_in, tie_out), (list_in, list_out) = examples(pr)
+    assert pr.version == "6"
     for o in (out, tie_out):
         assert not list(validator("support_scoring").iter_errors(o))
     sentences = [(m.group(1), m.group(2)) for m in re.finditer(r"^\d+\. \[(\w+)\] (.*)$", inp, re.M)]
@@ -90,6 +92,10 @@ def test_gate_examples_validate_and_evaluate():
     assert "(same late_by_delivery.late_lines as row 1)" in tie_in
     res = gate.evaluate(tie_out, tied, {"late_by_delivery": {"supplier_id", "late_lines"}})
     assert res.supported == [False, True] and [c["verdict"] for c in tie_out["claims"]] == ["contradicted", "supported"]
+    listed = [(m.group(1), m.group(2)) for m in re.finditer(r"^\d+\. \[(\w+)\] (.*)$", list_in, re.M)]
+    assert "[late_lines] late_lines.total = 64 rows matched, 30 shown" in list_in
+    res = gate.evaluate(list_out, listed, {"late_lines": {"commitment_id", "delivered_at", "total"}})
+    assert res.supported == [True, False] and "late_lines.total" in list_out["claims"][0]["evidence"]
     assert all(len([c for c in o["claims"] if c["sentence"] == n]) == 1      # one claim per sentence
                for o in (out, tie_out) for n in {c["sentence"] for c in o["claims"]})
 
