@@ -160,3 +160,114 @@ test("the conversation list and each answer stay one tab stop, however many conv
     expect(await answer.locator("button.ref").evaluateAll((els) => els.filter((e) => (e as HTMLElement).tabIndex === 0).length)).toBe(1);
   }
 });
+
+// --------------------------------------------------------------------------
+// Long list (chat 18.10, 20:30; LongList.dc.html)
+// --------------------------------------------------------------------------
+
+test("long list L5: Show archived lists an archived conversation, and Unarchive brings it back", async ({ page }) => {
+  await page.getByRole("button", NEW_CONVERSATION).click();
+  await askExample(page, LATE);
+  await expect(page.getByTestId("exchange")).toHaveCount(1, { timeout: 20_000 });
+  const title = `Archived by the L5 test ${Date.now()}`;
+  const item = page.getByTestId("conversation-item").filter({ has: page.locator('[aria-current="page"]') });
+  await item.getByTestId("conversation-options").click();
+  await page.getByRole("menuitem", { name: "Rename" }).click();
+  await page.getByLabel("Conversation name").fill(title);
+  await page.keyboard.press("Enter");
+  const mine = page.getByTestId("conversation-item").filter({ hasText: title });
+  await mine.getByTestId("conversation-options").click();
+  await page.getByRole("menuitem", { name: "Archive" }).click();
+  await expect(mine).toHaveCount(0);
+
+  const toggle = page.getByRole("button", { name: "Show archived" });
+  await toggle.click();
+  await expect(toggle).toHaveAttribute("aria-pressed", "true");
+  const archived = page.getByRole("region", { name: "Archived" });
+  await expect(archived.getByTestId("conversation-item").filter({ hasText: title })).toHaveCount(1);
+  await axeClean(page, "the archived conversations shown");
+  await archived.getByTestId("conversation-item").filter({ hasText: title }).getByTestId("conversation-options").click();
+  await expect(page.getByRole("menuitem", { name: "Archive", exact: true })).toHaveCount(0);
+  await page.getByRole("menuitem", { name: "Unarchive" }).click();
+  await expect(archived.getByTestId("conversation-item").filter({ hasText: title })).toHaveCount(0);
+  await toggle.click();
+  await expect(page.getByRole("region", { name: "Archived" })).toHaveCount(0);
+  await expect(page.getByTestId("conversation-item").filter({ hasText: title })).toHaveCount(1);
+});
+
+// A long list as the real model can return it (31 parts, 30 shown, an answer naming each): the scripted set
+// holds none, so the conversation is served by a route here, in the screen's own shapes
+const PARTS = Array.from({ length: 30 }, (_, i) => `P-${10296 + i * 37}`);
+const longSegments = PARTS.flatMap((id, i) => [
+  ...(i % 5 === 0 ? [{ text: i === 0 ? "Parts below the reorder point include " : " Others in the records are " }] : []),
+  { text: id, ref: { alias: "part_id", row: i + 1 } },
+  { text: (i + 1) % 5 === 0 ? "." : i % 5 === 3 ? " and " : ", " },
+]);
+const LONG = {
+  exchange_id: "EX-LONG", posed: "Which parts are below their reorder point?", recorded: true, cost: null, rating: null,
+  response: {
+    outcome: "answered", gaps: [],
+    readings: [{
+      label: "below_reorder", title: "Stock on hand is below the reorder point",
+      checked: "Examined: parts where stock on hand is below the reorder point", result: "rows_returned",
+      columns: ["part_id"], headers: { part_id: "part" }, identifiers: ["part_id"],
+      rows: PARTS.map((part_id) => ({ part_id })), row_count: 30, total: 31, entity: "parts",
+      answer: longSegments.map((s) => s.text).join(""), evidence: ["below_reorder.part_id"],
+      answer_segments: longSegments,
+    }],
+  },
+};
+
+test("long list 1-4: a long answer folds, its values read as text, its parts as tags with a filter", async ({ page }, info) => {
+  await page.route(/\/api\/conversations$/, (r) =>
+    r.request().method() === "GET"
+      ? r.fulfill({ json: [{ conversation_id: "CV-LONG", created_at: new Date().toISOString(), title: "Long list", exchanges: 1 }] })
+      : r.fallback());
+  await page.route(/\/api\/conversations\/CV-LONG$/, (r) =>
+    r.fulfill({ json: { conversation_id: "CV-LONG", created_at: new Date().toISOString(), title: "Long list", exchanges: [LONG] } }));
+  await page.reload();
+  await page.getByTestId("conversation-item").filter({ hasText: "Long list" }).getByRole("button").first().click();
+  const card = page.getByTestId("reading");
+  await expect(card).toHaveCount(1);
+  await expect(card.getByTestId("reading-count")).toHaveText("31 parts · 30 shown");
+
+  // item 1: no chip, red only while pointed at; the comma stays on the value's line
+  const refs = card.getByTestId("answer").locator("button.ref");
+  const first = refs.first();
+  expect(await first.evaluate((e) => getComputedStyle(e).backgroundColor)).toBe("rgba(0, 0, 0, 0)");
+  expect(await first.evaluate((e) => getComputedStyle(e).textDecorationStyle)).toBe("dotted");
+  expect(await first.evaluate((e) => e.parentElement?.textContent)).toBe(`${PARTS[0]},`);
+
+  // item 2: folded after the first sentences; an arrow onto a folded value unfolds it
+  const fold = card.getByTestId("answer-fold");
+  await expect(fold).toHaveText("Read the full answer (30 references) ↓");
+  await expect(refs).toHaveCount(5);
+  await first.focus();
+  await page.keyboard.press("End");
+  await expect(fold).toHaveAttribute("aria-expanded", "true");
+  await expect(refs).toHaveCount(30);
+  await expect(page.locator(":focus")).toHaveText(PARTS[29]);
+  await expect(card.getByTestId("answer")).toHaveText(LONG.response.readings[0].answer);
+  expect(await card.getByTestId("answer").locator("button.ref").evaluateAll(
+    (els) => els.filter((e) => (e as HTMLElement).tabIndex === 0).length)).toBe(1);
+
+  // item 3: a tag grid, linked both ways; the filter keeps what holds the text
+  const tags = card.getByTestId("reading-tags").getByRole("listitem");
+  await expect(tags).toHaveCount(30);
+  await expect(card.getByTestId("reading-table")).toHaveCount(0);
+  await expect(card.locator(`[data-row="30"]`)).toHaveAttribute("data-hot", "true");
+  await tags.nth(2).hover();
+  await expect(refs.nth(2)).toHaveClass(/ref-hot/);
+  await axeClean(page, "a long list, unfolded, a tag pointed at");
+  await card.getByRole("searchbox", { name: "Filter these rows" }).fill(PARTS[3]);
+  await expect(tags).toHaveCount(1);
+  await expect(card.getByRole("status")).toHaveText("1 of 30 shown");
+  await axeClean(page, "the tags filtered");
+
+  if (["edge", "chromium"].includes(info.project.name)) {
+    await card.getByRole("searchbox", { name: "Filter these rows" }).fill("");
+    await fold.click();
+    await page.addStyleTag({ content: "html { filter: grayscale(1); }" });
+    await card.screenshot({ path: info.outputPath("grayscale", "10-long-list.png") });
+  }
+});

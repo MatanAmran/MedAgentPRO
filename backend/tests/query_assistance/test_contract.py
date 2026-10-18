@@ -132,6 +132,35 @@ def test_view_says_n_of_total_when_cut(db):
     assert v["row_count"] == 5 and v["total"] > 5 and v["notice"] == f"Showing 5 of {v['total']}."
 
 
+def _plan(table: str, cols: list[str], joins: tuple[str, ...] = ()) -> dict:
+    plan = {"SELECT": [{"expr": {"col": c}, "as": c.replace(".", "_")} for c in cols], "FROM": table}
+    return {**plan, "JOIN": [{"rel": r, "type": "INNER"} for r in joins]} if joins else plan
+
+
+@pytest.mark.parametrize("plan, entity", [
+    (_plan("parts", ["parts.part_id"]), "parts"),
+    (_plan("commitments", ["commitments.commitment_id", "suppliers.name"], ("commitment_supplier",)),
+     "purchase order lines"),
+    (_plan("receipts", ["receipts.receipt_id", "purchase_orders.po_id"], ("receipt_commitment", "commitment_order")),
+     "goods receipts"),
+    # one-to-many: one part, a forecast row for each week
+    (_plan("parts", ["parts.part_id", "forecast.week"], ("part_forecast",)), None),
+    # many-to-one in the data, but no key declared on (part_id, week)
+    (_plan("commitments", ["commitments.commitment_id", "forecast.demand"], ("commitment_forecast",)), None),
+    # the "one" side first: each supplier once per commitment
+    (_plan("suppliers", ["suppliers.supplier_id"], ("commitment_supplier",)), None),
+    ({"SELECT": [{"expr": {"col": "commitments.commitment_id"}, "as": "cid"},
+                 {"expr": {"metric": "days_late"}, "as": "late"}], "FROM": "commitments"}, None),
+    (LATE, None),
+])
+def test_entity_only_where_each_row_is_a_row_of_the_from_table(db, plan, entity):
+    """Long list, L4 [demo extension]: plain columns, no GROUP_BY, every JOIN many-to-one by declared keys
+    (references in schema.json); otherwise "rows" on the screen (chat, 18.10)."""
+    assert k.reading_entity(plan, CAT) == entity
+    v = k.reading_view("r", plan, run(db, plan), CAT, "APPROVER")
+    assert v.get("entity") == entity
+
+
 def test_view_of_an_empty_result_is_a_finding(db):
     plan = dict(LATE, WHERE={"EQ": [{"col": "commitments.supplier_id"}, {"value": "S-040"}]})
     v = k.reading_view("r", plan, run(db, plan, question="What did S-040 deliver?"), CAT, "APPROVER")

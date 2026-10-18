@@ -1,0 +1,75 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Long list answer, lighter references and a tag grid</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;600;700;800&amp;family=IBM+Plex+Mono:wght@400;500;600&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+.r{font-family:'IBM Plex Mono',monospace;font-size:15px;font-weight:600;color:#1C1917;text-decoration:underline dotted #C9A9A6;text-underline-offset:4px;border-radius:4px;padding:0 2px}
+.r-hot{background:#B91C1C;color:#FFFFFF;text-decoration:none}
+</style>
+</helmet>
+<div style="width: 1100px; box-sizing: border-box; padding: 32px; background: #F6F3F2; font-family: 'Hanken Grotesk', system-ui, sans-serif; color: #1C1917; display: flex; flex-direction: column; gap: 20px">
+
+  <div style="display: flex; gap: 12px; align-items: baseline">
+    <span style="font-size: 13px; font-weight: 800; letter-spacing: 0.08em; color: #991B1B">PROPOSAL</span>
+    <span style="font-size: 20px; font-weight: 800">A long list: quieter references, and a grid instead of a 30-row column</span>
+  </div>
+
+  <section style="border-radius: 20px; background: #FFFFFF; border: 1px solid #ECE4E2; box-shadow: 0 18px 40px -24px rgba(127,29,29,0.35); overflow: hidden">
+    <div style="display: flex; align-items: center; gap: 10px; padding: 16px 20px; border-bottom: 1px solid #F5E9E7; background: linear-gradient(180deg, #FFF7F7, #FFFFFF)">
+      <span style="width: 28px; height: 28px; border-radius: 8px; background: #B91C1C; color: #FFFFFF; font-weight: 800; font-size: 13px; display: flex; align-items: center; justify-content: center">1</span>
+      <h2 style="margin: 0; font-size: 17px; font-weight: 800">Stock on hand is below the reorder point</h2>
+      <span style="margin-left: auto; padding: 4px 10px; border-radius: 999px; background: #FEF2F2; color: #7F1D1D; font-size: 13px; font-weight: 700">31 parts · 30 shown</span>
+      <button type="button" style="min-height: 36px; padding: 0 12px; border-radius: 10px; border: 1px solid #ECE4E2; background: #FFFFFF; font: inherit; font-size: 13px; font-weight: 600">Copy</button>
+      <button type="button" style="min-height: 36px; padding: 0 12px; border-radius: 10px; border: 1px solid #ECE4E2; background: #FFFFFF; font: inherit; font-size: 13px; font-weight: 600">Export 30 rows</button>
+    </div>
+
+    <p style="margin: 0; padding: 18px 20px 4px; font-size: 16px; line-height: 1.75; color: #292524">Parts with stock on hand below the reorder point include <span class="r">P-10296</span>, <span class="r">P-10444</span>, <span class="r r-hot">P-10629</span>, <span class="r">P-10703</span> and <span class="r">P-10777</span>. Others in the records are <span class="r">P-11147</span>, <span class="r">P-11295</span>, <span class="r">P-11332</span> …</p>
+    <div style="padding: 0 20px 14px"><button type="button" style="min-height: 36px; padding: 0; border: 0; background: transparent; color: #991B1B; font: inherit; font-size: 14px; font-weight: 700">Read the full answer (30 references) ↓</button></div>
+
+    <div style="padding: 4px 20px 8px; display: flex; align-items: center; gap: 12px">
+      <span style="font-size: 12px; font-weight: 800; letter-spacing: 0.06em; color: #78716C">PART</span>
+      <label style="margin-left: auto; display: flex; align-items: center; gap: 8px; padding: 0 10px; min-height: 36px; border-radius: 10px; background: #F6F3F2; border: 1px solid #ECE4E2; font-size: 13px; color: #78716C">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#78716C" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7"></circle><path d="M20 20l-3.5-3.5"></path></svg>
+        <input type="search" placeholder="Filter these rows" aria-label="Filter these rows" style="border: 0; background: transparent; font: inherit; outline: none; width: 140px">
+      </label>
+    </div>
+    <div style="padding: 4px 20px 18px; display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 8px">
+      <sc-for list="{{parts}}" as="p" hint-placeholder-count="30">
+        <span style="{{p.style}}">{{p.id}}</span>
+      </sc-for>
+    </div>
+    <div style="display: flex; gap: 10px; align-items: flex-start; padding: 14px 20px; background: #FAF7F6; border-top: 1px solid #F0E8E6; font-size: 13px; color: #44403C">
+      <span><strong>Examined:</strong> parts where stock on hand is below the reorder point</span>
+    </div>
+  </section>
+
+  <div style="display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px">
+    <div style="padding: 16px; border-radius: 14px; background: #FFFFFF; border: 1px solid #ECE4E2; font-size: 14px; line-height: 1.5"><strong style="color: #991B1B">1 · Quieter references.</strong> No chip, no box: the value in mono with a dotted underline. It turns red only on hover or focus, and its row turns red with it.</div>
+    <div style="padding: 16px; border-radius: 14px; background: #FFFFFF; border: 1px solid #ECE4E2; font-size: 14px; line-height: 1.5"><strong style="color: #991B1B">2 · Long text folds.</strong> Past about 8 references the answer shows its first sentences and "Read the full answer". The whole checked text is one click away; nothing is removed.</div>
+    <div style="padding: 16px; border-radius: 14px; background: #FFFFFF; border: 1px solid #ECE4E2; font-size: 14px; line-height: 1.5"><strong style="color: #991B1B">3 · One column becomes a grid.</strong> A reading whose rows hold a single identifier is laid out as tags, six to a row, with a filter. A table with values keeps its rows.</div>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1100,"height":1020}}'>
+class Component extends DCLogic {
+  renderVals() {
+    const ids = ['P-10296','P-10444','P-10629','P-10703','P-10777','P-11147','P-11295','P-11332','P-11554','P-11702','P-11813','P-12442','P-12590','P-12701','P-12775','P-13330','P-13478','P-13515','P-13626','P-13922','P-13996','P-14144','P-14477','P-14551','P-14699','P-14810','P-15291','P-15402','P-15439','P-15513'];
+    const parts = ids.map((id) => ({
+      id,
+      style: 'font-family: IBM Plex Mono, monospace; font-size: 13px; font-weight: 600; text-align: center; padding: 8px 0; border-radius: 10px; ' +
+        (id === 'P-10629' ? 'background: #B91C1C; color: #FFFFFF; box-shadow: 0 6px 14px -6px rgba(185,28,28,.7)' : 'background: #F6F3F2; border: 1px solid #ECE4E2; color: #292524')
+    }));
+    return { parts };
+  }
+}
+</script>
+</body>
+</html>

@@ -240,6 +240,26 @@ def reading_title(plan: dict, cat: Catalog) -> str | None:
     return _negated(name, cat) if tests == {True} else cat.metrics[name]["description"].rstrip(".")
 
 
+def reading_entity(plan: dict, cat: Catalog) -> str | None:
+    """Long list, L4 [demo extension]: the label of the FROM table, where each row is still a row of it.
+    Only where every SELECT item is a plain column (a metric or an aggregate gives none), there is no
+    GROUP_BY, and every JOIN is many-to-one by declared keys: each column of its `on` on the side already
+    in the query references (schema.json) the column on the side it adds. From the catalog only (chat,
+    18.10): part_forecast and commitment_forecast declare no such key, and give none."""
+    if plan.get("GROUP_BY") or any("col" not in i["expr"] for i in plan["SELECT"]):
+        return None
+    scope = {plan["FROM"]}
+    for j in plan.get("JOIN", []):
+        rel = cat.relations[j["rel"]]
+        new = rel["to"] if rel["from"] in scope else rel["from"]
+        for a, b in rel["on"]:
+            held, added = (a, b) if a.partition(".")[0] in scope else (b, a)
+            if (cat.column(held) or {}).get("references") != added:
+                return None
+        scope.add(new)
+    return cat.entities[plan["FROM"]].get("label")
+
+
 def reading_view(label: str, plan: dict, result: RetrievalResult, cat: Catalog, role: str,
                  answer: str | None = None, evidence: list[str] | None = None,
                  answer_segments: list[dict] | None = None) -> dict:
@@ -277,6 +297,9 @@ def reading_view(label: str, plan: dict, result: RetrievalResult, cat: Catalog, 
     title = reading_title(plan, cat)
     if title:
         view["title"] = title
+    entity = reading_entity(plan, cat)
+    if entity:
+        view["entity"] = entity
     return view
 
 

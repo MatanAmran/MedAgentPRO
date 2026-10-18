@@ -52,7 +52,9 @@ export const api = {
 
   examples: () => fetch(`${API_BASE}/api/examples`).then((r) => r.json() as Promise<Example[]>),
 
-  conversations: (user: DemoUserId) => call<ConversationSummary[]>(user, "/api/conversations"),
+  // archived: the user's archived conversations only, for "Show archived" (long list, L5) [demo extension]
+  conversations: (user: DemoUserId, archived = false) =>
+    call<ConversationSummary[]>(user, archived ? "/api/conversations?archived=true" : "/api/conversations"),
 
   newConversation: (user: DemoUserId) =>
     call<{ conversation_id: string }>(user, "/api/conversations", { method: "POST" }),

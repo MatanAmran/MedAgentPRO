@@ -129,6 +129,21 @@ describe("scripted examples (task 8, A4)", () => {
     await waitFor(() => expect(api.examples).toHaveBeenCalled());
     expect(screen.queryByTestId("examples")).toBeNull();
   });
+
+  it("says what can be asked on the real model, as text only (long list, item 6)", async () => {
+    vi.mocked(api.health).mockResolvedValueOnce({ mode: "real", model: "m", authentication: "none (demo)" } as never);
+    vi.mocked(api.examples).mockResolvedValueOnce([]);
+    render(<Chat />);
+    const text = await screen.findByTestId("can-ask");
+    for (const w of ["suppliers", "purchase orders", "parts", "stock on hand", "forecast"]) expect(text.textContent).toContain(w);
+    expect(text.querySelectorAll("button, a")).toHaveLength(0);
+  });
+
+  it("says nothing of the kind on the scripted model, which offers its examples", async () => {
+    render(<Chat />);
+    await screen.findByTestId("examples");
+    expect(screen.queryByTestId("can-ask")).toBeNull();
+  });
 });
 
 describe("Stop (UI refresh)", () => {

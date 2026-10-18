@@ -80,7 +80,8 @@ export function conversationMeta(c: ConversationSummary, now: Date = new Date())
 }
 
 /** Pinned, then Today and Earlier, each in the order given; a search keeps the conversations whose title
- * holds it. An archived conversation is never listed (the server leaves it out; phase B). */
+ * holds it. An archived conversation is never listed here (the server leaves it out; phase B); "Show archived"
+ * lists them apart (long list, L5). */
 export function groupConversations(list: ConversationSummary[], search: string, now: Date = new Date()) {
   const q = search.trim().toLowerCase();
   const kept = (q ? list.filter((c) => (c.title ?? "new conversation").toLowerCase().includes(q)) : list).filter(
@@ -103,6 +104,8 @@ export function Sidebar({
   renderOptions,
   renaming,
   renderRename,
+  archived = null,
+  onShowArchived,
 }: {
   conversations: ConversationSummary[];
   current: string | null;
@@ -112,17 +115,24 @@ export function Sidebar({
   renderOptions?: (c: ConversationSummary, tabbable: boolean) => React.ReactNode;
   renaming?: string | null;
   renderRename?: (c: ConversationSummary) => React.ReactNode;
+  // long list, L5: the archived conversations while "Show archived" is on, else null
+  archived?: ConversationSummary[] | null;
+  onShowArchived?: (shown: boolean) => void;
 }) {
   const [search, setSearch] = useState("");
   const [focusId, setFocusId] = useState<string | null>(null);
   const groups = useMemo(() => groupConversations(conversations, search), [conversations, search]);
+  const hidden = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    return (archived ?? []).filter((c) => !q || (c.title ?? "new conversation").toLowerCase().includes(q));
+  }, [archived, search]);
   const nav = useRef<HTMLElement | null>(null);
   const hint = useId();
 
   // One tab stop for the whole list, however long it grows (Test 40 on every engine; CI, 18.10): the
   // conversation last focused, else the current one, else the first. Arrows, Home and End move between
   // conversations; Tab goes on to that conversation's options, then out of the list.
-  const ordered = [...groups.pinned, ...groups.today, ...groups.earlier].map((c) => c.conversation_id);
+  const ordered = [...groups.pinned, ...groups.today, ...groups.earlier, ...hidden].map((c) => c.conversation_id);
   const roving = [focusId, current, ordered[0]].find((id) => id && ordered.includes(id)) ?? null;
 
   function move(from: string, key: string): boolean {
@@ -220,11 +230,29 @@ export function Sidebar({
         {group("Pinned", groups.pinned)}
         {group("Today", groups.today)}
         {group("Earlier", groups.earlier)}
-        {search && groups.pinned.length + groups.today.length + groups.earlier.length === 0 && (
+        {group("Archived", hidden)}
+        {archived && archived.length === 0 && <p className="px-2 text-sm text-ink-4">No archived conversation.</p>}
+        {search && ordered.length === 0 && (
           <p className="px-2 text-sm text-ink-4">No conversation matches.</p>
         )}
       </div>
       <div className="flex-1" />
+      {onShowArchived && (
+        <button
+          type="button"
+          aria-pressed={archived !== null}
+          disabled={locked}
+          onClick={() => onShowArchived(archived === null)}
+          data-testid="show-archived"
+          className="flex min-h-10 items-center gap-2 self-start rounded-[10px] px-2 text-sm font-semibold text-ink-3 hover:text-ink disabled:opacity-50"
+        >
+          <span aria-hidden="true" className={`flex h-4 w-4 items-center justify-center rounded border ${
+            archived !== null ? "border-brand bg-brand text-white" : "border-ink-4"}`}>
+            {archived !== null ? "✓" : ""}
+          </span>
+          Show archived
+        </button>
+      )}
       <p className="rounded-xl bg-canvas p-3 text-xs leading-relaxed text-ink-3">
         Archived conversations stay in the audit record. Archiving only hides them here.
       </p>

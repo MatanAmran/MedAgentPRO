@@ -1,6 +1,6 @@
 // What the screen derives from a response, by structure only: no word of model text is read here.
 
-import type { Cell, ExchangeItem, ExchangeResponse, Reading } from "./types";
+import type { AnswerSegment, Cell, ExchangeItem, ExchangeResponse, Reading } from "./types";
 
 export interface Group {
   key: Cell;
@@ -69,6 +69,55 @@ export function readingCsv(reading: Reading): string {
 export function answerText(reading: Reading): string | null {
   if (reading.answer_segments?.length) return reading.answer_segments.map((s) => s.text).join("");
   return reading.answer ?? null;
+}
+
+// --------------------------------------------------------------------------
+// Long list (LongList.dc.html, chat 18.10, 20:30)
+// --------------------------------------------------------------------------
+
+/** An answer holding more references than this folds after its first sentences. */
+export const FOLD_REFS = 8;
+
+/** The answer as shown while folded: its segments up to the last sentence end before the reference past
+ * FOLD_REFS, the last text segment cut there. A sentence end is a full stop, question or exclamation mark
+ * followed by a space or the end of a text segment, read from the shape of the text only, never its words:
+ * an early cut only folds sooner, nothing is removed. Where the first sentence alone holds more than
+ * FOLD_REFS references, the cut is after the FOLD_REFS-th. Null where the answer does not fold. */
+export function foldAnswer(segments: AnswerSegment[]): AnswerSegment[] | null {
+  if (segments.filter((s) => s.ref).length <= FOLD_REFS) return null;
+  let seen = 0;
+  let cut: AnswerSegment[] | null = null;
+  for (let i = 0; i < segments.length; i++) {
+    const s = segments[i];
+    if (s.ref) {
+      if (++seen > FOLD_REFS) break;
+      continue;
+    }
+    for (const m of s.text.matchAll(/[.!?](?=\s|$)/g)) {
+      cut = [...segments.slice(0, i), { text: s.text.slice(0, m.index + 1) }];
+    }
+  }
+  if (cut) return cut;
+  let n = 0;
+  return segments.slice(0, segments.findIndex((s) => s.ref && ++n === FOLD_REFS) + 1);
+}
+
+/** A reading laid out as tags: its only column selects an identifier (Q3's identifiers). */
+export function isTagReading(reading: Reading): boolean {
+  const cols = reading.columns ?? [];
+  return cols.length === 1 && (reading.identifiers ?? []).includes(cols[0]) && (reading.rows?.length ?? 0) > 0;
+}
+
+/** Tags past this many get a filter. */
+export const FILTER_TAGS_OVER = 12;
+
+/** The count in a reading's header: "<total> <entity> · <shown> shown" where the store holds more than the
+ * rows shown. The entity, from the catalog (L4), is named only where the server sent it; else "rows". */
+export function readingCount(reading: Reading): string {
+  const shown = reading.rows?.length ?? 0;
+  const total = reading.total ?? shown;
+  const what = total === 1 ? "1 row" : `${total} ${reading.entity ?? "rows"}`;
+  return total > shown && shown > 0 ? `${what} · ${shown} shown` : what;
 }
 
 export function readingCsvName(reading: Reading): string {

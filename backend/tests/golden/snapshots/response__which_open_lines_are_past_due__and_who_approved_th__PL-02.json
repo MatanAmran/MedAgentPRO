@@ -41,6 +41,7 @@
     "po_id",
     "due_date"
    ],
+   "entity": "purchase order lines",
    "evidence": [
     "past_due.po_id",
     "past_due.due_date"

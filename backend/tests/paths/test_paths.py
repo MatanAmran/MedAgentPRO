@@ -797,6 +797,24 @@ def test_server_conversation_update(db_path):
     assert s.storage.audit_trail(eid) == before and s.state.deps.audit.verify_chain(eid) == len(before)
 
 
+def test_server_archived_listing(db_path):
+    """Long list, L5 [demo extension]: ?archived=true lists the asker's archived conversations only; the
+    default list is unchanged, another user never sees them, and unarchiving brings one back."""
+    s = Server(db_path, {Q: Script(intent_analysis_demo=[REFER])})
+    kept, gone = s.conversation(), s.conversation()
+    theirs = s.client.post("/api/conversations", headers=PL).json()["conversation_id"]
+    for cid, h in ((gone, AP), (theirs, PL)):
+        assert s.client.patch(f"/api/conversations/{cid}", headers=h, json={"archived": True}).status_code == 200
+    ids = lambda h, q="": [c["conversation_id"] for c in s.client.get(f"/api/conversations{q}", headers=h).json()]  # noqa
+    assert ids(AP) == [kept] and ids(AP, "?archived=false") == [kept]
+    assert ids(AP, "?archived=true") == [gone]
+    assert ids(PL, "?archived=true") == [theirs] and gone not in ids(PL) + ids(PL, "?archived=true")
+    assert s.client.get("/api/conversations?archived=maybe", headers=AP).status_code == 422
+    back = s.client.patch(f"/api/conversations/{gone}", headers=AP, json={"archived": False})
+    assert back.json()["archived"] is False
+    assert sorted(ids(AP)) == sorted([kept, gone]) and ids(AP, "?archived=true") == []
+
+
 def test_server_rating_rules(db_path):
     s = Server(db_path, {Q: Script(intent_analysis_demo=[INTENT], synthesis=[SYN],
                                    support_scoring=[gate_says("supported")]),

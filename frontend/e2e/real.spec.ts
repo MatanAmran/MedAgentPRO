@@ -35,3 +35,10 @@ test("the per-exchange cap stops a question with its own notice, and its cost is
   );
   await expect(answer.getByTestId("cost")).toBeVisible();
 });
+
+test("says what can be asked on an empty screen, as text only (long list, item 6)", async ({ page }) => {
+  const text = page.getByTestId("can-ask");
+  await expect(text).toContainText("suppliers");
+  await expect(text).toContainText("forecast");
+  await expect(text.locator("button, a")).toHaveCount(0);
+});

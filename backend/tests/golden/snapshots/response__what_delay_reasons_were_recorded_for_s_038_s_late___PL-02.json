@@ -8,6 +8,7 @@
     "po_id",
     "delay_reason"
    ],
+   "entity": "purchase order lines",
    "headers": {
     "delay_reason": "delay reason",
     "po_id": "purchase order"
