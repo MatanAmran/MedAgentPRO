@@ -4299,6 +4299,26 @@ exchange cost: attempt=EX-bc247dc6774a usd=0.061608 remaining=1.714846
   - **ההשפעה:** אף קובץ בריפו לא השתנה (נבדק ב-`git status`).
   - **מעכשיו:** כל `cd` עם `|| exit 1`, ובלי הרצה במקביל.
 
+### ❓ **ריענון המסך — שלב C: עצירה לפני קוד. השינוי נוגע בשורה אחת של `pipeline.py`** (18.10)
+
+**למה עצרתי:** ההוראה הייתה "Stop earlier if anything touches prompts, pipeline". ‏`answer_segments` חייב להיבנות איפה שההפניות ממולאות, כלומר ב-`synthesis.Draft`. ה-reading שמוצג נבנה בתוך `pipeline.run`, בפונקציה הפנימית `views()`, שקוראת ל-`contract.reading_view(..., d.answer(label), evidence)`. כדי שהקטעים יגיעו לחוזה, צריך להעביר אותם משם.
+
+**ההצעה — שלושה שינויים, בלי שינוי התנהגות:**
+1. **`synthesis.Draft.segments(label, cat)`** — מתודה חדשה. אותו פירוק של `fill`:
+   - טקסט ← `{"text"}`.
+   - הפניה ← `{"ref": {"alias", "row"}, "text": value}`, כאשר `row` הוא מספר השורה (1 ומעלה) ב-`rows` של הקריאה.
+   - **ערך מעמודת טקסט חופשי** (`free_text_aliases`, ‏NFR 21) ← `{"text"}` בלבד, בלי `ref`.
+   - בין משפטים — `{"text": " "}`, כמו ב-`answer`.
+   - **הבדיקה תוודא:** החיבור שווה ל-`answer` בדיוק.
+2. **`pipeline.views()` — שורה אחת:** מעביר `d.segments(label, cat)` ל-`contract.reading_view` לצד `d.answer(label)`. ‏**לא משתנה:** מה שהמודל רואה, הבדיקות, השער, ה-outcome, הרישום או ההיסטוריה.
+3. **`contract.reading_view(..., answer_segments=None)`** — מוסיף את השדה כשהוא ניתן. הסכימה של `exchange_response`: שדה אופציונלי `answer_segments`, `[demo extension]`.
+
+**בדקתי:** הפניה תמיד לקריאה של המשפט עצמו (`check` דוחה תווית אחרת), ולכן `{"alias", "row"}` בלי תווית מספיק.
+
+**ההחלטה (אביתר / הצ׳אט):** לאשר את השורה ב-`pipeline.py`? בלעדיה שלב C לא אפשרי בלי טריק (מחרוזת שנושאת שדה נסתר), ולא הייתי עושה את זה.
+
+**מצב:** שלבים A ו-B ב-commits (`23b66ed`, ‏`b0f68ce`), ועוד commit שמסיר תוצרים שגויים (`7a867bb`). ‏C לא התחיל.
+
 ## מה שנסגר בסבב האחרון
 
 - **הקוד עבר לריפו** — `MedAgentPro\backend` (`query_assistance`, `model_client`, `persistence`, `shared`, `tests`). **`03_Code` נשאר כמקור ומעודכן.** `python -m pytest -q` מתוך `backend`
