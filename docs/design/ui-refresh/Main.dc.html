@@ -1,0 +1,225 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>MedAgentPro chat, answered</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;600;700;800&amp;family=IBM+Plex+Mono:wght@400;500;600&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0;background:#F6F3F2}
+a{color:#991B1B}a:hover{color:#7F1D1D}
+.mono{font-family:'IBM Plex Mono',ui-monospace,monospace}
+.ref{background:#FEE2E2;color:#7F1D1D;border-radius:6px;padding:1px 6px;font-weight:600;font-family:'IBM Plex Mono',monospace;font-size:14px;box-shadow:inset 0 -2px 0 #FCA5A5}
+.ref-hot{background:#B91C1C;color:#FFFFFF;box-shadow:0 4px 12px rgba(185,28,28,.35)}
+</style>
+</helmet>
+<div style="min-height: 100vh; display: flex; flex-direction: column; font-family: 'Hanken Grotesk', system-ui, sans-serif; color: #1C1917; background: #F6F3F2">
+
+  <header style="position: relative; display: flex; flex-wrap: wrap; align-items: center; gap: 16px 28px; padding: 14px 28px; background: rgba(255,255,255,0.92); border-bottom: 1px solid #ECE4E2; box-shadow: 0 1px 0 rgba(28,25,23,0.03), 0 8px 24px -16px rgba(127,29,29,0.25)">
+    <div style="position: absolute; left: 0; right: 0; bottom: -1px; height: 3px; background: linear-gradient(90deg, #7F1D1D, #DC2626 45%, #7F1D1D)"></div>
+    <div style="display: flex; align-items: center; gap: 12px">
+      <div style="width: 38px; height: 38px; border-radius: 11px; background: linear-gradient(145deg, #DC2626, #7F1D1D); box-shadow: 0 6px 16px -4px rgba(185,28,28,0.55), inset 0 1px 0 rgba(255,255,255,0.35); display: flex; align-items: center; justify-content: center">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#FFFFFF" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3v18M3 12h18"></path><circle cx="12" cy="12" r="4"></circle></svg>
+      </div>
+      <div style="display: flex; flex-direction: column; line-height: 1.1">
+        <span style="font-size: 20px; font-weight: 800; letter-spacing: -0.02em">MedAgentPro</span>
+        <span style="font-size: 12px; color: #78716C; font-weight: 500">Query assistant</span>
+      </div>
+      <span style="display: inline-flex; align-items: center; gap: 6px; margin-left: 8px; padding: 4px 10px; border-radius: 999px; background: #FEF2F2; border: 1px solid #FECACA; color: #991B1B; font-size: 12px; font-weight: 700">
+        <span style="width: 7px; height: 7px; border-radius: 50%; background: #DC2626; box-shadow: 0 0 0 3px rgba(220,38,38,0.18)"></span>Live model
+      </span>
+    </div>
+    <nav style="display: flex; gap: 4px; padding: 4px; background: #F6F3F2; border-radius: 12px; border: 1px solid #ECE4E2" aria-label="Domain">
+      <a href="#" style="padding: 7px 14px; border-radius: 9px; background: #FFFFFF; color: #1C1917; font-weight: 700; font-size: 14px; text-decoration: none; box-shadow: 0 1px 3px rgba(28,25,23,0.1)">Supply chain</a>
+      <a href="#" style="padding: 7px 14px; border-radius: 9px; color: #78716C; font-weight: 600; font-size: 14px; text-decoration: none">Complaints · later</a>
+    </nav>
+    <div style="flex: 1 1 0"></div>
+    <div style="display: flex; align-items: center; gap: 8px; padding: 6px 12px; border-radius: 10px; background: #FFFFFF; border: 1px solid #ECE4E2; font-size: 13px; color: #57534E">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#991B1B" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="6" width="18" height="13" rx="2"></rect><path d="M3 10h18"></path></svg>
+      Demo budget <strong style="color: #1C1917">$3.51</strong> left
+    </div>
+    <button type="button" aria-haspopup="listbox" aria-expanded="false" style="display: flex; align-items: center; gap: 10px; padding: 5px 12px 5px 5px; border-radius: 14px; border: 1px solid #ECE4E2; background: #FFFFFF; box-shadow: 0 2px 8px -2px rgba(28,25,23,0.12); font: inherit; cursor: pointer; min-height: 48px">
+      <span style="width: 36px; height: 36px; border-radius: 10px; background: linear-gradient(145deg, #B91C1C, #7F1D1D); color: #FFFFFF; font-weight: 800; font-size: 13px; display: flex; align-items: center; justify-content: center">AP</span>
+      <span style="display: flex; flex-direction: column; align-items: flex-start; line-height: 1.15">
+        <span style="font-weight: 800; font-size: 14px">AP-01</span>
+        <span style="font-size: 12px; color: #78716C">Approver · sees all orders</span>
+      </span>
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#57534E" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6"></path></svg>
+    </button>
+  </header>
+  <div style="padding: 4px 28px; background: #1C1917; color: #E7E5E4; font-size: 12px; letter-spacing: 0.04em; text-align: right">DEMO · NO AUTHENTICATION · SYNTHETIC DATA</div>
+
+  <div style="flex: 1 1 auto; display: flex; flex-wrap: wrap; align-items: stretch">
+
+    <aside style="flex: 1 1 280px; max-width: 320px; padding: 20px 16px; display: flex; flex-direction: column; gap: 16px; background: linear-gradient(180deg, #FFFFFF, #FBF8F7); border-right: 1px solid #ECE4E2">
+      <button type="button" style="display: flex; align-items: center; justify-content: center; gap: 8px; min-height: 48px; border: 0; border-radius: 14px; background: linear-gradient(145deg, #C81E1E, #8B1A1A); color: #FFFFFF; font: inherit; font-size: 15px; font-weight: 700; cursor: pointer; box-shadow: 0 10px 22px -10px rgba(185,28,28,0.7), inset 0 1px 0 rgba(255,255,255,0.25)">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#FFFFFF" stroke-width="2.4" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"></path></svg>
+        New conversation
+      </button>
+      <label style="display: flex; align-items: center; gap: 8px; padding: 0 12px; min-height: 44px; border-radius: 12px; background: #F6F3F2; border: 1px solid #ECE4E2; color: #78716C; font-size: 14px">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#78716C" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7"></circle><path d="M20 20l-3.5-3.5"></path></svg>
+        <input type="search" placeholder="Search conversations" aria-label="Search conversations" style="border: 0; background: transparent; font: inherit; color: #1C1917; outline: none; flex: 1 1 auto; min-width: 0">
+      </label>
+
+      <div style="display: flex; flex-direction: column; gap: 6px">
+        <div style="font-size: 12px; font-weight: 800; letter-spacing: 0.08em; color: #A8A29E; padding: 0 8px">TODAY</div>
+        <div style="position: relative; display: flex; align-items: flex-start; gap: 10px; padding: 12px; border-radius: 14px; background: #FEF2F2; border: 1px solid #FECACA; box-shadow: 0 6px 16px -10px rgba(185,28,28,0.45)">
+          <span style="margin-top: 6px; width: 8px; height: 8px; border-radius: 50%; background: #B91C1C; flex: 0 0 auto"></span>
+          <div style="flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; gap: 4px">
+            <span style="font-weight: 700; font-size: 14px; line-height: 1.3">Which suppliers were late in weeks 1 to 13?</span>
+            <span style="font-size: 12px; color: #991B1B; font-weight: 600">2 readings · 16:19</span>
+          </div>
+          <button type="button" aria-label="Conversation options" style="width: 32px; height: 32px; border: 0; border-radius: 8px; background: #FFFFFF; cursor: pointer; display: flex; align-items: center; justify-content: center; box-shadow: 0 1px 3px rgba(28,25,23,0.12)">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="#57534E" aria-hidden="true"><circle cx="5" cy="12" r="2"></circle><circle cx="12" cy="12" r="2"></circle><circle cx="19" cy="12" r="2"></circle></svg>
+          </button>
+        </div>
+        <div style="display: flex; align-items: flex-start; gap: 10px; padding: 12px; border-radius: 14px">
+          <span style="margin-top: 6px; width: 8px; height: 8px; border-radius: 50%; background: #D6D3D1; flex: 0 0 auto"></span>
+          <div style="display: flex; flex-direction: column; gap: 4px">
+            <span style="font-weight: 600; font-size: 14px; color: #44403C">Why is S-014 late so often?</span>
+            <span style="font-size: 12px; color: #78716C">Referred to an investigation · 16:24</span>
+          </div>
+        </div>
+      </div>
+
+      <div style="display: flex; flex-direction: column; gap: 6px">
+        <div style="font-size: 12px; font-weight: 800; letter-spacing: 0.08em; color: #A8A29E; padding: 0 8px">EARLIER</div>
+        <div style="display: flex; align-items: flex-start; gap: 10px; padding: 12px; border-radius: 14px">
+          <span style="margin-top: 6px; width: 8px; height: 8px; border-radius: 50%; background: #D6D3D1; flex: 0 0 auto"></span>
+          <div style="display: flex; flex-direction: column; gap: 4px">
+            <span style="font-weight: 600; font-size: 14px; color: #44403C">Which open lines are past due, and who approved them?</span>
+            <span style="font-size: 12px; color: #78716C">1 gap · 14 Oct</span>
+          </div>
+        </div>
+      </div>
+      <div style="flex: 1 1 auto"></div>
+      <div style="padding: 12px; border-radius: 12px; background: #F6F3F2; font-size: 12px; color: #57534E; line-height: 1.45">Archived conversations stay in the audit record. Archiving only hides them here.</div>
+    </aside>
+
+    <main style="flex: 999 1 560px; min-width: 0; display: flex; flex-direction: column">
+      <div style="flex: 1 1 auto; width: 100%; max-width: 980px; margin: 0 auto; padding: 28px 28px 24px; box-sizing: border-box; display: flex; flex-direction: column; gap: 18px">
+
+        <div style="align-self: flex-end; max-width: 70%; padding: 14px 18px; border-radius: 18px 18px 6px 18px; background: #1C1917; color: #FFFFFF; font-size: 16px; font-weight: 500; box-shadow: 0 12px 24px -16px rgba(28,25,23,0.6)">Which suppliers were late in weeks 1 to 13?</div>
+
+        <div style="display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding: 10px 12px; border-radius: 14px; background: #FFFFFF; border: 1px solid #ECE4E2">
+          <span style="font-size: 12px; font-weight: 800; letter-spacing: 0.06em; color: #991B1B; padding-right: 4px">HOW THE AGENT WORKED</span>
+          <sc-for list="{{steps}}" as="s" hint-placeholder-count="5">
+            <span style="display: inline-flex; align-items: center; gap: 6px; padding: 5px 10px; border-radius: 999px; background: #FEF2F2; color: #7F1D1D; font-size: 13px; font-weight: 600">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#B91C1C" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12l5 5 9-10"></path></svg>{{s.label}}
+            </span>
+          </sc-for>
+          <span style="margin-left: auto; font-size: 13px; color: #78716C">19.7 s</span>
+        </div>
+
+        <div style="display: flex; flex-direction: column; gap: 6px">
+          <div style="font-size: 22px; font-weight: 800; letter-spacing: -0.01em">"Late" has two readings in the records. Both are shown.</div>
+          <div style="font-size: 14px; color: #57534E">Every number below is filled in by code from a record. Point at one to see its row.</div>
+        </div>
+
+        <section style="border-radius: 20px; background: #FFFFFF; border: 1px solid #ECE4E2; box-shadow: 0 1px 2px rgba(28,25,23,0.04), 0 18px 40px -24px rgba(127,29,29,0.35); overflow: hidden">
+          <div style="display: flex; flex-wrap: wrap; align-items: center; gap: 10px; padding: 16px 20px; background: linear-gradient(180deg, #FFF7F7, #FFFFFF); border-bottom: 1px solid #F5E9E7">
+            <span style="width: 28px; height: 28px; border-radius: 8px; background: #B91C1C; color: #FFFFFF; font-weight: 800; font-size: 13px; display: flex; align-items: center; justify-content: center">1</span>
+            <h2 style="margin: 0; font-size: 17px; font-weight: 800">Delivered after the requested date</h2>
+            <span style="margin-left: auto; font-size: 13px; color: #78716C">28 suppliers</span>
+            <button type="button" style="min-height: 36px; padding: 0 12px; border-radius: 10px; border: 1px solid #ECE4E2; background: #FFFFFF; font: inherit; font-size: 13px; font-weight: 600; color: #44403C; cursor: pointer">Copy</button>
+            <button type="button" style="min-height: 36px; padding: 0 12px; border-radius: 10px; border: 1px solid #ECE4E2; background: #FFFFFF; font: inherit; font-size: 13px; font-weight: 600; color: #44403C; cursor: pointer">Export CSV</button>
+          </div>
+          <p style="margin: 0; padding: 18px 20px 6px; font-size: 16px; line-height: 1.8">
+            <span class="ref">S-038</span> had the most lines delivered after the requested date, <span class="ref ref-hot">10</span>. <span class="ref">S-005</span> followed with <span class="ref">8</span>. <span class="ref">S-001</span>, <span class="ref">S-008</span> and <span class="ref">S-018</span> each had <span class="ref">6</span>. <span class="ref">S-003</span>, <span class="ref">S-019</span> and <span class="ref">S-033</span> each had <span class="ref">4</span>.
+          </p>
+          <div style="padding: 0 20px 6px; font-size: 13px; color: #78716C">Ordered by number of records, highest first.</div>
+          <div style="padding: 8px 20px 4px; overflow-x: auto">
+            <table style="width: 100%; border-collapse: separate; border-spacing: 0; font-size: 14px">
+              <thead>
+                <tr>
+                  <th style="text-align: left; padding: 8px 12px; font-size: 12px; letter-spacing: 0.06em; color: #78716C; font-weight: 700; border-bottom: 1px solid #ECE4E2">SUPPLIER</th>
+                  <th style="text-align: left; padding: 8px 12px; font-size: 12px; letter-spacing: 0.06em; color: #78716C; font-weight: 700; border-bottom: 1px solid #ECE4E2">NUMBER OF RECORDS</th>
+                  <th style="width: 40%; border-bottom: 1px solid #ECE4E2"></th>
+                </tr>
+              </thead>
+              <tbody>
+                <sc-for list="{{rows1}}" as="r" hint-placeholder-count="6">
+                  <tr style="{{r.rowStyle}}">
+                    <td style="padding: 10px 12px; border-bottom: 1px solid #F5EFEE"><span class="mono" style="padding: 3px 8px; border-radius: 6px; background: #F6F3F2; border: 1px solid #ECE4E2; font-size: 13px; font-weight: 600">{{r.id}}</span></td>
+                    <td style="padding: 10px 12px; border-bottom: 1px solid #F5EFEE; font-weight: 700">{{r.n}}</td>
+                    <td style="padding: 10px 12px; border-bottom: 1px solid #F5EFEE"><div style="height: 8px; border-radius: 4px; background: #F5EFEE"><div style="{{r.bar}}"></div></div></td>
+                  </tr>
+                </sc-for>
+              </tbody>
+            </table>
+          </div>
+          <div style="padding: 6px 20px 14px"><button type="button" style="min-height: 40px; padding: 0 14px; border-radius: 10px; border: 0; background: transparent; color: #991B1B; font: inherit; font-size: 14px; font-weight: 700; cursor: pointer">Show all 28 rows ↓</button></div>
+          <div style="display: flex; gap: 10px; align-items: flex-start; padding: 14px 20px; background: #FAF7F6; border-top: 1px solid #F0E8E6; font-size: 13px; color: #44403C; line-height: 1.5">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#991B1B" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex: 0 0 auto; margin-top: 1px" aria-hidden="true"><path d="M9 11l3 3 8-8"></path><path d="M20 12v6a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h9"></path></svg>
+            <span><strong>Examined:</strong> purchase order lines where week between 1 and 13 and delivered after the requested date · grouped by supplier · computed the number of records</span>
+          </div>
+        </section>
+
+        <section style="border-radius: 20px; background: #FFFFFF; border: 1px solid #ECE4E2; box-shadow: 0 1px 2px rgba(28,25,23,0.04), 0 18px 40px -24px rgba(127,29,29,0.35); overflow: hidden">
+          <div style="display: flex; flex-wrap: wrap; align-items: center; gap: 10px; padding: 16px 20px; background: linear-gradient(180deg, #FFF7F7, #FFFFFF); border-bottom: 1px solid #F5E9E7">
+            <span style="width: 28px; height: 28px; border-radius: 8px; background: #7F1D1D; color: #FFFFFF; font-weight: 800; font-size: 13px; display: flex; align-items: center; justify-content: center">2</span>
+            <h2 style="margin: 0; font-size: 17px; font-weight: 800">The supplier committed to a date after the requested date</h2>
+            <span style="margin-left: auto; font-size: 13px; color: #78716C">13 suppliers</span>
+          </div>
+          <p style="margin: 0; padding: 18px 20px 6px; font-size: 16px; line-height: 1.8">
+            <span class="ref">S-008</span> had the most lines whose promised date was after the requested date, <span class="ref">6</span>. <span class="ref">S-018</span> and <span class="ref">S-036</span> each had <span class="ref">5</span>. <span class="ref">S-005</span> had <span class="ref">4</span>. <span class="ref">S-032</span> and <span class="ref">S-033</span> each had <span class="ref">3</span>.
+          </p>
+          <div style="padding: 6px 20px 14px"><button type="button" style="min-height: 40px; padding: 0 14px; border-radius: 10px; border: 0; background: transparent; color: #991B1B; font: inherit; font-size: 14px; font-weight: 700; cursor: pointer">Show 13 rows ↓</button></div>
+          <div style="display: flex; gap: 10px; align-items: flex-start; padding: 14px 20px; background: #FAF7F6; border-top: 1px solid #F0E8E6; font-size: 13px; color: #44403C; line-height: 1.5">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#991B1B" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex: 0 0 auto; margin-top: 1px" aria-hidden="true"><path d="M9 11l3 3 8-8"></path><path d="M20 12v6a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h9"></path></svg>
+            <span><strong>Examined:</strong> purchase order lines where week between 1 and 13 and the supplier committed to a date after the requested date · grouped by supplier · computed the number of records</span>
+          </div>
+        </section>
+
+        <div style="display: flex; flex-wrap: wrap; align-items: center; gap: 10px 14px; padding: 4px 2px">
+          <span style="font-size: 14px; color: #57534E; font-weight: 600">Was this useful?</span>
+          <button type="button" aria-label="Useful" style="width: 44px; height: 44px; border-radius: 12px; border: 1px solid #ECE4E2; background: #FFFFFF; cursor: pointer; display: flex; align-items: center; justify-content: center"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#44403C" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 10v11H4V10zM7 10l4-7a2 2 0 0 1 3 2l-1 5h6a2 2 0 0 1 2 2.3l-1.4 7A2 2 0 0 1 17.6 21H7"></path></svg></button>
+          <button type="button" aria-label="Not useful" style="width: 44px; height: 44px; border-radius: 12px; border: 1px solid #ECE4E2; background: #FFFFFF; cursor: pointer; display: flex; align-items: center; justify-content: center"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#44403C" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M17 14V3h3v11zM17 14l-4 7a2 2 0 0 1-3-2l1-5H5a2 2 0 0 1-2-2.3l1.4-7A2 2 0 0 1 6.4 3H17"></path></svg></button>
+          <span style="font-size: 13px; color: #78716C">$0.0549 for this answer</span>
+          <button type="button" style="margin-left: auto; min-height: 44px; padding: 0 14px; border-radius: 12px; border: 1px solid #FECACA; background: #FEF2F2; color: #991B1B; font: inherit; font-size: 14px; font-weight: 700; cursor: pointer">Follow up</button>
+          <button type="button" aria-expanded="false" style="min-height: 44px; padding: 0 14px; border-radius: 12px; border: 1px solid #ECE4E2; background: #FFFFFF; color: #44403C; font: inherit; font-size: 14px; font-weight: 700; cursor: pointer">How this was answered ▸</button>
+        </div>
+      </div>
+
+      <div style="position: sticky; bottom: 0; padding: 14px 28px 20px; background: linear-gradient(180deg, rgba(246,243,242,0), #F6F3F2 35%)">
+        <div style="max-width: 924px; margin: 0 auto; display: flex; flex-direction: column; gap: 8px">
+          <label style="display: flex; align-items: center; gap: 12px; padding: 8px 8px 8px 20px; border-radius: 20px; background: #FFFFFF; border: 1.5px solid #E7DCDA; box-shadow: 0 16px 36px -18px rgba(127,29,29,0.45)">
+            <input type="text" placeholder="Ask about suppliers, orders, parts or deliveries" aria-label="Ask a question about the data" style="flex: 1 1 auto; min-width: 0; border: 0; outline: none; font: inherit; font-size: 16px; color: #1C1917; background: transparent; min-height: 40px">
+            <button type="button" aria-label="Send" style="width: 48px; height: 48px; border-radius: 14px; border: 0; background: linear-gradient(145deg, #DC2626, #7F1D1D); cursor: pointer; display: flex; align-items: center; justify-content: center; box-shadow: 0 8px 18px -8px rgba(185,28,28,0.8), inset 0 1px 0 rgba(255,255,255,0.3)">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#FFFFFF" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 19V5M5 12l7-7 7 7"></path></svg>
+            </button>
+          </label>
+          <div style="text-align: center; font-size: 12px; color: #78716C">Answers come only from records. A cause is never inferred; a question that needs one is offered an investigation.</div>
+        </div>
+      </div>
+    </main>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":1640}}'>
+class Component extends DCLogic {
+  renderVals() {
+    const data = [['S-038',10],['S-005',8],['S-001',6],['S-008',6],['S-018',6],['S-003',4]];
+    const rows1 = data.map(([id, n], i) => ({
+      id, n,
+      rowStyle: i === 0 ? 'background: #FEF2F2; box-shadow: inset 3px 0 0 #B91C1C' : '',
+      bar: 'height: 8px; border-radius: 4px; width: ' + (n * 10) + '%; background: ' + (i === 0 ? 'linear-gradient(90deg, #DC2626, #7F1D1D)' : '#E7B8B8')
+    }));
+    const steps = [
+      { label: 'Understood the question' },
+      { label: 'Planned 2 readings' },
+      { label: 'Retrieved 41 rows' },
+      { label: 'Drafted with references' },
+      { label: 'Checked 8 claims' }
+    ];
+    return { rows1, steps };
+  }
+}
+</script>
+</body>
+</html>

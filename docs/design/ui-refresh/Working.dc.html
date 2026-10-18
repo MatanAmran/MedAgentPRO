@@ -1,0 +1,107 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>MedAgentPro chat, agent working</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;600;700;800&amp;family=IBM+Plex+Mono:wght@400;500;600&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0;background:#F6F3F2}
+a{color:#991B1B}a:hover{color:#7F1D1D}
+@keyframes pulse{0%{box-shadow:0 0 0 0 rgba(220,38,38,.45)}70%{box-shadow:0 0 0 12px rgba(220,38,38,0)}100%{box-shadow:0 0 0 0 rgba(220,38,38,0)}}
+@keyframes sweep{0%{background-position:-200px 0}100%{background-position:400px 0}}
+.live{animation:pulse 1.6s infinite}
+.shimmer{background:linear-gradient(90deg,#F5EFEE 0,#FDE4E4 50%,#F5EFEE 100%);background-size:400px 100%;animation:sweep 1.4s linear infinite}
+@media (prefers-reduced-motion: reduce){.live,.shimmer{animation:none}}
+</style>
+</helmet>
+<div style="min-height: 100vh; display: flex; flex-direction: column; font-family: 'Hanken Grotesk', system-ui, sans-serif; color: #1C1917; background: #F6F3F2">
+  <header style="position: relative; display: flex; flex-wrap: wrap; align-items: center; gap: 16px 28px; padding: 14px 28px; background: rgba(255,255,255,0.92); border-bottom: 1px solid #ECE4E2">
+    <div style="position: absolute; left: 0; right: 0; bottom: -1px; height: 3px; background: linear-gradient(90deg, #7F1D1D, #DC2626 45%, #7F1D1D)"></div>
+    <div style="display: flex; align-items: center; gap: 12px">
+      <div style="width: 38px; height: 38px; border-radius: 11px; background: linear-gradient(145deg, #DC2626, #7F1D1D); display: flex; align-items: center; justify-content: center; box-shadow: 0 6px 16px -4px rgba(185,28,28,0.55)">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#FFFFFF" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M12 3v18M3 12h18"></path><circle cx="12" cy="12" r="4"></circle></svg>
+      </div>
+      <span style="font-size: 20px; font-weight: 800; letter-spacing: -0.02em">MedAgentPro</span>
+    </div>
+    <div style="flex: 1 1 0"></div>
+    <span style="font-size: 14px; color: #57534E">AP-01 · Approver</span>
+  </header>
+
+  <main style="flex: 1 1 auto; width: 100%; max-width: 980px; margin: 0 auto; padding: 32px 28px; box-sizing: border-box; display: flex; flex-direction: column; gap: 20px">
+    <div style="align-self: flex-end; max-width: 70%; padding: 14px 18px; border-radius: 18px 18px 6px 18px; background: #1C1917; color: #FFFFFF; font-size: 16px; font-weight: 500">And in weeks 14 to 26?</div>
+
+    <section aria-live="polite" style="border-radius: 20px; background: #FFFFFF; border: 1px solid #ECE4E2; box-shadow: 0 18px 40px -24px rgba(127,29,29,0.35); padding: 22px 24px; display: flex; flex-direction: column; gap: 18px">
+      <div style="display: flex; align-items: center; gap: 12px">
+        <span class="live" style="width: 12px; height: 12px; border-radius: 50%; background: #DC2626"></span>
+        <span style="font-size: 17px; font-weight: 800">Working on it</span>
+        <span style="font-size: 14px; color: #78716C">usually 20 to 60 seconds</span>
+        <button type="button" style="margin-left: auto; min-height: 44px; padding: 0 16px; border-radius: 12px; border: 1px solid #ECE4E2; background: #FFFFFF; color: #44403C; font: inherit; font-size: 14px; font-weight: 700; cursor: pointer; display: flex; align-items: center; gap: 8px">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="#44403C" aria-hidden="true"><rect x="5" y="5" width="14" height="14" rx="2"></rect></svg>Stop
+        </button>
+      </div>
+
+      <div style="padding: 12px 14px; border-radius: 12px; background: #FEF2F2; border: 1px solid #FECACA; font-size: 14px; color: #7F1D1D"><strong>Understood as:</strong> Which suppliers were late in weeks 14 to 26?</div>
+
+      <ol style="list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 0">
+        <sc-for list="{{steps}}" as="s" hint-placeholder-count="6">
+          <li style="display: flex; gap: 14px; align-items: stretch">
+            <div style="display: flex; flex-direction: column; align-items: center; width: 28px">
+              <span style="{{s.dot}}">
+                <sc-if value="{{s.done}}" hint-placeholder-val="{{ true }}"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#FFFFFF" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12l5 5 9-10"></path></svg></sc-if>
+              </span>
+              <span style="{{s.line}}"></span>
+            </div>
+            <div style="padding: 3px 0 18px; display: flex; flex-direction: column; gap: 3px; flex: 1 1 auto">
+              <span style="{{s.titleStyle}}">{{s.title}}</span>
+              <span style="font-size: 13px; color: #78716C">{{s.detail}}</span>
+              <sc-if value="{{s.active}}" hint-placeholder-val="{{ false }}"><div class="shimmer" style="margin-top: 8px; height: 10px; border-radius: 5px; width: 70%"></div></sc-if>
+            </div>
+          </li>
+        </sc-for>
+      </ol>
+      <div style="font-size: 12px; color: #78716C">Nothing is shown until the check is done. Unchecked model text never reaches this screen.</div>
+    </section>
+  </main>
+
+  <div style="padding: 14px 28px 20px">
+    <div style="max-width: 924px; margin: 0 auto; display: flex; align-items: center; gap: 12px; padding: 8px 8px 8px 20px; border-radius: 20px; background: #FFFFFF; border: 1.5px solid #E7DCDA; opacity: 0.6">
+      <span style="flex: 1 1 auto; color: #78716C; min-height: 40px; display: flex; align-items: center">Waiting for the answer…</span>
+      <button type="button" disabled aria-label="Send" style="width: 48px; height: 48px; border-radius: 14px; border: 0; background: #D6D3D1; display: flex; align-items: center; justify-content: center"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#FFFFFF" stroke-width="2.4" stroke-linecap="round" aria-hidden="true"><path d="M12 19V5M5 12l7-7 7 7"></path></svg></button>
+    </div>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":900}}'>
+class Component extends DCLogic {
+  renderVals() {
+    const raw = [
+      ['Rewriting the follow-up', 'Read with the conversation so far', 'done'],
+      ['Planning', '2 readings of "late", each with its own plan', 'done'],
+      ['Retrieving', 'Both readings in parallel from the records', 'done'],
+      ['Drafting', 'Text with references; code fills every value', 'active'],
+      ['Checking', 'Every sentence against its records', 'todo'],
+      ['Presenting', 'Only what the check supports', 'todo']
+    ];
+    const steps = raw.map(([title, detail, st], i) => {
+      const done = st === 'done', active = st === 'active';
+      return {
+        title, detail, done, active,
+        dot: 'width: 28px; height: 28px; border-radius: 50%; display: flex; align-items: center; justify-content: center; flex: 0 0 auto; ' +
+          (done ? 'background: linear-gradient(145deg, #DC2626, #7F1D1D); box-shadow: 0 4px 10px -4px rgba(185,28,28,.7)'
+            : active ? 'background: #FFFFFF; border: 3px solid #DC2626; box-sizing: border-box' : 'background: #FFFFFF; border: 2px solid #E7E5E4; box-sizing: border-box'),
+        line: i === raw.length - 1 ? 'display: none' : 'flex: 1 1 auto; width: 2px; min-height: 18px; background: ' + (done ? '#DC2626' : '#E7E5E4'),
+        titleStyle: 'font-size: 15px; font-weight: ' + (st === 'todo' ? '600; color: #A8A29E' : '800; color: #1C1917')
+      };
+    });
+    return { steps };
+  }
+}
+</script>
+</body>
+</html>

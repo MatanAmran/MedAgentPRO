@@ -4182,6 +4182,78 @@ exchange cost: attempt=EX-bc247dc6774a usd=0.061608 remaining=1.714846
 
 **הבא:** push ו-PR של `task10/panel` מול `master`, באישור אביתר.
 
+### **ריענון המסך — תוכנית (18.10, ענף `ui/refresh` מ-`master` ‏`5296968`).** ‏**עצירה לפני קוד**
+
+**המקור:** `docs/design/ui-refresh/` (Main, ‏Working, ‏UserPicker, ‏ConversationMenu, ‏`.dc.html`). אושר בצ׳אט ב-16:36 (הודבק). **הפרומפטים והצינור מוקפאים.** מוסכם: אדום ‎#B91C1C עד ‎#7F1D1D על לבן ואפור חם, עומק בצללים בשכבות, Hanken Grotesk ו-IBM Plex Mono.
+
+**איך:**
+- **גופנים:** `next/font/google` — אותו מנגנון של Geist היום. הגופן יורד בזמן `build` ומוגש מהשרת שלנו, כך שבזמן הדמו אין תלות ברשת.
+- **צבעים וצללים:** משתני CSS אחד-לאחד מהעיצוב, ב-`globals.css` (Tailwind 4, ‏`@theme`).
+- **רכיבים קיימים — בשינוי, לא בכתיבה מחדש:** `Chrome.tsx` (כותרת, בורר, רשימה), ‏`Composer.tsx`, ‏`ExchangeView.tsx`, ‏`ReadingCard.tsx`, ‏`HowAnswered.tsx`.
+- **רכיבים חדשים:** `UserPicker.tsx`, ‏`StageTimeline.tsx`, ‏`ConversationMenu.tsx` (שלב B).
+
+**שלב A — מסך בלבד, בלי שינוי ב-API:**
+1. **כותרת:**
+   - לוגו ו-"Query assistant".
+   - שבב מצב: "Live model" במודל האמיתי, "Scripted model" במתוסרט.
+   - **יתרת התקציב** — רק במודל האמיתי, מ-`/api/health`.
+   - פס "DEMO · NO AUTHENTICATION · SYNTHETIC DATA".
+2. **בורר משתמש:** כפתור עם `aria-haspopup="listbox"`, ו-`role="listbox"`/`option` במקלדת: חצים, Home/End, ‏Enter, ‏Esc, חזרת פוקוס. אווטאר, תפקיד, ומה כל תפקיד רואה ("Sees every purchase order" / "Own orders only"). הטקסטים קבועים בקוד, לפי `DEMO_USERS`.
+3. **רשימת שיחות:** חיפוש (סינון בצד הלקוח, לפי הכותרת), וקבוצות Today/Earlier לפי `created_at`.
+4. **Composer** בעיצוב החדש, עם השורה הקבועה מתחתיו ("Answers come only from records…").
+5. **כרטיס קריאה:** מספר, כותרת, ‏"N rows" (מ-`total`), ‏Copy, ‏Export CSV, הטבלה, ו-Examined בתחתית.
+   - **Copy:** טקסט התשובה של הקריאה, כפי שהוצג.
+   - **Export CSV:** הכותרות (`headers`) והשורות שהוצגו (`rows`). ‏**לא יותר ממה שהמשתמש ראה** — אם `total > row_count`, שורה אחרונה מסומנת "Showing N of M".
+   - טבלה ארוכה מקופלת לשש שורות, עם "Show all N rows". ‏N = השורות שהגיעו, לא `total`.
+6. **ציר שלבים חי** (Working) — מאירועי השלב הקיימים ב-SSE: עשה / פעיל / ממתין. ‏`prefers-reduced-motion` מבטל את הפעימה ואת ה-shimmer.
+7. **Stop:** מחבר את `AbortController` הקיים לכפתור. השרת מזהה ניתוק ומפסיק לפני קריאת המודל הבאה (S1). מוצג "Stopped".
+8. **"How the agent worked"** אחרי התשובה, שורה קומפקטית:
+   - "Planned N readings" — מספר הקריאות.
+   - "Retrieved N rows" — סכום `row_count`.
+   - ‏"Checked N claims" — רק כשיש `trace`, מסכום `claims` של קריאות השער שהתקבלו.
+   - **הזמן — רק אם יש `trace`.** בלי trace אין למסך זמן אמין.
+9. **הגלילה הכפולה** כשהלוח פתוח: אאתר ואתקן (כנראה `overflow` מקונן ב-`HowAnswered`).
+
+**שלב B — API קטן `[demo extension]`:**
+- `PATCH /api/conversations/{id}` עם `title`, ‏`pinned`, ‏`archived`. רק המשתמש של השיחה (403 לאחר, 404 לשיחה שלא קיימת, 422 לשדה לא מוכר או ריק).
+- **ארכוב מסתיר מהרשימה בלבד.** ‏`GET /api/conversations` לא מחזיר שיחות מאורכבות; השיחה עצמה עדיין נפתחת לפי id. **יומן הביקורת לא נוגע** (FR 13, ‏NFR 5).
+- **הסדר:** נעוצות למעלה, ואחריהן לפי זמן.
+- **תפריט שיחה** (ConversationMenu): Rename (עריכה במקום), ‏Pin, ‏Archive, עם `role="menu"` ומקלדת.
+- **בדיקות:** משתמש אחר נדחה; אחרי ארכוב החילופים עדיין ב-`audit_trail`, והשרשרת מאומתת; שם ריק או ארוך מדי נדחה.
+- **מסלולים:** נקודת קצה חדשה וקודי HTTP חדשים ← רשומות ב-`tests/paths/registry.py` (‏`branches.py` יראה אותם).
+
+**שלב C — מקור ב-hover `[demo extension]`, בחוזה:**
+- **`answer_segments` אופציונלי בכל קריאה:** `[{"text"} | {"ref": {"alias", "row"}, "text"}]`. נבנה ב-`synthesis` באותו מקום שבו ההפניות ממולאות. **`answer` לא משתנה.**
+- **ערך מעמודת טקסט חופשי** (`free_text_aliases`, ‏NFR 21) הוא קטע טקסט רגיל, בלי `ref`.
+- **במסך:** hover או focus על ערך מסמן את השורה שלו בטבלה (גם כשהיא מקופלת — היא נפתחת). כל ref בר-פוקוס (`tabindex`), עם `aria-describedby` לשורה.
+- **בעדכון:** סכמת `exchange_response` ב-`medagentpro_schemas.json` · ‏`contract.reading_view` · golden snapshots · ‏`40_CHAT.md` · ‏registry, אם `branches.py` יראה הסתעפות.
+- **בדיקות:** הקטעים מחוברים שווים ל-`answer`; לטקסט חופשי אין `ref`; ‏ref מצביע על שורה שקיימת.
+
+**❓ נקודות שבהן העיצוב חורג ממה שיש — ההצעה שלי בכל אחת:**
+1. **Working מציג "Understood as" וספירות ("2 readings of 'late'") בזמן העבודה.** הזרם נושא רק שמות שלבים (החלטה 8), ושלב A הוא בלי שינוי API. **ההצעה:** בזמן העבודה תיאורים קבועים לכל שלב, בלי ספירות ובלי Understood as. ‏Understood as מוצג עם התשובה, כמו היום.
+2. **שורות הרשימה מציגות תוצאה** ("2 readings", ‏"Referred to an investigation", ‏"1 gap"). ‏`GET /api/conversations` מחזיר רק כותרת, זמן ומספר חילופים. **ההצעה:** "N questions · HH:MM". תוצאה רק אם מוסיפים שדה בשלב B (לא ביקשו).
+3. **"Complaints · later" בכותרת** — קישור לתחום שלא קיים. **ההצעה:** תווית מושבתת ("later"), לא קישור — או להסיר.
+4. **פסים יחסיים בטבלה** — השוואה חזותית בין ערכים. **ההצעה:** לא בשלב הזה. אם רוצים: רק לעמודת צבירה מספרית אחת, ובטבלה ממוינת לפיה.
+5. **"Export answers (CSV)" בתפריט השיחה** — לא בהיקף שהודבק (שם: ייצוא לכל קריאה). **ההצעה:** לא נכנס.
+6. **ניגודיות:** חלק מהאפורים בעיצוב (‎#A8A29E לכותרות הקבוצות, על לבן) נמוכים מ-4.5:1, ונכשלים ב-axe (מבחן 40). **ההצעה:** להכהות לגוון הקרוב שעובר (‎#78716C), ולשמור על השאר.
+7. **"Follow up"** — לא בהיקף. **ההצעה:** מעביר פוקוס ל-composer, בלי טקסט מוכן (לא הצעה שהמודל כתב).
+8. **הכותרת הגדולה מעל הקריאות** ("'Late' has two readings…") — **ההצעה:** המשפט הקבוע מהקוד שקיים היום ("“late” can be read in 2 ways, so each is shown."), בסגנון החדש.
+
+**בדיקות:**
+- vitest לכל רכיב חדש.
+- **axe מלא** על המסך הריק, תשובה, לוח פתוח, בורר ותפריט פתוחים (ניגודיות, מבחן 40).
+- מקלדת בלבד: בורר, תפריט, Stop, ‏Copy/Export, ‏refs.
+- Playwright בשני המצבים.
+- **צילומי grayscale נוצרים מחדש.**
+- pytest; ‏`--plans` נשאר 43/43; ‏golden מעודכן (שלב C).
+- **בלי ריצת מודל אמיתי.**
+
+**לא בהיקף:** קבצים או תמונות מצורפים, קול, regenerate, הצעות שהמודל כותב.
+
+**סדר העבודה:** A ← commit ← B ← commit ← C ← commit, ובדיקות מלאות בסוף כל שלב.
+
+**הבא:** אישור התוכנית ושמונה הנקודות.
+
 ## מה שנסגר בסבב האחרון
 
 - **הקוד עבר לריפו** — `MedAgentPro\backend` (`query_assistance`, `model_client`, `persistence`, `shared`, `tests`). **`03_Code` נשאר כמקור ומעודכן.** `python -m pytest -q` מתוך `backend`
