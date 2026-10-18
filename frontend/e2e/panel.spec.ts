@@ -1,5 +1,6 @@
 import AxeBuilder from "@axe-core/playwright";
 import { expect, type Page, test } from "@playwright/test";
+import { NEW_CONVERSATION } from "./helpers";
 
 // Task 10: "How this was answered", with the server run with --panel. In both modes: the scripted server
 // (playwright.config.ts) and the real-model path with the fake provider (playwright.real.config.ts).
@@ -11,7 +12,7 @@ async function ask(page: Page, question: string) {
 }
 
 async function answerTo(page: Page, question: string) {
-  await page.getByRole("button", { name: "+ New conversation" }).click();
+  await page.getByRole("button", NEW_CONVERSATION).click();
   await ask(page, question);
   const answer = page.getByTestId("exchange").last();
   await expect(answer).toHaveAttribute("data-outcome", /answered|referred_to_investigation/, { timeout: 20_000 });
@@ -24,7 +25,7 @@ test.beforeEach(async ({ page }) => {
 });
 
 test("closed until asked for; the keyboard opens and closes it; the calls are listed", async ({ page }) => {
-  const real = (await page.getByTestId("mode").textContent()) === "real model";
+  const real = (await page.getByTestId("mode").textContent()) === "Live model";
   const answer = await answerTo(page, "Which suppliers were late in weeks 1 to 13?");
   const button = answer.getByRole("button", { name: /How this was answered/ });
   await expect(button).toHaveAttribute("aria-expanded", "false");

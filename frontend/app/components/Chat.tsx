@@ -11,9 +11,15 @@ import { ExchangeView, Pending } from "./ExchangeView";
 interface PendingState {
   conversationId: string;
   question: string;
-  stage: Stage | null;
+  seen: Stage[]; // the stages started, in order; one seen again moves to the end (the gate after a redraft)
+  followUp: boolean;
   error: string | null;
+  stopping?: boolean;
 }
+
+// UI refresh: Stop aborts the request; the server then refuses the exchange's next model call (S1) and
+// records it as not completed. The conversation is free again once that exchange ends (T7-B1)
+export const STOPPED = "Stopped. The question was not answered.";
 
 function message(e: unknown): string {
   if (e instanceof ApiError) return e.status === 0 ? e.message : `${e.message}`;
@@ -23,6 +29,7 @@ function message(e: unknown): string {
 export function Chat() {
   const [user, setUser] = useState<DemoUserId>("AP-01");
   const [mode, setMode] = useState<string | null>(null);
+  const [budget, setBudget] = useState<number | null>(null);
   const [examples, setExamples] = useState<Example[]>([]);
   const [conversations, setConversations] = useState<ConversationSummary[]>([]);
   const [current, setCurrent] = useState<string | null>(null);
@@ -32,6 +39,7 @@ export function Chat() {
   const [loadError, setLoadError] = useState<string | null>(null);
   const abort = useRef<AbortController | null>(null);
   const bottom = useRef<HTMLDivElement | null>(null);
+  const composer = useRef<HTMLTextAreaElement | null>(null);
 
   // R8: locked from the moment a question is sent until its exchange ends, one way or another
   const locked = pending !== null && pending.error === null;
@@ -45,11 +53,19 @@ export function Chat() {
   const loadConversation = useCallback(async (u: DemoUserId, id: string) => {
     const c = await api.conversation(u, id);
     setItems(c.exchanges);
+    const last = [...c.exchanges].reverse().find((x) => x.cost);
+    if (last?.cost) setBudget(last.cost.remaining_usd);
     return c.exchanges;
   }, []);
 
   useEffect(() => {
-    api.health().then((h) => setMode(h.mode), () => setLoadError("The chat server could not be reached."));
+    api.health().then(
+      (h) => {
+        setMode(h.mode);
+        setBudget(h.budget_remaining_usd ?? null);
+      },
+      () => setLoadError("The chat server could not be reached."),
+    );
     api.examples().then(setExamples, () => setExamples([]));
     return () => abort.current?.abort();
   }, []);
@@ -94,7 +110,8 @@ export function Chat() {
   async function send(question: string) {
     if (locked) return;
     let id = current;
-    setPending({ conversationId: id ?? "", question, stage: null, error: null });
+    const followUp = items.length > 0;
+    setPending({ conversationId: id ?? "", question, seen: [], followUp, error: null });
     try {
       if (!id) {
         id = (await api.newConversation(user)).conversation_id;
@@ -108,23 +125,33 @@ export function Chat() {
         await api.ask(user, conversationId, question, {
           requestId: newRequestId(), // R8: a new id for every question, never reused
           signal: ac.signal,
-          onStage: (stage) => setPending((p) => (p ? { ...p, conversationId, stage } : p)),
+          onStage: (stage) =>
+            setPending((p) => (p ? { ...p, conversationId, seen: [...p.seen.filter((s) => s !== stage), stage] } : p)),
         });
         setPending(null);
       } catch (e) {
-        if (ac.signal.aborted) return;
+        if (ac.signal.aborted) {
+          setPending((p) => (p ? { ...p, error: STOPPED, stopping: false } : p));
+          await loadConversations(user).catch(() => undefined);
+          return;
+        }
         // the server may have recorded the exchange anyway (it ends every exchange itself); the
         // conversation as the server holds it is what is shown
         const after = await loadConversation(user, conversationId).catch(() => null);
-        setPending(after && after.length > before ? null : { conversationId, question, stage: null, error: message(e) });
+        setPending(after && after.length > before ? null : { conversationId, question, seen: [], followUp, error: message(e) });
         await loadConversations(user).catch(() => undefined);
         return;
       }
       await loadConversation(user, conversationId);
       await loadConversations(user);
     } catch (e) {
-      setPending({ conversationId: id ?? "", question, stage: null, error: message(e) });
+      setPending({ conversationId: id ?? "", question, seen: [], followUp, error: message(e) });
     }
+  }
+
+  function stop() {
+    setPending((p) => (p ? { ...p, stopping: true } : p));
+    abort.current?.abort();
   }
 
   async function rate(exchangeId: string, rating: Rating) {
@@ -139,15 +166,17 @@ export function Chat() {
   }
 
   return (
-    <div className="flex h-screen flex-col bg-white">
-      <Header user={user} onUser={setUser} mode={mode} locked={locked} />
+    <div className="flex h-screen flex-col overflow-hidden bg-canvas">
+      <Header user={user} onUser={setUser} mode={mode} budget={budget} locked={locked} />
       <div className="flex min-h-0 flex-1">
         <Sidebar conversations={conversations} current={current} onSelect={select} onNew={startNew} locked={locked} />
         <main className="flex min-w-0 flex-1 flex-col">
-          <div className="flex-1 overflow-y-auto px-8 py-6">
-            <div className="mx-auto flex max-w-3xl flex-col gap-8" data-testid="thread">
+          {/* relative: an absolutely placed child (an sr-only caption or status) is placed in the thread, not
+              against the page, which otherwise grew a second scrollbar with the panel open */}
+          <div className="relative min-h-0 flex-1 overflow-y-auto overflow-x-hidden px-7 py-7">
+            <div className="mx-auto flex w-full max-w-[924px] flex-col gap-8" data-testid="thread">
               {loadError && (
-                <p className="rounded-lg border border-red-300 bg-red-50 px-4 py-3 text-red-800" role="alert">
+                <p className="rounded-xl border border-blush-3 bg-blush px-4 py-3 text-brand-dark" role="alert">
                   {loadError}
                 </p>
               )}
@@ -159,7 +188,16 @@ export function Chat() {
                   rating={ratings[item.exchange_id] ?? { busy: false, error: null }}
                 />
               ))}
-              {pending && <Pending question={pending.question} stage={pending.stage} error={pending.error} />}
+              {pending && (
+                <Pending
+                  question={pending.question}
+                  seen={pending.seen}
+                  followUp={pending.followUp}
+                  error={pending.error}
+                  onStop={stop}
+                  stopping={pending.stopping ?? false}
+                />
+              )}
               {/* task 8, A4: the scripted questions on an empty screen, and a follow-up under its question */}
               {items.length === 0 && !pending && (
                 <Examples
@@ -180,8 +218,10 @@ export function Chat() {
               <div ref={bottom} />
             </div>
           </div>
-          <div className="mx-auto w-full max-w-3xl px-8 pb-6">
-            <Composer locked={locked} onSend={send} />
+          <div className="bg-gradient-to-b from-transparent to-canvas to-35% px-7 pb-5 pt-3.5">
+            <div className="mx-auto w-full max-w-[924px]">
+              <Composer ref={composer} locked={locked} onSend={send} />
+            </div>
           </div>
         </main>
       </div>

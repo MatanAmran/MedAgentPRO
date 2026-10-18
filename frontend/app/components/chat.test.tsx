@@ -25,9 +25,10 @@ vi.mock("@/lib/api", async (original) => {
       conversation: vi.fn(async () => ({ conversation_id: "CV-1", exchanges: [...held] })),
       rate: vi.fn(),
       ask: vi.fn(
-        (_u: string, _c: string, question: string, opts: { onStage?: (s: string) => void }) =>
-          new Promise((resolve) => {
+        (_u: string, _c: string, question: string, opts: { onStage?: (s: string) => void; signal?: AbortSignal }) =>
+          new Promise((resolve, reject) => {
             opts.onStage?.("retrieval");
+            opts.signal?.addEventListener("abort", () => reject(new DOMException("aborted", "AbortError")));
             release = () => {
               const done = { exchange_id: `EX-${held.length + 1}`, recorded: true, response: late, cost: null };
               held.push({ ...done, posed: question, rating: null });
@@ -40,7 +41,7 @@ vi.mock("@/lib/api", async (original) => {
 });
 
 const { api } = await import("@/lib/api");
-const { Chat } = await import("./Chat");
+const { Chat, STOPPED } = await import("./Chat");
 
 beforeEach(() => {
   held.length = 0;
@@ -58,19 +59,19 @@ describe("one question at a time (R8)", () => {
   it("locks sending, the user and the conversations until the answer arrives, then unlocks", async () => {
     render(<Chat />);
     ask("Which suppliers were late in weeks 1 to 13?");
-    await waitFor(() => expect(screen.getByTestId("stage").textContent).toMatch(/Retrieving records/));
+    await waitFor(() => expect(screen.getByTestId("stage").textContent).toMatch(/^Retrieving$/));
 
     fireEvent.change(screen.getByLabelText("Question"), { target: { value: "Another?" } });
     expect((screen.getByLabelText("Send") as HTMLButtonElement).disabled).toBe(true);
-    expect((screen.getByLabelText("Demo user") as HTMLSelectElement).disabled).toBe(true);
-    expect((screen.getByRole("button", { name: "+ New conversation" }) as HTMLButtonElement).disabled).toBe(true);
+    expect((screen.getByTestId("user-picker") as HTMLButtonElement).disabled).toBe(true);
+    expect((screen.getByRole("button", { name: "New conversation" }) as HTMLButtonElement).disabled).toBe(true);
     fireEvent.keyDown(screen.getByLabelText("Question"), { key: "Enter" });
     expect(api.ask).toHaveBeenCalledTimes(1);
 
     await act(async () => release?.());
     await waitFor(() => expect(screen.getAllByTestId("exchange")).toHaveLength(1));
     expect(screen.queryByTestId("pending")).toBeNull();
-    expect((screen.getByLabelText("Demo user") as HTMLSelectElement).disabled).toBe(false);
+    expect((screen.getByTestId("user-picker") as HTMLButtonElement).disabled).toBe(false);
   });
 
   it("sends a new request id for every question", async () => {
@@ -127,5 +128,18 @@ describe("scripted examples (task 8, A4)", () => {
     await screen.findByLabelText("Question");
     await waitFor(() => expect(api.examples).toHaveBeenCalled());
     expect(screen.queryByTestId("examples")).toBeNull();
+  });
+});
+
+describe("Stop (UI refresh)", () => {
+  it("aborts the question, says it was stopped, and frees the screen", async () => {
+    render(<Chat />);
+    ask("Which suppliers were late in weeks 1 to 13?");
+    await waitFor(() => expect(screen.getByTestId("timeline")).toBeTruthy());
+    expect(screen.getByTestId("timeline").querySelector('[data-state="active"]')?.textContent).toContain("Retrieving");
+    fireEvent.click(screen.getByRole("button", { name: "Stop" }));
+    await waitFor(() => expect(screen.getByRole("alert").textContent).toBe(STOPPED));
+    expect((screen.getByTestId("user-picker") as HTMLButtonElement).disabled).toBe(false);
+    expect(screen.queryByTestId("timeline")).toBeNull();
   });
 });

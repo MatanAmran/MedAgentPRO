@@ -95,6 +95,7 @@ export interface ExchangeItem {
 }
 
 export interface ConversationSummary {
+  pinned?: boolean; // phase B
   conversation_id: string;
   created_at: string;
   title: string | null;

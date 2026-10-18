@@ -4254,6 +4254,29 @@ exchange cost: attempt=EX-bc247dc6774a usd=0.061608 remaining=1.714846
 
 **הבא:** אישור התוכנית ושמונה הנקודות.
 
+### **ריענון המסך — שלב A בוצע (18.10, ענף `ui/refresh`).** מסך בלבד, בלי שינוי ב-API, בפרומפטים או בצינור
+
+- **התוכנית אושרה** עם שמונה הנקודות (הודבק): 1, ‏2, ‏4, ‏5, ‏6, ‏8 כפי שהוצעו. ‏**3:** ‏"Complaints · later" הוסר (`Main.dc.html` יעודכן בענף הזה). ‏**7:** ‏"Follow up" קיים — ההתנהגות נשמרה, רק בעיצוב חדש. ‏**Export:** בלי שורת "Showing" בתוך הקובץ; הספירה בשם הקובץ (`<label>_<shown>_of_<total>.csv`) ובכפתור ("Export N rows"). ‏**Copy:** אחרי שלב C — הטקסט המחובר, עם בדיקה שהוא שווה ל-`answer`.
+- **מה נבנה:**
+  - **גופנים ומשתנים:** Hanken Grotesk ו-IBM Plex Mono (`next/font/google`), וכל הצבעים והצללים כמשתנים ב-`globals.css`. ‏**כל האפורים של טקסט עוברים 4.5:1.**
+  - **כותרת** (`Chrome.tsx`): לוגו, "Query assistant", ‏"Live model" / "Scripted model", יתרת התקציב (רק במודל האמיתי: מ-`/api/health`, ואחר כך מהעלות של כל תשובה), והפס "DEMO · NO AUTHENTICATION · SYNTHETIC DATA".
+  - **בורר משתמש** (`UserPicker.tsx`): ‏listbox — חצים, Home/End, ‏Enter/Space, ‏Esc, החזרת פוקוס. שתי קבוצות (`role="group"`).
+  - **רשימת שיחות:** חיפוש, ‏Today/Earlier, ו-"N questions · HH:MM" (נקודה 2).
+  - **ציר שלבים חי** (`StageTimeline.tsx`): מאירועי השלב בלבד, עם תיאורים קבועים (נקודה 1). ‏`prefers-reduced-motion` מבטל את האנימציות.
+  - **Stop:** מבטל את הבקשה דרך ה-`AbortController` הקיים, ומציג "Stopped. The question was not answered.". השרת מסרב לקריאת המודל הבאה (S1), והשיחה מקבלת את השאלה הבאה (T7-B1, נבדק ב-e2e).
+  - **"How the agent worked":** קריאות, שורות, "Drafted with references", ‏"Checked N claims" (רק עם trace, מהשער שהתקבל), וזמן (רק עם trace, ורק אם גדול מ-0).
+  - **כרטיס קריאה:** מספר, כותרת, ‏"N rows", ‏Copy, ‏Export, טבלה מקופלת אחרי 6, ו-Examined בתחתית.
+- **באג שתוקן — הגלילה הכפולה עם הלוח פתוח.**
+  - **הסיבה:** ה-`caption` של טבלת הלוח הוא `sr-only` (`position: absolute`), ולמכולת הגלילה לא היה `position`. לכן הוא מוקם ביחס לדף, ומתח אותו ל-1750 פיקסלים (בחלון של 900).
+  - **התיקון:** `relative` על מכולת השרשור. ‏e2e בודק שהדף לא נגלל כשהלוח פתוח.
+- **ממצא של axe שתוקן:** הלוח של משימה 10 השתמש ב-`text-zinc-500`. על הרקע החדש זה 4.37:1, ולכן עבר למשתני הניגודיות.
+- **בדיקות:**
+  - **vitest 92** (‏+17: בורר, כותרת, רשימה, ציר, Stop, כרטיס, CSV, שורת הסוכן).
+  - **Playwright מתוסרט 19** (‏+5 ב-`ui.spec.ts`: ‏**axe מלא, WCAG 2.2 A/AA**, על המסך הריק, תשובה, בורר פתוח, לוח פתוח וציר; ‏Stop במקלדת; ‏Export כהורדה אמיתית; קבוצות וחיפוש). **אמיתי (ספק מזויף) 5.**
+  - **בדיקות שעודכנו לשינוי מכוון:** הבורר (`pickUser` ב-`e2e/helpers.ts`), ‏"New conversation", ‏"Scripted/Live model", הפס, טקסט העלות.
+  - **צילומי grayscale חדשים:** `docs/notes/ui_refresh_grayscale/`. של משימה 9 נשארו כתיעוד.
+  - ‏pytest 983, ‏`--plans` 43/43, ‏tsc ו-eslint נקיים.
+
 ## מה שנסגר בסבב האחרון
 
 - **הקוד עבר לריפו** — `MedAgentPro\backend` (`query_assistance`, `model_client`, `persistence`, `shared`, `tests`). **`03_Code` נשאר כמקור ומעודכן.** `python -m pytest -q` מתוך `backend`
