@@ -1,10 +1,10 @@
 # MedAgentPro — מפת המסלולים וההיתכנות
 
-**נוצר אוטומטית** ב-`python -m tools.path_map` (מתוך `backend\`), 18.10.2026 21:51. **לא לערוך ידנית** — המקור הוא `backend\tests\paths\registry.py` ו-`backend\tests\feasibility\constraints.py`.
+**נוצר אוטומטית** ב-`python -m tools.path_map` (מתוך `backend\`), 19.10.2026 00:51. **לא לערוך ידנית** — המקור הוא `backend\tests\paths\registry.py` ו-`backend\tests\feasibility\constraints.py`.
 
 **איך זה גדל:** `tests\paths\branches.py` קורא מהקוד ומהסכמות כל הסתעפות (מצב סיום, שלב, סוג כשל, `except`, הודעה, נקודת קצה, קוד HTTP, סוג פער, תפקיד). **הסתעפות בלי מסלול מפילה את `pytest`.** מגבלה שמתגלה (כמו הטמפרטורה) נכנסת כשורה ב-`constraints.py`, ושורה בלי בדיקה מפילה את `pytest`.
 
-**תוצאות:** 75 עוברים · 0 נכשלים · 0 פער ידוע · 0 דולגו
+**תוצאות:** 77 עוברים · 0 נכשלים · 0 פער ידוע · 0 דולגו
 
 ## מסלולים
 
@@ -13,7 +13,7 @@
 | ✅ | `answered_all_supported` | `outcome:answered`, `disposition:retrieve`, `verdict:supported`, `stage:intent_analysis`, `stage:compilation`, `stage:retrieval`, `stage:synthesis`, `stage:support_gate`, `stage:output_contract`, `role:APPROVER` | 4.9 · Test 21 · NFR 3, NFR 5 |  |
 | ✅ | `answered_two_readings` | `outcome:answered` | FR 11 · FR 16 · Test 32, 34 · task 7 Q2, Q4 |  |
 | ✅ | `ambiguous_term_only_in_rewrite_not_named` | — | task 7 Q4 · FR 25 | a term the compiler accepts from the rewrite is not shown: only spans of the question as posed |
-| ✅ | `planner_sees_own_rows_only` | `role:PLANNER` | NFR 17 · Test 18 |  |
+| ✅ | `planner_reads_every_row` | `role:PLANNER` | D6 (fix round) · NFR 17 | the demo opens all data to both roles; the mechanism is tested on tests/fixtures/restricted_schema.json |
 | ✅ | `referred` | `outcome:referred_to_investigation`, `disposition:refer_to_investigation` | FR 14 · Test 22 |  |
 | ✅ | `action_declined` | `disposition:out_of_scope_action`, `notice:ACTION_DECLINED` | task 8 A1 · FR 14 (extension) | a request to change records: nothing retrieved, a fixed sentence, outcome answered |
 | ✅ | `needs_clarification` | `disposition:needs_clarification`, `notice:NEEDS_CLARIFICATION` | chat 18.10 11:35 (extension of FR 14) | a question that cannot be interpreted, such as a follow-up opening a conversation: nothing retrieved, a fixed request to ask it in full, outcome answered, recorded |
@@ -59,9 +59,11 @@
 | ✅ | `one_reading_unreachable` | — | FR 15, FR 16 |  |
 | ✅ | `retrieval_system_fault` | `handler:run._SystemFault` | F1 |  |
 | ✅ | `record_not_written` | `handler:finish.Exception` | FR 13 · NFR 5 · decision 9 |  |
-| ✅ | `every_failure_kind` | `failure:client_error`, `failure:connection`, `failure:empty`, `failure:format`, `failure:rate_limited`, `failure:refusal`, `failure:server_error`, `failure:timeout`, `failure:truncated`, `failure:unexpected` | R4 · P9 · P10 | one case per kind, generated |
+| ✅ | `every_failure_kind` | `failure:client_error`, `failure:connection`, `failure:empty`, `failure:format`, `failure:rate_limited`, `failure:refusal`, `failure:server_error`, `failure:timeout`, `failure:truncated`, `failure:unexpected`, `notice:MODEL_UNAVAILABLE` | R4 · P9 · P10 · D9 | one case per kind, generated; the provider's silence has its own notice |
+| ✅ | `plan_limit` | `notice:PLAN_LIMIT` | D3 | every intent attempt broke a size limit of the plan language |
+| ✅ | `failed_call_max_tokens` | — | U-4 |  |
 | ✅ | `every_failure_kind_late` | — | R4 · NFR 3 |  |
-| ✅ | `every_gap_kind` | `gap:no_such_column`, `gap:no_such_table`, `gap:source_outside_system`, `gap:unspecified`, `gap:value_not_present` | FR 11 · NFR 20 | one case per kind, generated |
+| ✅ | `every_gap_kind` | `gap:cross_record_condition`, `gap:no_such_column`, `gap:no_such_table`, `gap:source_outside_system`, `gap:unspecified`, `gap:value_not_present` | FR 11 · NFR 20 · D1 | one case per kind, generated |
 | ✅ | `real_answers_with_cost` | — | task 5 · T3 |  |
 | ✅ | `budget_used_up` | `budget:total`, `notice:BUDGET_USED_UP`, `handler:run.BudgetExceeded` | task 5 |  |
 | ✅ | `exchange_cap` | `budget:exchange`, `notice:EXCHANGE_CAP` | R7a · R7b |  |
@@ -94,7 +96,7 @@
 
 **verdict** — `contradicted` (contradicted_like_unsupported) · `supported` (answered_all_supported) · `uncovered` (redraft_from_kept)
 
-**gap** — `no_such_column` (every_gap_kind) · `no_such_table` (every_gap_kind) · `source_outside_system` (every_gap_kind) · `unspecified` (every_gap_kind) · `value_not_present` (every_gap_kind)
+**gap** — `cross_record_condition` (every_gap_kind) · `no_such_column` (every_gap_kind) · `no_such_table` (every_gap_kind) · `source_outside_system` (every_gap_kind) · `unspecified` (every_gap_kind) · `value_not_present` (every_gap_kind)
 
 **stage** — `compilation` (answered_all_supported) · `intent_analysis` (answered_all_supported) · `output_contract` (answered_all_supported) · `question_rewriting` (follow_up_rewritten) · `rating` (server_rating) · `regeneration` (redraft_from_kept) · `retrieval` (answered_all_supported) · `support_gate` (answered_all_supported) · `synthesis` (answered_all_supported)
 
@@ -104,13 +106,13 @@
 
 **budget** — `exchange` (exchange_cap) · `model` (budget_model) · `provider` (budget_provider) · `total` (budget_used_up)
 
-**notice** — `ACTION_DECLINED` (action_declined) · `BUDGET_USED_UP` (budget_used_up) · `EXCHANGE_CAP` (exchange_cap) · `NEEDS_CLARIFICATION` (needs_clarification) · `NOT_COMPLETED` (intent_rejected_twice) · `RATE_LIMITED` (rate_limit) · `WITHHELD` (redraft_from_kept)
+**notice** — `ACTION_DECLINED` (action_declined) · `BUDGET_USED_UP` (budget_used_up) · `EXCHANGE_CAP` (exchange_cap) · `MODEL_UNAVAILABLE` (every_failure_kind) · `NEEDS_CLARIFICATION` (needs_clarification) · `NOT_COMPLETED` (intent_rejected_twice) · `PLAN_LIMIT` (plan_limit) · `RATE_LIMITED` (rate_limit) · `WITHHELD` (redraft_from_kept)
 
 **endpoint** — `GET /api/conversations` (server_archived_listing, server_listing_and_health) · `GET /api/conversations/{conversation_id}` (server_each_ending_then_goes_on) · `GET /api/examples` (server_examples) · `GET /api/health` (server_listing_and_health) · `PATCH /api/conversations/{conversation_id}` (server_conversation_update) · `POST /api/conversations` (server_each_ending_then_goes_on) · `POST /api/conversations/{conversation_id}/exchanges` (server_each_ending_then_goes_on) · `POST /api/exchanges/{exchange_id}/rating` (server_rating)
 
 **http** — `200` (server_each_ending_then_goes_on) · `201` (server_each_ending_then_goes_on) · `401` (server_refusals) · `403` (server_refusals) · `404` (server_refusals) · `409` (server_refusals) · `422` (server_refusals)
 
-**role** — `APPROVER` (answered_all_supported) · `PLANNER` (planner_sees_own_rows_only)
+**role** — `APPROVER` (answered_all_supported) · `PLANNER` (planner_reads_every_row)
 
 ## היתכנות
 
@@ -137,7 +139,7 @@
 | ✅ | L02 | logical | Every table a role is shown in the intent prompt is one it may read, and every table it may read is shown. | NFR 17 · prompts.visible_tables |
 | ✅ | L03 | logical | Every metric in schema.json compiles for every role, with entitlement applied. | NFR 17 · 40_CHAT §7 |
 | ✅ | L04 | logical | Every example in the intent prompt passes the same checks as real output. | 40_CHAT §15 · tests/demo_data/test_demo_prompt.py |
-| ✅ | L05 | logical | On the real-model path (budget, LiteLLM gateway, fake provider), every demo question fits the default per-exchange cap (USD 0.25) at Sonnet 5.5's prices; the largest needs about 0.14. So with intent analysis's own cap (MODEL_MAX_OUTPUT_TOKENS_INTENT=3000), and with the gate's (MODEL_MAX_OUTPUT_TOKENS_GATE=4000, chat 18.10, 13:50). | Task 9 · R7a · tools/fake_real_server.py |
+| ✅ | L05 | logical | On the real-model path (budget, LiteLLM gateway, fake provider), every demo question fits the default per-exchange cap (USD 0.25) at Sonnet 5.5's prices; the largest needs about 0.17 (0.14 before the fix round's prompts, 19.10). So with intent analysis's own cap (MODEL_MAX_OUTPUT_TOKENS_INTENT=3000), and with the gate's (MODEL_MAX_OUTPUT_TOKENS_GATE=4000, chat 18.10, 13:50). | Task 9 · R7a · tools/fake_real_server.py |
 | ✅ | V01 | live | The provider accepts the three reduced schemas (no 400). **נצפה:** R9, 14.10: rewriting (question 2), synthesis and the gate (both) accepted, no 400 (00_STATUS, R9) | R2 · R9 |
 | ✅ | V02 | live | The provider accepts a request with no temperature and the configured max_tokens. **נצפה:** R9, 14.10: all 7 calls sent no temperature (provider default) and max_tokens=2000, per the model call line (00_STATUS, R9) | R1 · R9 |
 | ✅ | V03 | live | The cost recorded for one exchange matches Usage in the Console. **נצפה:** R9, 14.10: the tokens are the provider's own usage report on each response; priced at the card they give USD 0.0943, and the credit balance fell 3.82 -> 3.72, consistent at cent precision. Usage and the key's Last used showed nothing yet (reporting lag) | R9 |

@@ -3,7 +3,7 @@
  "outcome": "answered",
  "readings": [
   {
-   "checked": "Examined: purchase order lines where supplier = 'S-099' · limited to the records you hold",
+   "checked": "Examined: purchase order lines where supplier = 'S-099'",
    "columns": [
     "po_id",
     "part_id"

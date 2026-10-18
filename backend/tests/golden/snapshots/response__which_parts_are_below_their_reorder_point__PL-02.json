@@ -3,8 +3,21 @@
  "outcome": "answered",
  "readings": [
   {
-   "answer": "P-10629 has 0 on hand against a reorder point of 100.",
+   "answer": "31 parts have stock on hand below the reorder point, among them P-10629. P-10629 has 0 on hand against a reorder point of 100.",
    "answer_segments": [
+    {
+     "text": "31 parts have stock on hand below the reorder point, among them "
+    },
+    {
+     "ref": {
+      "alias": "part_id",
+      "row": 1
+     },
+     "text": "P-10629"
+    },
+    {
+     "text": ". "
+    },
     {
      "ref": {
       "alias": "part_id",
@@ -45,6 +58,7 @@
    "entity": "parts",
    "evidence": [
     "below_reorder.part_id",
+    "below_reorder.total",
     "below_reorder.on_hand",
     "below_reorder.reorder_point"
    ],

@@ -445,7 +445,8 @@ def test_a_live_row_records_what_the_smoke_test_saw_and_only_a_live_row_does():
                          ids=["general cap", "intent cap 3000", "intent 3000 and gate 4000"])
 def test_L05_every_demo_question_fits_the_default_cap_on_the_real_path(db_path, tmp_path, intent_cap, gate_cap):
     """Task 9: found while building the fake provider. The largest demo question (30 rows) reserves
-    about USD 0.14 for its worst path (0.135 before the task 10a prompts); the demo's default cap is 0.25.
+    about USD 0.17 for its worst path (0.14 before the fix round, 0.135 before task 10a); the demo's default
+    cap is 0.25.
     Tighten the cap, or grow a question's records, and this fails before the demo does. With intent
     analysis's own cap (chat 01:15), its call reserves 1000 output tokens more, USD 0.01 at Sonnet 5.5. With
     the gate's own cap (chat 13:50), each gate call reserves more, twice on R7a's path: 4000 is checked here

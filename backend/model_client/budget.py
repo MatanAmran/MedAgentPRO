@@ -358,6 +358,8 @@ class BudgetedGateway(ModelGateway):
         except ModelCallError as e:
             if not e.reached_provider:   # R5: known not to have left, so released
                 actual = 0.0
+            else:                        # U-4: the trace shows what a failed call was sent with
+                e.max_tokens = call.max_tokens
             raise                        # otherwise, as on a timeout, the worst case stays charged
         finally:
             with self._lock:

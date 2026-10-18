@@ -206,3 +206,25 @@ describe("archived conversations (L5)", () => {
     expect(archive).not.toHaveBeenCalled();
   });
 });
+
+describe("fix round, screen (U-1, U-2)", () => {
+  it("drops the server's Showing notice only where the header count says it (U-1)", () => {
+    const cut = partsReading(30, undefined, { total: 31, notice: "Showing 30 of 31." });
+    render(<ReadingCard reading={cut} />);
+    expect(screen.getByTestId("reading-count").textContent).toBe("31 rows · 30 shown");
+    expect(screen.queryByTestId("reading-notice")).toBeNull();
+    cleanup();
+    render(<ReadingCard reading={partsReading(3, undefined, { notice: "No records matched." })} />);
+    expect(screen.getByTestId("reading-notice").textContent).toBe("No records matched.");
+  });
+
+  it("marks an archived conversation by an icon and in words, not by colour alone (U-2)", () => {
+    render(<Sidebar conversations={[]} current={null} onSelect={() => {}} onNew={() => {}} locked={false}
+                    archived={[{ conversation_id: "Z", created_at: "2026-10-18T10:00:00", title: "Old", exchanges: 1,
+                                 archived: true }]} onShowArchived={() => {}} />);
+    const group = screen.getByRole("region", { name: "Archived" });
+    expect(within(group).getByTestId("archived-icon")).toBeTruthy();
+    // jsdom drops the space before the sr-only text in the computed name; a browser keeps it
+    expect(within(group).getByRole("button", { name: /Old\s*\(archived\)/ })).toBeTruthy();
+  });
+});

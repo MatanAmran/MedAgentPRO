@@ -49,6 +49,7 @@ When a decision is made in a session, record it in the relevant note (and here, 
 | 10 | The "How this was answered" panel | done (18.10), branch `task10/panel`: `python -m main --panel`; `api/trace.py` (whitelist from `CallTrace`, `cost_usd` from the budget), `frontend/app/components/HowAnswered.tsx`; `[demo extension]`, off by default |
 | 11 | UI refresh (docs/design/ui-refresh) | done (18.10), branch `ui/refresh`: A the screen (no API change), B `PATCH /api/conversations/{id}` (title, pinned, archived; archiving only hides), C `answer_segments` and provenance on hover; `[demo extension]`; one line in `pipeline.views()`, approved |
 | 12 | Long list (`LongList.dc.html`, chat 18.10 20:30) | done (18.10), branch `ui/long-list`: quieter references, folding past 8, tag grid, real-model empty text, `?archived=true` and Unarchive, and `entity` in the reading (L4: plain columns, no GROUP_BY, every JOIN many-to-one by declared `references`); `[demo extension]` |
+| 13 | Fix round for the demo (chat 18.10, 23:25) | done (19.10), branch `fix/demo-round`: D1–D11 and D1-POS. Targeted real run 34 exchanges, USD 1.59, no blocker: **prompts frozen for the demo** (rewrite@3, intent_demo@9, synthesis@11, redraft@8, gate@6) |
 
 ## Task 4 decisions (settled in the Claude chat, 12.10)
 
@@ -226,7 +227,7 @@ On Evyatar's machine an Application Control policy blocks `.exe` files in the ve
 # Backend (from backend\, venv active)
 python -m pip install -r requirements.txt
 python -m demo_data.seed          # builds demo_data\demo.db
-python -m pytest -q               # the default run; 1021 after the long list (18.10)
+python -m pytest -q               # the default run; 1051 after the fix round (19.10)
 python -m tools.path_map          # runs tests/paths and tests/feasibility, writes docs/notes/60_PATHS.md
 python -m query_assistance.dry_run   # prices two scripted exchanges at the .env prices, no model call, no key
 python -m query_assistance.dry_run --model claude-sonnet-5-5   # the same, prices from LiteLLM's local map, no .env

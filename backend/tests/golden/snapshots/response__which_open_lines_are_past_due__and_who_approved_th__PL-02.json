@@ -12,30 +12,33 @@
  "outcome": "answered",
  "readings": [
   {
-   "answer": "PO-89382 has the earliest requested date, 2026-09-07.",
+   "answer": "30 lines on open purchase orders are not delivered and past their requested date, among them a line of PO-87324, requested for 2026-02-22.",
    "answer_segments": [
+    {
+     "text": "30 lines on open purchase orders are not delivered and past their requested date, among them a line of "
+    },
     {
      "ref": {
       "alias": "po_id",
       "row": 1
      },
-     "text": "PO-89382"
+     "text": "PO-87324"
     },
     {
-     "text": " has the earliest requested date, "
+     "text": ", requested for "
     },
     {
      "ref": {
       "alias": "due_date",
       "row": 1
      },
-     "text": "2026-09-07"
+     "text": "2026-02-22"
     },
     {
      "text": "."
     }
    ],
-   "checked": "Examined: purchase order lines with purchase orders where order status = 'open' and delivery date not recorded and requested date < '2026-10-09' · limited to the records you hold",
+   "checked": "Examined: purchase order lines with purchase orders where order status = 'open' and delivery date not recorded and requested date < '2026-10-09'",
    "columns": [
     "supplier_id",
     "po_id",
@@ -44,7 +47,8 @@
    "entity": "purchase order lines",
    "evidence": [
     "past_due.po_id",
-    "past_due.due_date"
+    "past_due.due_date",
+    "past_due.total"
    ],
    "headers": {
     "due_date": "requested date",
@@ -58,8 +62,63 @@
    "label": "past_due",
    "ordered_by": "ordered by requested date, lowest first",
    "result": "rows_returned",
-   "row_count": 8,
+   "row_count": 30,
    "rows": [
+    {
+     "due_date": "2026-02-22",
+     "po_id": "PO-87324",
+     "supplier_id": "S-019"
+    },
+    {
+     "due_date": "2026-02-28",
+     "po_id": "PO-87336",
+     "supplier_id": "S-028"
+    },
+    {
+     "due_date": "2026-03-13",
+     "po_id": "PO-87237",
+     "supplier_id": "S-016"
+    },
+    {
+     "due_date": "2026-04-01",
+     "po_id": "PO-87213",
+     "supplier_id": "S-026"
+    },
+    {
+     "due_date": "2026-04-03",
+     "po_id": "PO-87723",
+     "supplier_id": "S-028"
+    },
+    {
+     "due_date": "2026-06-06",
+     "po_id": "PO-88362",
+     "supplier_id": "S-038"
+    },
+    {
+     "due_date": "2026-07-08",
+     "po_id": "PO-88434",
+     "supplier_id": "S-022"
+    },
+    {
+     "due_date": "2026-07-15",
+     "po_id": "PO-88641",
+     "supplier_id": "S-036"
+    },
+    {
+     "due_date": "2026-08-28",
+     "po_id": "PO-88899",
+     "supplier_id": "S-035"
+    },
+    {
+     "due_date": "2026-08-30",
+     "po_id": "PO-89070",
+     "supplier_id": "S-014"
+    },
+    {
+     "due_date": "2026-09-01",
+     "po_id": "PO-89277",
+     "supplier_id": "S-024"
+    },
     {
      "due_date": "2026-09-07",
      "po_id": "PO-89382",
@@ -81,6 +140,36 @@
      "supplier_id": "S-031"
     },
     {
+     "due_date": "2026-09-20",
+     "po_id": "PO-89208",
+     "supplier_id": "S-014"
+    },
+    {
+     "due_date": "2026-09-21",
+     "po_id": "PO-89364",
+     "supplier_id": "S-001"
+    },
+    {
+     "due_date": "2026-09-22",
+     "po_id": "PO-89358",
+     "supplier_id": "S-038"
+    },
+    {
+     "due_date": "2026-09-23",
+     "po_id": "PO-89508",
+     "supplier_id": "S-005"
+    },
+    {
+     "due_date": "2026-09-24",
+     "po_id": "PO-89088",
+     "supplier_id": "S-001"
+    },
+    {
+     "due_date": "2026-10-01",
+     "po_id": "PO-89364",
+     "supplier_id": "S-001"
+    },
+    {
      "due_date": "2026-10-02",
      "po_id": "PO-89322",
      "supplier_id": "S-001"
@@ -91,6 +180,21 @@
      "supplier_id": "S-001"
     },
     {
+     "due_date": "2026-10-02",
+     "po_id": "PO-89562",
+     "supplier_id": "S-018"
+    },
+    {
+     "due_date": "2026-10-05",
+     "po_id": "PO-89574",
+     "supplier_id": "S-014"
+    },
+    {
+     "due_date": "2026-10-05",
+     "po_id": "PO-89358",
+     "supplier_id": "S-038"
+    },
+    {
      "due_date": "2026-10-06",
      "po_id": "PO-89259",
      "supplier_id": "S-001"
@@ -99,10 +203,20 @@
      "due_date": "2026-10-06",
      "po_id": "PO-89322",
      "supplier_id": "S-001"
+    },
+    {
+     "due_date": "2026-10-07",
+     "po_id": "PO-89517",
+     "supplier_id": "S-001"
+    },
+    {
+     "due_date": "2026-10-07",
+     "po_id": "PO-89658",
+     "supplier_id": "S-012"
     }
    ],
    "title": "Reading 1",
-   "total": 8
+   "total": 30
   }
  ]
 }

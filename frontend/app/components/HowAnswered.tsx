@@ -64,11 +64,11 @@ export function HowAnswered({ trace }: { trace: Trace }) {
             <p data-testid="how-answered-empty">{trace.not_sent ? NOT_SENT_TEXT[trace.not_sent] : "No model call"}</p>
           ) : (
             <div className="max-w-full overflow-x-auto">
-              <table className="min-w-full border-collapse text-left">
+              <table className="w-full border-collapse text-left text-xs">
                 <caption className="sr-only">One row per model call</caption>
                 <thead>
                   <tr className="border-b border-line text-ink-3">
-                    <th scope="col" className="py-1 pr-3 font-medium">Stage</th>
+                    <th scope="col" className="sticky left-0 bg-white py-1 pr-3 font-medium">Stage</th>
                     <th scope="col" className="py-1 pr-3 font-medium">Model</th>
                     <th scope="col" className="py-1 pr-3 font-medium">Attempt</th>
                     <th scope="col" className="py-1 pr-3 font-medium">Tokens in / out (thinking)</th>
@@ -85,7 +85,7 @@ export function HowAnswered({ trace }: { trace: Trace }) {
                     const est = isScripted(c);
                     return (
                       <tr key={i} className="border-b border-line-3" data-testid="how-answered-row">
-                        <td className="py-1 pr-3">{STAGE_LABEL[c.stage] ?? c.stage}</td>
+                        <td className="sticky left-0 bg-white py-1 pr-3">{STAGE_LABEL[c.stage] ?? c.stage}</td>
                         <td className="py-1 pr-3">{est ? "scripted" : c.model}</td>
                         <td className="py-1 pr-3">
                           {c.attempt_number}
@@ -100,7 +100,7 @@ export function HowAnswered({ trace }: { trace: Trace }) {
                         <td className="py-1 pr-3">{usd(c.cost_usd)}</td>
                         <td className="py-1 pr-3">{seconds(c.duration_ms)}</td>
                         <td className="py-1 pr-3">{c.finish_reason ?? "—"}</td>
-                        <td className="py-1 font-mono">{c.check ?? ""}</td>
+                        <td className="max-w-56 break-all py-1 font-mono">{c.check ?? ""}</td>
                       </tr>
                     );
                   })}

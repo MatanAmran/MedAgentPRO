@@ -73,6 +73,7 @@ class Call:
     # The rejection above may hold model-written text; this never does (R9 log line, P6)
     check: str | None = None
     duration_ms: float | None = None    # the gateway call alone, from sending to the response or the error
+    max_tokens: int | None = None       # U-4: a failed call's, where it was sent; a response carries its own
 
 
 class StageFailed(Exception):
@@ -161,7 +162,7 @@ def ask(gateway: ModelGateway, model: str, prompt_identity: str, render: Callabl
             started = time.monotonic()   # the call alone, not the rendering
             resp = gateway.invoke(prompt, config)
         except ModelCallError as e:
-            calls.append(Call(prompt_identity, None, is_feedback, str(e), e.kind, _ms(started)))
+            calls.append(Call(prompt_identity, None, is_feedback, str(e), e.kind, _ms(started), e.max_tokens))
             raise StageFailed(e.kind, str(e), calls) from e
         except Exception as e:
             # G1: a refusal for money came back from the provider, so the call reached it and is

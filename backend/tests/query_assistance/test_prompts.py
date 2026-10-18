@@ -63,7 +63,7 @@ def test_intent_examples_validate_and_compile():
 def test_rewrite_examples_validate_and_name_no_new_identifier():
     pr = p.load("rewrite.md")
     exs = examples(pr)
-    assert len(exs) == 4
+    assert len(exs) == 6   # v3 (D1): a result fully shown is named, a cut one is stated by its condition
     v = validator("question_rewriting")
     for inp, out in exs:
         assert not list(v.iter_errors(out))
@@ -75,10 +75,12 @@ def test_rewrite_examples_validate_and_name_no_new_identifier():
 
 def test_gate_examples_validate_and_evaluate():
     """v4 (task 10a): one claim per sentence, and a place named between tied rows is contradicted.
-    v5 (chat, 18.10, 09:40): a sentence that describes its records unlike their examined line is contradicted."""
+    v5 (chat, 18.10, 09:40): a sentence that describes its records unlike their examined line is contradicted.
+    v6 (fix round, D4 and D5): rows described by anything but their condition are uncovered, and a stated
+    count is supported by label.total."""
     pr = p.load("gate.md")
-    (inp, out), (tie_in, tie_out) = examples(pr)
-    assert pr.version == "5"
+    (inp, out), (tie_in, tie_out), (list_in, list_out) = examples(pr)
+    assert pr.version == "6"
     for o in (out, tie_out):
         assert not list(validator("support_scoring").iter_errors(o))
     sentences = [(m.group(1), m.group(2)) for m in re.finditer(r"^\d+\. \[(\w+)\] (.*)$", inp, re.M)]
@@ -90,6 +92,10 @@ def test_gate_examples_validate_and_evaluate():
     assert "(same late_by_delivery.late_lines as row 1)" in tie_in
     res = gate.evaluate(tie_out, tied, {"late_by_delivery": {"supplier_id", "late_lines"}})
     assert res.supported == [False, True] and [c["verdict"] for c in tie_out["claims"]] == ["contradicted", "supported"]
+    listed = [(m.group(1), m.group(2)) for m in re.finditer(r"^\d+\. \[(\w+)\] (.*)$", list_in, re.M)]
+    assert "[late_lines] late_lines.total = 64 rows matched, 30 shown" in list_in
+    res = gate.evaluate(list_out, listed, {"late_lines": {"commitment_id", "delivered_at", "total"}})
+    assert res.supported == [True, False] and "late_lines.total" in list_out["claims"][0]["evidence"]
     assert all(len([c for c in o["claims"] if c["sentence"] == n]) == 1      # one claim per sentence
                for o in (out, tie_out) for n in {c["sentence"] for c in o["claims"]})
 
@@ -283,3 +289,59 @@ def test_a_malformed_prompt_file_names_the_file_and_what_is_wrong(tmp_path, text
     with pytest.raises(ValueError, match=re.escape(says)) as e:
         p.load(f)
     assert "broken.md" in str(e.value)
+
+
+# --------------------------------------------------------------------------
+# D1 and D2 (fix round, chat 18.10): what the history says of each reading, and the rewrite guard
+# --------------------------------------------------------------------------
+
+def _late(shown: int, total: int, ids: list[str]) -> p.Exchange:
+    return p.Exchange("Which suppliers were late in weeks 1 to 13?", None, "S-038 had 10.", ids,
+                      readings=[p.ReadingNote("late_by_delivery", "purchase order lines where week between 1 and 13",
+                                              shown, total)],
+                      cut=ids if shown < total else [])
+
+
+def test_history_carries_each_readings_condition_and_how_much_was_shown():
+    h = p.build_history([_late(30, 39, ["S-038"]), _late(3, 3, ["S-001"])])
+    assert "Q1 reading [late_by_delivery] examined: purchase order lines where week between 1 and 13 · 30 of 39 shown" \
+        in h.text
+    assert "Q2 reading [late_by_delivery] examined: purchase order lines where week between 1 and 13 · all 3 shown" \
+        in h.text
+
+
+def test_layer_two_drops_old_answers_one_at_a_time_and_keeps_the_conditions():
+    big = [p.Exchange(f"Question {i}?", None, "x" * 900, [f"S-{i:03d}"],
+                      readings=[p.ReadingNote("r", f"condition {i}", 1, 1)]) for i in range(1, 6)]
+    h = p.build_history(big, budget=1000)
+    assert h.layer == 2
+    assert "A1:" not in h.text and "A5:" in h.text           # the oldest went first, the last stays whole
+    assert "A4:" in h.text or "A3:" in h.text                 # not every older answer at once
+    assert all(f"condition {i}" in h.text for i in range(1, 6))
+
+
+@pytest.mark.parametrize("question, history, rejected", [
+    ("What are the open values of S-001, S-008 and S-019?", [_late(3, 3, ["S-001", "S-008", "S-019"])], False),
+    ("What are the open values of S-038?", [_late(30, 39, ["S-038", "S-005"])], False),      # one, as by position
+    ("What are the open values of S-038 and S-005?", [_late(30, 39, ["S-038", "S-005"])], True),   # a list, cut
+    ("What are the open values of the suppliers late in weeks 1 to 13?",
+     [_late(30, 39, ["S-038", "S-005"])], False),                                               # the condition
+    ("What are the open values of " + ", ".join(f"S-{i:03d}" for i in range(1, 22)) + "?",
+     [_late(21, 21, [f"S-{i:03d}" for i in range(1, 22)])], True),                             # 21 added
+])
+def test_rewrite_guard_names_ids_only_from_a_whole_result_of_at_most_twenty(question, history, rejected):
+    """D1 and D1-POS (chat 19.10): one identifier from a cut reading is a row the person pointed at; two or
+    more are a list that is not the whole result."""
+    out = {"question": question, "carried_from_history": True}
+    if rejected:
+        with pytest.raises(p.RewriteError) as e:
+            p.check_rewrite(out, "What are their open values?", history)
+        assert "S-0" not in str(e.value)   # the feedback gives counts, never a value (NFR 21, R4)
+    else:
+        assert p.check_rewrite(out, "What are their open values?", history) == question
+
+
+def test_rewrite_guard_lets_the_person_name_what_they_typed():
+    """Identifiers the latest question holds are the person's, cut reading or not."""
+    out = {"question": "What are the open values of S-038?", "carried_from_history": True}
+    assert p.check_rewrite(out, "And S-038's open values?", [_late(30, 39, ["S-038"])])

@@ -6,14 +6,47 @@
  "outcome": "answered",
  "readings": [
   {
-   "answer": "S-008 had 4 lines delivered after the requested date. S-003 had 2.",
+   "answer": "28 suppliers had lines delivered after the requested date in weeks 1 to 13, among them S-038, S-005 and S-001. S-038 had 10 such lines.",
    "answer_segments": [
     {
+     "text": "28 suppliers had lines delivered after the requested date in weeks 1 to 13, among them "
+    },
+    {
      "ref": {
       "alias": "supplier_id",
       "row": 1
      },
-     "text": "S-008"
+     "text": "S-038"
+    },
+    {
+     "text": ", "
+    },
+    {
+     "ref": {
+      "alias": "supplier_id",
+      "row": 2
+     },
+     "text": "S-005"
+    },
+    {
+     "text": " and "
+    },
+    {
+     "ref": {
+      "alias": "supplier_id",
+      "row": 3
+     },
+     "text": "S-001"
+    },
+    {
+     "text": ". "
+    },
+    {
+     "ref": {
+      "alias": "supplier_id",
+      "row": 1
+     },
+     "text": "S-038"
     },
     {
      "text": " had "
@@ -23,39 +56,21 @@
       "alias": "late_count",
       "row": 1
      },
-     "text": "4"
+     "text": "10"
     },
     {
-     "text": " lines delivered after the requested date. "
-    },
-    {
-     "ref": {
-      "alias": "supplier_id",
-      "row": 2
-     },
-     "text": "S-003"
-    },
-    {
-     "text": " had "
-    },
-    {
-     "ref": {
-      "alias": "late_count",
-      "row": 2
-     },
-     "text": "2"
-    },
-    {
-     "text": "."
+     "text": " such lines."
     }
    ],
-   "checked": "Examined: purchase order lines where week between 1 and 13 and delivered after the requested date · grouped by supplier · computed the number of records · limited to the records you hold",
+   "checked": "Examined: purchase order lines where week between 1 and 13 and delivered after the requested date · grouped by supplier · computed the number of records",
    "columns": [
     "supplier_id",
     "late_count"
    ],
+   "entity": "suppliers",
    "evidence": [
     "late_by_delivery.supplier_id",
+    "late_by_delivery.total",
     "late_by_delivery.late_count"
    ],
    "headers": {
@@ -66,41 +81,61 @@
     "supplier_id"
    ],
    "label": "late_by_delivery",
+   "notice": "Showing 10 of 28.",
    "ordered_by": "ordered by number of records, highest first",
    "result": "rows_returned",
-   "row_count": 6,
+   "row_count": 10,
    "rows": [
     {
-     "late_count": 4,
+     "late_count": 10,
+     "supplier_id": "S-038"
+    },
+    {
+     "late_count": 8,
+     "supplier_id": "S-005"
+    },
+    {
+     "late_count": 6,
+     "supplier_id": "S-001"
+    },
+    {
+     "late_count": 6,
      "supplier_id": "S-008"
     },
     {
-     "late_count": 2,
-     "supplier_id": "S-003"
-    },
-    {
-     "late_count": 2,
-     "supplier_id": "S-014"
-    },
-    {
-     "late_count": 1,
-     "supplier_id": "S-015"
-    },
-    {
-     "late_count": 1,
+     "late_count": 6,
      "supplier_id": "S-018"
     },
     {
-     "late_count": 1,
-     "supplier_id": "S-032"
+     "late_count": 4,
+     "supplier_id": "S-003"
+    },
+    {
+     "late_count": 4,
+     "supplier_id": "S-019"
+    },
+    {
+     "late_count": 4,
+     "supplier_id": "S-033"
+    },
+    {
+     "late_count": 3,
+     "supplier_id": "S-011"
+    },
+    {
+     "late_count": 3,
+     "supplier_id": "S-013"
     }
    ],
    "title": "Delivered after the requested date",
-   "total": 6
+   "total": 28
   },
   {
-   "answer": "S-008 had 4 lines whose promised date was after the requested date.",
+   "answer": "13 suppliers had lines in weeks 1 to 13 whose promised date was after the requested date, among them S-008 and S-018.",
    "answer_segments": [
+    {
+     "text": "13 suppliers had lines in weeks 1 to 13 whose promised date was after the requested date, among them "
+    },
     {
      "ref": {
       "alias": "supplier_id",
@@ -109,27 +144,28 @@
      "text": "S-008"
     },
     {
-     "text": " had "
+     "text": " and "
     },
     {
      "ref": {
-      "alias": "late_count",
-      "row": 1
+      "alias": "supplier_id",
+      "row": 2
      },
-     "text": "4"
+     "text": "S-018"
     },
     {
-     "text": " lines whose promised date was after the requested date."
+     "text": "."
     }
    ],
-   "checked": "Examined: purchase order lines where week between 1 and 13 and the supplier committed to a date after the requested date · grouped by supplier · computed the number of records · limited to the records you hold",
+   "checked": "Examined: purchase order lines where week between 1 and 13 and the supplier committed to a date after the requested date · grouped by supplier · computed the number of records",
    "columns": [
     "supplier_id",
     "late_count"
    ],
+   "entity": "suppliers",
    "evidence": [
     "late_by_promise.supplier_id",
-    "late_by_promise.late_count"
+    "late_by_promise.total"
    ],
    "headers": {
     "late_count": "number of records",
@@ -139,16 +175,41 @@
     "supplier_id"
    ],
    "label": "late_by_promise",
+   "notice": "Showing 10 of 13.",
    "ordered_by": "ordered by number of records, highest first",
    "result": "rows_returned",
-   "row_count": 5,
+   "row_count": 10,
    "rows": [
     {
-     "late_count": 4,
+     "late_count": 6,
      "supplier_id": "S-008"
     },
     {
-     "late_count": 1,
+     "late_count": 5,
+     "supplier_id": "S-018"
+    },
+    {
+     "late_count": 5,
+     "supplier_id": "S-036"
+    },
+    {
+     "late_count": 4,
+     "supplier_id": "S-005"
+    },
+    {
+     "late_count": 3,
+     "supplier_id": "S-032"
+    },
+    {
+     "late_count": 3,
+     "supplier_id": "S-033"
+    },
+    {
+     "late_count": 2,
+     "supplier_id": "S-001"
+    },
+    {
+     "late_count": 2,
      "supplier_id": "S-003"
     },
     {
@@ -157,15 +218,11 @@
     },
     {
      "late_count": 1,
-     "supplier_id": "S-018"
-    },
-    {
-     "late_count": 1,
-     "supplier_id": "S-032"
+     "supplier_id": "S-019"
     }
    ],
    "title": "The supplier committed to a date after the requested date",
-   "total": 5
+   "total": 13
   }
  ]
 }

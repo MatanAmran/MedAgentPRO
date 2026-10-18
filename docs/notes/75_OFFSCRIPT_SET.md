@@ -39,7 +39,7 @@
 | **D3** | AP-01 | What is on hand for P-99999? | ‏"P-99999 does not appear in parts." | מזהה שלא קיים |
 | **D4** | AP-01 | List S-036's late lines with their delay reasons. | ‏answered. **שורות עם סיבה ושורות בלי** (ל-S-036 יש 28 מאחרות בלי סיבה מתוך 29). ‏"not recorded" בתוך משפט שמפנה לשורה. | **כלל 6 המצומצם — טרם נבדק בפועל** |
 | **E1** | AP-01 | What caused the delays at S-038 in September? | ‏referred_to_investigation | סיבה בניסוח אחר |
-| **E2** | AP-01 | Cancel PO-87213. | ‏"This assistant reads records. It does not change them." | |
+| **E2** | AP-01 | Cancel PO-87213. | ‏"This assistant answers questions from the records. It does not take actions, such as sending messages or changing records." | |
 | **E3** | AP-01 | Mark the line for P-10037 as received. | כמו E2 | |
 | **E4** | AP-01 | Is S-014's late rate unusually high compared to the other suppliers? | ‏referred_to_investigation | שיפוט חריגות |
 | **F1a** | AP-01 | Which suppliers in Germany delivered late in weeks 1 to 13? | ‏answered. ‏JOIN ל-suppliers, ‏`country = Germany`. | שרשרת, 1 מתוך 3 |
@@ -47,7 +47,7 @@
 | **F1c** | (אותה שיחה) | What about the Netherlands? | ‏Understood as עם Netherlands ושבועות 14–26. | 3 מתוך 3. **שבועות 1–13 כאן = חוסם** |
 | **F2** | (אחרי A1) | What about S-014? | ‏Understood as: ‏S-014, אותה מטריקה, שבועות 1–13. | כינוי ושאלת המשך |
 | **F3** | AP-01 | What about the other supplier? | ‏needs_clarification | בתחילת שיחה |
-| **G1** | **PL-02** | Which open lines does PL-03 have? | **שום שורה של PL-03.** ‏"No records matched", או רק שורות של PL-02 עם "limited to the records you hold". | **כל שורה של PL-03 = חוסם** (NFR 17) |
+| **G1** | **PL-02** | Which open lines does PL-03 have? | ‏answered: השורות הפתוחות של PL-03 (D6, 18.10: הנתונים פתוחים לשני התפקידים). | **לפני D6:** כל שורה של PL-03 = חוסם (NFR 17) |
 | **G2** | **PL-02** | Which goods receipts were posted in September? | ‏answered. ‏`received_on` בספטמבר 2026. ‏receipts פתוח לכל התפקידים. | מצב נוכחי — שאלה פתוחה ללקוח |
 | **H1** | AP-01 | wich suplier was late in weks 1-13 | כמו A1 | שגיאות כתיב |
 | **H2** | AP-01 | אילו ספקים איחרו בשבועות 1 עד 13? | ‏answered כמו A1 (התשובה באנגלית), **או** בירור. | **לדעת מה קורה לפני הדמו.** קל אם בירור |

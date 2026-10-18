@@ -101,7 +101,8 @@ CONSTRAINTS: list[Constraint] = [
                "40_CHAT §15 · tests/demo_data/test_demo_prompt.py"),
     Constraint("L05", "logical",
                "On the real-model path (budget, LiteLLM gateway, fake provider), every demo question fits the "
-               "default per-exchange cap (USD 0.25) at Sonnet 5.5's prices; the largest needs about 0.14. So "
+               "default per-exchange cap (USD 0.25) at Sonnet 5.5's prices; the largest needs about 0.17 (0.14 "
+               "before the fix round's prompts, 19.10). So "
                "with intent analysis's own cap (MODEL_MAX_OUTPUT_TOKENS_INTENT=3000), and with the gate's "
                "(MODEL_MAX_OUTPUT_TOKENS_GATE=4000, chat 18.10, 13:50).",
                "Task 9 · R7a · tools/fake_real_server.py"),

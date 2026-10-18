@@ -441,7 +441,8 @@ def test_read_only_connection_answers(db_path, storage):
 
 
 def test_follow_up_can_name_an_identifier_shown_only_in_the_table(db_path, storage):
-    """F5: the third supplier in the table was never in the answer text, and was presented."""
+    """F5: the third supplier in the table was never in the answer text, and was presented. The table is cut
+    (LIMIT 5), and one identifier taken from it by position passes the D1 guard (D1-POS, chat 19.10)."""
     gw = model(intent_analysis_demo=[INTENT], synthesis=[SYN], support_scoring=[gate_says("supported")])
     first = pl.run(Q, [], APPROVER, deps(gw, db_path, storage))
     third = first.response["readings"][0]["rows"][2]["supplier_id"]

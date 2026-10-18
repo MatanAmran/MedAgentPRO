@@ -1,4 +1,4 @@
-import { act, cleanup, fireEvent, render, screen, within } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { goldenResponses, item, reading } from "@/lib/fixtures";
 import { agentSteps, readingCsv, readingCsvName } from "@/lib/present";
@@ -204,15 +204,11 @@ describe("how the agent worked", () => {
     expect(withTrace.seconds).toBe(8.4);
   });
 
-  it("shows the row under an answer with readings only", () => {
-    const view = (r: typeof late) => {
-      cleanup();
-      return render(<div>{agentSteps(item(r)).steps.map((s) => s.label).join("|")}</div>);
-    };
-    view(GOLDEN["why_is_s_014_late_so_often__AP-01"]);
-    expect(screen.queryByText(/Planned/)).toBeNull();
-    const card = within(document.body);
-    expect(card.queryByText(/Retrieved/)).toBeNull();
+  it("shows the planning step where nothing was retrieved, and no retrieval (U-5)", () => {
+    const labels = (r: typeof late) => agentSteps(item(r)).steps.map((s) => s.label);
+    expect(labels(GOLDEN["why_is_s_014_late_so_often__AP-01"])).toEqual(["Planned: referred to an investigation"]);
+    expect(labels(GOLDEN["update_the_promised_date_of_po_87213_to_20_october__AP-01"])).toEqual(["Planned: nothing to retrieve"]);
+    expect(labels(late).some((l) => l.startsWith("Planned:"))).toBe(false);
   });
 });
 

@@ -11,6 +11,7 @@ import logging
 import shutil
 import sqlite3
 import uuid
+from pathlib import Path
 
 import pytest
 from fastapi.testclient import TestClient
@@ -26,14 +27,18 @@ from query_assistance import prompts as p
 from shared.circuit_breaker import CircuitBreaker, MemoryStore
 
 CAT = c.Catalog.load(seed.HERE / "schema.json", seed.HERE / "relations.json")
+# D6 (fix round): the demo opens all data to both roles; the entitlement mechanism stays under test on
+# this copy of the demo catalog, with a planner restricted to their own lines and orders
+RESTRICTED = c.Catalog.load(Path(__file__).parents[1] / "fixtures" / "restricted_schema.json",
+                            seed.HERE / "relations.json")
 APPROVER = {"role": "APPROVER", "user_id": "AP-01"}
 PLANNER = {"role": "PLANNER", "user_id": "PL-02"}
 ROLES = [APPROVER, PLANNER]
 
 
-def run_plan(plan, db_path, user=APPROVER, question="q", label="r"):
+def run_plan(plan, db_path, user=APPROVER, question="q", label="r", cat=CAT):
     intent = {"disposition": "retrieve", "readings": [{"label": label, "plan": plan}]}
-    compiled = c.compile_intent(intent, question, user, CAT)
+    compiled = c.compile_intent(intent, question, user, cat)
     conn = pl.connect_readonly(db_path)()
     try:
         return compiled.readings[0], c.execute(compiled.readings[0], conn)
@@ -116,13 +121,13 @@ def test_the_chat_cannot_write_to_the_store(db_path):
 
 
 # --------------------------------------------------------------------------
-# entitlement (NFR 17), as planner PL-02
+# entitlement (NFR 17), as planner PL-02, on the restricted test catalog (D6)
 # --------------------------------------------------------------------------
 
 def test_a_planner_filtering_on_another_planner_gets_nothing(db_path):
     plan = {"SELECT": [{"expr": {"col": "purchase_orders.po_id"}, "as": "po_id"}], "FROM": "purchase_orders",
             "WHERE": {"EQ": [{"col": "purchase_orders.planner_id"}, {"value": "PL-01"}]}}
-    _, res = run_plan(plan, db_path, PLANNER)
+    _, res = run_plan(plan, db_path, PLANNER, cat=RESTRICTED)
     assert res.rows == [] and res.total == 0
     assert count(db_path, "SELECT COUNT(*) FROM purchase_orders WHERE planner_id = 'PL-01'") > 0
 
@@ -133,10 +138,10 @@ def test_a_planners_counts_and_totals_are_their_own(db_path, table):
     everyone = count(db_path, f"SELECT COUNT(*) FROM {table}")
     assert 0 < own < everyone
     counted = {"SELECT": [{"expr": {"func": "COUNT", "arg": "*"}, "as": "n"}], "FROM": table}
-    assert run_plan(counted, db_path, PLANNER)[1].rows[0]["n"] == own
+    assert run_plan(counted, db_path, PLANNER, cat=RESTRICTED)[1].rows[0]["n"] == own
     key = next(col for col, s in CAT.entities[table]["columns"].items() if s.get("identifier"))
     cut = {"SELECT": [{"expr": {"col": f"{table}.{key}"}, "as": "k"}], "FROM": table, "LIMIT": 5}
-    _, res = run_plan(cut, db_path, PLANNER)
+    _, res = run_plan(cut, db_path, PLANNER, cat=RESTRICTED)
     assert len(res.rows) == 5 and res.total == own and res.truncated
 
 
@@ -146,19 +151,23 @@ def test_a_join_carries_the_entitlement_on_both_sides(db_path, join):
                        {"expr": {"col": "commitments.planner_id"}, "as": "line_planner"},
                        {"expr": {"col": "purchase_orders.planner_id"}, "as": "order_planner"}],
             "FROM": "commitments", "JOIN": [{"rel": "commitment_order", "type": join}], "LIMIT": 30}
-    reading, res = run_plan(plan, db_path, PLANNER)
+    reading, res = run_plan(plan, db_path, PLANNER, cat=RESTRICTED)
     assert reading.params.count("PL-02") == 2 and "'" not in reading.sql
     assert res.rows and all(r["line_planner"] == "PL-02" for r in res.rows)
     assert all(r["order_planner"] in ("PL-02", None) for r in res.rows)
 
 
 def test_tables_each_role_reads_in_full():
-    """The entitlement as it stands, so a change is seen here. Whether a planner should read all of
-    receipts and parts is open with the client (00_STATUS, "סט בדיקות קלאסי")."""
-    full = {role: sorted(t for t, e in CAT.entities.items() if (e.get("entitlement") or {}).get(role, {}).get("all"))
-            for role in ("PLANNER", "APPROVER")}
-    assert full == {"PLANNER": ["forecast", "parts", "receipts", "suppliers"],
-                    "APPROVER": sorted(CAT.entities)}
+    """The entitlement as it stands, so a change is seen here. D6 (fix round, Evyatar): in the demo both
+    roles read every table; planner_id says who handles a line, not who may see it. The test catalog keeps
+    the restriction the mechanism is tested on."""
+    def full(cat):
+        rules = {t: e.get("entitlement") or {} for t, e in cat.entities.items()}
+        return {role: sorted(t for t, r in rules.items() if r.get(role, {}).get("all"))
+                for role in ("PLANNER", "APPROVER")}
+    assert full(CAT) == {"PLANNER": sorted(CAT.entities), "APPROVER": sorted(CAT.entities)}
+    assert full(RESTRICTED) == {"PLANNER": ["forecast", "parts", "receipts", "suppliers"],
+                                "APPROVER": sorted(RESTRICTED.entities)}
 
 
 # --------------------------------------------------------------------------

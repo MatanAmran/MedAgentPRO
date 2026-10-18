@@ -220,6 +220,7 @@ class Expr:
     literal: Any = None
     is_literal: bool = False
     column: str | None = None  # set when the expression is a plain column
+    is_me: bool = False        # D7: the asker's own user_id, filled here, never written by the model
 
 
 # --------------------------------------------------------------------------
@@ -332,6 +333,9 @@ class _ReadingCompiler:
             return self.metric(node["metric"])
         if "func" in node:
             return self.func(node)
+        if "me" in node:   # D7 (fix round): "my", "mine", "I"; the value is the asker's, from the session
+            me = self.user.get("user_id")
+            return Expr("?", None, [me], literal=me, is_literal=True, is_me=True)
         return Expr("?", None, [node["value"]], literal=node["value"], is_literal=True)
 
     # --- predicates ------------------------------------------------------
@@ -366,6 +370,13 @@ class _ReadingCompiler:
             a, b = (self.operand(x) for x in arg)
             if a.is_literal and b.is_literal:
                 self.fail("no_column_in_comparison", f"{op} compares two values and no column.")
+            if a.is_me or b.is_me:
+                side = b if a.is_me else a
+                if op not in ("EQ", "NE") or not side.column or not self.cat.column(side.column).get("user_column"):
+                    self.fail("me_not_allowed", f"The current user may be compared only for equality with a "
+                                                f"column that holds a user, not with {side.column or 'a value'}.",
+                              against=side.column)
+                return f"{a.sql} {CMP_SQL[op]} {b.sql}", a.params + b.params
             if a.is_literal or b.is_literal:
                 side, lit = (b, a.literal) if a.is_literal else (a, b.literal)
                 self._check_literal(side, lit, op)
@@ -595,6 +606,8 @@ def _check_gap_entity(cat: Catalog, needs: dict):
         raise CompileError("gap_entity", f"A '{kind}' gap names no entity.", kind=kind)
     if kind in ("no_such_column", "value_not_present"):
         ok = cat.resolves(entity)
+    elif kind == "cross_record_condition":   # D1 (fix round): the table whose other records the part needs
+        ok = entity in cat.entities
     else:  # no_such_table, source_outside_system: the name must NOT be something the schema holds
         ok = not cat.resolves(entity)
     if not ok:

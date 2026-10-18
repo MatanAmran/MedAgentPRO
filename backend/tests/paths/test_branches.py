@@ -54,6 +54,7 @@ GAP_ENTITY = {
     "no_such_table": "shipments",
     "value_not_present": "commitments.supplier_id",
     "source_outside_system": "shipments",
+    "cross_record_condition": "suppliers",
     "unspecified": None,
 }
 
@@ -68,6 +69,9 @@ def test_every_model_failure_kind_ends_the_exchange_once(db_path, kind):
     check_invariants(out, gw, d, Q, outcome="request_not_completed", recorded=True, calls=1)
     assert kind in d.audit.storage.get_investigation(out.exchange_id)["failure"] or kind in (
         "client_error", "timeout", "connection", "rate_limited", "server_error", "unexpected")
+    # D9: where the provider did not answer, the notice says so; every other failure keeps the general one
+    no_response = kind in ("timeout", "connection", "server_error")
+    assert out.response["notice"] == (contract.MODEL_UNAVAILABLE if no_response else contract.NOT_COMPLETED)
 
 
 @pytest.mark.parametrize("kind", sorted(branches.failures()))

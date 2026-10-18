@@ -422,8 +422,24 @@
               },
               {
                 "$ref": "#/$defs/value"
+              },
+              {
+                "$ref": "#/$defs/me"
               }
             ]
+          },
+          "me": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "me"
+            ],
+            "properties": {
+              "me": {
+                "const": true
+              }
+            },
+            "$comment": "[demo extension, fix round D7] The person asking: \"my\", \"mine\", \"I\". The compiler fills the asker's user_id as a parameter; the model never writes it. Allowed only in EQ or NE against a column marked user_column in schema.json."
           },
           "func": {
             "oneOf": [
@@ -727,6 +743,7 @@
                   "no_such_table",
                   "value_not_present",
                   "source_outside_system",
+                  "cross_record_condition",
                   "unspecified"
                 ]
               },
@@ -989,6 +1006,7 @@
         "no_such_table": "{asked}: there is no data. There is no {entity} table.",
         "value_not_present": "{asked}: does not appear in {entity}.",
         "source_outside_system": "{asked}: not held by the system.",
+        "cross_record_condition": "“{asked}” depends on other records of {entity}, which cannot be combined in one question yet. Ask it in two steps: first find them, then ask about them by name.",
         "unspecified": "{asked}: no data could be located."
       },
       "schema": {
@@ -1139,7 +1157,7 @@
                 "entity": {
                   "type": "string",
                   "minLength": 1,
-                  "$comment": "[demo extension, long list L4] The schema.json label of the FROM table, sent only where each row is a row of it: plain columns, no GROUP_BY, every JOIN many-to-one by declared keys (references). Built in code from the catalog, never model text."
+                  "$comment": "[demo extension, long list L4] The schema.json label of the FROM table, sent only where each row is a row of it: plain columns, no GROUP_BY, every JOIN many-to-one by declared keys (references); or (D10) grouped by exactly one identifier column, naming the table it identifies. Built in code from the catalog, never model text."
                 },
                 "ordered_by": {
                   "type": "string",
@@ -1271,6 +1289,7 @@
                   "no_such_table",
                   "value_not_present",
                   "source_outside_system",
+                  "cross_record_condition",
                   "unspecified"
                 ]
               },

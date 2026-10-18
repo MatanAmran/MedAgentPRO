@@ -563,5 +563,7 @@ def test_synthesis_and_gate_get_each_readings_examined_line_and_no_record_value(
 
 
 def test_the_examined_line_names_the_role_scope_for_a_planner():
-    line = contract.examined_line(LATE["plan"], CAT, "PLANNER")
+    restricted = c.Catalog.load(Path(__file__).parents[1] / "fixtures" / "restricted_schema.json",
+                                seed.HERE / "relations.json")   # D6: the demo itself is open to both roles
+    line = contract.examined_line(LATE["plan"], restricted, "PLANNER")
     assert line.endswith("limited to the records you hold") and not line.startswith("Examined")

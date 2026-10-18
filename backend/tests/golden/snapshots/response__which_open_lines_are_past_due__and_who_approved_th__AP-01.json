@@ -12,8 +12,11 @@
  "outcome": "answered",
  "readings": [
   {
-   "answer": "PO-87324 has the earliest requested date, 2026-02-22.",
+   "answer": "30 lines on open purchase orders are not delivered and past their requested date, among them a line of PO-87324, requested for 2026-02-22.",
    "answer_segments": [
+    {
+     "text": "30 lines on open purchase orders are not delivered and past their requested date, among them a line of "
+    },
     {
      "ref": {
       "alias": "po_id",
@@ -22,7 +25,7 @@
      "text": "PO-87324"
     },
     {
-     "text": " has the earliest requested date, "
+     "text": ", requested for "
     },
     {
      "ref": {
@@ -44,7 +47,8 @@
    "entity": "purchase order lines",
    "evidence": [
     "past_due.po_id",
-    "past_due.due_date"
+    "past_due.due_date",
+    "past_due.total"
    ],
    "headers": {
     "due_date": "requested date",

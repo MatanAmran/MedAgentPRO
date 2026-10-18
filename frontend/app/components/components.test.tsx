@@ -48,8 +48,8 @@ describe("the exchange", () => {
   });
 
   it("no thumbs under a declined action, which holds no records (task 8 review)", () => {
-    show({ outcome: "answered", readings: [], gaps: [], notice: "This assistant reads records. It does not change them." });
-    expect(screen.getByTestId("notice").textContent).toBe("This assistant reads records. It does not change them.");
+    show({ outcome: "answered", readings: [], gaps: [], notice: "This assistant answers questions from the records. It does not take actions, such as sending messages or changing records." });
+    expect(screen.getByTestId("notice").textContent).toBe("This assistant answers questions from the records. It does not take actions, such as sending messages or changing records.");
     expect(screen.queryByTestId("rating")).toBeNull();
   });
 
@@ -121,15 +121,15 @@ describe("a reading (Q3)", () => {
     notice: "Showing 3 of 9.",
   });
 
-  it("groups, keeps the order, and says it is cut above the groups", () => {
+  it("groups, keeps the order, and says it is cut above the groups, once", () => {
     render(<ReadingCard reading={grouped} />);
     const groups = screen.getAllByTestId("reading-group").map((g) => g.textContent);
     expect(groups).toEqual(["S-031PO-87710PO-87954", "S-044PO-88019"]);
-    const card = screen.getByTestId("reading");
-    const notice = screen.getByTestId("reading-notice");
-    expect(notice.textContent).toContain("Showing 3 of 9.");
-    expect(notice.compareDocumentPosition(screen.getByTestId("reading-groups")) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
-    expect(card).toBeTruthy();
+    // U-1 (fix round): the header count says how many of how many; the notice no longer repeats it
+    const count = screen.getByTestId("reading-count");
+    expect(count.textContent).toBe("9 rows · 3 shown");
+    expect(count.compareDocumentPosition(screen.getByTestId("reading-groups")) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(screen.queryByTestId("reading-notice")?.textContent ?? "").not.toContain("Showing");
   });
 
   it("shows every column as a table on request", () => {

@@ -25,6 +25,7 @@ The decisions of 12.10 this follows are listed in CLAUDE.md, "Task 4 decisions".
 from __future__ import annotations
 
 import json
+import re
 import sqlite3
 import uuid
 from concurrent.futures import ThreadPoolExecutor
@@ -106,7 +107,29 @@ class Outcome:
 
 class _Rejected(Exception):
     """A model stage ended without a usable output: content rejected in every attempt, or a failure
-    with no further attempt (R4). Its calls are already recorded."""
+    with no further attempt (R4). Its calls are already recorded. notice: the fixed sentence the person
+    is shown (D3, D9), NOT_COMPLETED unless the failure has its own."""
+
+    def __init__(self, message: str, notice: str = contract.NOT_COMPLETED):
+        super().__init__(message)
+        self.notice = notice
+
+
+# D9: the provider did not answer. 429 not for money is an outage too (P9), but the model did respond
+_NO_RESPONSE = {"timeout", "connection", "server_error"}
+# D3: a breach of a size limit of the plan language: too many items anywhere, or no alternative fitting an
+# IN or an OR group (the list or the group outgrew its form). From the check's keyword and path only
+_PLAN_LIMIT = re.compile(r"^SchemaBreach:(maxItems@.*|oneOf@(.*/)?(IN|OR)(/\d+)*)$")
+
+
+def _notice_for(ordinal: int, e: Exception) -> str:
+    """The fixed sentence for a stage that ended without output (D3, D9)."""
+    if isinstance(e, StageFailed) and e.kind in _NO_RESPONSE:
+        return contract.MODEL_UNAVAILABLE
+    if (ordinal == INTENT and isinstance(e, StageRejected) and e.calls
+            and all(_PLAN_LIMIT.match(c.check or "") for c in e.calls)):
+        return contract.PLAN_LIMIT
+    return contract.NOT_COMPLETED
 
 
 class ExchangeCancelled(Exception):
@@ -179,7 +202,7 @@ def _recorded(rec: _Record, ordinal: int, deps: Deps, run: Callable[[], tuple[An
         result, made = run()
     except (StageRejected, StageFailed) as e:
         rec.calls(ordinal, e.calls, deps.model)
-        raise _Rejected(f"{STAGE_NAMES[ordinal]}: {e}") from e
+        raise _Rejected(f"{STAGE_NAMES[ordinal]}: {e}", _notice_for(ordinal, e)) from e
     except Exception as e:
         rec.calls(ordinal, model_calls.calls_made(e), deps.model)
         raise
@@ -205,12 +228,14 @@ def _gate(deps: Deps, rec: _Record, ordinal: int, d: Draft) -> gate.GateResult:
     """Structured output on (R2). The full schema and gate.evaluate run in code."""
     sentences = d.filled()
     records = [(label, m.rows) for label, m in d.materials.items() if m.rows]
-    aliases = {label: set(m.columns) for label, m in d.materials.items()}
+    aliases = {label: set(m.columns) | {"total"} for label, m in d.materials.items()}   # D5: label.total
     answer = gate.render_answer(sentences)
     order = synthesis.ordered_by(list(d.materials.values()))
     examined = synthesis.examined_of(list(d.materials.values()))
+    totals = synthesis.totals_of(list(d.materials.values()))
     return _ask(deps, rec, ordinal, prompts.load("gate.md"),
-                lambda fb: prompts.render_gate(answer, records, feedback=fb, ordered_by=order, examined=examined),
+                lambda fb: prompts.render_gate(answer, records, feedback=fb, ordered_by=order, examined=examined,
+                                               totals=totals),
                 lambda out: gate.evaluate(out, sentences, aliases), _GATE_V.schema, _GATE_V)
 
 
@@ -230,7 +255,8 @@ def _path_inputs(question: str, rewritten: str | None, materials: list) -> list[
     records = [(m.label, m.rows) for m in materials if m.rows]
     syn = estimate_input_tokens(synthesis.render(question, materials, rewritten=rewritten))
     gate_in = estimate_input_tokens(prompts.render_gate(answer, records, ordered_by=synthesis.ordered_by(materials),
-                                                        examined=synthesis.examined_of(materials)))
+                                                        examined=synthesis.examined_of(materials),
+                                                        totals=synthesis.totals_of(materials)))
     redraft_in = estimate_input_tokens(synthesis.render_redraft(question, materials, {"label": [answer]},
                                                                 rewritten=rewritten))
     return [syn, gate_in, redraft_in, gate_in]
@@ -297,17 +323,23 @@ def ambiguous_terms(intent: dict, question: str) -> list[str]:
     return [a["term"] for a in intent.get("ambiguous", []) if _norm(a["term"]) in posed]
 
 
-def _presented(response: dict, plans: dict[str, dict], cat: Catalog, answer: Draft | None) -> list[str]:
-    """NFR 27: the identifier-column values of the rows shown, in display order, then any in the
-    answer text. Never a free-text value (NFR 21, review F5)."""
+def _shown_identifiers(views: list[dict], plans: dict[str, dict], cat: Catalog) -> list[str]:
+    """The identifier-column values of the rows shown, in display order. Never a free-text value."""
     out: list[str] = []
-    for view in response["readings"]:
+    for view in views:
         cols = {i["as"]: i["expr"].get("col") for i in plans[view["label"]]["SELECT"]}
-        ids = [a for a in view["columns"] if cols.get(a) and (cat.column(cols[a]) or {}).get("identifier")]
-        for row in view["rows"]:
+        ids = [a for a in view.get("columns", []) if cols.get(a) and (cat.column(cols[a]) or {}).get("identifier")]
+        for row in view.get("rows", []):
             for a in ids:
                 if row.get(a) is not None and str(row[a]) not in out:
                     out.append(str(row[a]))
+    return out
+
+
+def _presented(response: dict, plans: dict[str, dict], cat: Catalog, answer: Draft | None) -> list[str]:
+    """NFR 27: the identifier-column values of the rows shown, in display order, then any in the
+    answer text. Never a free-text value (NFR 21, review F5)."""
+    out = _shown_identifiers(response["readings"], plans, cat)
     for v in answer.presented_identifiers(cat) if answer is not None else []:
         if v not in out:
             out.append(v)
@@ -364,6 +396,12 @@ def run(question: str, history: list[prompts.Exchange], user: dict, deps: Deps,
             return Outcome(contract.request_not_completed(understood), prompts.Exchange(question, understood),
                            eid, recorded=False, cost=spent)
         ex = prompts.Exchange(question, understood, presented=list(presented or []))
+        if response["readings"]:   # D2, D1 (fix round): the condition of each reading, and what was cut
+            ex.readings = [prompts.ReadingNote(r["label"], r["checked"].removeprefix("Examined: "),
+                                               r.get("row_count", 0), r.get("total", r.get("row_count", 0)))
+                           for r in response["readings"]]
+            ex.cut = _shown_identifiers([r for r in response["readings"]
+                                         if r.get("total", 0) > r.get("row_count", 0)], plans, cat)
         if answer is not None and answer.sentences:
             ex.answer = "\n".join(f"[{label}] {answer.answer(label, cat, for_history=True)}"
                                   for label in answer.sentences)
@@ -380,7 +418,8 @@ def run(question: str, history: list[prompts.Exchange], user: dict, deps: Deps,
             built = prompts.build_history(history)
             rewritten = _ask(deps, rec, REWRITING, prompts.load("rewrite.md"),
                              lambda fb: prompts.render_rewrite(built, question, feedback=fb),
-                             lambda out: prompts.check_rewrite(out, question), _REWRITE_V.schema, _REWRITE_V)
+                             lambda out: prompts.check_rewrite(out, question, history), _REWRITE_V.schema,
+                             _REWRITE_V)
             if _norm(rewritten) != _norm(question):
                 understood = rewritten
 
@@ -425,7 +464,7 @@ def run(question: str, history: list[prompts.Exchange], user: dict, deps: Deps,
         terms = ambiguous_terms(intent, question)
         results = {res.label: res for res, _, _ in retrieved}
         materials = [synthesis.material(label, plans[label], res.rows, res.truncated, cat,
-                                        contract.examined_line(plans[label], cat, role))
+                                        contract.examined_line(plans[label], cat, role), res.total)
                      for label, res in results.items()]
         gaps = compiled.unresolved
 
@@ -480,7 +519,7 @@ def run(question: str, history: list[prompts.Exchange], user: dict, deps: Deps,
         return finish(response, final, presented=_presented(response, plans, cat, final))
 
     except _Rejected as e:
-        return finish(contract.request_not_completed(understood), failure=str(e))
+        return finish(contract.request_not_completed(understood, e.notice), failure=str(e))
     except RateLimited as e:
         operational_log.warning("exchange refused: attempt=%s user=%s reason=%s", eid, user.get("user_id"), e)
         return finish(contract.request_not_completed(understood, contract.rate_limited_notice(e.retry_after)),

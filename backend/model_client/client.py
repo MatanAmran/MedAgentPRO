@@ -112,13 +112,15 @@ class ModelCallError(Exception):
 
     kind              timeout | connection | rate_limited | server_error | client_error | unexpected
     reached_provider  False only where the request is known not to have left (R5, P8)
-    outage            counted by the breaker (P9)"""
+    outage            counted by the breaker (P9)
+    max_tokens        what the call was sent with, where it was sent (U-4): set by the gateway that sent it"""
 
     def __init__(self, kind: str, message: str, reached_provider: bool = True, outage: bool = False):
         super().__init__(f"{kind}: {message}")
         self.kind = kind
         self.reached_provider = reached_provider
         self.outage = outage
+        self.max_tokens: int | None = None
 
 
 def is_money_refusal(e: Exception) -> bool:

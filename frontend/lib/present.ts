@@ -120,6 +120,14 @@ export function readingCount(reading: Reading): string {
   return total > shown && shown > 0 ? `${what} · ${shown} shown` : what;
 }
 
+/** U-1 (fix round): the reading's notice, less the server's "Showing <shown> of <total>." where the header
+ * count already says it. That sentence is the contract's own fixed text (contract.reading_view), not model text. */
+export function shownNotice(reading: Reading): string | undefined {
+  const shown = reading.rows?.length ?? 0;
+  const cut = `Showing ${shown} of ${reading.total}.`;
+  return reading.notice === cut && readingCount(reading).endsWith(" shown") ? undefined : reading.notice;
+}
+
 export function readingCsvName(reading: Reading): string {
   const shown = reading.rows?.length ?? 0;
   const total = reading.total ?? shown;
@@ -138,6 +146,9 @@ export function agentSteps(item: ExchangeItem): { steps: AgentStep[]; seconds: n
   const steps: AgentStep[] = [];
   if (r.understood_as) steps.push({ label: "Read the follow-up" });
   const n = r.readings.length;
+  // U-5 (fix round): a question that needed no records still shows that it was planned, and how
+  if (n === 0 && r.outcome === "referred_to_investigation") steps.push({ label: "Planned: referred to an investigation" });
+  else if (n === 0 && r.outcome === "answered" && r.gaps.length === 0) steps.push({ label: "Planned: nothing to retrieve" });
   if (n > 0) {
     steps.push({ label: n === 1 ? "Planned 1 reading" : `Planned ${n} readings` });
     const rows = r.readings.reduce((sum, x) => sum + (x.row_count ?? 0), 0);

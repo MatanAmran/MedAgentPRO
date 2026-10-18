@@ -3,37 +3,41 @@
  "outcome": "answered",
  "readings": [
   {
-   "answer": "S-037 had 3 lines delivered after the requested date.",
+   "answer": "35 suppliers had lines delivered after the requested date in weeks 14 to 26, among them S-014 and S-036.",
    "answer_segments": [
+    {
+     "text": "35 suppliers had lines delivered after the requested date in weeks 14 to 26, among them "
+    },
     {
      "ref": {
       "alias": "supplier_id",
       "row": 1
      },
-     "text": "S-037"
+     "text": "S-014"
     },
     {
-     "text": " had "
+     "text": " and "
     },
     {
      "ref": {
-      "alias": "late_count",
-      "row": 1
+      "alias": "supplier_id",
+      "row": 2
      },
-     "text": "3"
+     "text": "S-036"
     },
     {
-     "text": " lines delivered after the requested date."
+     "text": "."
     }
    ],
-   "checked": "Examined: purchase order lines where week between 14 and 26 and delivered after the requested date · grouped by supplier · computed the number of records · limited to the records you hold",
+   "checked": "Examined: purchase order lines where week between 14 and 26 and delivered after the requested date · grouped by supplier · computed the number of records",
    "columns": [
     "supplier_id",
     "late_count"
    ],
+   "entity": "suppliers",
    "evidence": [
     "late_by_delivery.supplier_id",
-    "late_by_delivery.late_count"
+    "late_by_delivery.total"
    ],
    "headers": {
     "late_count": "number of records",
@@ -43,87 +47,91 @@
     "supplier_id"
    ],
    "label": "late_by_delivery",
-   "notice": "Showing 10 of 11.",
+   "notice": "Showing 10 of 35.",
    "ordered_by": "ordered by number of records, highest first",
    "result": "rows_returned",
    "row_count": 10,
    "rows": [
     {
-     "late_count": 3,
-     "supplier_id": "S-037"
-    },
-    {
-     "late_count": 2,
-     "supplier_id": "S-001"
-    },
-    {
-     "late_count": 2,
-     "supplier_id": "S-004"
-    },
-    {
-     "late_count": 2,
-     "supplier_id": "S-008"
-    },
-    {
-     "late_count": 2,
-     "supplier_id": "S-025"
-    },
-    {
-     "late_count": 2,
-     "supplier_id": "S-028"
-    },
-    {
-     "late_count": 1,
-     "supplier_id": "S-005"
-    },
-    {
-     "late_count": 1,
+     "late_count": 14,
      "supplier_id": "S-014"
     },
     {
-     "late_count": 1,
-     "supplier_id": "S-015"
+     "late_count": 14,
+     "supplier_id": "S-036"
     },
     {
-     "late_count": 1,
+     "late_count": 10,
+     "supplier_id": "S-008"
+    },
+    {
+     "late_count": 9,
+     "supplier_id": "S-001"
+    },
+    {
+     "late_count": 8,
+     "supplier_id": "S-013"
+    },
+    {
+     "late_count": 8,
+     "supplier_id": "S-032"
+    },
+    {
+     "late_count": 7,
+     "supplier_id": "S-018"
+    },
+    {
+     "late_count": 7,
      "supplier_id": "S-022"
+    },
+    {
+     "late_count": 6,
+     "supplier_id": "S-005"
+    },
+    {
+     "late_count": 6,
+     "supplier_id": "S-023"
     }
    ],
    "title": "Delivered after the requested date",
-   "total": 11
+   "total": 35
   },
   {
-   "answer": "S-004 had 2 lines whose promised date was after the requested date.",
+   "answer": "23 suppliers had lines in weeks 14 to 26 whose promised date was after the requested date, among them S-036 and S-032.",
    "answer_segments": [
+    {
+     "text": "23 suppliers had lines in weeks 14 to 26 whose promised date was after the requested date, among them "
+    },
     {
      "ref": {
       "alias": "supplier_id",
       "row": 1
      },
-     "text": "S-004"
+     "text": "S-036"
     },
     {
-     "text": " had "
+     "text": " and "
     },
     {
      "ref": {
-      "alias": "late_count",
-      "row": 1
+      "alias": "supplier_id",
+      "row": 2
      },
-     "text": "2"
+     "text": "S-032"
     },
     {
-     "text": " lines whose promised date was after the requested date."
+     "text": "."
     }
    ],
-   "checked": "Examined: purchase order lines where week between 14 and 26 and the supplier committed to a date after the requested date · grouped by supplier · computed the number of records · limited to the records you hold",
+   "checked": "Examined: purchase order lines where week between 14 and 26 and the supplier committed to a date after the requested date · grouped by supplier · computed the number of records",
    "columns": [
     "supplier_id",
     "late_count"
    ],
+   "entity": "suppliers",
    "evidence": [
     "late_by_promise.supplier_id",
-    "late_by_promise.late_count"
+    "late_by_promise.total"
    ],
    "headers": {
     "late_count": "number of records",
@@ -133,45 +141,54 @@
     "supplier_id"
    ],
    "label": "late_by_promise",
+   "notice": "Showing 10 of 23.",
    "ordered_by": "ordered by number of records, highest first",
    "result": "rows_returned",
-   "row_count": 8,
+   "row_count": 10,
    "rows": [
     {
-     "late_count": 2,
-     "supplier_id": "S-004"
+     "late_count": 14,
+     "supplier_id": "S-036"
     },
     {
-     "late_count": 2,
-     "supplier_id": "S-037"
+     "late_count": 11,
+     "supplier_id": "S-032"
     },
     {
-     "late_count": 1,
-     "supplier_id": "S-001"
-    },
-    {
-     "late_count": 1,
-     "supplier_id": "S-005"
-    },
-    {
-     "late_count": 1,
+     "late_count": 9,
      "supplier_id": "S-008"
     },
     {
-     "late_count": 1,
-     "supplier_id": "S-022"
+     "late_count": 8,
+     "supplier_id": "S-014"
     },
     {
-     "late_count": 1,
-     "supplier_id": "S-028"
+     "late_count": 5,
+     "supplier_id": "S-005"
     },
     {
-     "late_count": 1,
-     "supplier_id": "S-032"
+     "late_count": 4,
+     "supplier_id": "S-001"
+    },
+    {
+     "late_count": 3,
+     "supplier_id": "S-011"
+    },
+    {
+     "late_count": 3,
+     "supplier_id": "S-018"
+    },
+    {
+     "late_count": 3,
+     "supplier_id": "S-024"
+    },
+    {
+     "late_count": 3,
+     "supplier_id": "S-037"
     }
    ],
    "title": "The supplier committed to a date after the requested date",
-   "total": 8
+   "total": 23
   }
  ],
  "understood_as": "Which suppliers were late in weeks 14 to 26?"

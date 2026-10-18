@@ -63,6 +63,7 @@
           ]
         },
         "planner_id": {
+          "user_column": true,
           "label": "part planner",
           "type": "text"
         },
@@ -103,6 +104,7 @@
           "references": "suppliers.supplier_id"
         },
         "planner_id": {
+          "user_column": true,
           "label": "planner",
           "type": "text"
         },
@@ -126,8 +128,7 @@
       },
       "entitlement": {
         "PLANNER": {
-          "col": "planner_id",
-          "equals": "user_id"
+          "all": true
         },
         "APPROVER": {
           "all": true
@@ -162,6 +163,7 @@
           "references": "parts.part_id"
         },
         "planner_id": {
+          "user_column": true,
           "label": "planner",
           "type": "text"
         },
@@ -204,8 +206,7 @@
       },
       "entitlement": {
         "PLANNER": {
-          "col": "planner_id",
-          "equals": "user_id"
+          "all": true
         },
         "APPROVER": {
           "all": true
