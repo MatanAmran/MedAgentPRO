@@ -144,8 +144,19 @@
  "paths": {
   "/api/conversations": {
    "get": {
+    "description": "archived=true: the asker's archived conversations only (long list, L5) [demo extension].",
     "operationId": "list_conversations_api_conversations_get",
     "parameters": [
+     {
+      "in": "query",
+      "name": "archived",
+      "required": false,
+      "schema": {
+       "default": false,
+       "title": "Archived",
+       "type": "boolean"
+      }
+     },
      {
       "in": "header",
       "name": "x-demo-user",

@@ -1,7 +1,8 @@
 "use client";
 
-import { useId, useState } from "react";
-import { answerText, formatCell, groupRows, readingCsv, readingCsvName } from "@/lib/present";
+import { useEffect, useId, useMemo, useRef, useState } from "react";
+import { FILTER_TAGS_OVER, answerText, foldAnswer, formatCell, groupRows, isTagReading, readingCount, readingCsv,
+  readingCsvName } from "@/lib/present";
 import type { Cell, Reading } from "@/lib/types";
 
 // UI refresh (Main.dc.html): a reading as a card. Number and title, how many rows, Copy (the answer as
@@ -93,6 +94,65 @@ function Grouped({ reading, by, groups, hot, rowId }: { reading: Reading; hot: n
   );
 }
 
+/** Long list, item 3: a reading whose only column is an identifier, as tags six to a row. Past
+ * FILTER_TAGS_OVER tags, a filter over the values shown, on the screen only. A tag is not a tab stop:
+ * pointing at one marks the values of the answer that came from its row, and those values mark it. */
+function Tags({ reading, hot, onHot, rowId }: { reading: Reading; hot: number | null;
+                                               onHot: (row: number | null) => void; rowId: (n: number) => string }) {
+  const [filter, setFilter] = useState("");
+  const col = (reading.columns ?? [])[0];
+  const rows = reading.rows ?? [];
+  const q = filter.trim().toLowerCase();
+  const tags = rows.map((row, i) => ({ n: i + 1, text: formatCell(row[col] ?? null) }));
+  const kept = q ? tags.filter((t) => t.text.toLowerCase().includes(q)) : tags;
+  return (
+    <div className="flex flex-col gap-2" data-testid="reading-tags">
+      <div className="flex flex-wrap items-center gap-3">
+        <span className="text-xs font-extrabold uppercase tracking-[0.06em] text-ink-4">{reading.headers?.[col] ?? col}</span>
+        {tags.length > FILTER_TAGS_OVER && (
+          <label className="ml-auto flex min-h-9 items-center gap-2 rounded-[10px] border border-line bg-canvas px-2.5 text-[13px] text-ink-4">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden="true">
+              <circle cx="11" cy="11" r="7" />
+              <path d="M20 20l-3.5-3.5" />
+            </svg>
+            <input
+              type="search"
+              value={filter}
+              onChange={(e) => setFilter(e.target.value)}
+              placeholder="Filter these rows"
+              aria-label="Filter these rows"
+              data-testid="tag-filter"
+              className="w-36 border-0 bg-transparent text-ink outline-none placeholder:text-ink-4"
+            />
+          </label>
+        )}
+      </div>
+      {q && (
+        <p className="m-0 text-[13px] text-ink-4" role="status">
+          {kept.length} of {tags.length} shown
+        </p>
+      )}
+      <ul className="m-0 grid list-none grid-cols-2 gap-2 p-0 min-[480px]:grid-cols-3 sm:grid-cols-4 md:grid-cols-6">
+        {kept.map((t) => (
+          <li
+            key={t.n}
+            id={rowId(t.n)}
+            data-row={t.n}
+            data-hot={hot === t.n || undefined}
+            onMouseEnter={() => onHot(t.n)}
+            onMouseLeave={() => onHot(null)}
+            className={`truncate rounded-[10px] border py-2 text-center font-mono text-[13px] font-semibold ${
+              hot === t.n ? "border-brand bg-brand text-white shadow-[0_6px_14px_-6px_rgba(185,28,28,.7)]"
+                          : "border-line bg-canvas text-ink-2"}`}
+          >
+            {t.text}
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
 function download(name: string, text: string) {
   const url = URL.createObjectURL(new Blob([text], { type: "text/csv;charset=utf-8" }));
   const a = document.createElement("a");
@@ -106,56 +166,112 @@ function download(name: string, text: string) {
 
 const tool = "min-h-9 rounded-[10px] border border-line bg-white px-3 text-[13px] font-semibold text-ink-2 hover:bg-canvas";
 
-/** Phase C: the answer with each filled value marked; pointing at or focusing one marks its row. */
+// Punctuation that closes on the value before it: kept on the value's line (long list, item 1)
+const CLOSING = /^[.,;:!?)\]}%»”’]+/;
+
+const ANSWER = "m-0 px-5 pb-1.5 pt-[18px] text-base leading-[1.8] text-ink";
+
+/** Phase C: the answer with each filled value marked; pointing at or focusing one marks its row.
+ * Long list: past FOLD_REFS values it folds after its first sentences (foldAnswer); the whole checked
+ * text is one click away, and an arrow onto a folded value unfolds it. */
 function Answer({ reading, hot, onHot, rowId }: { reading: Reading; hot: number | null;
                                                   onHot: (row: number | null, focus: boolean) => void;
                                                   rowId: (n: number) => string }) {
   // One tab stop per answer (Test 40 on every engine; CI, 18.10): the value last focused, else the first.
   // Arrows, Home and End move between the values of this answer
   const [active, setActive] = useState(0);
-  const segments = reading.answer_segments;
-  if (!segments?.length) return <>{reading.answer}</>;
-  const refs = segments.filter((s) => s.ref);
-  // the position of each value among the answer's values, for the arrows; -1 for plain text
-  const place = segments.map((s, i) => (s.ref ? segments.slice(0, i).filter((x) => x.ref).length : -1));
+  const [open, setOpen] = useState(false);
+  const focusNext = useRef<number | null>(null);   // a folded value to focus once it is shown
+  const box = useRef<HTMLParagraphElement | null>(null);
+  const folded = useMemo(() => foldAnswer(reading.answer_segments ?? []), [reading.answer_segments]);
+  const segments = reading.answer_segments ?? [];
+
+  const focusRef = (n: number) => box.current?.querySelectorAll<HTMLButtonElement>("button.ref")[n]?.focus();
+  useEffect(() => {
+    if (focusNext.current === null) return;
+    focusRef(focusNext.current);
+    focusNext.current = null;
+  }, [open]);
+
+  if (!segments.length) return <p className={ANSWER} data-testid="answer">{reading.answer}</p>;
+  const shown = folded && !open ? folded : segments;
+  const total = segments.filter((s) => s.ref).length;
+  const visible = shown.filter((s) => s.ref).length;
 
   function move(e: React.KeyboardEvent<HTMLButtonElement>, at: number) {
     const to = { ArrowRight: at + 1, ArrowDown: at + 1, ArrowLeft: at - 1, ArrowUp: at - 1, Home: 0,
-                 End: refs.length - 1 }[e.key];
+                 End: total - 1 }[e.key];
     if (to === undefined) return;
     e.preventDefault();
-    const next = Math.max(0, Math.min(refs.length - 1, to));
-    const all = e.currentTarget.parentElement?.querySelectorAll<HTMLButtonElement>("button.ref");
-    all?.[next]?.focus();
+    const next = Math.max(0, Math.min(total - 1, to));
+    if (next < visible) {
+      focusRef(next);
+    } else {   // a folded value is reached by unfolding
+      focusNext.current = next;
+      setOpen(true);
+    }
+  }
+
+  // Each value with the closing punctuation right after it, held on one line
+  const parts: React.ReactNode[] = [];
+  let at = 0;
+  for (let i = 0; i < shown.length; i++) {
+    const s = shown[i];
+    if (!s.ref) {
+      parts.push(<span key={i}>{s.text}</span>);
+      continue;
+    }
+    const place = at++;
+    const row = s.ref.row;
+    const after = shown[i + 1];
+    const close = after && !after.ref ? (after.text.match(CLOSING)?.[0] ?? "") : "";
+    const value = (
+      <button
+        type="button"
+        className={`ref ${hot === row ? "ref-hot" : ""}`}
+        aria-describedby={rowId(row)}
+        data-ref-row={row}
+        tabIndex={place === Math.min(active, visible - 1) ? 0 : -1}
+        onMouseEnter={() => onHot(row, false)}
+        onMouseLeave={() => onHot(null, false)}
+        onFocus={() => {
+          setActive(place);
+          onHot(row, true);
+        }}
+        onBlur={() => onHot(null, false)}
+        onKeyDown={(e) => move(e, place)}
+      >
+        {s.text}
+      </button>
+    );
+    if (close) {
+      parts.push(<span key={i} className="whitespace-nowrap">{value}{close}</span>);
+      parts.push(<span key={`${i}-rest`}>{after.text.slice(close.length)}</span>);
+      i++;
+    } else {
+      parts.push(<span key={i}>{value}</span>);
+    }
   }
 
   return (
     <>
-      {segments.map((s, i) => {
-        if (!s.ref) return <span key={i}>{s.text}</span>;
-        const at = place[i];
-        const row = s.ref.row;
-        return (
+      <p ref={box} className={ANSWER} data-testid="answer">
+        {parts}
+        {folded && !open && <span aria-hidden="true"> …</span>}
+      </p>
+      {folded && (
+        <div className="px-5 pb-1">
           <button
-            key={i}
             type="button"
-            className={`ref ${hot === row ? "ref-hot" : ""}`}
-            aria-describedby={rowId(row)}
-            data-ref-row={row}
-            tabIndex={at === Math.min(active, refs.length - 1) ? 0 : -1}
-            onMouseEnter={() => onHot(row, false)}
-            onMouseLeave={() => onHot(null, false)}
-            onFocus={() => {
-              setActive(at);
-              onHot(row, true);
-            }}
-            onBlur={() => onHot(null, false)}
-            onKeyDown={(e) => move(e, at)}
+            aria-expanded={open}
+            data-testid="answer-fold"
+            className="min-h-9 rounded-[10px] text-sm font-bold text-brand-dark hover:underline"
+            onClick={() => setOpen(!open)}
           >
-            {s.text}
+            {open ? "Show the first sentences ↑" : `Read the full answer (${total} references) ↓`}
           </button>
-        );
-      })}
+        </div>
+      )}
     </>
   );
 }
@@ -167,11 +283,11 @@ export function ReadingCard({ reading, index = 1 }: { reading: Reading; index?: 
   const [hot, setHot] = useState<number | null>(null);
   const uid = useId();
   const rowId = (n: number) => `${uid}-row-${n}`;
-  const grouped = groupRows(reading);
+  const tags = isTagReading(reading);
+  const grouped = tags ? null : groupRows(reading);
   const rows = reading.rows ?? [];
   const hasRows = rows.length > 0;
-  const total = reading.total ?? rows.length;
-  const folds = !(grouped && !asTable) && rows.length > FOLD_AFTER;
+  const folds = !tags && !(grouped && !asTable) && rows.length > FOLD_AFTER;
   const shownRows = folds && !unfolded ? rows.slice(0, FOLD_AFTER) : rows;
 
   function point(row: number | null, focus: boolean) {
@@ -207,8 +323,8 @@ export function ReadingCard({ reading, index = 1 }: { reading: Reading; index?: 
           {index}
         </span>
         <h3 className="m-0 text-[17px] font-extrabold text-ink">{reading.title}</h3>
-        <span className="ml-auto text-[13px] text-ink-4" data-testid="reading-count">
-          {total === 1 ? "1 row" : `${total} rows`}
+        <span className="ml-auto rounded-full bg-blush px-2.5 py-1 text-[13px] font-bold text-brand-deep" data-testid="reading-count">
+          {readingCount(reading)}
         </span>
         {reading.answer && (
           <button type="button" className={tool} onClick={copy} aria-label={`Copy the answer of reading ${index}`}>
@@ -226,11 +342,7 @@ export function ReadingCard({ reading, index = 1 }: { reading: Reading; index?: 
           </button>
         )}
       </div>
-      {reading.answer && (
-        <p className="m-0 px-5 pb-1.5 pt-[18px] text-base leading-[1.8] text-ink" data-testid="answer">
-          <Answer reading={reading} hot={hot} onHot={point} rowId={rowId} />
-        </p>
-      )}
+      {reading.answer && <Answer reading={reading} hot={hot} onHot={point} rowId={rowId} />}
       {reading.answer_segments?.some((s) => s.ref) && (
         <p className="px-5 pb-1 text-xs text-ink-4">Every marked value is filled in by code from a record. Point at one to see its row.</p>
       )}
@@ -243,7 +355,9 @@ export function ReadingCard({ reading, index = 1 }: { reading: Reading; index?: 
       )}
       {hasRows && (
         <div className="px-5 pb-1 pt-2">
-          {grouped && !asTable ? (
+          {tags ? (
+            <Tags reading={reading} hot={hot} onHot={(n) => setHot(n)} rowId={rowId} />
+          ) : grouped && !asTable ? (
             <Grouped reading={reading} {...grouped} hot={hot} rowId={rowId} />
           ) : (
             <Table reading={reading} rows={shownRows} hot={hot} rowId={rowId} />

@@ -157,6 +157,10 @@ PATHS: list[Path] = [
     Path("server_conversation_update", f"{P}::test_server_conversation_update",
          ("endpoint:PATCH /api/conversations/{conversation_id}",), "S3 · FR 13 · NFR 5 · UI refresh B",
          "[demo extension] title, pin, archive by the owner only; archiving hides, the record stays"),
+    Path("server_archived_listing", f"{P}::test_server_archived_listing",
+         ("endpoint:GET /api/conversations",), "S3 · long list L5",
+         "[demo extension] ?archived=true lists the asker's archived conversations only; another user never"
+         " sees them; unarchive through PATCH"),
     Path("server_listing_and_health", f"{B}::test_server_listing_and_health",
          ("endpoint:GET /api/conversations", "endpoint:GET /api/health"), "S3"),
     Path("server_examples", f"{B}::test_server_examples_on_the_scripted_model_only", ("endpoint:GET /api/examples",),

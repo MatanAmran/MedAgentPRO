@@ -23,6 +23,7 @@ export interface Reading {
   identifiers?: string[]; // [demo extension] Q3: columns that select an identifier
   rows?: Record<string, Cell>[];
   total?: number;
+  entity?: string; // [demo extension] L4: the catalog label of the FROM table, plain-column readings only
   ordered_by?: string;
   not_held?: { value: string; checked_in: string }[];
   notice?: string;

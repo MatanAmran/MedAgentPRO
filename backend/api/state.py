@@ -110,10 +110,11 @@ class AppState:
             self._conversations[conv.id] = conv
         return conv
 
-    def conversations(self, user: dict) -> list[Conversation]:
-        """The user's conversations, archived ones left out (phase B: archiving only hides)."""
+    def conversations(self, user: dict, archived: bool = False) -> list[Conversation]:
+        """The user's conversations, archived ones left out (phase B: archiving only hides). archived: the
+        user's archived ones only, for "Show archived" (long list, L5) [demo extension]."""
         with self._lock:
-            return [c for c in self._conversations.values() if c.owner == user["user_id"] and not c.archived]
+            return [c for c in self._conversations.values() if c.owner == user["user_id"] and c.archived == archived]
 
     def update(self, conversation_id: str, user: dict, changes: dict) -> Conversation:
         """Phase B [demo extension]: title, pinned, archived, by the conversation's own user only. Touches

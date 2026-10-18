@@ -47,6 +47,8 @@ export function Chat() {
   const [ratings, setRatings] = useState<Record<string, { busy: boolean; error: string | null }>>({});
   const [loadError, setLoadError] = useState<string | null>(null);
   const [renaming, setRenaming] = useState<string | null>(null);
+  // long list, L5: the archived conversations while "Show archived" is on, else null
+  const [archived, setArchived] = useState<ConversationSummary[] | null>(null);
   const abort = useRef<AbortController | null>(null);
   const bottom = useRef<HTMLDivElement | null>(null);
   const composer = useRef<HTMLTextAreaElement | null>(null);
@@ -84,6 +86,7 @@ export function Chat() {
     setCurrent(null);
     setItems([]);
     setPending(null);
+    setArchived(null);
     loadConversations(user).then(
       () => setLoadError(null),
       (e) => setLoadError(message(e)),
@@ -168,6 +171,16 @@ export function Chat() {
         setItems([]);
       }
       await loadConversations(user);
+      if (archived !== null) setArchived([...(await api.conversations(user, true))].reverse());
+    } catch (e) {
+      setLoadError(message(e));
+    }
+  }
+
+  async function showArchived(shown: boolean) {
+    if (!shown) return setArchived(null);
+    try {
+      setArchived([...(await api.conversations(user, true))].reverse());
     } catch (e) {
       setLoadError(message(e));
     }
@@ -200,6 +213,8 @@ export function Chat() {
           onNew={startNew}
           locked={locked}
           renaming={renaming}
+          archived={archived}
+          onShowArchived={showArchived}
           renderRename={(c) => (
             <RenameField
               initial={c.title ?? ""}
@@ -218,6 +233,7 @@ export function Chat() {
               onRename={() => setRenaming(c.conversation_id)}
               onPin={(pinned) => change(c.conversation_id, { pinned })}
               onArchive={() => change(c.conversation_id, { archived: true })}
+              onUnarchive={() => change(c.conversation_id, { archived: false })}
             />
           )}
         />
@@ -257,6 +273,13 @@ export function Chat() {
                   onAsk={send}
                   disabled={locked}
                 />
+              )}
+              {/* long list, item 6: on the real model the server lists no examples; say what can be asked */}
+              {items.length === 0 && !pending && mode === "real" && (
+                <p className="m-0 max-w-[60ch] text-sm leading-relaxed text-ink-3" data-testid="can-ask">
+                  Ask about suppliers, purchase orders and their lines, goods receipts, parts and their stock on
+                  hand, and the forecast. Answers come from those records only.
+                </p>
               )}
               {items.length > 0 && !pending && (
                 <Examples

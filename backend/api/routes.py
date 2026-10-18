@@ -2,7 +2,7 @@
 MedAgentPro - the chat API (task 6; 4.9, Figure 8: synchronous, answered while the person waits).
 
   POST /api/conversations                         a new conversation
-  GET  /api/conversations                         the user's conversations
+  GET  /api/conversations                         the user's conversations; ?archived=true, the archived ones [L5]
   GET  /api/conversations/{id}                    its exchanges, as presented
   POST /api/conversations/{id}/exchanges          a question: text/event-stream (S1)
   PATCH /api/conversations/{id}                   its title, pinned, archived [demo extension, UI refresh B]
@@ -172,8 +172,9 @@ def router(state: AppState) -> APIRouter:
         return {"conversation_id": state.new_conversation(user).id}
 
     @r.get("/conversations")
-    def list_conversations(user: dict = Depends(demo_user)):
-        return [c.summary() for c in state.conversations(user)]
+    def list_conversations(archived: bool = False, user: dict = Depends(demo_user)):
+        """archived=true: the asker's archived conversations only (long list, L5) [demo extension]."""
+        return [c.summary() for c in state.conversations(user, archived)]
 
     @r.get("/conversations/{conversation_id}")
     def get_conversation(conversation_id: str, user: dict = Depends(demo_user)):

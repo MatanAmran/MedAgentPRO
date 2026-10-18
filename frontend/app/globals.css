@@ -90,19 +90,24 @@ body {
   }
 }
 
-/* a value in an answer that points at its row (phase C) */
+/* a value in an answer that points at its row (phase C). Long list (LongList.dc.html): no chip, no box,
+   mono with a dotted underline; red only while pointed at or focused. The padding is taken back by the
+   margin, so the value sits in the sentence with no space before the punctuation after it */
 .ref {
-  background: var(--color-blush-2);
-  color: var(--color-brand-deep);
-  border-radius: 6px;
-  padding: 1px 6px;
+  background: transparent;
+  color: var(--color-ink);
+  border-radius: 4px;
+  padding: 0 2px;
+  margin: 0 -2px;
   font-weight: 600;
   font-family: var(--font-plex-mono), ui-monospace, monospace;
-  font-size: 0.875em;
-  box-shadow: inset 0 -2px 0 #fca5a5;
+  font-size: 0.9375em;
+  text-decoration: underline dotted #c9a9a6;
+  text-decoration-thickness: 1.5px;
+  text-underline-offset: 4px;
 }
 .ref-hot {
   background: var(--color-brand);
   color: #ffffff;
-  box-shadow: 0 4px 12px rgba(185, 28, 28, 0.35);
+  text-decoration: none;
 }

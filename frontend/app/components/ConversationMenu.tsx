@@ -12,6 +12,7 @@ export function ConversationMenu({
   onRename,
   onPin,
   onArchive,
+  onUnarchive,
   disabled,
   tabbable = true,
 }: {
@@ -19,6 +20,7 @@ export function ConversationMenu({
   onRename: () => void;
   onPin: (pinned: boolean) => void;
   onArchive: () => void;
+  onUnarchive?: () => void; // long list, L5: an archived conversation, shown by "Show archived"
   disabled: boolean;
   tabbable?: boolean; // only the list's current conversation is a tab stop (roving, Chrome.Sidebar)
 }) {
@@ -31,7 +33,9 @@ export function ConversationMenu({
   const items: { label: string; act: () => void; danger?: boolean }[] = [
     { label: "Rename", act: onRename },
     { label: conversation.pinned ? "Unpin" : "Pin to top", act: () => onPin(!conversation.pinned) },
-    { label: "Archive", act: onArchive, danger: true },
+    conversation.archived
+      ? { label: "Unarchive", act: onUnarchive ?? (() => {}) }
+      : { label: "Archive", act: onArchive, danger: true },
   ];
 
   useEffect(() => {

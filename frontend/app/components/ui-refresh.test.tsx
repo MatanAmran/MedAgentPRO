@@ -167,7 +167,7 @@ describe("a reading card", () => {
     Object.assign(navigator, { clipboard: { writeText: write } });
     render(<ReadingCard reading={many} index={1} />);
     expect(screen.getByTestId("export-csv").textContent).toBe("Export 10 rows");
-    expect(screen.getByTestId("reading-count").textContent).toBe("28 rows");
+    expect(screen.getByTestId("reading-count").textContent).toBe("28 rows · 10 shown");
     expect(screen.getAllByRole("row")).toHaveLength(FOLD_AFTER + 1);
     fireEvent.click(screen.getByRole("button", { name: "Show all 10 rows ↓" }));
     expect(screen.getAllByRole("row")).toHaveLength(11);
