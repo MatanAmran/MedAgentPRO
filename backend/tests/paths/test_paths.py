@@ -491,7 +491,8 @@ def test_rate_limit_refuses_before_any_call(db_path, ledger):
     outs = [pl.run("Why is S-014 late so often?", [], APPROVER, make_deps(Cancellable(gw, threading.Event()), db_path))
             for _ in range(3)]
     assert [o.response["outcome"] for o in outs] == ["referred_to_investigation"] * 2 + ["request_not_completed"]
-    assert outs[2].response.get("notice") == contract.RATE_LIMITED
+    notice = outs[2].response.get("notice")
+    assert notice.startswith(contract.RATE_LIMITED.split("{seconds}")[0]) and notice.endswith(" seconds.")
 
 
 def test_timeout_keeps_the_worst_case_charged_and_refused_connection_releases_it(db_path, ledger):

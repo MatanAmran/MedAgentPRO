@@ -287,7 +287,9 @@ class BudgetedGateway(ModelGateway):
             while self._starts and now - self._starts[0] >= 60:
                 self._starts.popleft()
             if len(self._starts) >= self.config.max_exchanges_per_minute:
-                raise RateLimited("too many exchanges in the last minute")
+                # the window takes one more once its oldest start is 60 seconds old
+                wait = max(1, math.ceil(60 - (now - self._starts[0])))
+                raise RateLimited("too many exchanges in the last minute", retry_after=wait)
             self._starts.append(now)
         spend = ExchangeSpend()
         token = self._current.set(spend)

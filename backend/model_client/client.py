@@ -96,7 +96,12 @@ class BudgetExceeded(Exception):
 
 
 class RateLimited(Exception):
-    """Too many exchanges in the last minute (task 5). Refused before any model call."""
+    """Too many exchanges in the last minute (task 5). Refused before any model call. `retry_after` is
+    how many whole seconds until the window takes one more (chat, 18.10, 04:45): a number only."""
+
+    def __init__(self, message: str, retry_after: int = 60):
+        super().__init__(message)
+        self.retry_after = retry_after
 
 
 class ModelCallError(Exception):

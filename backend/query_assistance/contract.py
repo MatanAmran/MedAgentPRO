@@ -18,6 +18,7 @@ The interface language is English, as in the book's screens.
 from __future__ import annotations
 
 import json
+import re
 from typing import Any
 
 from jsonschema import Draft202012Validator
@@ -176,13 +177,40 @@ def _metrics_named(node: Any) -> set[str]:
     return set()
 
 
+def _metric_tests(node: Any) -> list[bool]:
+    """For each comparison of a metric with true or false (EQ or NE), whether it asks for the metric
+    not to hold, read as _predicate reads it."""
+    out: list[bool] = []
+    if isinstance(node, dict):
+        for op, arg in node.items():
+            if op in ("EQ", "NE") and isinstance(arg, list) and len(arg) == 2:
+                for m, v in ((arg[0], arg[1]), (arg[1], arg[0])):
+                    if (isinstance(m, dict) and "metric" in m and isinstance(v, dict)
+                            and isinstance(v.get("value"), bool)):
+                        out.append((v["value"] is False) != (op == "NE"))
+                        break
+            out.extend(_metric_tests(arg))
+    elif isinstance(node, list):
+        for v in node:
+            out.extend(_metric_tests(v))
+    return out
+
+
 def reading_title(plan: dict, cat: Catalog) -> str | None:
     """Task 7, Q2 [demo extension]: the business description of the one metric the plan names, from
-    schema.json. None where the plan names none or several; answered() then numbers the reading."""
+    schema.json. None where the plan names none or several; answered() then numbers the reading.
+    A metric the plan asks not to hold is titled as Examined reads it, "Not ..." (question 11 on the
+    real model, chat 18.10, 04:45); one tested both ways gets no title."""
     named = _metrics_named(plan)
     if len(named) != 1:
         return None
-    return cat.metrics[named.pop()]["description"].rstrip(".")
+    phrase = cat.metrics[named.pop()]["description"].rstrip(".")
+    tests = set(_metric_tests([plan.get("WHERE"), plan.get("HAVING")]))
+    if len(tests) > 1:
+        return None
+    if tests == {True}:
+        return "Not " + phrase[0].lower() + phrase[1:]
+    return phrase
 
 
 def reading_view(label: str, plan: dict, result: RetrievalResult, cat: Catalog, role: str,
@@ -308,16 +336,24 @@ def source_unreachable(source: str, understood_as: str | None = None) -> dict:
 
 NOT_COMPLETED = "The request could not be completed."
 BUDGET_USED_UP = "The demo budget for the model is used up. The question was not answered."
-RATE_LIMITED = "Too many questions in the last minute. The question was not answered. Try again shortly."
+# {seconds} is filled in code from the rate window, a whole number only (chat, 18.10, 04:45)
+RATE_LIMITED = "Too many questions in the last minute. The question was not answered. Try again in {seconds} seconds."
 EXCHANGE_CAP = ("This question needs more of the model than one answer may use. The question was not "
                 "answered. Ask about fewer records.")   # R7b: the per-exchange cap, not the total budget
+
+
+def rate_limited_notice(seconds: int) -> str:
+    if isinstance(seconds, bool) or not isinstance(seconds, int) or seconds < 1:
+        raise ContractError("the wait is a whole number of seconds")
+    return RATE_LIMITED.format(seconds=seconds)
 
 
 def request_not_completed(understood_as: str | None = None, notice: str = NOT_COMPLETED) -> dict:
     """Test 13: a rejected retrieval parameter set, or a model output rejected within its attempts.
     A system fault, not a request for input. Task 5: the budget, the exchange cap or the rate, each
-    with its own fixed notice."""
-    if notice not in (NOT_COMPLETED, BUDGET_USED_UP, RATE_LIMITED, EXCHANGE_CAP):
+    with its own fixed notice; the rate's carries only the seconds to wait (rate_limited_notice)."""
+    rate = re.fullmatch(re.escape(RATE_LIMITED).replace(re.escape("{seconds}"), r"[1-9]\d*"), notice)
+    if notice not in (NOT_COMPLETED, BUDGET_USED_UP, EXCHANGE_CAP) and not rate:
         raise ContractError("a notice is one of the fixed sentences, never free text")
     return _finish({"outcome": "request_not_completed", "readings": [], "gaps": [],
                     "notice": notice}, understood_as)

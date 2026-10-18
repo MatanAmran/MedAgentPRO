@@ -245,3 +245,43 @@ def test_every_gap_template_opens_with_what_was_asked():
     """Task 10a (chat 23:35): "On {asked} ..." read wrongly whenever asked was not a noun phrase ("On who
     approved them"). Every template now opens "{asked}: ", whatever grammatical form asked takes."""
     assert all(t.startswith("{asked}: ") for t in k.TEMPLATES.values()), k.TEMPLATES
+
+
+def test_the_rate_notice_carries_a_whole_number_of_seconds_and_nothing_else():
+    """Chat, 18.10, 04:45: the rate refusal says how long to wait, a number from the window only."""
+    assert k.request_not_completed(None, k.rate_limited_notice(7))["notice"].endswith("Try again in 7 seconds.")
+    for bad in (0, -1, 2.5, True, "7"):
+        with pytest.raises(k.ContractError):
+            k.rate_limited_notice(bad)
+    for bad in (k.RATE_LIMITED, k.RATE_LIMITED.format(seconds="soon"), k.RATE_LIMITED.format(seconds="07")):
+        with pytest.raises(k.ContractError):
+            k.request_not_completed(None, bad)
+
+
+BOOLEAN_METRICS = sorted(m for m, spec in CAT.metrics.items() if spec.get("type") == "boolean")
+
+
+@pytest.mark.parametrize("metric", BOOLEAN_METRICS)
+@pytest.mark.parametrize("op, value, swap", [("EQ", True, False), ("EQ", False, False), ("NE", True, False),
+                                             ("NE", False, False), ("EQ", False, True), ("NE", True, True)])
+def test_the_title_never_contradicts_what_was_examined(metric, op, value, swap):
+    """Question 11 on the real model (chat, 18.10, 04:45): "on time" as late_by_delivery = false was
+    titled "Delivered after the requested date". The title reads the comparison as Examined does."""
+    pair = [{"metric": metric}, {"value": value}]
+    table = CAT.metrics[metric].get("table") or next(iter(CAT.metrics[metric].get("tables", ["commitments"])))
+    plan = {"SELECT": [{"expr": {"func": "COUNT", "arg": "*"}, "as": "n"}], "FROM": table,
+            "WHERE": {op: pair[::-1] if swap else pair}}
+    title = k.reading_title(plan, CAT)
+    examined = k.render_checked(plan, CAT, "APPROVER")
+    negated = (value is False) != (op == "NE")
+    phrase = CAT.metrics[metric]["description"].rstrip(".")
+    phrase = phrase[0].lower() + phrase[1:]
+    assert (f"not {phrase}" in examined) == negated and phrase in examined
+    assert title == ("Not " + phrase if negated else phrase[0].upper() + phrase[1:])
+
+
+def test_a_metric_tested_both_ways_gets_no_title():
+    plan = {"SELECT": [{"expr": {"func": "COUNT", "arg": "*"}, "as": "n"}], "FROM": "commitments",
+            "WHERE": {"OR": [{"EQ": [{"metric": "late_by_delivery"}, {"value": True}]},
+                             {"EQ": [{"metric": "late_by_delivery"}, {"value": False}]}]}}
+    assert k.reading_title(plan, CAT) is None

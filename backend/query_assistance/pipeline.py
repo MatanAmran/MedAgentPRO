@@ -467,7 +467,8 @@ def run(question: str, history: list[prompts.Exchange], user: dict, deps: Deps,
         return finish(contract.request_not_completed(understood), failure=str(e))
     except RateLimited as e:
         operational_log.warning("exchange refused: attempt=%s user=%s reason=%s", eid, user.get("user_id"), e)
-        return finish(contract.request_not_completed(understood, contract.RATE_LIMITED), failure=f"rate: {e}")
+        return finish(contract.request_not_completed(understood, contract.rate_limited_notice(e.retry_after)),
+                      failure=f"rate: {e}")
     except BudgetExceeded as e:   # not retried, not an outage
         operational_log.warning("model call refused: attempt=%s user=%s reason=%s", eid, user.get("user_id"), e)
         notice = {"exchange": contract.EXCHANGE_CAP,                    # R7b

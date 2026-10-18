@@ -90,3 +90,28 @@ def test_the_inner_error_is_what_jsonschema_reports_closest():
     assert e.validator == "oneOf" and mc.schema_feedback(e) == mc.schema_feedback(e)
     assert json.dumps(list(mc._innermost(e).absolute_path)) == json.dumps(
         ["readings", 0, "plan", "WHERE", "EQ", 0])
+
+
+# --------------------------------------------------------------------------
+# a breach of what the provider enforced (chat, 18.10, 04:45, 2a): the check names keyword and path too
+# --------------------------------------------------------------------------
+
+def _synthesis_schema() -> dict:
+    from query_assistance.compiler import HERE
+    return json.loads((HERE / "medagentpro_schemas.json").read_text(encoding="utf-8"))["schemas"]["synthesis"]["schema"]
+
+
+@pytest.mark.parametrize("bad, check", [
+    ({"readings": [{"label": "late", "sentences": [{"text": "S-SECRET-4711 had the most."}]}]},
+     "format_provider_schema:pattern@readings/0/sentences/0/text"),
+    ({"readings": [{"label": "late", "sentences": [{"text": "{late.n#1} rows."}], "secret_key": "S-SECRET-4711"}]},
+     "format_provider_schema:additionalProperties@readings/0"),
+])
+def test_a_provider_schema_breach_names_its_rule_and_place_and_no_value(bad, check):
+    pytest.importorskip("litellm")
+    gw = ScriptedModelGateway([bad])
+    with pytest.raises(mc.StageFailed) as e:
+        mc.ask(gw, "m", "synthesis@7", lambda fb: "prompt", lambda out: out, output_schema=_synthesis_schema())
+    call, = e.value.calls
+    assert call.check == check and "S-SECRET-4711" not in call.check and "secret_key" not in call.check
+    assert len(gw.calls) == 1   # still a format failure: no further attempt (04:50 defers 2b)

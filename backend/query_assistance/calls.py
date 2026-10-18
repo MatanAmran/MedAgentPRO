@@ -182,8 +182,11 @@ def ask(gateway: ModelGateway, model: str, prompt_identity: str, render: Callabl
             raise StageFailed("format", "the output is not JSON", calls) from e
         breach = _first(provider, out) if provider else None
         if breach is not None:
+            # keyword and path, as for SchemaBreach (chat, 18.10, 04:45, 2a): every object sent is closed
+            # (T06), so the path holds only keys the schema defines and item numbers, never a value
+            inner = _innermost(breach)
             calls.append(Call(prompt_identity, resp, is_feedback, f"format: {schema_feedback(breach)}",
-                              "format_provider_schema", took))
+                              f"format_provider_schema:{inner.validator}@{_where(inner)}", took))
             raise StageFailed("format", "the output breaks what the provider enforced", calls)
         try:
             breach = _first(validator, out) if validator else None

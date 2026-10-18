@@ -297,6 +297,25 @@ def test_rate_limit(ledger):
         pass
 
 
+def test_a_rate_refusal_says_how_long_to_wait(ledger):
+    """Chat, 18.10, 04:45: the wait is computed from the window, until its oldest start is 60 s old."""
+    now = [1000.0]
+    gw = gateway(ledger, clock=lambda: now[0])
+    for step in (0.0, 10.0, 5.0):          # starts at 1000, 1010 and 1015
+        now[0] += step
+        with gw.exchange():
+            pass
+    for later, wait in ((0.0, 45), (44.5, 1), (20.2, 25)):
+        now[0] = 1015.0 + later
+        with pytest.raises(RateLimited) as e:
+            with gw.exchange():
+                pass
+        assert e.value.retry_after == wait
+    now[0] = 1060.0                        # the first start has left the window
+    with gw.exchange():
+        pass
+
+
 # --------------------------------------------------------------------------
 # LiteLLM: no hidden retries, money refusals are not outages
 # --------------------------------------------------------------------------
@@ -385,7 +404,7 @@ def test_rate_limited_exchange_is_refused_before_any_model_call(ledger, db_path)
     with gw.exchange():
         pass
     out = pipeline.run(dry_run.Q, [], {"role": "APPROVER", "user_id": "AP-01"}, deps(gw, db_path, MemoryStorage()))
-    assert out.response["notice"] == contract.RATE_LIMITED and inner.calls == [] and out.recorded
+    assert out.response["notice"] == contract.rate_limited_notice(60) and inner.calls == [] and out.recorded
 
 
 def test_an_answered_exchange_reports_its_cost(ledger, db_path):
