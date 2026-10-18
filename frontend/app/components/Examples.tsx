@@ -3,7 +3,8 @@
 import type { Example } from "@/lib/types";
 
 /** Task 8, A4: the questions the scripted model answers, so the demo is never one typo away from "not
- * completed". Scripted model only: the server lists none on the real model. */
+ * completed". Scripted model only: the server lists none on the real model. "Follow up" offers the scripted
+ * follow-up of the last question (demo question 2), as before the UI refresh. */
 export function Examples({
   examples,
   title,
@@ -17,10 +18,10 @@ export function Examples({
 }) {
   if (examples.length === 0) return null;
   return (
-    <section className="flex flex-col gap-2" data-testid="examples" aria-label="Scripted examples">
-      <div className="flex items-center gap-2 text-sm text-zinc-500">
+    <section className="flex flex-col gap-2.5" data-testid="examples" aria-label="Scripted examples">
+      <div className="flex items-center gap-2 text-sm font-semibold text-ink-3">
         <span>{title}</span>
-        <span className="rounded bg-zinc-100 px-2 py-0.5 text-xs text-zinc-700">scripted examples</span>
+        <span className="rounded-full border border-line bg-white px-2 py-0.5 text-xs font-medium text-ink-3">scripted examples</span>
       </div>
       <div className="flex flex-wrap gap-2">
         {examples.map((e) => (
@@ -29,7 +30,7 @@ export function Examples({
             type="button"
             disabled={disabled}
             onClick={() => onAsk(e.question)}
-            className="rounded-full border border-zinc-300 bg-white px-3 py-1.5 text-left text-sm text-zinc-800 hover:border-zinc-900 disabled:opacity-50"
+            className="min-h-11 rounded-xl border border-blush-3 bg-blush px-3.5 text-left text-sm font-semibold text-brand-dark hover:border-brand hover:bg-white disabled:opacity-50"
           >
             {e.question}
           </button>

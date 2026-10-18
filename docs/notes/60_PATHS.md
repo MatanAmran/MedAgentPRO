@@ -1,10 +1,10 @@
 # MedAgentPro — מפת המסלולים וההיתכנות
 
-**נוצר אוטומטית** ב-`python -m tools.path_map` (מתוך `backend\`), 18.10.2026 15:34. **לא לערוך ידנית** — המקור הוא `backend\tests\paths\registry.py` ו-`backend\tests\feasibility\constraints.py`.
+**נוצר אוטומטית** ב-`python -m tools.path_map` (מתוך `backend\`), 18.10.2026 17:45. **לא לערוך ידנית** — המקור הוא `backend\tests\paths\registry.py` ו-`backend\tests\feasibility\constraints.py`.
 
 **איך זה גדל:** `tests\paths\branches.py` קורא מהקוד ומהסכמות כל הסתעפות (מצב סיום, שלב, סוג כשל, `except`, הודעה, נקודת קצה, קוד HTTP, סוג פער, תפקיד). **הסתעפות בלי מסלול מפילה את `pytest`.** מגבלה שמתגלה (כמו הטמפרטורה) נכנסת כשורה ב-`constraints.py`, ושורה בלי בדיקה מפילה את `pytest`.
 
-**תוצאות:** 73 עוברים · 0 נכשלים · 0 פער ידוע · 0 דולגו
+**תוצאות:** 74 עוברים · 0 נכשלים · 0 פער ידוע · 0 דולגו
 
 ## מסלולים
 
@@ -81,6 +81,7 @@
 | ✅ | `server_rating` | `endpoint:POST /api/exchanges/{exchange_id}/rating`, `stage:rating` | FR 12 · K4 · Test 16 · task 8 review | only the asker rates, only an answer with at least one reading |
 | ✅ | `server_one_at_a_time` | — | task 6 · T7-B1 | a second question waits for the conversation, then runs after the first |
 | ✅ | `server_waits_for_abandoned_exchange` | — | T7-B1 (c) · R8 | the wait is bounded: error event with status 409, the conversation untouched |
+| ✅ | `server_conversation_update` | `endpoint:PATCH /api/conversations/{conversation_id}` | S3 · FR 13 · NFR 5 · UI refresh B | [demo extension] title, pin, archive by the owner only; archiving hides, the record stays |
 | ✅ | `server_listing_and_health` | `endpoint:GET /api/conversations`, `endpoint:GET /api/health` | S3 |  |
 | ✅ | `server_examples` | `endpoint:GET /api/examples` | task 8 A4 | the scripted questions for the empty screen; none on the real model |
 
@@ -104,7 +105,7 @@
 
 **notice** — `ACTION_DECLINED` (action_declined) · `BUDGET_USED_UP` (budget_used_up) · `EXCHANGE_CAP` (exchange_cap) · `NEEDS_CLARIFICATION` (needs_clarification) · `NOT_COMPLETED` (intent_rejected_twice) · `RATE_LIMITED` (rate_limit) · `WITHHELD` (redraft_from_kept)
 
-**endpoint** — `GET /api/conversations` (server_listing_and_health) · `GET /api/conversations/{conversation_id}` (server_each_ending_then_goes_on) · `GET /api/examples` (server_examples) · `GET /api/health` (server_listing_and_health) · `POST /api/conversations` (server_each_ending_then_goes_on) · `POST /api/conversations/{conversation_id}/exchanges` (server_each_ending_then_goes_on) · `POST /api/exchanges/{exchange_id}/rating` (server_rating)
+**endpoint** — `GET /api/conversations` (server_listing_and_health) · `GET /api/conversations/{conversation_id}` (server_each_ending_then_goes_on) · `GET /api/examples` (server_examples) · `GET /api/health` (server_listing_and_health) · `PATCH /api/conversations/{conversation_id}` (server_conversation_update) · `POST /api/conversations` (server_each_ending_then_goes_on) · `POST /api/conversations/{conversation_id}/exchanges` (server_each_ending_then_goes_on) · `POST /api/exchanges/{exchange_id}/rating` (server_rating)
 
 **http** — `200` (server_each_ending_then_goes_on) · `201` (server_each_ending_then_goes_on) · `401` (server_refusals) · `403` (server_refusals) · `404` (server_refusals) · `409` (server_refusals) · `422` (server_refusals)
 
@@ -161,7 +162,7 @@
 | ✅ | 35 | FR 11, FR 15 | A retrieval that matches no record is answered as such | `backend/tests/paths/registry.py: empty_result_no_synthesis`<br>`backend/tests/paths/registry.py: identifier_not_held`<br>`backend/tests/query_assistance/test_compiler.py: test_empty_with_known_identifier_is_no_match`<br>`backend/tests/query_assistance/test_pipeline.py: test_empty_result_is_an_answer_without_a_model_call`<br>`backend/tests/query_assistance/test_schemas.py: (the file)` |
 | ✅ | 38 | NFR 22 | User flows complete on each browser engine | `frontend/e2e/demo-set.spec.ts: (the file)` |
 | ⏳ | 39 | NFR 23 | Screens presenting stored content load within the configured time | ממתין: in the company's environment, with its records (task 9, B4) |
-| ✅ | 40 | NFR 24 | The interface is operable from the keyboard and does not depend on color | `frontend/e2e/demo-set.spec.ts: (the file)`<br>`frontend/e2e/demo-set.spec.ts: the demo set as ${role.user}: every question ends as that role`<br>`frontend/e2e/demo-set.spec.ts: the demo set from the keyboard alone (Test 40)`<br>`frontend/e2e/panel.spec.ts: (the file)`<br>`frontend/app/components/components.test.tsx: states are told apart by text, not colour (Test 40, task 9 B3)` |
+| ✅ | 40 | NFR 24 | The interface is operable from the keyboard and does not depend on color | `frontend/e2e/demo-set.spec.ts: (the file)`<br>`frontend/e2e/demo-set.spec.ts: the demo set as ${role.user}: every question ends as that role`<br>`frontend/e2e/demo-set.spec.ts: the demo set from the keyboard alone (Test 40)`<br>`frontend/e2e/panel.spec.ts: (the file)`<br>`frontend/e2e/ui.spec.ts: (the file)`<br>`frontend/app/components/components.test.tsx: states are told apart by text, not colour (Test 40, task 9 B3)` |
 | ✅ | 44 | FR 25 | A follow-up question is answered under the question understood | `backend/tests/paths/registry.py: follow_up_rewritten`<br>`backend/tests/query_assistance/test_pipeline.py: test_follow_up_is_rewritten_and_shown_as_understood` |
 | ✅ | 45 | NFR 27 | An identifier from outside the conversation is not retrieved | `backend/tests/paths/registry.py: follow_up_identifier_not_in_conversation`<br>`backend/tests/query_assistance/test_pipeline.py: test_follow_up_is_rewritten_and_shown_as_understood`<br>`backend/tests/query_assistance/test_pipeline.py: test_identifier_introduced_by_the_rewrite_is_rejected` |
 

@@ -1,12 +1,18 @@
 "use client";
 
-import { useState } from "react";
-import { formatCell, groupRows } from "@/lib/present";
+import { useId, useState } from "react";
+import { answerText, formatCell, groupRows, readingCsv, readingCsvName } from "@/lib/present";
 import type { Cell, Reading } from "@/lib/types";
+
+// UI refresh (Main.dc.html): a reading as a card. Number and title, how many rows, Copy (the answer as
+// shown) and Export (the rows as shown, with their headers), the table folded after six rows, and
+// Examined at the foot.
+
+export const FOLD_AFTER = 6;
 
 function Tag({ children }: { children: React.ReactNode }) {
   return (
-    <span className="inline-block rounded-md border border-zinc-200 bg-zinc-100 px-2 py-0.5 font-mono text-sm text-zinc-800">
+    <span className="inline-block rounded-md border border-line bg-canvas px-2 py-0.5 font-mono text-[13px] font-semibold text-ink">
       {children}
     </span>
   );
@@ -16,26 +22,31 @@ function Value({ column, value, ids }: { column: string; value: Cell; ids: strin
   return ids.includes(column) && value !== null ? <Tag>{formatCell(value)}</Tag> : <>{formatCell(value)}</>;
 }
 
-function Table({ reading }: { reading: Reading }) {
+// Phase C: the row a value of the answer came from, marked while that value is pointed at or focused
+const HOT_ROW = "bg-blush shadow-[inset_3px_0_0_#B91C1C]";
+
+function Table({ reading, rows, hot, rowId }: { reading: Reading; rows: Record<string, Cell>[]; hot: number | null;
+                                                rowId: (n: number) => string }) {
   const cols = reading.columns ?? [];
   const ids = reading.identifiers ?? [];
   return (
-    <div className="overflow-x-auto">
-      <table className="w-full text-left text-sm" data-testid="reading-table">
+    <div className="max-w-full overflow-x-auto">
+      <table className="w-full border-separate border-spacing-0 text-left text-sm" data-testid="reading-table">
         <thead>
-          <tr className="border-b border-zinc-200 text-zinc-500">
+          <tr>
             {cols.map((c) => (
-              <th key={c} className="py-1 pr-4 font-medium">
+              <th key={c} className="border-b border-line px-3 py-2 text-xs font-bold uppercase tracking-[0.06em] text-ink-4">
                 {reading.headers?.[c] ?? c}
               </th>
             ))}
           </tr>
         </thead>
         <tbody>
-          {(reading.rows ?? []).map((row, i) => (
-            <tr key={i} className="border-b border-zinc-100 last:border-0">
+          {rows.map((row, i) => (
+            <tr key={i} id={rowId(i + 1)} data-row={i + 1} data-hot={hot === i + 1 || undefined}
+                className={hot === i + 1 ? HOT_ROW : undefined}>
               {cols.map((c) => (
-                <td key={c} className="py-1.5 pr-4">
+                <td key={c} className="border-b border-[#F5EFEE] px-3 py-2.5 text-ink">
                   <Value column={c} value={row[c] ?? null} ids={ids} />
                 </td>
               ))}
@@ -47,28 +58,34 @@ function Table({ reading }: { reading: Reading }) {
   );
 }
 
-function Grouped({ reading, by, groups }: { reading: Reading } & NonNullable<ReturnType<typeof groupRows>>) {
+function Grouped({ reading, by, groups, hot, rowId }: { reading: Reading; hot: number | null; rowId: (n: number) => string }
+  & NonNullable<ReturnType<typeof groupRows>>) {
   const ids = reading.identifiers ?? [];
+  const all = reading.rows ?? [];
   const rest = (reading.columns ?? []).filter((c) => c !== by);
   return (
     <div className="flex flex-col gap-2" data-testid="reading-groups">
       {groups.map((g, i) => (
         <div key={i} className="grid grid-cols-[6rem_1fr] items-baseline gap-2" data-testid="reading-group">
-          <span className="font-mono font-semibold">{formatCell(g.key)}</span>
+          <span className="font-mono font-semibold text-ink">{formatCell(g.key)}</span>
           <span className="flex flex-wrap items-baseline gap-x-3 gap-y-1.5">
-            {g.rows.map((row, j) => (
-              <span key={j} className="inline-flex items-baseline gap-1">
+            {g.rows.map((row, j) => {
+              const n = all.indexOf(row) + 1;
+              return (
+              <span key={j} id={rowId(n)} data-row={n} data-hot={hot === n || undefined}
+                    className={`inline-flex items-baseline gap-1 rounded-md px-1 ${hot === n ? HOT_ROW : ""}`}>
                 {rest.map((c) =>
                   ids.includes(c) ? (
                     <Value key={c} column={c} value={row[c] ?? null} ids={ids} />
                   ) : (
-                    <span key={c} className="text-xs text-zinc-600">
+                    <span key={c} className="text-xs text-ink-3">
                       {reading.headers?.[c] ?? c} {formatCell(row[c] ?? null)}
                     </span>
                   ),
                 )}
               </span>
-            ))}
+              );
+            })}
           </span>
         </div>
       ))}
@@ -76,34 +93,193 @@ function Grouped({ reading, by, groups }: { reading: Reading } & NonNullable<Ret
   );
 }
 
-export function ReadingCard({ reading }: { reading: Reading }) {
-  const [asTable, setAsTable] = useState(false);
-  const grouped = groupRows(reading);
-  const hasRows = (reading.rows?.length ?? 0) > 0;
+function download(name: string, text: string) {
+  const url = URL.createObjectURL(new Blob([text], { type: "text/csv;charset=utf-8" }));
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = name;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  URL.revokeObjectURL(url);
+}
+
+const tool = "min-h-9 rounded-[10px] border border-line bg-white px-3 text-[13px] font-semibold text-ink-2 hover:bg-canvas";
+
+/** Phase C: the answer with each filled value marked; pointing at or focusing one marks its row. */
+function Answer({ reading, hot, onHot, rowId }: { reading: Reading; hot: number | null;
+                                                  onHot: (row: number | null, focus: boolean) => void;
+                                                  rowId: (n: number) => string }) {
+  // One tab stop per answer (Test 40 on every engine; CI, 18.10): the value last focused, else the first.
+  // Arrows, Home and End move between the values of this answer
+  const [active, setActive] = useState(0);
+  const segments = reading.answer_segments;
+  if (!segments?.length) return <>{reading.answer}</>;
+  const refs = segments.filter((s) => s.ref);
+  // the position of each value among the answer's values, for the arrows; -1 for plain text
+  const place = segments.map((s, i) => (s.ref ? segments.slice(0, i).filter((x) => x.ref).length : -1));
+
+  function move(e: React.KeyboardEvent<HTMLButtonElement>, at: number) {
+    const to = { ArrowRight: at + 1, ArrowDown: at + 1, ArrowLeft: at - 1, ArrowUp: at - 1, Home: 0,
+                 End: refs.length - 1 }[e.key];
+    if (to === undefined) return;
+    e.preventDefault();
+    const next = Math.max(0, Math.min(refs.length - 1, to));
+    const all = e.currentTarget.parentElement?.querySelectorAll<HTMLButtonElement>("button.ref");
+    all?.[next]?.focus();
+  }
+
   return (
-    <section className="rounded-xl border border-zinc-200 bg-white p-4" data-testid="reading" data-label={reading.label}>
-      <h3 className="mb-2 text-base font-semibold text-zinc-900">{reading.title}</h3>
-      {reading.answer && <p className="mb-3 text-zinc-900">{reading.answer}</p>}
+    <>
+      {segments.map((s, i) => {
+        if (!s.ref) return <span key={i}>{s.text}</span>;
+        const at = place[i];
+        const row = s.ref.row;
+        return (
+          <button
+            key={i}
+            type="button"
+            className={`ref ${hot === row ? "ref-hot" : ""}`}
+            aria-describedby={rowId(row)}
+            data-ref-row={row}
+            tabIndex={at === Math.min(active, refs.length - 1) ? 0 : -1}
+            onMouseEnter={() => onHot(row, false)}
+            onMouseLeave={() => onHot(null, false)}
+            onFocus={() => {
+              setActive(at);
+              onHot(row, true);
+            }}
+            onBlur={() => onHot(null, false)}
+            onKeyDown={(e) => move(e, at)}
+          >
+            {s.text}
+          </button>
+        );
+      })}
+    </>
+  );
+}
+
+export function ReadingCard({ reading, index = 1 }: { reading: Reading; index?: number }) {
+  const [asTable, setAsTable] = useState(false);
+  const [unfolded, setUnfolded] = useState(false);
+  const [copied, setCopied] = useState(false);
+  const [hot, setHot] = useState<number | null>(null);
+  const uid = useId();
+  const rowId = (n: number) => `${uid}-row-${n}`;
+  const grouped = groupRows(reading);
+  const rows = reading.rows ?? [];
+  const hasRows = rows.length > 0;
+  const total = reading.total ?? rows.length;
+  const folds = !(grouped && !asTable) && rows.length > FOLD_AFTER;
+  const shownRows = folds && !unfolded ? rows.slice(0, FOLD_AFTER) : rows;
+
+  function point(row: number | null, focus: boolean) {
+    setHot(row);
+    if (focus && row !== null && row > FOLD_AFTER) setUnfolded(true);   // a focused value shows its row
+  }
+
+  async function copy() {
+    const text = answerText(reading);
+    if (!text) return;
+    try {
+      await navigator.clipboard.writeText(text);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch {
+      setCopied(false);
+    }
+  }
+
+  return (
+    <section
+      className="overflow-hidden rounded-[20px] border border-line bg-white shadow-card"
+      data-testid="reading"
+      data-label={reading.label}
+    >
+      <div className="flex flex-wrap items-center gap-2.5 border-b border-[#F5E9E7] bg-gradient-to-b from-[#FFF7F7] to-white px-5 py-4">
+        <span
+          aria-hidden="true"
+          className={`flex h-7 w-7 items-center justify-center rounded-lg text-[13px] font-extrabold text-white ${
+            index % 2 === 1 ? "bg-brand" : "bg-brand-deep"
+          }`}
+        >
+          {index}
+        </span>
+        <h3 className="m-0 text-[17px] font-extrabold text-ink">{reading.title}</h3>
+        <span className="ml-auto text-[13px] text-ink-4" data-testid="reading-count">
+          {total === 1 ? "1 row" : `${total} rows`}
+        </span>
+        {reading.answer && (
+          <button type="button" className={tool} onClick={copy} aria-label={`Copy the answer of reading ${index}`}>
+            {copied ? "Copied" : "Copy"}
+          </button>
+        )}
+        {hasRows && (
+          <button
+            type="button"
+            className={tool}
+            onClick={() => download(readingCsvName(reading), readingCsv(reading))}
+            data-testid="export-csv"
+          >
+            Export {rows.length === 1 ? "1 row" : `${rows.length} rows`}
+          </button>
+        )}
+      </div>
+      {reading.answer && (
+        <p className="m-0 px-5 pb-1.5 pt-[18px] text-base leading-[1.8] text-ink" data-testid="answer">
+          <Answer reading={reading} hot={hot} onHot={point} rowId={rowId} />
+        </p>
+      )}
+      {reading.answer_segments?.some((s) => s.ref) && (
+        <p className="px-5 pb-1 text-xs text-ink-4">Every marked value is filled in by code from a record. Point at one to see its row.</p>
+      )}
       {(reading.notice || reading.ordered_by) && (
-        <p className="mb-2 text-sm text-zinc-500" data-testid="reading-notice">
+        <p className="px-5 pb-1.5 pt-2 text-[13px] text-ink-4" data-testid="reading-notice">
           {[reading.notice, hasRows && reading.ordered_by ? `${reading.ordered_by[0].toUpperCase()}${reading.ordered_by.slice(1)}.` : null]
             .filter(Boolean)
             .join(" ")}
         </p>
       )}
-      {hasRows && (grouped && !asTable ? <Grouped reading={reading} {...grouped} /> : <Table reading={reading} />)}
-      {grouped && (
-        <button
-          type="button"
-          className="mt-2 text-sm text-zinc-500 underline underline-offset-2 hover:text-zinc-800"
-          onClick={() => setAsTable(!asTable)}
-        >
-          {asTable ? "Show grouped" : "Show as table"}
-        </button>
+      {hasRows && (
+        <div className="px-5 pb-1 pt-2">
+          {grouped && !asTable ? (
+            <Grouped reading={reading} {...grouped} hot={hot} rowId={rowId} />
+          ) : (
+            <Table reading={reading} rows={shownRows} hot={hot} rowId={rowId} />
+          )}
+        </div>
       )}
-      <p className="mt-3 border-t border-zinc-200 pt-2 text-sm text-zinc-500" data-testid="examined">
-        {reading.checked}
-      </p>
+      {(folds || grouped) && (
+        <div className="flex flex-wrap gap-2 px-5 pb-3.5 pt-1.5">
+          {folds && (
+            <button
+              type="button"
+              aria-expanded={unfolded}
+              className="min-h-10 rounded-[10px] px-3.5 text-sm font-bold text-brand-dark hover:bg-blush"
+              onClick={() => setUnfolded(!unfolded)}
+            >
+              {unfolded ? `Show the first ${FOLD_AFTER} rows ↑` : `Show all ${rows.length} rows ↓`}
+            </button>
+          )}
+          {grouped && (
+            <button
+              type="button"
+              className="min-h-10 rounded-[10px] px-3.5 text-sm font-semibold text-ink-3 underline underline-offset-2 hover:text-ink"
+              onClick={() => setAsTable(!asTable)}
+            >
+              {asTable ? "Show grouped" : "Show as table"}
+            </button>
+          )}
+        </div>
+      )}
+      <div className="flex items-start gap-2.5 border-t border-line-3 bg-[#FAF7F6] px-5 py-3.5 text-[13px] leading-normal text-ink-2">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#991B1B" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="mt-px shrink-0" aria-hidden="true">
+          <path d="M9 11l3 3 8-8" />
+          <path d="M20 12v6a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h9" />
+        </svg>
+        <span data-testid="examined">{reading.checked}</span>
+      </div>
     </section>
   );
 }

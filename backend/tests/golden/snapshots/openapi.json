@@ -24,6 +24,49 @@
     "title": "AskBody",
     "type": "object"
    },
+   "ConversationChange": {
+    "additionalProperties": false,
+    "description": "UI refresh, phase B [demo extension]. At least one field; nothing else is accepted.",
+    "properties": {
+     "archived": {
+      "anyOf": [
+       {
+        "type": "boolean"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Archived"
+     },
+     "pinned": {
+      "anyOf": [
+       {
+        "type": "boolean"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Pinned"
+     },
+     "title": {
+      "anyOf": [
+       {
+        "maxLength": 200,
+        "minLength": 1,
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Title"
+     }
+    },
+    "title": "ConversationChange",
+    "type": "object"
+   },
    "HTTPValidationError": {
     "properties": {
      "detail": {
@@ -236,6 +279,68 @@
      }
     },
     "summary": "Get Conversation"
+   },
+   "patch": {
+    "description": "Phase B: how the list shows a conversation. Only its own user (S3); the audit record is never\ntouched (FR 13, NFR 5), so an archived conversation's exchanges stay recorded.",
+    "operationId": "update_conversation_api_conversations__conversation_id__patch",
+    "parameters": [
+     {
+      "in": "path",
+      "name": "conversation_id",
+      "required": true,
+      "schema": {
+       "title": "Conversation Id",
+       "type": "string"
+      }
+     },
+     {
+      "in": "header",
+      "name": "x-demo-user",
+      "required": false,
+      "schema": {
+       "anyOf": [
+        {
+         "type": "string"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "title": "X-Demo-User"
+      }
+     }
+    ],
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/ConversationChange"
+       }
+      }
+     },
+     "required": true
+    },
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "Update Conversation"
    }
   },
   "/api/conversations/{conversation_id}/exchanges": {

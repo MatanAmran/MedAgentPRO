@@ -61,6 +61,15 @@ class Conversation:
     items: list[dict] = field(default_factory=list)          # what the screen shows
     history: list[prompts.Exchange] = field(default_factory=list)   # what rewriting and NFR 27 read
     busy: bool = False
+    # UI refresh, phase B [demo extension]: how the list shows it. Never the audit record (FR 13, NFR 5)
+    title: str | None = None       # a name its user gave; None shows the first question
+    pinned: bool = False
+    archived: bool = False         # hidden from the list only; still opened by its id, still recorded
+
+    def summary(self) -> dict:
+        return {"conversation_id": self.id, "created_at": self.created_at,
+                "title": self.title or (self.items[0]["posed"] if self.items else None),
+                "exchanges": len(self.items), "pinned": self.pinned, "archived": self.archived}
 
 
 class ConflictError(Exception):
@@ -102,8 +111,20 @@ class AppState:
         return conv
 
     def conversations(self, user: dict) -> list[Conversation]:
+        """The user's conversations, archived ones left out (phase B: archiving only hides)."""
         with self._lock:
-            return [c for c in self._conversations.values() if c.owner == user["user_id"]]
+            return [c for c in self._conversations.values() if c.owner == user["user_id"] and not c.archived]
+
+    def update(self, conversation_id: str, user: dict, changes: dict) -> Conversation:
+        """Phase B [demo extension]: title, pinned, archived, by the conversation's own user only. Touches
+        nothing of its exchanges, its history or the audit record. LookupError and PermissionError as
+        conversation()."""
+        conv = self.conversation(conversation_id, user)
+        with self._lock:
+            for key in ("title", "pinned", "archived"):
+                if key in changes:
+                    setattr(conv, key, changes[key])
+        return conv
 
     def conversation(self, conversation_id: str, user: dict) -> Conversation:
         """LookupError where there is none, PermissionError where it is someone else's (S3)."""

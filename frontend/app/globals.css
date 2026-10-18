@@ -1,21 +1,48 @@
 @import "tailwindcss";
 
+/* UI refresh (18.10): the tokens of docs/design/ui-refresh, one to one. Red from #B91C1C to #7F1D1D on white
+   and warm grey; depth by layered shadows. Text greys stay at 4.5:1 or more on their background (Test 40):
+   the design's lightest grey (#A8A29E) is used for nothing but decoration. */
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --background: #f6f3f2;
+  --foreground: #1c1917;
 }
 
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  --font-sans: var(--font-hanken);
+  --font-mono: var(--font-plex-mono);
+
+  --color-ink: #1c1917; /* text */
+  --color-ink-2: #44403c; /* strong secondary text */
+  --color-ink-3: #57534e; /* secondary text */
+  --color-ink-4: #78716c; /* muted text, 4.6:1 on canvas */
+  --color-canvas: #f6f3f2; /* page */
+  --color-sheet: #fbf8f7; /* sidebar foot */
+  --color-line: #ece4e2; /* borders */
+  --color-line-2: #e7dcda; /* composer border */
+  --color-line-3: #f0e8e6; /* soft rule */
+  --color-blush: #fef2f2; /* selected, chips */
+  --color-blush-2: #fee2e2; /* references */
+  --color-blush-3: #fecaca; /* blush borders */
+  --color-brand: #b91c1c;
+  --color-brand-hi: #dc2626;
+  --color-brand-dark: #991b1b;
+  --color-brand-deep: #7f1d1d;
+
+  --shadow-card: 0 1px 2px rgba(28, 25, 23, 0.04), 0 18px 40px -24px rgba(127, 29, 29, 0.35);
+  --shadow-pop: 0 24px 48px -20px rgba(28, 25, 23, 0.35), 0 8px 16px -8px rgba(127, 29, 29, 0.2);
+  --shadow-header: 0 1px 0 rgba(28, 25, 23, 0.03), 0 8px 24px -16px rgba(127, 29, 29, 0.25);
+  --shadow-button: 0 10px 22px -10px rgba(185, 28, 28, 0.7), inset 0 1px 0 rgba(255, 255, 255, 0.25);
+  --shadow-bubble: 0 12px 24px -16px rgba(28, 25, 23, 0.6);
+  --shadow-composer: 0 16px 36px -18px rgba(127, 29, 29, 0.45);
 }
 
 body {
   background: var(--background);
   color: var(--foreground);
-  font-family: var(--font-geist-sans), Arial, Helvetica, sans-serif;
+  font-family: var(--font-hanken), system-ui, Arial, Helvetica, sans-serif;
 }
 
 /* Keyboard focus (Test 40, NFR 24): every control shows where focus is, by an outline, not by colour
@@ -23,4 +50,59 @@ body {
 :focus-visible {
   outline: 2px solid var(--foreground);
   outline-offset: 2px;
+}
+
+.bg-brand-gradient {
+  background: linear-gradient(145deg, #c81e1e, #8b1a1a);
+}
+.bg-mark-gradient {
+  background: linear-gradient(145deg, #dc2626, #7f1d1d);
+}
+.bg-avatar-gradient {
+  background: linear-gradient(145deg, #b91c1c, #7f1d1d);
+}
+.rule-gradient {
+  background: linear-gradient(90deg, #7f1d1d, #dc2626 45%, #7f1d1d);
+}
+
+/* the stage timeline (Working.dc.html): a pulse on the live dot, a sweep on the active step */
+@keyframes stage-pulse {
+  0% { box-shadow: 0 0 0 0 rgba(220, 38, 38, 0.45); }
+  70% { box-shadow: 0 0 0 12px rgba(220, 38, 38, 0); }
+  100% { box-shadow: 0 0 0 0 rgba(220, 38, 38, 0); }
+}
+@keyframes stage-sweep {
+  0% { background-position: -200px 0; }
+  100% { background-position: 400px 0; }
+}
+.stage-live {
+  animation: stage-pulse 1.6s infinite;
+}
+.stage-shimmer {
+  background: linear-gradient(90deg, #f5efee 0, #fde4e4 50%, #f5efee 100%);
+  background-size: 400px 100%;
+  animation: stage-sweep 1.4s linear infinite;
+}
+@media (prefers-reduced-motion: reduce) {
+  .stage-live,
+  .stage-shimmer {
+    animation: none;
+  }
+}
+
+/* a value in an answer that points at its row (phase C) */
+.ref {
+  background: var(--color-blush-2);
+  color: var(--color-brand-deep);
+  border-radius: 6px;
+  padding: 1px 6px;
+  font-weight: 600;
+  font-family: var(--font-plex-mono), ui-monospace, monospace;
+  font-size: 0.875em;
+  box-shadow: inset 0 -2px 0 #fca5a5;
+}
+.ref-hot {
+  background: var(--color-brand);
+  color: #ffffff;
+  box-shadow: 0 4px 12px rgba(185, 28, 28, 0.35);
 }

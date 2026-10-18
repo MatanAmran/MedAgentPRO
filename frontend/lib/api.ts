@@ -4,6 +4,7 @@
 
 import { createSseParser } from "./sse";
 import type {
+  ConversationChange,
   ConversationSummary,
   DemoUserId,
   Example,
@@ -58,6 +59,9 @@ export const api = {
 
   conversation: (user: DemoUserId, id: string) =>
     call<{ conversation_id: string; exchanges: ExchangeItem[] }>(user, `/api/conversations/${id}`),
+
+  updateConversation: (user: DemoUserId, id: string, change: ConversationChange) =>
+    call<ConversationSummary>(user, `/api/conversations/${id}`, { method: "PATCH", body: JSON.stringify(change) }),
 
   rate: (user: DemoUserId, exchangeId: string, rating: Rating) =>
     call<{ rating: Rating }>(user, `/api/exchanges/${exchangeId}/rating`, {

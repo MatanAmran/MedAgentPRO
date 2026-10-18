@@ -4,6 +4,38 @@
  "readings": [
   {
    "answer": "P-10629 has 0 on hand against a reorder point of 100.",
+   "answer_segments": [
+    {
+     "ref": {
+      "alias": "part_id",
+      "row": 1
+     },
+     "text": "P-10629"
+    },
+    {
+     "text": " has "
+    },
+    {
+     "ref": {
+      "alias": "on_hand",
+      "row": 1
+     },
+     "text": "0"
+    },
+    {
+     "text": " on hand against a reorder point of "
+    },
+    {
+     "ref": {
+      "alias": "reorder_point",
+      "row": 1
+     },
+     "text": "100"
+    },
+    {
+     "text": "."
+    }
+   ],
    "checked": "Examined: parts where stock on hand is below the reorder point",
    "columns": [
     "part_id",

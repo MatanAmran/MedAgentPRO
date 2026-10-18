@@ -47,6 +47,7 @@ When a decision is made in a session, record it in the relevant note (and here, 
 | 8 | Demo question set covering each behaviour | done (13.10), merged in PR #3: `demo_data/scripted_exchanges.json` (12 questions, each with `expect`), `out_of_scope_action` (A1), `GET /api/examples` and the examples on screen (A4), `docs/notes/70_DEMO.md` for the presenter |
 | 9 | End-to-end tests on the scripted model | done (14.10), merged in PR #4: both roles from golden, three engines in CI, keyboard, contrast (axe), grayscale captures; the real-model path with a fake provider; `tools/preflight.py`; the book-test table in `60_PATHS.md` |
 | 10 | The "How this was answered" panel | done (18.10), branch `task10/panel`: `python -m main --panel`; `api/trace.py` (whitelist from `CallTrace`, `cost_usd` from the budget), `frontend/app/components/HowAnswered.tsx`; `[demo extension]`, off by default |
+| 11 | UI refresh (docs/design/ui-refresh) | done (18.10), branch `ui/refresh`: A the screen (no API change), B `PATCH /api/conversations/{id}` (title, pinned, archived; archiving only hides), C `answer_segments` and provenance on hover; `[demo extension]`; one line in `pipeline.views()`, approved |
 
 ## Task 4 decisions (settled in the Claude chat, 12.10)
 
@@ -224,7 +225,7 @@ On Evyatar's machine an Application Control policy blocks `.exe` files in the ve
 # Backend (from backend\, venv active)
 python -m pip install -r requirements.txt
 python -m demo_data.seed          # builds demo_data\demo.db
-python -m pytest -q               # the default run; 983 after the task 10 panel (18.10)
+python -m pytest -q               # the default run; 1012 after the UI refresh (18.10)
 python -m tools.path_map          # runs tests/paths and tests/feasibility, writes docs/notes/60_PATHS.md
 python -m query_assistance.dry_run   # prices two scripted exchanges at the .env prices, no model call, no key
 python -m query_assistance.dry_run --model claude-sonnet-5-5   # the same, prices from LiteLLM's local map, no .env

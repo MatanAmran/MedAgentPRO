@@ -1,0 +1,47 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Demo user picker</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;600;700;800&amp;display=swap" rel="stylesheet">
+<style>body{margin:0}</style>
+</helmet>
+<div style="width: 420px; height: 520px; box-sizing: border-box; padding: 20px; background: #F6F3F2; font-family: 'Hanken Grotesk', system-ui, sans-serif; color: #1C1917; display: flex; flex-direction: column; align-items: flex-end; gap: 8px">
+  <button type="button" aria-haspopup="listbox" aria-expanded="true" style="display: flex; align-items: center; gap: 10px; padding: 5px 12px 5px 5px; border-radius: 14px; border: 1.5px solid #B91C1C; background: #FFFFFF; font: inherit; min-height: 48px; box-shadow: 0 0 0 4px rgba(220,38,38,0.15)">
+    <span style="width: 36px; height: 36px; border-radius: 10px; background: linear-gradient(145deg, #B91C1C, #7F1D1D); color: #FFFFFF; font-weight: 800; font-size: 13px; display: flex; align-items: center; justify-content: center">AP</span>
+    <span style="display: flex; flex-direction: column; align-items: flex-start; line-height: 1.15"><span style="font-weight: 800; font-size: 14px">AP-01</span><span style="font-size: 12px; color: #78716C">Approver · sees all orders</span></span>
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#57534E" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M18 15l-6-6-6 6"></path></svg>
+  </button>
+  <div role="listbox" aria-label="Demo user" style="width: 100%; border-radius: 18px; background: #FFFFFF; border: 1px solid #ECE4E2; box-shadow: 0 24px 48px -20px rgba(28,25,23,0.35), 0 8px 16px -8px rgba(127,29,29,0.2); padding: 8px; display: flex; flex-direction: column; gap: 2px">
+    <div style="padding: 8px 10px 4px; font-size: 12px; font-weight: 800; letter-spacing: 0.08em; color: #A8A29E">APPROVER</div>
+    <div role="option" aria-selected="true" style="display: flex; align-items: center; gap: 12px; padding: 10px; border-radius: 12px; background: #FEF2F2">
+      <span style="width: 36px; height: 36px; border-radius: 10px; background: linear-gradient(145deg, #B91C1C, #7F1D1D); color: #FFFFFF; font-weight: 800; font-size: 13px; display: flex; align-items: center; justify-content: center">AP</span>
+      <span style="flex: 1 1 auto; display: flex; flex-direction: column"><span style="font-weight: 800; font-size: 14px">AP-01</span><span style="font-size: 12px; color: #57534E">Sees every purchase order</span></span>
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#B91C1C" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12l5 5 9-10"></path></svg>
+    </div>
+    <div style="padding: 10px 10px 4px; font-size: 12px; font-weight: 800; letter-spacing: 0.08em; color: #A8A29E">PLANNERS · OWN ORDERS ONLY</div>
+    <sc-for list="{{planners}}" as="p" hint-placeholder-count="5">
+      <div role="option" aria-selected="false" style="display: flex; align-items: center; gap: 12px; padding: 8px 10px; border-radius: 12px">
+        <span style="width: 32px; height: 32px; border-radius: 9px; background: #F5EFEE; border: 1px solid #ECE4E2; color: #7F1D1D; font-weight: 800; font-size: 12px; display: flex; align-items: center; justify-content: center">PL</span>
+        <span style="font-weight: 700; font-size: 14px">{{p.id}}</span>
+        <span style="margin-left: auto; font-size: 12px; color: #78716C">Planner</span>
+      </div>
+    </sc-for>
+    <div style="margin-top: 6px; padding: 10px; border-top: 1px solid #F0E8E6; font-size: 12px; color: #78716C">Demo · no authentication. Switching user changes what the records show.</div>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":420,"height":520}}'>
+class Component extends DCLogic {
+  renderVals() {
+    return { planners: ['PL-01','PL-02','PL-03','PL-04','PL-05'].map((id) => ({ id })) };
+  }
+}
+</script>
+</body>
+</html>

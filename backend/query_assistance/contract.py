@@ -241,7 +241,8 @@ def reading_title(plan: dict, cat: Catalog) -> str | None:
 
 
 def reading_view(label: str, plan: dict, result: RetrievalResult, cat: Catalog, role: str,
-                 answer: str | None = None, evidence: list[str] | None = None) -> dict:
+                 answer: str | None = None, evidence: list[str] | None = None,
+                 answer_segments: list[dict] | None = None) -> dict:
     view: dict[str, Any] = {
         "label": label,
         "checked": render_checked(plan, cat, role),
@@ -271,6 +272,8 @@ def reading_view(label: str, plan: dict, result: RetrievalResult, cat: Catalog, 
     if answer:
         view["answer"] = answer
         view["evidence"] = list(evidence or [])
+        if answer_segments:   # UI refresh, phase C [demo extension]: the answer cut at its filled references
+            view["answer_segments"] = answer_segments
     title = reading_title(plan, cat)
     if title:
         view["title"] = title

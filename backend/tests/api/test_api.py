@@ -271,3 +271,12 @@ def test_the_real_model_needs_its_chain_key_and_never_builds_under_pytest(db_pat
     monkeypatch.setenv("MEDAGENTPRO_CHAIN_KEY", "test-only")
     with pytest.raises(BudgetConfigError, match="never built under pytest"):
         main.create_app("real", db_path)
+
+
+def test_the_screen_may_patch_a_conversation_across_origins(client):
+    """UI refresh, phase B: the screen on :3000 renames, pins and archives through PATCH. Without it in
+    the CORS methods, the browser blocks the request and the screen says the server could not be reached."""
+    r = client.options("/api/conversations/CV-x", headers={
+        "Origin": "http://localhost:3000", "Access-Control-Request-Method": "PATCH",
+        "Access-Control-Request-Headers": "content-type,x-demo-user"})
+    assert r.status_code == 200 and "PATCH" in r.headers["access-control-allow-methods"]

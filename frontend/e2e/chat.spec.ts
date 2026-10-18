@@ -1,4 +1,5 @@
 import { expect, type Page, test } from "@playwright/test";
+import { NEW_CONVERSATION, pickUser } from "./helpers";
 
 // The demo questions the scripted model knows (backend/demo_data/scripted_exchanges.json)
 const LATE = "Which suppliers were late in weeks 1 to 13?";
@@ -16,7 +17,7 @@ async function answered(page: Page, n: number) {
 
 test.beforeEach(async ({ page }) => {
   await page.goto("/");
-  await expect(page.getByTestId("mode")).toHaveText("scripted model");
+  await expect(page.getByTestId("mode")).toHaveText("Scripted model");
 });
 
 test("a question read two ways: two readings, each with what was examined", async ({ page }) => {
@@ -52,8 +53,8 @@ test("sending is locked while a question runs, and unlocked after", async ({ pag
   await expect(page.getByTestId("stage")).toBeVisible();
   await page.getByLabel("Question").fill("Another question?");
   await expect(page.getByLabel("Send")).toBeDisabled();
-  await expect(page.getByLabel("Demo user")).toBeDisabled();
-  await expect(page.getByRole("button", { name: "+ New conversation" })).toBeDisabled();
+  await expect(page.getByTestId("user-picker")).toBeDisabled();
+  await expect(page.getByRole("button", NEW_CONVERSATION)).toBeDisabled();
   await answered(page, 1);
   await expect(page.getByLabel("Send")).toBeEnabled();
 });
@@ -128,8 +129,8 @@ test("a planner's conversations are their own", async ({ page }) => {
   expect(await listed("AP-01")).toContain(conversation_id);
   const planners = await listed("PL-02");
   expect(planners).not.toContain(conversation_id);
-  await page.getByLabel("Demo user").selectOption("PL-02");
-  await expect(page.getByTestId("conversations").getByRole("button")).toHaveCount(planners.length);
+  await pickUser(page, "PL-02");
+  await expect(page.getByTestId("conversation-item")).toHaveCount(planners.length);
   await expect(page.getByTestId("thread").getByTestId("exchange")).toHaveCount(0);   // nothing of the approver's shown
-  await expect(page.getByText("demo, no authentication")).toBeVisible();
+  await expect(page.getByTestId("demo-strip")).toHaveText("DEMO · NO AUTHENTICATION · SYNTHETIC DATA");
 });

@@ -435,7 +435,8 @@ def run(question: str, history: list[prompts.Exchange], user: dict, deps: Deps,
                 said = d is not None and label in d.sentences
                 evidence = list(dict.fromkeys(e for s in d.sentences[label] for e in s.evidence)) if said else None
                 out.append(contract.reading_view(label, plans[label], res, cat, role,
-                                                 d.answer(label) if said else None, evidence))
+                                                 d.answer(label) if said else None, evidence,
+                                                 d.segments(label, cat) if said else None))   # UI refresh C
             return out
 
         if not any(m.rows for m in materials):   # an empty result is a finding (Test 35), no model call

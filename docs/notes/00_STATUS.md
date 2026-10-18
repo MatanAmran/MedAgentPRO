@@ -4182,6 +4182,194 @@ exchange cost: attempt=EX-bc247dc6774a usd=0.061608 remaining=1.714846
 
 **הבא:** push ו-PR של `task10/panel` מול `master`, באישור אביתר.
 
+### **ריענון המסך — תוכנית (18.10, ענף `ui/refresh` מ-`master` ‏`5296968`).** ‏**עצירה לפני קוד**
+
+**המקור:** `docs/design/ui-refresh/` (Main, ‏Working, ‏UserPicker, ‏ConversationMenu, ‏`.dc.html`). אושר בצ׳אט ב-16:36 (הודבק). **הפרומפטים והצינור מוקפאים.** מוסכם: אדום ‎#B91C1C עד ‎#7F1D1D על לבן ואפור חם, עומק בצללים בשכבות, Hanken Grotesk ו-IBM Plex Mono.
+
+**איך:**
+- **גופנים:** `next/font/google` — אותו מנגנון של Geist היום. הגופן יורד בזמן `build` ומוגש מהשרת שלנו, כך שבזמן הדמו אין תלות ברשת.
+- **צבעים וצללים:** משתני CSS אחד-לאחד מהעיצוב, ב-`globals.css` (Tailwind 4, ‏`@theme`).
+- **רכיבים קיימים — בשינוי, לא בכתיבה מחדש:** `Chrome.tsx` (כותרת, בורר, רשימה), ‏`Composer.tsx`, ‏`ExchangeView.tsx`, ‏`ReadingCard.tsx`, ‏`HowAnswered.tsx`.
+- **רכיבים חדשים:** `UserPicker.tsx`, ‏`StageTimeline.tsx`, ‏`ConversationMenu.tsx` (שלב B).
+
+**שלב A — מסך בלבד, בלי שינוי ב-API:**
+1. **כותרת:**
+   - לוגו ו-"Query assistant".
+   - שבב מצב: "Live model" במודל האמיתי, "Scripted model" במתוסרט.
+   - **יתרת התקציב** — רק במודל האמיתי, מ-`/api/health`.
+   - פס "DEMO · NO AUTHENTICATION · SYNTHETIC DATA".
+2. **בורר משתמש:** כפתור עם `aria-haspopup="listbox"`, ו-`role="listbox"`/`option` במקלדת: חצים, Home/End, ‏Enter, ‏Esc, חזרת פוקוס. אווטאר, תפקיד, ומה כל תפקיד רואה ("Sees every purchase order" / "Own orders only"). הטקסטים קבועים בקוד, לפי `DEMO_USERS`.
+3. **רשימת שיחות:** חיפוש (סינון בצד הלקוח, לפי הכותרת), וקבוצות Today/Earlier לפי `created_at`.
+4. **Composer** בעיצוב החדש, עם השורה הקבועה מתחתיו ("Answers come only from records…").
+5. **כרטיס קריאה:** מספר, כותרת, ‏"N rows" (מ-`total`), ‏Copy, ‏Export CSV, הטבלה, ו-Examined בתחתית.
+   - **Copy:** טקסט התשובה של הקריאה, כפי שהוצג.
+   - **Export CSV:** הכותרות (`headers`) והשורות שהוצגו (`rows`). ‏**לא יותר ממה שהמשתמש ראה** — אם `total > row_count`, שורה אחרונה מסומנת "Showing N of M".
+   - טבלה ארוכה מקופלת לשש שורות, עם "Show all N rows". ‏N = השורות שהגיעו, לא `total`.
+6. **ציר שלבים חי** (Working) — מאירועי השלב הקיימים ב-SSE: עשה / פעיל / ממתין. ‏`prefers-reduced-motion` מבטל את הפעימה ואת ה-shimmer.
+7. **Stop:** מחבר את `AbortController` הקיים לכפתור. השרת מזהה ניתוק ומפסיק לפני קריאת המודל הבאה (S1). מוצג "Stopped".
+8. **"How the agent worked"** אחרי התשובה, שורה קומפקטית:
+   - "Planned N readings" — מספר הקריאות.
+   - "Retrieved N rows" — סכום `row_count`.
+   - ‏"Checked N claims" — רק כשיש `trace`, מסכום `claims` של קריאות השער שהתקבלו.
+   - **הזמן — רק אם יש `trace`.** בלי trace אין למסך זמן אמין.
+9. **הגלילה הכפולה** כשהלוח פתוח: אאתר ואתקן (כנראה `overflow` מקונן ב-`HowAnswered`).
+
+**שלב B — API קטן `[demo extension]`:**
+- `PATCH /api/conversations/{id}` עם `title`, ‏`pinned`, ‏`archived`. רק המשתמש של השיחה (403 לאחר, 404 לשיחה שלא קיימת, 422 לשדה לא מוכר או ריק).
+- **ארכוב מסתיר מהרשימה בלבד.** ‏`GET /api/conversations` לא מחזיר שיחות מאורכבות; השיחה עצמה עדיין נפתחת לפי id. **יומן הביקורת לא נוגע** (FR 13, ‏NFR 5).
+- **הסדר:** נעוצות למעלה, ואחריהן לפי זמן.
+- **תפריט שיחה** (ConversationMenu): Rename (עריכה במקום), ‏Pin, ‏Archive, עם `role="menu"` ומקלדת.
+- **בדיקות:** משתמש אחר נדחה; אחרי ארכוב החילופים עדיין ב-`audit_trail`, והשרשרת מאומתת; שם ריק או ארוך מדי נדחה.
+- **מסלולים:** נקודת קצה חדשה וקודי HTTP חדשים ← רשומות ב-`tests/paths/registry.py` (‏`branches.py` יראה אותם).
+
+**שלב C — מקור ב-hover `[demo extension]`, בחוזה:**
+- **`answer_segments` אופציונלי בכל קריאה:** `[{"text"} | {"ref": {"alias", "row"}, "text"}]`. נבנה ב-`synthesis` באותו מקום שבו ההפניות ממולאות. **`answer` לא משתנה.**
+- **ערך מעמודת טקסט חופשי** (`free_text_aliases`, ‏NFR 21) הוא קטע טקסט רגיל, בלי `ref`.
+- **במסך:** hover או focus על ערך מסמן את השורה שלו בטבלה (גם כשהיא מקופלת — היא נפתחת). כל ref בר-פוקוס (`tabindex`), עם `aria-describedby` לשורה.
+- **בעדכון:** סכמת `exchange_response` ב-`medagentpro_schemas.json` · ‏`contract.reading_view` · golden snapshots · ‏`40_CHAT.md` · ‏registry, אם `branches.py` יראה הסתעפות.
+- **בדיקות:** הקטעים מחוברים שווים ל-`answer`; לטקסט חופשי אין `ref`; ‏ref מצביע על שורה שקיימת.
+
+**❓ נקודות שבהן העיצוב חורג ממה שיש — ההצעה שלי בכל אחת:**
+1. **Working מציג "Understood as" וספירות ("2 readings of 'late'") בזמן העבודה.** הזרם נושא רק שמות שלבים (החלטה 8), ושלב A הוא בלי שינוי API. **ההצעה:** בזמן העבודה תיאורים קבועים לכל שלב, בלי ספירות ובלי Understood as. ‏Understood as מוצג עם התשובה, כמו היום.
+2. **שורות הרשימה מציגות תוצאה** ("2 readings", ‏"Referred to an investigation", ‏"1 gap"). ‏`GET /api/conversations` מחזיר רק כותרת, זמן ומספר חילופים. **ההצעה:** "N questions · HH:MM". תוצאה רק אם מוסיפים שדה בשלב B (לא ביקשו).
+3. **"Complaints · later" בכותרת** — קישור לתחום שלא קיים. **ההצעה:** תווית מושבתת ("later"), לא קישור — או להסיר.
+4. **פסים יחסיים בטבלה** — השוואה חזותית בין ערכים. **ההצעה:** לא בשלב הזה. אם רוצים: רק לעמודת צבירה מספרית אחת, ובטבלה ממוינת לפיה.
+5. **"Export answers (CSV)" בתפריט השיחה** — לא בהיקף שהודבק (שם: ייצוא לכל קריאה). **ההצעה:** לא נכנס.
+6. **ניגודיות:** חלק מהאפורים בעיצוב (‎#A8A29E לכותרות הקבוצות, על לבן) נמוכים מ-4.5:1, ונכשלים ב-axe (מבחן 40). **ההצעה:** להכהות לגוון הקרוב שעובר (‎#78716C), ולשמור על השאר.
+7. **"Follow up"** — לא בהיקף. **ההצעה:** מעביר פוקוס ל-composer, בלי טקסט מוכן (לא הצעה שהמודל כתב).
+8. **הכותרת הגדולה מעל הקריאות** ("'Late' has two readings…") — **ההצעה:** המשפט הקבוע מהקוד שקיים היום ("“late” can be read in 2 ways, so each is shown."), בסגנון החדש.
+
+**בדיקות:**
+- vitest לכל רכיב חדש.
+- **axe מלא** על המסך הריק, תשובה, לוח פתוח, בורר ותפריט פתוחים (ניגודיות, מבחן 40).
+- מקלדת בלבד: בורר, תפריט, Stop, ‏Copy/Export, ‏refs.
+- Playwright בשני המצבים.
+- **צילומי grayscale נוצרים מחדש.**
+- pytest; ‏`--plans` נשאר 43/43; ‏golden מעודכן (שלב C).
+- **בלי ריצת מודל אמיתי.**
+
+**לא בהיקף:** קבצים או תמונות מצורפים, קול, regenerate, הצעות שהמודל כותב.
+
+**סדר העבודה:** A ← commit ← B ← commit ← C ← commit, ובדיקות מלאות בסוף כל שלב.
+
+**הבא:** אישור התוכנית ושמונה הנקודות.
+
+### **ריענון המסך — שלב A בוצע (18.10, ענף `ui/refresh`).** מסך בלבד, בלי שינוי ב-API, בפרומפטים או בצינור
+
+- **התוכנית אושרה** עם שמונה הנקודות (הודבק): 1, ‏2, ‏4, ‏5, ‏6, ‏8 כפי שהוצעו. ‏**3:** ‏"Complaints · later" הוסר (`Main.dc.html` יעודכן בענף הזה). ‏**7:** ‏"Follow up" קיים — ההתנהגות נשמרה, רק בעיצוב חדש. ‏**Export:** בלי שורת "Showing" בתוך הקובץ; הספירה בשם הקובץ (`<label>_<shown>_of_<total>.csv`) ובכפתור ("Export N rows"). ‏**Copy:** אחרי שלב C — הטקסט המחובר, עם בדיקה שהוא שווה ל-`answer`.
+- **מה נבנה:**
+  - **גופנים ומשתנים:** Hanken Grotesk ו-IBM Plex Mono (`next/font/google`), וכל הצבעים והצללים כמשתנים ב-`globals.css`. ‏**כל האפורים של טקסט עוברים 4.5:1.**
+  - **כותרת** (`Chrome.tsx`): לוגו, "Query assistant", ‏"Live model" / "Scripted model", יתרת התקציב (רק במודל האמיתי: מ-`/api/health`, ואחר כך מהעלות של כל תשובה), והפס "DEMO · NO AUTHENTICATION · SYNTHETIC DATA".
+  - **בורר משתמש** (`UserPicker.tsx`): ‏listbox — חצים, Home/End, ‏Enter/Space, ‏Esc, החזרת פוקוס. שתי קבוצות (`role="group"`).
+  - **רשימת שיחות:** חיפוש, ‏Today/Earlier, ו-"N questions · HH:MM" (נקודה 2).
+  - **ציר שלבים חי** (`StageTimeline.tsx`): מאירועי השלב בלבד, עם תיאורים קבועים (נקודה 1). ‏`prefers-reduced-motion` מבטל את האנימציות.
+  - **Stop:** מבטל את הבקשה דרך ה-`AbortController` הקיים, ומציג "Stopped. The question was not answered.". השרת מסרב לקריאת המודל הבאה (S1), והשיחה מקבלת את השאלה הבאה (T7-B1, נבדק ב-e2e).
+  - **"How the agent worked":** קריאות, שורות, "Drafted with references", ‏"Checked N claims" (רק עם trace, מהשער שהתקבל), וזמן (רק עם trace, ורק אם גדול מ-0).
+  - **כרטיס קריאה:** מספר, כותרת, ‏"N rows", ‏Copy, ‏Export, טבלה מקופלת אחרי 6, ו-Examined בתחתית.
+- **באג שתוקן — הגלילה הכפולה עם הלוח פתוח.**
+  - **הסיבה:** ה-`caption` של טבלת הלוח הוא `sr-only` (`position: absolute`), ולמכולת הגלילה לא היה `position`. לכן הוא מוקם ביחס לדף, ומתח אותו ל-1750 פיקסלים (בחלון של 900).
+  - **התיקון:** `relative` על מכולת השרשור. ‏e2e בודק שהדף לא נגלל כשהלוח פתוח.
+- **ממצא של axe שתוקן:** הלוח של משימה 10 השתמש ב-`text-zinc-500`. על הרקע החדש זה 4.37:1, ולכן עבר למשתני הניגודיות.
+- **בדיקות:**
+  - **vitest 92** (‏+17: בורר, כותרת, רשימה, ציר, Stop, כרטיס, CSV, שורת הסוכן).
+  - **Playwright מתוסרט 19** (‏+5 ב-`ui.spec.ts`: ‏**axe מלא, WCAG 2.2 A/AA**, על המסך הריק, תשובה, בורר פתוח, לוח פתוח וציר; ‏Stop במקלדת; ‏Export כהורדה אמיתית; קבוצות וחיפוש). **אמיתי (ספק מזויף) 5.**
+  - **בדיקות שעודכנו לשינוי מכוון:** הבורר (`pickUser` ב-`e2e/helpers.ts`), ‏"New conversation", ‏"Scripted/Live model", הפס, טקסט העלות.
+  - **צילומי grayscale חדשים:** `docs/notes/ui_refresh_grayscale/`. של משימה 9 נשארו כתיעוד.
+  - ‏pytest 983, ‏`--plans` 43/43, ‏tsc ו-eslint נקיים.
+
+### **ריענון המסך — שלב B בוצע (18.10).** ‏`PATCH /api/conversations/{id}` ותפריט שיחה `[demo extension]`
+
+- **API:**
+  - **הגוף:** `title` (1–200 תווים, אחרי trim), ‏`pinned`, ‏`archived` (‏`StrictBool`: ‏"yes" נדחה, וגם `null` מפורש). לפחות שדה אחד, ושדה לא מוכר נדחה — 422.
+  - **רק המשתמש של השיחה:** 403 לאחר, 404 לשיחה שלא קיימת.
+  - **ארכוב מסתיר מהרשימה בלבד.** ‏`GET /api/conversations/{id}` עדיין מחזיר אותה, עם החילופים.
+  - **יומן הביקורת לא נוגע:** אחרי ארכוב, `audit_trail` זהה ו-`verify_chain` עובר (נבדק).
+  - הכותרת שנתנו גוברת על השאלה הראשונה. השדות נשמרים בזיכרון השרת, כמו השיחה עצמה.
+- **באג שנמצא ב-e2e ותוקן:** ‏CORS התיר רק GET ו-POST, ולכן הדפדפן חסם את ה-PATCH, והמסך הציג "The server could not be reached". נוסף PATCH, עם בדיקת preflight ב-`tests/api/test_api.py`.
+- **מסך:** `ConversationMenu.tsx`:
+  - תפריט עם `role="menu"`: חצים, Home/End, ‏Esc עם החזרת פוקוס.
+  - Rename, ‏Pin to top / Unpin, ‏Archive, והמשפט על יומן הביקורת.
+  - שינוי שם במקום: Enter שומר, Esc מבטל, שם ריק לא נשלח.
+  - קבוצת **Pinned** מעל Today/Earlier, ובתחתית הרשימה "Archived conversations stay in the audit record…".
+- **נקודה 3:** ‏"Complaints · later" הוסר גם מ-`docs/design/ui-refresh/Main.dc.html`.
+- **מסלולים:** `server_conversation_update` ב-`tests/paths/registry.py` (‏`endpoint:PATCH /api/conversations/{conversation_id}`), ‏`test_server_conversation_update`. ‏golden: ‏`openapi.json` עודכן — רק הוספות.
+- **בדיקות:** pytest ‏**985** · ‏vitest **96** (+4) · Playwright מתוסרט **20** (+1: שינוי שם, נעיצה וארכוב במקלדת, ו-axe עם התפריט פתוח) · אמיתי 5 · ‏`--plans` 43/43 · ruff ו-bandit נקיים · mypy ללא שינוי (27).
+- **תקלה בתהליך (לא בקוד):**
+  - **מה קרה:** הרצתי פקודות frontend במקביל, ו-`cd` לא נשמר באחת מהן. ‏npx רץ מחוץ לפרויקט, **הוריד מ-npm את `tsc@2.0.4` ואת `eslint@10.13.0` למטמון של npx, והריץ אותם ב-`backend`**.
+  - **ההשפעה:** אף קובץ בריפו לא השתנה (נבדק ב-`git status`).
+  - **מעכשיו:** כל `cd` עם `|| exit 1`, ובלי הרצה במקביל.
+
+### ❓ **ריענון המסך — שלב C: עצירה לפני קוד. השינוי נוגע בשורה אחת של `pipeline.py`** (18.10)
+
+**למה עצרתי:** ההוראה הייתה "Stop earlier if anything touches prompts, pipeline". ‏`answer_segments` חייב להיבנות איפה שההפניות ממולאות, כלומר ב-`synthesis.Draft`. ה-reading שמוצג נבנה בתוך `pipeline.run`, בפונקציה הפנימית `views()`, שקוראת ל-`contract.reading_view(..., d.answer(label), evidence)`. כדי שהקטעים יגיעו לחוזה, צריך להעביר אותם משם.
+
+**ההצעה — שלושה שינויים, בלי שינוי התנהגות:**
+1. **`synthesis.Draft.segments(label, cat)`** — מתודה חדשה. אותו פירוק של `fill`:
+   - טקסט ← `{"text"}`.
+   - הפניה ← `{"ref": {"alias", "row"}, "text": value}`, כאשר `row` הוא מספר השורה (1 ומעלה) ב-`rows` של הקריאה.
+   - **ערך מעמודת טקסט חופשי** (`free_text_aliases`, ‏NFR 21) ← `{"text"}` בלבד, בלי `ref`.
+   - בין משפטים — `{"text": " "}`, כמו ב-`answer`.
+   - **הבדיקה תוודא:** החיבור שווה ל-`answer` בדיוק.
+2. **`pipeline.views()` — שורה אחת:** מעביר `d.segments(label, cat)` ל-`contract.reading_view` לצד `d.answer(label)`. ‏**לא משתנה:** מה שהמודל רואה, הבדיקות, השער, ה-outcome, הרישום או ההיסטוריה.
+3. **`contract.reading_view(..., answer_segments=None)`** — מוסיף את השדה כשהוא ניתן. הסכימה של `exchange_response`: שדה אופציונלי `answer_segments`, `[demo extension]`.
+
+**בדקתי:** הפניה תמיד לקריאה של המשפט עצמו (`check` דוחה תווית אחרת), ולכן `{"alias", "row"}` בלי תווית מספיק.
+
+**ההחלטה (אביתר / הצ׳אט):** לאשר את השורה ב-`pipeline.py`? בלעדיה שלב C לא אפשרי בלי טריק (מחרוזת שנושאת שדה נסתר), ולא הייתי עושה את זה.
+
+**מצב:** שלבים A ו-B ב-commits (`23b66ed`, ‏`b0f68ce`), ועוד commit שמסיר תוצרים שגויים (`7a867bb`). ‏C לא התחיל.
+
+### **ריענון המסך — שלב C בוצע (18.10).** ‏`answer_segments` ומקור ב-hover `[demo extension]`. אביתר אישר את השורה ב-`pipeline.views()`
+
+- **backend:**
+  - **`synthesis.Draft.segments(label, cat)`:** אותו פירוק של `fill`. טקסט רצוף מתמזג. הפניה ← `{"ref": {"alias", "row"}, "text"}`. ערך מעמודת טקסט חופשי — טקסט רגיל (NFR 21).
+  - **`pipeline.views()`:** השורה היחידה בצינור — מעבירה `d.segments(label, cat)` ל-`contract.reading_view`.
+  - **`contract.reading_view(..., answer_segments)`:** השדה נוסף רק כשיש תשובה.
+  - **הסכימה של `exchange_response`:** `answer_segments` אופציונלי, `additionalProperties: false`, ‏`row ≥ 1`.
+- **golden:** 13 תמונות של תשובות עודכנו — **רק הוספות** (427 שורות, אף שורה לא הוסרה). ‏`40_CHAT.md` §6 מתעד את השדה.
+- **מסך:**
+  - כל ערך בתשובה הוא כפתור (`button.ref`). ריחוף או פוקוס מסמנים אותו ואת השורה שלו (`data-hot`, ‏`aria-describedby` לשורה).
+  - פוקוס על ערך משורה מקופלת פותח את הטבלה.
+  - Copy מעתיק את הטקסט המחובר (שווה ל-`answer`, נבדק).
+  - שורת הסבר קבועה: "Every marked value is filled in by code from a record. Point at one to see its row."
+- **בדיקות:**
+  - **pytest 1012:** ‏+27 ב-`test_segments.py`, כולל **כל תשובה ב-golden: החיבור שווה ל-`answer`, וכל ref מצביע על שורה קיימת ועל הערך שלה**.
+  - **stress 8.** ‏**vitest 100** (+4). ‏**Playwright מתוסרט 21** (+1: ריחוף ופוקוס, ו-axe עם ערך בפוקוס). **אמיתי 5.**
+  - **`--plans` 43/43.** ‏ruff ו-bandit נקיים. **צילומי grayscale נוצרו מחדש.**
+- **mypy: 28 במקום 27.**
+  - **החדשה:** בשורה שהוספתי ב-`views()` — אותו דפוס כמו שתי השורות שמעליה, שכבר מסומנות (`d: Draft | None`, ו-`said` לא מצמצם את הטיפוס).
+  - **למה לא תוקנה:** תיקון דורש לשכתב גם אותן, מעבר לשורה שאושרה. ‏mypy לא חוסם (CLAUDE.md).
+
+### **ריענון המסך — גמור (A, ‏B, ‏C).** סיכום לצ׳אט
+
+- **מה נבנה:** המסך בעיצוב החדש (A), ‏`PATCH` לשיחה ותפריט (B), ומקור ב-hover (C).
+- **ענף:** `ui/refresh`, ‏commits ‏`5783158` (תוכנית ועיצוב), ‏`23b66ed` (A), ‏`b0f68ce` (B), ‏`7a867bb` (ניקוי), ‏`682e5d7` (שאלת C), ו-commit של C.
+- **מה חורג מהספר (`[demo extension]`):**
+  - שדות השיחה: title, ‏pinned, ‏archived — ו-`PATCH`.
+  - `answer_segments` בחוזה.
+  - שורה אחת ב-`pipeline.views()`.
+  - **בלי שינוי בפרומפטים, בשלבים או בבדיקות התוכן.**
+- **שני באגים שנמצאו בדרך ותוקנו:**
+  - הגלילה הכפולה (‏`caption` מסוג sr-only, בלי מכולה ממוקמת).
+  - ‏CORS בלי PATCH.
+- **הבא:** push ו-PR של `ui/refresh` מול `master`, באישור אביתר.
+
+### **PR #10 — שני כשלים ב-CI, תוקנו (18.10).** מבחן המקלדת (Test 40) על Firefox ועל WebKit
+
+- **הסיבה:** ב-CI שלושת המנועים חולקים שרת אחד, ולכן רשימת השיחות גדלה בין מנוע למנוע.
+  - **בשלב B** כל שיחה נעשתה שתי עצירות Tab (כותרת ואפשרויות).
+  - **בשלב C** כל ערך בתשובה נעשה עצירה.
+  - **התוצאה:** ב-WebKit (המנוע השלישי) 200 לחיצות Tab לא הספיקו, ו-Firefox הגיע ל-timeout של 4 דקות. ב-Edge מקומית הרשימה קצרה, ולכן זה עבר.
+- **התיקון — roving tabindex, דפוס הנגישות המקובל (לא עקיפה של הבדיקה):**
+  - **רשימת השיחות היא עצירה אחת:** השיחה שבפוקוס או הנוכחית. חצים, Home ו-End זזים בין השיחות, ו-Tab ממשיך לכפתור האפשרויות שלה. הנחיה ל-screen reader: "Use the arrow keys…".
+  - **הערכים בתשובה הם עצירה אחת לכל תשובה,** וחצים זזים ביניהם (והשורה מסומנת).
+- **בדיקות:**
+  - vitest ‏102 (+2).
+  - e2e חדש: מספר העצירות ברשימה הוא 2 ובכל תשובה 1, גם כשהשרת מחזיק הרבה שיחות.
+  - **הרצה מקומית Edge ואחריו WebKit על שרת אחד** (כמו ב-CI): ‏43 עברו, ובהם מבחן המקלדת ב-WebKit. ‏Firefox חסום כאן (Application Control) — יאומת ב-CI.
+  - הנתיב האמיתי: 5.
+- **ה-error ב-job של `tests`** הוא שלב ה-mypy, שלא חוסם (28). ה-job עצמו עבר.
+
 ## מה שנסגר בסבב האחרון
 
 - **הקוד עבר לריפו** — `MedAgentPro\backend` (`query_assistance`, `model_client`, `persistence`, `shared`, `tests`). **`03_Code` נשאר כמקור ומעודכן.** `python -m pytest -q` מתוך `backend`

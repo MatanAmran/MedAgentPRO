@@ -1068,6 +1068,40 @@
                     "$ref": "#/$defs/reference"
                   }
                 },
+                "answer_segments": {
+                  "type": "array",
+                  "minItems": 1,
+                  "items": {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "required": [
+                      "text"
+                    ],
+                    "properties": {
+                      "text": {
+                        "type": "string"
+                      },
+                      "ref": {
+                        "type": "object",
+                        "additionalProperties": false,
+                        "required": [
+                          "alias",
+                          "row"
+                        ],
+                        "properties": {
+                          "alias": {
+                            "type": "string"
+                          },
+                          "row": {
+                            "type": "integer",
+                            "minimum": 1
+                          }
+                        }
+                      }
+                    }
+                  },
+                  "$comment": "[demo extension] UI refresh, phase C (chat, 18.10). The answer cut where code filled a reference: joined, the segments are the answer exactly. A segment with ref names the alias and the 1-based row of this reading's rows it was filled from, so the screen can point at the row. A value from a free-text column carries no ref (NFR 21). Built in code (synthesis.Draft.segments), never by a model."
+                },
                 "result": {
                   "enum": [
                     "rows_returned",

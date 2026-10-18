@@ -11,7 +11,7 @@ async function ask(page: import("@playwright/test").Page, question: string) {
 
 test.beforeEach(async ({ page }) => {
   await page.goto("/");
-  await expect(page.getByTestId("mode")).toHaveText("real model");
+  await expect(page.getByTestId("mode")).toHaveText("Live model");
 });
 
 test("no scripted examples on the real model", async ({ page }) => {
@@ -23,7 +23,7 @@ test("an answer shows its cost and the budget left", async ({ page }) => {
   await ask(page, "Which suppliers were late in weeks 1 to 13?");
   const answer = page.getByTestId("exchange").last();
   await expect(answer).toHaveAttribute("data-outcome", "answered", { timeout: 20_000 });
-  await expect(answer.getByTestId("cost")).toHaveText(/^This answer cost \$0\.\d{4} · \$4\.\d{2} of the demo budget left$/);
+  await expect(answer.getByTestId("cost")).toHaveText(/^\$0\.\d{4} for this answer · \$4\.\d{2} of the demo budget left$/);
 });
 
 test("the per-exchange cap stops a question with its own notice, and its cost is shown", async ({ page }) => {

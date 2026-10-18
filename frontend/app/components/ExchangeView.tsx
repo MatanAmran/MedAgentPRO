@@ -1,69 +1,100 @@
 "use client";
 
-import { formatUsd, readingsSentence } from "@/lib/present";
+import { agentSteps, formatUsd, readingsSentence } from "@/lib/present";
 import type { ExchangeItem, Rating, Stage } from "@/lib/types";
 import { HowAnswered } from "./HowAnswered";
 import { ReadingCard } from "./ReadingCard";
-
-export const STAGE_TEXT: Record<Stage, string> = {
-  waiting: "Finishing the previous question",
-  rewriting: "Reading the question in context",
-  intent: "Planning what to look up",
-  retrieval: "Retrieving records",
-  synthesis: "Writing the answer",
-  gate: "Checking each statement against the records",
-  regeneration: "Rewriting without the unsupported statements",
-  contract: "Assembling the answer",
-};
+import { StageTimeline } from "./StageTimeline";
 
 export function Question({ text }: { text: string }) {
   return (
     <div className="flex justify-end">
-      <p className="max-w-[80%] rounded-2xl bg-zinc-100 px-4 py-2.5 text-zinc-900" data-testid="question">
+      <p
+        className="max-w-[70%] rounded-[18px_18px_6px_18px] bg-ink px-[18px] py-3.5 text-base font-medium text-white shadow-bubble"
+        data-testid="question"
+      >
         {text}
       </p>
     </div>
   );
 }
 
-/** The exchange while it runs: the question and the stage reached. Never model text (decision 8). */
-export function Pending({ question, stage, error }: { question: string; stage: Stage | null; error: string | null }) {
+/** The exchange while it runs: the question and the stages reached. Never model text (decision 8). */
+export function Pending({
+  question,
+  seen,
+  followUp,
+  error,
+  onStop,
+  stopping,
+}: {
+  question: string;
+  seen: Stage[];
+  followUp: boolean;
+  error: string | null;
+  onStop: () => void;
+  stopping: boolean;
+}) {
   return (
-    <div className="flex flex-col gap-3" data-testid="pending">
+    <div className="flex flex-col gap-5" data-testid="pending">
       <Question text={question} />
       {error ? (
-        <p className="rounded-lg border border-zinc-300 px-4 py-3 text-zinc-800" role="alert">
+        <p className="rounded-xl border border-line bg-white px-4 py-3 text-ink-2" role="alert">
           {error}
         </p>
       ) : (
-        <p className="animate-pulse text-sm text-zinc-500" data-testid="stage">
-          {stage ? STAGE_TEXT[stage] : "Sending the question"}…
-        </p>
+        <StageTimeline seen={seen} followUp={followUp} onStop={onStop} stopping={stopping} />
       )}
     </div>
   );
 }
 
 function Thumbs({ value, onRate, busy }: { value: Rating | null; onRate: (r: Rating) => void; busy: boolean }) {
-  const btn = (r: Rating, label: string, glyph: string) => (
+  const btn = (r: Rating, label: string, path: string) => (
     <button
       type="button"
       aria-label={label}
       aria-pressed={value === r}
       disabled={busy}
       onClick={() => onRate(r)}
-      className={`flex h-9 w-9 items-center justify-center rounded-lg border text-lg transition-colors disabled:opacity-50 ${
-        value === r ? "border-zinc-900 bg-zinc-900 text-white" : "border-zinc-300 hover:bg-zinc-100"
+      className={`flex h-11 w-11 items-center justify-center rounded-xl border transition-colors disabled:opacity-50 ${
+        value === r ? "border-brand-deep bg-brand-deep text-white" : "border-line bg-white text-ink-2 hover:bg-canvas"
       }`}
     >
-      {glyph}
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+        <path d={path} />
+      </svg>
     </button>
   );
   return (
-    <div className="flex items-center gap-2" data-testid="rating">
-      <span className="text-sm text-zinc-500">Rate this answer</span>
-      {btn("up", "Rate up", "\u{1F44D}︎")}
-      {btn("down", "Rate down", "\u{1F44E}︎")}
+    <div className="flex items-center gap-2.5" data-testid="rating">
+      <span className="text-sm font-semibold text-ink-3">Was this useful?</span>
+      {btn("up", "Rate up", "M7 10v11H4V10zM7 10l4-7a2 2 0 0 1 3 2l-1 5h6a2 2 0 0 1 2 2.3l-1.4 7A2 2 0 0 1 17.6 21H7")}
+      {btn("down", "Rate down", "M17 14V3h3v11zM17 14l-4 7a2 2 0 0 1-3-2l1-5H5a2 2 0 0 1-2-2.3l1.4-7A2 2 0 0 1 6.4 3H17")}
+    </div>
+  );
+}
+
+function AgentRow({ item }: { item: ExchangeItem }) {
+  const { steps, seconds } = agentSteps(item);
+  if (steps.length === 0) return null;
+  return (
+    <div
+      className="flex flex-wrap items-center gap-2 rounded-[14px] border border-line bg-white px-3 py-2.5"
+      data-testid="agent-row"
+      aria-label="How the agent worked"
+      role="group"
+    >
+      <span className="pr-1 text-xs font-extrabold tracking-[0.06em] text-brand-dark">HOW THE AGENT WORKED</span>
+      {steps.map((s) => (
+        <span key={s.label} className="inline-flex items-center gap-1.5 rounded-full bg-blush px-2.5 py-1 text-[13px] font-semibold text-brand-deep">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#B91C1C" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+            <path d="M5 12l5 5 9-10" />
+          </svg>
+          {s.label}
+        </span>
+      ))}
+      {seconds !== null && seconds > 0 && <span className="ml-auto text-[13px] text-ink-4">{seconds} s in model calls</span>}
     </div>
   );
 }
@@ -83,31 +114,32 @@ export function ExchangeView({
   // action holds no records to rate); the conversation is the asker's own (S3)
   const ratable = r.outcome === "answered" && item.recorded && r.readings.length > 0;
   return (
-    <div className="flex flex-col gap-3" data-testid="exchange" data-outcome={r.outcome}>
+    <div className="flex flex-col gap-[18px]" data-testid="exchange" data-outcome={r.outcome}>
       <Question text={item.posed} />
       {r.understood_as && (
-        <p className="text-right text-sm text-zinc-500" data-testid="understood-as">
-          <span className="font-semibold text-zinc-800">Understood as:</span> {r.understood_as}
+        <p className="rounded-xl border border-blush-3 bg-blush px-3.5 py-3 text-sm text-brand-deep" data-testid="understood-as">
+          <strong>Understood as:</strong> {r.understood_as}
         </p>
       )}
-      {sentence && <p className="text-zinc-800">{sentence}</p>}
-      {r.readings.map((reading) => (
-        <ReadingCard key={reading.label} reading={reading} />
+      <AgentRow item={item} />
+      {sentence && <h2 className="text-[22px] font-extrabold tracking-tight text-ink">{sentence}</h2>}
+      {r.readings.map((reading, i) => (
+        <ReadingCard key={reading.label} reading={reading} index={i + 1} />
       ))}
       {r.gaps.map((g, i) => (
-        <p key={i} className="border-l-4 border-zinc-900 pl-3 text-zinc-900" data-testid="gap">
+        <p key={i} className="rounded-r-xl border-l-4 border-brand-deep bg-white py-2.5 pl-3.5 pr-3 text-ink" data-testid="gap">
           {g.text}
         </p>
       ))}
       {r.withheld && (
-        <p className="text-sm italic text-zinc-600" data-testid="withheld">
+        <p className="text-sm italic text-ink-3" data-testid="withheld">
           {r.withheld}
         </p>
       )}
       {r.request_for_input && (
-        <div className="rounded-xl border border-zinc-300 p-4" data-testid="request-for-input">
-          <p className="mb-2 text-zinc-900">{r.request_for_input.text}</p>
-          <ul className="flex flex-col gap-1 text-sm text-zinc-600">
+        <div className="rounded-[20px] border border-line bg-white p-5 shadow-card" data-testid="request-for-input">
+          <p className="mb-2 text-ink">{r.request_for_input.text}</p>
+          <ul className="flex flex-col gap-1 text-sm text-ink-3">
             {r.request_for_input.readings.map((x) => (
               <li key={x.label}>{x.checked}</li>
             ))}
@@ -115,36 +147,42 @@ export function ExchangeView({
         </div>
       )}
       {r.offer_investigation ? (
-        <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-zinc-300 p-4" data-testid="referral">
-          <p className="text-zinc-900">{r.notice}</p>
+        <div
+          className="flex flex-wrap items-center justify-between gap-3 rounded-[20px] border border-line bg-white p-5 shadow-card"
+          data-testid="referral"
+        >
+          <p className="text-ink">{r.notice}</p>
           <div className="flex flex-col items-end gap-1">
             {/* Q1: shown and disabled; the demo has no investigation */}
             <button
               type="button"
               disabled
               title="Investigations are not part of this demo"
-              className="cursor-not-allowed rounded-lg bg-red-700 px-4 py-2 font-semibold text-white opacity-50"
+              className="bg-brand-gradient cursor-not-allowed rounded-xl px-4 py-2 font-bold text-white opacity-60"
             >
               Open an investigation
             </button>
-            <span className="text-xs text-zinc-500">Investigations are not part of this demo</span>
+            <span className="text-xs text-ink-4">Investigations are not part of this demo</span>
           </div>
         </div>
       ) : (
         r.notice && (
-          <p className="rounded-lg border border-zinc-300 px-4 py-3 text-zinc-800" data-testid="notice">
+          <p className="rounded-xl border border-line bg-white px-4 py-3 text-ink-2" data-testid="notice">
             {r.notice}
           </p>
         )
       )}
-      {ratable && <Thumbs value={item.rating} onRate={onRate} busy={rating.busy} />}
-      {rating.error && <p className="text-sm text-red-700">{rating.error}</p>}
-      {item.cost && (
-        <p className="text-xs text-zinc-600" data-testid="cost">
-          This answer cost {formatUsd(item.cost.exchange_usd)} · {formatUsd(item.cost.remaining_usd)} of the demo budget
-          left
-        </p>
+      {(ratable || item.cost) && (
+        <div className="flex flex-wrap items-center gap-x-3.5 gap-y-2.5 px-0.5 py-1">
+          {ratable && <Thumbs value={item.rating} onRate={onRate} busy={rating.busy} />}
+          {item.cost && (
+            <span className="text-[13px] text-ink-4" data-testid="cost">
+              {formatUsd(item.cost.exchange_usd)} for this answer · {formatUsd(item.cost.remaining_usd)} of the demo budget left
+            </span>
+          )}
+        </div>
       )}
+      {rating.error && <p className="text-sm text-brand-dark">{rating.error}</p>}
       {item.trace && <HowAnswered trace={item.trace} />}
     </div>
   );

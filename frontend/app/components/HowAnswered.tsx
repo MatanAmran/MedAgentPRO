@@ -48,26 +48,26 @@ export function HowAnswered({ trace }: { trace: Trace }) {
   const scripted = trace.calls.length > 0 && trace.calls.every(isScripted);
 
   return (
-    <div className="text-xs text-zinc-700" data-testid="how-answered">
+    <div className="text-xs text-ink-2" data-testid="how-answered">
       <button
         type="button"
         aria-expanded={open}
         aria-controls={id}
         onClick={() => setOpen((o) => !o)}
-        className="rounded-md border border-zinc-300 px-2.5 py-1 font-medium text-zinc-800 hover:bg-zinc-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-zinc-900"
+        className="min-h-11 rounded-xl border border-line bg-white px-3.5 text-sm font-bold text-ink-2 hover:bg-canvas"
       >
         How this was answered {open ? "▾" : "▸"}
       </button>
       {open && (
-        <div id={id} className="mt-2 flex flex-col gap-2" data-testid="how-answered-panel">
+        <div id={id} className="mt-2 flex flex-col gap-2 rounded-[14px] border border-line bg-white p-3" data-testid="how-answered-panel">
           {trace.calls.length === 0 ? (
             <p data-testid="how-answered-empty">{trace.not_sent ? NOT_SENT_TEXT[trace.not_sent] : "No model call"}</p>
           ) : (
-            <div className="overflow-x-auto">
+            <div className="max-w-full overflow-x-auto">
               <table className="min-w-full border-collapse text-left">
                 <caption className="sr-only">One row per model call</caption>
                 <thead>
-                  <tr className="border-b border-zinc-300 text-zinc-600">
+                  <tr className="border-b border-line text-ink-3">
                     <th scope="col" className="py-1 pr-3 font-medium">Stage</th>
                     <th scope="col" className="py-1 pr-3 font-medium">Model</th>
                     <th scope="col" className="py-1 pr-3 font-medium">Attempt</th>
@@ -84,7 +84,7 @@ export function HowAnswered({ trace }: { trace: Trace }) {
                   {trace.calls.map((c, i) => {
                     const est = isScripted(c);
                     return (
-                      <tr key={i} className="border-b border-zinc-100" data-testid="how-answered-row">
+                      <tr key={i} className="border-b border-line-3" data-testid="how-answered-row">
                         <td className="py-1 pr-3">{STAGE_LABEL[c.stage] ?? c.stage}</td>
                         <td className="py-1 pr-3">{est ? "scripted" : c.model}</td>
                         <td className="py-1 pr-3">
@@ -126,7 +126,7 @@ export function HowAnswered({ trace }: { trace: Trace }) {
             <p>{usd(trace.unpriced_usd)} reserved for calls whose cost is unknown.</p>
           )}
           {trace.note && <p data-testid="how-answered-note">{NOTE_TEXT[trace.note]}</p>}
-          {scripted && <p className="text-zinc-500">Scripted model: no cost, and tokens are estimates (≈).</p>}
+          {scripted && <p className="text-ink-3">Scripted model: no cost, and tokens are estimates (≈).</p>}
         </div>
       )}
     </div>

@@ -85,7 +85,8 @@ def create_app(mode: str = "scripted", db_path: Path = seed.DEFAULT_OUT, scripte
     was answered" trace beside each answer (task 10), off unless asked for, as in the book."""
     deps, gateway_for = build_deps(mode, db_path, scripted_delay, gateway)
     app = FastAPI(title="MedAgentPro chat (demo)")
-    app.add_middleware(CORSMiddleware, allow_origins=FRONTEND_ORIGINS, allow_methods=["GET", "POST"],
+    # PATCH: renaming, pinning and archiving a conversation (UI refresh, phase B)
+    app.add_middleware(CORSMiddleware, allow_origins=FRONTEND_ORIGINS, allow_methods=["GET", "POST", "PATCH"],
                        allow_headers=["Content-Type", "X-Demo-User"])
     app.include_router(router(AppState(deps, mode, gateway_for, panel=panel)))
     return app

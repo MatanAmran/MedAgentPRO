@@ -2,6 +2,7 @@ import { mkdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import AxeBuilder from "@axe-core/playwright";
 import { expect, type Locator, type Page, test } from "@playwright/test";
+import { NEW_CONVERSATION, pickUser } from "./helpers";
 
 // The whole demo set, as the presenter runs it (task 8), for every role of the demo (Test 38, NFR 22;
 // task 9, B5): each question from its example button, a follow-up under the answer it follows. What
@@ -91,12 +92,12 @@ for (const role of ROLES) {
   }) => {
     test.setTimeout(240_000);
     await page.goto("/");
-    await page.getByLabel("Demo user").selectOption(role.user);
+    await pickUser(page, role.user);
     await contrastHolds(page, "the empty screen");
     let asked = 0;
     for (const e of await examples(page)) {
       if (!e.follows) {
-        await page.getByRole("button", { name: "+ New conversation" }).click();
+        await page.getByRole("button", NEW_CONVERSATION).click();
         asked = 0;
       }
       await page.getByTestId("examples").getByRole("button", { name: e.question, exact: true }).click();
@@ -138,7 +139,7 @@ test("the demo set from the keyboard alone (Test 40)", async ({ page }) => {
   let asked = 0;
   for (const e of await examples(page)) {
     if (!e.follows) {
-      await tabTo(page, page.getByRole("button", { name: "+ New conversation" }), "+ New conversation");
+      await tabTo(page, page.getByRole("button", NEW_CONVERSATION), "New conversation");
       await page.keyboard.press("Enter");
       asked = 0;
     }
@@ -163,9 +164,13 @@ test("the demo set from the keyboard alone (Test 40)", async ({ page }) => {
   await expect(page.getByTestId("exchange").last()).toHaveAttribute("data-outcome", "referred_to_investigation", {
     timeout: 20_000,
   });
-  await tabTo(page, page.getByLabel("Demo user"), "the demo user");
-  await page.keyboard.type("PL-02");
-  await expect(page.getByText("Planner", { exact: true })).toBeVisible();
+  await tabTo(page, page.getByTestId("user-picker"), "the demo user");
+  await page.keyboard.press("ArrowDown"); // opens on the chosen user, AP-01
+  await page.keyboard.press("ArrowDown");
+  await page.keyboard.press("ArrowDown");
+  await page.keyboard.press("Enter");
+  await expect(page.getByTestId("user-picker")).toContainText("PL-02");
+  await expect(page.getByTestId("user-picker")).toBeFocused();
 });
 
 // Grayscale (Test 40, task 9 B3a): one capture of each kind of state, for Evyatar to read by eye. One
@@ -192,7 +197,7 @@ test("each kind of state, captured in grayscale for review", async ({ page }, in
   await page.addStyleTag({ content: "html { filter: grayscale(1); }" });
   for (const [name, question] of STATES) {
     if (question) {
-      await page.getByRole("button", { name: "+ New conversation" }).click();
+      await page.getByRole("button", NEW_CONVERSATION).click();
       await page.getByTestId("examples").getByRole("button", { name: question, exact: true }).click();
       await expect(page.getByTestId("exchange")).toHaveCount(1, { timeout: 20_000 });
     }

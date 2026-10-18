@@ -4,6 +4,28 @@
  "readings": [
   {
    "answer": "S-014 had the most lines delivered after the date it committed to, 2.",
+   "answer_segments": [
+    {
+     "ref": {
+      "alias": "supplier_id",
+      "row": 1
+     },
+     "text": "S-014"
+    },
+    {
+     "text": " had the most lines delivered after the date it committed to, "
+    },
+    {
+     "ref": {
+      "alias": "missed_count",
+      "row": 1
+     },
+     "text": "2"
+    },
+    {
+     "text": "."
+    }
+   ],
    "checked": "Examined: purchase order lines where week between 1 and 13 and delivered after the date the supplier committed to · grouped by supplier · computed the number of records · limited to the records you hold",
    "columns": [
     "supplier_id",

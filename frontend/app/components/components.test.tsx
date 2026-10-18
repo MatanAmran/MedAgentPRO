@@ -86,7 +86,7 @@ describe("the exchange", () => {
     expect(screen.queryByTestId("cost")).toBeNull();
     cleanup();
     show(late, { cost: { exchange_usd: 0.0412, remaining_usd: 9.12 } });
-    expect(screen.getByTestId("cost").textContent).toBe("This answer cost $0.0412 · $9.12 of the demo budget left");
+    expect(screen.getByTestId("cost").textContent).toBe("$0.0412 for this answer · $9.12 of the demo budget left");
   });
 
   it("replaces the answer with a request for input (NFR 19)", () => {
