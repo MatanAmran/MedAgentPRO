@@ -3726,6 +3726,66 @@ exchange cost: attempt=EX-bc247dc6774a usd=0.061608 remaining=1.714846
 - **באג בכלי, תוקן אחרי הריצה:** Examined שם תאריך בגרשיים, ולכן הרמז על התקופה הראה ⚠️ על כל תקופה של תאריכים (B2, ‏B3, ‏B4, ‏G2). חושב מחדש מ-`results.json`, בלי ריצה: רק B1 ו-B5 נשארים ⚠️. **A2 עובר את הרמז** כי הרמז בודק ערכים ולא עמודה — מגבלה של הרמז. בדיקה נוספה (27 בבדיקות הכלי).
 - **לא תוקן שום דבר בפרומפטים.** לפי הכלל: תיקון רק בכלל כללי, ואחריו שני הסטים מחדש.
 
+### **סקירה בצ׳אט על הסט מחוץ לתסריט (18.10, 13:05).** ‏`970a16a` ו-`e7278d0` מאושרים. שיפוט, ותיקונים כלליים
+
+**הכלי מאושר:**
+- השינויים בקוד הקיים קטנים: `pipeline.run(on_call=)` עם מטא-דאטה בלבד, ו-`main.build_deps()`, שבונה בדיוק כמו השרת.
+- **ההצעות שלך מאושרות:** תקרת ריצה לפני חילוף, וחזרה אחרי סירוב קצב.
+- התיקון של הרמז על תאריכים בגרשיים — נכון.
+
+**השיפוט (של הצ׳אט):**
+| # | שיפוט | נימוק |
+|---|---|---|
+| B1, ‏B5 | **חוסם** | שנה שגויה ← "No records matched" על 138 ו-30 שורות. הסיבה: כלל 12, שהצ׳אט כתב |
+| A2 | **תקין** (הציפייה של הצ׳אט הייתה שגויה) | "September purchase orders" הוא בפשטות הזמנות מספטמבר. ‏Examined מראה order date, כך שזה שקוף |
+| A2 | קל | "1 days late" — יחידה אחרי הפניה, כשהמודל לא יודע את הערך |
+| C4 | **קל, אבל פער ביכולת** | ממוצע הוא שאלה טבעית, וכרגע היא נגמרת ב"לא הושלם" |
+| H2 | **החלטה של אביתר** | התשובה בעברית, ו-Examined, הפערים וההודעות באנגלית |
+| D4 | תקין | כלל 6 המצומצם עובד בפועל |
+| כל השאר | תקין | 25 מתוך 31, כולל G1 בלי דליפה, ‏F1c, ‏F3, ‏H3 |
+
+**תיקונים — כלליים, לא לשאלות:**
+1. **כלל 12 (`intent_analysis_demo@8` והכללי):**
+   > "A month or period without a year: for a date that records something that happened (delivered, received, ordered), the most recent one on or before {{reference_date}}; for a date that is scheduled (due, promised), the nearest one, which may fall after it."
+   - **זה כלל לפי משמעות העמודה, לא לפי שאלה.** ‏Examined ממשיך להראות את השנה.
+2. **ממוצע, מינימום ומקסימום במהדר:** ‏`AVG`, ‏`MIN` ו-`MAX`, כמו `COUNT` ו-`SUM`.
+   - הערכים מחושבים ב-SQL, כלומר בקוד (NFR 6 בקריאה המורחבת).
+   - **עיגול ממוצע לשתי ספרות, בקוד.**
+   - **בעדכון:** הסכמה (`func`), המהדר, כלל 7 בפרומפט, החוזה (כותרת עמודה), ובדיקות מהדר ומסלול.
+   - **לספר — לאביתר:** ‏NFR 6 מזכיר ספירה וסכום. להוסיף "average, minimum or maximum". נוסח מדויק אחרי שזה עובד.
+3. **יחידה אחרי הפניה (`synthesis@10`):**
+   > "Where a unit follows a reference, write it so it reads right for any number, such as "days late: {ref}"."
+4. **שפת התשובה (H2) — ממתין לאביתר.** שתי אפשרויות:
+   - **(א)** "Write in English" בסינתזה, כדי שהכול יהיה עקבי עם Examined, הפערים וההודעות.
+   - **(ב)** תשובה בשפת השאלה. החלקים הקבועים נשארים באנגלית, והמסך מעורב.
+   - **המלצת הצ׳אט: (א) לדמו.** ‏**✅ אביתר (18.10, 12:59): תמיד אנגלית — (א).** כלל ב-`synthesis@10`: "Write the answer in English, whatever language the question is in." ‏**וגם בניסוח מחדש** (`synthesis_redraft.md`). ב-H2 הציפייה: תשובה באנגלית, ותשובה בעברית היא כשל קל.
+
+**אחרי התיקונים:** בדיקות בלי מודל ← commit ← דיווח ← **שני הסטים מחדש, באישור אביתר:** 12 שאלות הדמו (כולל שאלה 2 אחרי 1) ו-31 שאלות הסט. כ-1.5$. אחרי זה יישארו כ-3.9$, מעל 3.75$ שהחזרה על הדמו דורשת.
+
+**בסט עצמו:** A2 ← הציפייה מתעדכנת ל-order date (תיקון של הצ׳אט בציפייה, **לא** בפרומפט). ‏`75_OFFSCRIPT_SET.md` ו-`offscript_set.json`.
+
+### **תיקונים 1–4 ו-A2 בוצעו (18.10, ענף `offscript/eval`). עצירה לפני הריצה של שני הסטים**
+
+- **1. כלל 12** — `intent_analysis_demo@8`, בנוסח של הצ׳אט מילה במילה. **בפרומפט הכללי (`templates/intent_analysis.md`) אין כלל תאריכים בכלל** (גם לא כלל 12 הישן), ולכן שם לא נוסף. בדיקה: `test_a_year_left_out_is_read_by_what_the_date_records`.
+- **2. ‏AVG:** בסכמה (`func`: ‏`SUM`/`AVG`/`MIN`/`MAX`), במהדר (`ROUND(AVG(x), 2)` ב-SQL, ‏`AVG_DECIMALS = 2`; ‏AVG רק על עמודה מספרית, אחרת `type_mismatch`), בחוזה (`AGG`: ‏"average" — ‏Examined: ‏"computed the average ordered quantity", כותרת "average ordered quantity"), וכלל 7 בשני פרומפטי הכוונה (`intent_analysis@6` ו-`_demo@8`): "Count, sum, average, and find the lowest or highest with COUNT, SUM, AVG, MIN and MAX. Never state a number yourself." ‏**MIN ו-MAX כבר היו** בסכמה ובמהדר. ה-`$comment` הישן ("AVG is excluded: an average exists in no row") הוחלף בנימוק החדש, ומקרה הסכמה "AVG" נהפך לתקין. בדיקות: `tests/query_assistance/test_aggregates.py` (‏9: כל צבירה מול SQL ישיר, העיגול, ‏AVG על תאריך נדחה, Examined וכותרת, ומסלול מלא — כוונה עם AVG, סינתזה בהפניה, שער, הערך מהקוד).
+- **3. יחידה אחרי הפניה** — `synthesis@10`, כלל 14, בנוסח של הצ׳אט. **רק בסינתזה**, כפי שנכתב; לא בניסוח מחדש.
+- **4. שפה (א)** — `synthesis@10` כלל 10 ו-`synthesis_redraft@7` כלל 7: "Write the answer in English, whatever language the question is in." (במקום "in the language the question was posed in").
+- **A2** — הציפייה: ‏`order_date` בספטמבר 2026; ‏SQL: ‏7 שורות, ‏7 הזמנות; ‏`forbid_in_examined` כולל גם "delivery date between". עודכן גם ב-`75_OFFSCRIPT_SET.md`.
+- **[תוספת שלי] `--set demo`** ב-`tools/real_eval.py`: 12 שאלות הדמו מתוך `scripted_exchanges.json` (‏Q01–Q12, ‏Q02 אחרי Q01, הסטטוס מה-`expect`; בלי SQL). כדי ששני הסטים ירוצו באותו כלי. בדיקה: הסט עובר במלואו על המודל המתוסרט.
+- **בדיקות:** ‏`pytest -q` ‏**924** עברו. ‏golden: שלוש תמונות של פרומפטים התעדכנו (כוונה ×2, סינתזה), ובשינוי רק השורות האלה. ‏ruff ו-bandit נקיים, ‏mypy ללא שינוי (27 כמו קודם). ‏`path_map` רץ. ‏dry run: ‏R7a נכנס.
+
+#### ❓ **שאלה לצ׳אט (לא מומש): צבירה על מטריקה — C4 לא ייפתר בתיקון 2 לבדו**
+
+- **מה מצאתי:** ב-C4 המודל שלח `{"func": …, "arg": {"metric": "days_late"}}`. אימתתי מול הסכמה: ההפרה `SchemaBreach:oneOf@…/expr/arg` שנרשמה בריצה היא בדיוק מה ש-`best_match` נותן ל-arg של מטריקה. ‏AVG על עמודה נותן הפרה בנתיב אחר (`…/expr`).
+- **למה זה קורה:** ‏`days_late` הוא **מטריקה** (`DAYS_BETWEEN`), לא עמודה. כלל 4 בפרומפט אומר "Where a term has a metric, select the metric rather than a column". הסכמה מקבלת ב-`arg` רק עמודה.
+- **האפשרויות:**
+  - **(א)** ‏`arg` מקבל גם מטריקה מספרית (`type` ‏`real`/`integer`) ל-SUM/AVG/MIN/MAX. המהדר כבר יודע לבנות מטריקה כביטוי; צריך לבדוק את מקומות הקוד שקוראים `arg["col"]` (החוזה: כותרת ו-Examined). ‏C4 אז אפשרי.
+  - **(ב)** להשאיר. ‏C4 נשאר "לא הושלם" (קל), וממוצע עובד רק על עמודות (כמות, מחיר, ערך שורה).
+- **עד ההכרעה:** מקרה סכמה "AVG over a metric" מקבע שזה נדחה, עם הפניה לשאלה הזו.
+- **לספר — לאביתר (מהצ׳אט):** ‏NFR 6 מזכיר ספירה וסכום; להוסיף "average, minimum or maximum" אחרי שזה עובד.
+
+**הבא:** ‏commit ← שני הסטים מחדש, **באישור אביתר** (12 שאלות הדמו כולל 2 אחרי 1, ו-31 שאלות הסט; ‏~1.5$). אם הצ׳אט בוחר (א) לפני כן — עדיף להריץ אחרי, כדי לא לשלם פעמיים.
+
 ## מה שנסגר בסבב האחרון
 
 - **הקוד עבר לריפו** — `MedAgentPro\backend` (`query_assistance`, `model_client`, `persistence`, `shared`, `tests`). **`03_Code` נשאר כמקור ומעודכן.** `python -m pytest -q` מתוך `backend`

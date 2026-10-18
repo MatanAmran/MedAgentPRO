@@ -27,7 +27,7 @@ from .compiler import HERE, Catalog, RetrievalResult
 from .synthesis import format_value
 
 CMP = {"EQ": "=", "NE": "≠", "GT": ">", "GTE": "≥", "LT": "<", "LTE": "≤"}
-AGG = {"SUM": "total", "MIN": "lowest", "MAX": "highest"}
+AGG = {"SUM": "total", "AVG": "average", "MIN": "lowest", "MAX": "highest"}
 
 _BUNDLE = json.loads((HERE / "medagentpro_schemas.json").read_text(encoding="utf-8"))
 _ENTRY = _BUNDLE["schemas"]["exchange_response"]

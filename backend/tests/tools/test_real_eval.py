@@ -282,3 +282,17 @@ def test_a_date_period_is_found_quoted_as_examined_renders_it():
     assert ev.check_examined(item, seen, CATALOG)["period"] is True
     seen["readings"][0]["checked"] = seen["readings"][0]["checked"].replace("2026", "2025")
     assert ev.check_examined(item, seen, CATALOG)["period"] is False
+
+
+def test_the_demo_set_is_the_12_questions_with_2_after_1():
+    items = ev.demo_set()
+    assert [i["id"] for i in items] == [f"Q{n:02d}" for n in range(1, 13)]
+    assert items[1]["after"] == "Q01" and not any(i.get("after") for i in items[2:])
+    assert items[6]["expect"]["status"] == ["referred_to_investigation"]
+    assert items[11]["expect"]["status"] == ["action_declined"]
+
+
+def test_the_demo_set_passes_on_the_scripted_model(db_path, conn):
+    deps, gateway_for = main.build_deps("scripted", db_path)
+    run = ev.run_set(ev.demo_set(), deps, gateway_for, conn)
+    assert [r.status_ok for r in run.results] == [True] * 12, ev.summary_table(run)

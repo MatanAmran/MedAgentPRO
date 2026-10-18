@@ -132,16 +132,22 @@ case("intent_analysis", "a question that cannot be interpreted asks for it in fu
      {"disposition": "needs_clarification"}, True,
      "Chat, 18.10, 11:35 [demo extension]: a follow-up at the start of a conversation retrieves nothing.")
 
+case("intent_analysis", "AVG over a column",
+     intent([{"label": "r", "plan": plan(
+         SELECT=[{"expr": {"func": "AVG", "arg": {"col": "a.b"}}, "as": "q"}])}]),
+     True, "Computed in the query and rounded there, so it is a field of a row like COUNT (chat, 18.10, 13:05).")
+
 # --- rejections ---
 
 case("intent_analysis", "raw SQL smuggled in",
      intent([{"label": "r", "plan": dict(plan(), RAW="DROP TABLE commitments")}]),
      False, "additionalProperties is closed; the model cannot add a key.")
 
-case("intent_analysis", "AVG",
+case("intent_analysis", "AVG over a metric",
      intent([{"label": "r", "plan": plan(
-         SELECT=[{"expr": {"func": "AVG", "arg": {"col": "a.b"}}, "as": "q"}])}]),
-     False, "An average exists in no row, so it cannot be carried as a reference.")
+         SELECT=[{"expr": {"func": "AVG", "arg": {"metric": "days_late"}}, "as": "q"}])}]),
+     False, "An aggregate takes a column. Over a metric (C4 of the held-out set, days_late) is an open "
+            "question for the chat (18.10, 13:05 follow-up), so it stays refused.")
 
 case("intent_analysis", "SUM over star",
      intent([{"label": "r", "plan": plan(

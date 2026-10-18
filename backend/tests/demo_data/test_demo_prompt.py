@@ -34,7 +34,7 @@ def db(tmp_path_factory):
 
 
 def test_prompt_metadata():
-    assert PROMPT.output_schema == "intent_analysis" and PROMPT.identity == "intent_analysis_demo@7"
+    assert PROMPT.output_schema == "intent_analysis" and PROMPT.identity == "intent_analysis_demo@8"
     assert "—" not in PROMPT.body and "–" not in PROMPT.body
 
 
@@ -99,8 +99,24 @@ def test_the_reference_date_is_the_last_day_the_data_records(db):
 
 def test_the_prompt_carries_the_reference_date_and_the_row_limit():
     text = p.render_intent(CAT, "PLANNER", "Which lines were late in September?", prompt=PROMPT)
-    assert f"on or before {CAT.data_as_of}." in text and f"then at most {c.ROW_LIMIT}." in text
+    assert f"on or before {CAT.data_as_of};" in text and f"then at most {c.ROW_LIMIT}." in text
     assert "{{" not in text
+
+
+def test_a_year_left_out_is_read_by_what_the_date_records():
+    """Chat, 18.10, 13:05 (B1 and B5 of the held-out set): a scheduled date takes the nearest year, which
+    may come after the reference date; a date of something that happened, the latest on or before it."""
+    rule = next(line for line in PROMPT.body.splitlines() if line.startswith("12. "))
+    assert "something that happened (delivered, received, ordered), the most recent one on or before" in rule
+    assert "scheduled (due, promised), the nearest one, which may fall after it" in rule
+
+
+def test_rule_7_names_every_aggregate_the_schema_allows():
+    rule = next(line for line in PROMPT.body.splitlines() if line.startswith("7. "))
+    general = next(line for line in p.load("intent_analysis.md").body.splitlines() if line.startswith("7. "))
+    assert rule == general
+    for func in ("COUNT", "SUM", "AVG", "MIN", "MAX"):
+        assert func in rule
 
 
 def test_a_prompt_that_needs_a_reference_date_refuses_a_catalog_without_one():

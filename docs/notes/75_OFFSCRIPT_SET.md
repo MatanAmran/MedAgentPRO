@@ -22,7 +22,7 @@
 | # | תפקיד | שאלה | הצפוי | שימו לב |
 |---|---|---|---|---|
 | **A1** | AP-01 | List the suppliers that delivered late during weeks 1 through 13. | ‏answered. שבועות 1–13. "late" — ‏`late_by_delivery`, אולי עם חלופה (ambiguous). שורה לכל ספק. | ניסוח שונה מ-1 |
-| **A2** | AP-01 | Show me the September purchase orders that arrived late. | ‏answered. ‏`delivered_at` בין 2026-09-01 ל-2026-09-30. שורה לכל הזמנה. | ניסוח שונה מ-3 |
+| **A2** | AP-01 | Show me the September purchase orders that arrived late. | ‏answered. ‏**`order_date` בין 2026-09-01 ל-2026-09-30** (עודכן ב-13:05; קודם `delivered_at`). שורה לכל הזמנה. | ניסוח שונה מ-3 |
 | **A3** | AP-01 | Which vendors missed their committed dates in weeks 1-13? | ‏answered. ‏`missed_promise`, שבועות 1–13, לפי ספק. | "vendors" במקום "suppliers" |
 | **A4** | AP-01 | Why does S-036 keep delivering late? | ‏referred_to_investigation | ניסוח שונה מ-7 |
 | **B1** | AP-01 | Which open lines are due in November? | ‏answered. ‏**`due_date` בנובמבר 2026**, הזמנות `open`. | **⚠️ שאלה עתידית.** כלל 12 ("the most recent on or before reference") עלול לתת נובמבר 2025, ואז אפס שורות. **נובמבר 2025 = חוסם** |

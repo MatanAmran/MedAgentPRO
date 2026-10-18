@@ -4,7 +4,7 @@ MedAgentPro - runs a question set through the pipeline in process and reports, f
 
     python -m tools.real_eval                                   the held-out set on the scripted model
     python -m tools.real_eval --real --confirm --out DIR        the same on the real model, paid
-        [--set PATH] [--only A1,F2] [--max-usd 2]
+        [--set PATH | --set demo] [--only A1,F2] [--max-usd 2]      demo: the 12 demo questions
 
 Every exchange goes through pipeline.run with the dependencies the server builds (main.build_deps), so
 the budget, the rate across users, the per-exchange cap and the audit record all hold. On top of them:
@@ -112,6 +112,23 @@ def load_set(path: Path = SET_FILE, catalog: Catalog | None = None) -> list[dict
             raise SetError(f"{where}: no gap kind {exp['gap']}")
         seen[it["id"]] = it
     return items
+
+
+def demo_set(path: Path = seed.HERE / "scripted_exchanges.json") -> list[dict]:
+    """The 12 demo questions in this tool's form: Q01..Q12, a follow-up after the question it follows,
+    the status from the scripted expectation. No SQL: their counts are the golden tests' business."""
+    out: list[dict] = []
+    ids: dict[str, str] = {}
+    for n, e in enumerate(json.loads(Path(path).read_text(encoding="utf-8"))["exchanges"], 1):
+        exp = e["expect"]
+        status = "action_declined" if "action_declined" in exp.get("shows", []) else exp["outcome"]
+        item = {"id": f"Q{n:02d}", "user": "AP-01", "question": e["question"], "expect": {"status": [status]},
+                "watch": exp.get("note")}
+        if exp.get("follows"):
+            item["after"] = ids[exp["follows"]]
+        ids[e["question"]] = item["id"]
+        out.append(item)
+    return out
 
 
 def select(items: list[dict], only: list[str] | None) -> list[dict]:
@@ -482,7 +499,7 @@ def outside_repo(path: Path) -> Path:
 def main(argv: list[str] | None = None, *, build: Callable[..., tuple] | None = None) -> int:
     """build: (mode, db_path) -> (deps, gateway_for); tests pass the scripted model's or a fake provider's."""
     ap = argparse.ArgumentParser(prog="python -m tools.real_eval")
-    ap.add_argument("--set", type=Path, default=SET_FILE)
+    ap.add_argument("--set", default=str(SET_FILE), help="a set file, or demo for the 12 demo questions")
     ap.add_argument("--only", help="ids, comma separated; the exchanges they follow are added")
     ap.add_argument("--real", action="store_true", help="the real model behind the spending cap (paid)")
     ap.add_argument("--confirm", action="store_true", help="with --real: send. Without it, nothing is sent")
@@ -496,7 +513,8 @@ def main(argv: list[str] | None = None, *, build: Callable[..., tuple] | None = 
     mode = "real" if args.real else "scripted"
     try:
         catalog = Catalog.load(seed.HERE / "schema.json", seed.HERE / "relations.json")
-        items = select(load_set(args.set, catalog), args.only.split(",") if args.only else None)
+        loaded = demo_set() if args.set == "demo" else load_set(Path(args.set), catalog)
+        items = select(loaded, args.only.split(",") if args.only else None)
         stamp = datetime.now().strftime("%Y%m%d-%H%M%S")
         out_dir = outside_repo(args.out or Path(tempfile.gettempdir()) / "medagentpro-eval" / f"{stamp}-{mode}")
     except SetError as e:
