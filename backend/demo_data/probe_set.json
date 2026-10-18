@@ -1,0 +1,1032 @@
+{
+ "$comment": "Probe set (architecture eval, chat 18.10, 23:00). Not the held-out set, not the demo set. Questions and expectations by the chat; SQL and hand plans by Code, against demo.db, without the model. A probe with no plan is a gap in the plan language found in stage 1. NEVER copy these questions into a prompt as examples. Run with tools/real_eval.py --set demo_data/probe_set.json.",
+ "data_as_of": "2026-10-09",
+ "exchanges": [
+  {
+   "id": "H1a",
+   "user": "AP-01",
+   "chain": "H1",
+   "question": "Which suppliers were late in weeks 1 to 13?",
+   "expect": {
+    "status": [
+     "answered"
+    ],
+    "period": {
+     "col": "week",
+     "from": "1",
+     "to": "13"
+    },
+    "metric": [
+     "late_by_delivery"
+    ]
+   },
+   "sql": [
+    {
+     "query": "SELECT DISTINCT supplier_id FROM commitments WHERE week BETWEEN 1 AND 13 AND delivered_at > due_date",
+     "compare": "total"
+    }
+   ],
+   "plan": [
+    {
+     "disposition": "retrieve",
+     "readings": [
+      {
+       "label": "late_by_delivery",
+       "plan": {
+        "SELECT": [
+         {
+          "expr": {
+           "col": "commitments.supplier_id"
+          },
+          "as": "supplier_id"
+         },
+         {
+          "expr": {
+           "func": "COUNT",
+           "arg": "*"
+          },
+          "as": "late_lines"
+         }
+        ],
+        "FROM": "commitments",
+        "WHERE": {
+         "AND": [
+          {
+           "BETWEEN": {
+            "col": "commitments.week",
+            "from": {
+             "value": 1
+            },
+            "to": {
+             "value": 13
+            }
+           }
+          },
+          {
+           "EQ": [
+            {
+             "metric": "late_by_delivery"
+            },
+            {
+             "value": true
+            }
+           ]
+          }
+         ]
+        },
+        "GROUP_BY": [
+         "supplier_id"
+        ],
+        "ORDER_BY": [
+         {
+          "by": "late_lines",
+          "dir": "DESC"
+         }
+        ]
+       }
+      }
+     ]
+    }
+   ],
+   "watch": "פתיחת שרשרת. 28 ספקים, כולם מוצגים (בתוך ROW_LIMIT)."
+  },
+  {
+   "id": "H1b",
+   "user": "AP-01",
+   "chain": "H1",
+   "after": "H1a",
+   "question": "What is the total value of their open orders?",
+   "rewritten": "What is the total value of the open orders of the suppliers that were late in weeks 1 to 13?",
+   "expect": {
+    "status": [
+     "answered",
+     "needs_clarification"
+    ]
+   },
+   "sql": [
+    {
+     "query": "SELECT c.supplier_id FROM commitments c JOIN purchase_orders o ON o.po_id = c.po_id WHERE o.status = 'open' AND c.supplier_id IN (SELECT supplier_id FROM commitments WHERE week BETWEEN 1 AND 13 AND delivered_at > due_date) GROUP BY c.supplier_id",
+     "compare": "total"
+    }
+   ],
+   "plan": [],
+   "watch": "האם השכתוב שומר את שני הנתונים, שבועות 1–13 ו-late_by_delivery? שלב 1: אין תוכנית. 'their' הוא semi-join, כלומר תנאי על שורות אחרות, ו-28 מזהים חורגים מ-IN (עד 20). פער שפה."
+  },
+  {
+   "id": "H2",
+   "user": "AP-01",
+   "question": "Which lines were delivered late in September?",
+   "expect": {
+    "status": [
+     "answered"
+    ],
+    "period": {
+     "col": "delivered_at",
+     "from": "2026-09-01",
+     "to": "2026-09-30"
+    },
+    "metric": [
+     "late_by_delivery"
+    ]
+   },
+   "sql": [
+    {
+     "query": "SELECT commitment_id FROM commitments WHERE delivered_at BETWEEN '2026-09-01' AND '2026-09-30' AND delivered_at > due_date",
+     "compare": "total"
+    }
+   ],
+   "plan": [
+    {
+     "disposition": "retrieve",
+     "readings": [
+      {
+       "label": "late_lines",
+       "plan": {
+        "SELECT": [
+         {
+          "expr": {
+           "col": "commitments.commitment_id"
+          },
+          "as": "commitment_id"
+         },
+         {
+          "expr": {
+           "col": "commitments.supplier_id"
+          },
+          "as": "supplier_id"
+         },
+         {
+          "expr": {
+           "col": "commitments.delivered_at"
+          },
+          "as": "delivered_at"
+         },
+         {
+          "expr": {
+           "metric": "days_late"
+          },
+          "as": "days_late"
+         }
+        ],
+        "FROM": "commitments",
+        "WHERE": {
+         "AND": [
+          {
+           "BETWEEN": {
+            "col": "commitments.delivered_at",
+            "from": {
+             "value": "2026-09-01"
+            },
+            "to": {
+             "value": "2026-09-30"
+            }
+           }
+          },
+          {
+           "EQ": [
+            {
+             "metric": "late_by_delivery"
+            },
+            {
+             "value": true
+            }
+           ]
+          }
+         ]
+        },
+        "ORDER_BY": [
+         {
+          "by": "days_late",
+          "dir": "DESC"
+         }
+        ]
+       }
+      }
+     ]
+    }
+   ],
+   "watch": "81 שורות, 30 מוצגות. אילו 30, והאם הטקסט אומר שהרשימה חלקית, ולפי מה היא מסודרת?"
+  },
+  {
+   "id": "H3",
+   "user": "AP-01",
+   "question": "Which suppliers delivered nothing late in weeks 1 to 13?",
+   "expect": {
+    "status": [
+     "answered"
+    ],
+    "period": {
+     "col": "week",
+     "from": "1",
+     "to": "13"
+    }
+   },
+   "sql": [
+    {
+     "query": "SELECT supplier_id FROM commitments WHERE week BETWEEN 1 AND 13 GROUP BY supplier_id HAVING SUM(CASE WHEN delivered_at > due_date THEN 1 ELSE 0 END) = 0",
+     "compare": "total"
+    }
+   ],
+   "plan": [
+    {
+     "disposition": "retrieve",
+     "readings": [
+      {
+       "label": "no_late",
+       "plan": {
+        "SELECT": [
+         {
+          "expr": {
+           "col": "commitments.supplier_id"
+          },
+          "as": "supplier_id"
+         },
+         {
+          "expr": {
+           "func": "MAX",
+           "arg": {
+            "metric": "days_late"
+           }
+          },
+          "as": "most_days_late"
+         }
+        ],
+        "FROM": "commitments",
+        "WHERE": {
+         "BETWEEN": {
+          "col": "commitments.week",
+          "from": {
+           "value": 1
+          },
+          "to": {
+           "value": 13
+          }
+         }
+        },
+        "GROUP_BY": [
+         "supplier_id"
+        ],
+        "HAVING": [
+         {
+          "agg": "most_days_late",
+          "op": "LTE",
+          "value": 0
+         }
+        ],
+        "ORDER_BY": [
+         {
+          "by": "supplier_id",
+          "dir": "ASC"
+         }
+        ]
+       }
+      }
+     ]
+    }
+   ],
+   "watch": "צפוי: S-002, S-004, S-007, S-009, S-020, S-021, S-027, S-029, S-037, S-039. ל-S-030 ול-S-040 אין שורות. שלב 1: ניתן לביטוי רק דרך HAVING MAX(days_late) ≤ 0, לא דרך late_by_delivery."
+  },
+  {
+   "id": "H4",
+   "user": "AP-01",
+   "question": "Which suppliers were late in September, and what is the value of their open orders?",
+   "expect": {
+    "status": [
+     "answered"
+    ],
+    "metric": [
+     "late_by_delivery"
+    ]
+   },
+   "sql": [
+    {
+     "query": "SELECT DISTINCT supplier_id FROM commitments WHERE delivered_at BETWEEN '2026-09-01' AND '2026-09-30' AND delivered_at > due_date",
+     "compare": "total"
+    }
+   ],
+   "plan": [
+    {
+     "disposition": "retrieve",
+     "readings": [
+      {
+       "label": "late_sep",
+       "plan": {
+        "SELECT": [
+         {
+          "expr": {
+           "col": "commitments.supplier_id"
+          },
+          "as": "supplier_id"
+         },
+         {
+          "expr": {
+           "func": "COUNT",
+           "arg": "*"
+          },
+          "as": "late_lines"
+         }
+        ],
+        "FROM": "commitments",
+        "WHERE": {
+         "AND": [
+          {
+           "BETWEEN": {
+            "col": "commitments.delivered_at",
+            "from": {
+             "value": "2026-09-01"
+            },
+            "to": {
+             "value": "2026-09-30"
+            }
+           }
+          },
+          {
+           "EQ": [
+            {
+             "metric": "late_by_delivery"
+            },
+            {
+             "value": true
+            }
+           ]
+          }
+         ]
+        },
+        "GROUP_BY": [
+         "supplier_id"
+        ],
+        "ORDER_BY": [
+         {
+          "by": "late_lines",
+          "dir": "DESC"
+         }
+        ]
+       }
+      },
+      {
+       "label": "open_value",
+       "plan": {
+        "SELECT": [
+         {
+          "expr": {
+           "col": "commitments.supplier_id"
+          },
+          "as": "supplier_id"
+         },
+         {
+          "expr": {
+           "func": "SUM",
+           "arg": {
+            "col": "commitments.line_value"
+           }
+          },
+          "as": "open_value"
+         }
+        ],
+        "FROM": "commitments",
+        "JOIN": [
+         {
+          "rel": "commitment_order",
+          "type": "INNER"
+         }
+        ],
+        "WHERE": {
+         "EQ": [
+          {
+           "col": "purchase_orders.status"
+          },
+          {
+           "value": "open"
+          }
+         ]
+        },
+        "GROUP_BY": [
+         "supplier_id"
+        ],
+        "ORDER_BY": [
+         {
+          "by": "open_value",
+          "dir": "DESC"
+         }
+        ]
+       }
+      }
+     ]
+    }
+   ],
+   "watch": "שלב 1: ניתן לביטוי רק כשתי קריאות נפרדות. השנייה היא כל 39 הספקים, 30 מוצגים, ו-6 מתוך 28 הספקים המאחרים נחתכים (S-008, S-010, S-011, S-017, S-024, S-027). 'their' הוא semi-join: פער שפה."
+  },
+  {
+   "id": "H5",
+   "user": "PL-02",
+   "question": "Which supplier had the most late lines in weeks 1 to 13?",
+   "expect": {
+    "status": [
+     "answered"
+    ],
+    "period": {
+     "col": "week",
+     "from": "1",
+     "to": "13"
+    },
+    "metric": [
+     "late_by_delivery"
+    ]
+   },
+   "sql": [
+    {
+     "query": "SELECT supplier_id FROM commitments WHERE planner_id = 'PL-02' AND week BETWEEN 1 AND 13 AND delivered_at > due_date GROUP BY supplier_id",
+     "compare": "total"
+    }
+   ],
+   "plan": [
+    {
+     "disposition": "retrieve",
+     "readings": [
+      {
+       "label": "late_by_delivery",
+       "plan": {
+        "SELECT": [
+         {
+          "expr": {
+           "col": "commitments.supplier_id"
+          },
+          "as": "supplier_id"
+         },
+         {
+          "expr": {
+           "func": "COUNT",
+           "arg": "*"
+          },
+          "as": "late_lines"
+         }
+        ],
+        "FROM": "commitments",
+        "WHERE": {
+         "AND": [
+          {
+           "BETWEEN": {
+            "col": "commitments.week",
+            "from": {
+             "value": 1
+            },
+            "to": {
+             "value": 13
+            }
+           }
+          },
+          {
+           "EQ": [
+            {
+             "metric": "late_by_delivery"
+            },
+            {
+             "value": true
+            }
+           ]
+          }
+         ]
+        },
+        "GROUP_BY": [
+         "supplier_id"
+        ],
+        "ORDER_BY": [
+         {
+          "by": "late_lines",
+          "dir": "DESC"
+         }
+        ]
+       }
+      }
+     ]
+    }
+   ],
+   "watch": "S-008 עם 4 בתחום של PL-02. בכל השורות זה S-038 עם 10. האם הטקסט אומר את התחום ('of your lines')?"
+  },
+  {
+   "id": "H6",
+   "user": "PL-02",
+   "question": "How many goods receipts were posted in September?",
+   "expect": {
+    "status": [
+     "answered"
+    ],
+    "period": {
+     "col": "received_on",
+     "from": "2026-09-01",
+     "to": "2026-09-30"
+    }
+   },
+   "sql": [
+    {
+     "query": "SELECT COUNT(*) FROM receipts WHERE received_on BETWEEN '2026-09-01' AND '2026-09-30'",
+     "compare": "value"
+    },
+    {
+     "query": "SELECT COUNT(*) FROM receipts r JOIN commitments c ON c.commitment_id = r.commitment_id WHERE r.received_on BETWEEN '2026-09-01' AND '2026-09-30' AND c.planner_id = 'PL-02'",
+     "compare": "value"
+    }
+   ],
+   "plan": [
+    {
+     "disposition": "retrieve",
+     "readings": [
+      {
+       "label": "receipts",
+       "plan": {
+        "SELECT": [
+         {
+          "expr": {
+           "func": "COUNT",
+           "arg": "*"
+          },
+          "as": "receipts"
+         }
+        ],
+        "FROM": "receipts",
+        "WHERE": {
+         "BETWEEN": {
+          "col": "receipts.received_on",
+          "from": {
+           "value": "2026-09-01"
+          },
+          "to": {
+           "value": "2026-09-30"
+          }
+         }
+        }
+       }
+      }
+     ]
+    },
+    {
+     "disposition": "retrieve",
+     "readings": [
+      {
+       "label": "receipts",
+       "plan": {
+        "SELECT": [
+         {
+          "expr": {
+           "func": "COUNT",
+           "arg": "*"
+          },
+          "as": "receipts"
+         }
+        ],
+        "FROM": "receipts",
+        "JOIN": [
+         {
+          "rel": "receipt_commitment",
+          "type": "INNER"
+         }
+        ],
+        "WHERE": {
+         "BETWEEN": {
+          "col": "receipts.received_on",
+          "from": {
+           "value": "2026-09-01"
+          },
+          "to": {
+           "value": "2026-09-30"
+          }
+         }
+        }
+       }
+      }
+     ]
+    }
+   ],
+   "watch": "256 (כולן) או 34 (של השורות שלו), לפי צורת התוכנית. G2 מצפה ל-256 (receipts פתוח לכל התפקידים, שאלה פתוחה ללקוח)."
+  },
+  {
+   "id": "H7",
+   "user": "AP-01",
+   "question": "What did S-001, S-002, S-003, S-004, S-005, S-006, S-007, S-008, S-009, S-010, S-011, S-012, S-013, S-014, S-015, S-016, S-017, S-018, S-019, S-020, S-021 and S-022 deliver in September?",
+   "expect": {
+    "status": [
+     "answered"
+    ],
+    "period": {
+     "col": "delivered_at",
+     "from": "2026-09-01",
+     "to": "2026-09-30"
+    }
+   },
+   "sql": [
+    {
+     "query": "SELECT commitment_id FROM commitments WHERE delivered_at BETWEEN '2026-09-01' AND '2026-09-30' AND supplier_id IN ('S-001','S-002','S-003','S-004','S-005','S-006','S-007','S-008','S-009','S-010','S-011','S-012','S-013','S-014','S-015','S-016','S-017','S-018','S-019','S-020','S-021','S-022')",
+     "compare": "total"
+    }
+   ],
+   "plan": [
+    {
+     "disposition": "retrieve",
+     "readings": [
+      {
+       "label": "delivered",
+       "plan": {
+        "SELECT": [
+         {
+          "expr": {
+           "col": "commitments.supplier_id"
+          },
+          "as": "supplier_id"
+         },
+         {
+          "expr": {
+           "col": "commitments.commitment_id"
+          },
+          "as": "commitment_id"
+         },
+         {
+          "expr": {
+           "col": "commitments.delivered_at"
+          },
+          "as": "delivered_at"
+         }
+        ],
+        "FROM": "commitments",
+        "WHERE": {
+         "AND": [
+          {
+           "BETWEEN": {
+            "col": "commitments.delivered_at",
+            "from": {
+             "value": "2026-09-01"
+            },
+            "to": {
+             "value": "2026-09-30"
+            }
+           }
+          },
+          {
+           "OR": [
+            {
+             "IN": {
+              "col": "commitments.supplier_id",
+              "values": [
+               {
+                "value": "S-001"
+               },
+               {
+                "value": "S-002"
+               },
+               {
+                "value": "S-003"
+               },
+               {
+                "value": "S-004"
+               },
+               {
+                "value": "S-005"
+               },
+               {
+                "value": "S-006"
+               },
+               {
+                "value": "S-007"
+               },
+               {
+                "value": "S-008"
+               },
+               {
+                "value": "S-009"
+               },
+               {
+                "value": "S-010"
+               },
+               {
+                "value": "S-011"
+               }
+              ]
+             }
+            },
+            {
+             "IN": {
+              "col": "commitments.supplier_id",
+              "values": [
+               {
+                "value": "S-012"
+               },
+               {
+                "value": "S-013"
+               },
+               {
+                "value": "S-014"
+               },
+               {
+                "value": "S-015"
+               },
+               {
+                "value": "S-016"
+               },
+               {
+                "value": "S-017"
+               },
+               {
+                "value": "S-018"
+               },
+               {
+                "value": "S-019"
+               },
+               {
+                "value": "S-020"
+               },
+               {
+                "value": "S-021"
+               },
+               {
+                "value": "S-022"
+               }
+              ]
+             }
+            }
+           ]
+          }
+         ]
+        },
+        "ORDER_BY": [
+         {
+          "by": "supplier_id",
+          "dir": "ASC"
+         }
+        ]
+       }
+      }
+     ]
+    }
+   ],
+   "watch": "22 מזהים, ו-IN מקבל עד 20. שלב 1: ניתן לביטוי רק כ-OR של שני IN. 153 שורות, 30 מוצגות."
+  },
+  {
+   "id": "H8a",
+   "user": "AP-01",
+   "chain": "H8",
+   "question": "Which suppliers in Israel were late in weeks 1 to 13?",
+   "expect": {
+    "status": [
+     "answered"
+    ],
+    "period": {
+     "col": "week",
+     "from": "1",
+     "to": "13"
+    },
+    "metric": [
+     "late_by_delivery"
+    ]
+   },
+   "sql": [
+    {
+     "query": "SELECT DISTINCT c.supplier_id FROM commitments c JOIN suppliers s ON s.supplier_id = c.supplier_id WHERE s.country = 'Israel' AND c.week BETWEEN 1 AND 13 AND c.delivered_at > c.due_date",
+     "compare": "total"
+    }
+   ],
+   "plan": [
+    {
+     "disposition": "retrieve",
+     "readings": [
+      {
+       "label": "late_israel",
+       "plan": {
+        "SELECT": [
+         {
+          "expr": {
+           "col": "commitments.supplier_id"
+          },
+          "as": "supplier_id"
+         },
+         {
+          "expr": {
+           "func": "COUNT",
+           "arg": "*"
+          },
+          "as": "late_lines"
+         }
+        ],
+        "FROM": "commitments",
+        "WHERE": {
+         "AND": [
+          {
+           "BETWEEN": {
+            "col": "commitments.week",
+            "from": {
+             "value": 1
+            },
+            "to": {
+             "value": 13
+            }
+           }
+          },
+          {
+           "EQ": [
+            {
+             "metric": "late_by_delivery"
+            },
+            {
+             "value": true
+            }
+           ]
+          },
+          {
+           "EQ": [
+            {
+             "col": "suppliers.country"
+            },
+            {
+             "value": "Israel"
+            }
+           ]
+          }
+         ]
+        },
+        "GROUP_BY": [
+         "supplier_id"
+        ],
+        "ORDER_BY": [
+         {
+          "by": "late_lines",
+          "dir": "DESC"
+         }
+        ],
+        "JOIN": [
+         {
+          "rel": "commitment_supplier",
+          "type": "INNER"
+         }
+        ]
+       }
+      }
+     ]
+    }
+   ],
+   "watch": "S-001 6, S-008 6, S-019 4."
+  },
+  {
+   "id": "H8b",
+   "user": "AP-01",
+   "chain": "H8",
+   "after": "H8a",
+   "question": "What are their open order values?",
+   "rewritten": "What are the open order values of the suppliers in Israel that were late in weeks 1 to 13?",
+   "expect": {
+    "status": [
+     "answered"
+    ]
+   },
+   "sql": [
+    {
+     "query": "SELECT c.supplier_id FROM commitments c JOIN purchase_orders o ON o.po_id = c.po_id WHERE o.status = 'open' AND c.supplier_id IN ('S-001','S-008','S-019') GROUP BY c.supplier_id",
+     "compare": "total"
+    }
+   ],
+   "plan": [
+    {
+     "disposition": "retrieve",
+     "readings": [
+      {
+       "label": "open_value_israel",
+       "plan": {
+        "SELECT": [
+         {
+          "expr": {
+           "col": "commitments.supplier_id"
+          },
+          "as": "supplier_id"
+         },
+         {
+          "expr": {
+           "func": "SUM",
+           "arg": {
+            "col": "commitments.line_value"
+           }
+          },
+          "as": "open_value"
+         }
+        ],
+        "FROM": "commitments",
+        "JOIN": [
+         {
+          "rel": "commitment_order",
+          "type": "INNER"
+         },
+         {
+          "rel": "commitment_supplier",
+          "type": "INNER"
+         }
+        ],
+        "WHERE": {
+         "AND": [
+          {
+           "EQ": [
+            {
+             "col": "purchase_orders.status"
+            },
+            {
+             "value": "open"
+            }
+           ]
+          },
+          {
+           "EQ": [
+            {
+             "col": "suppliers.country"
+            },
+            {
+             "value": "Israel"
+            }
+           ]
+          }
+         ]
+        },
+        "GROUP_BY": [
+         "supplier_id"
+        ],
+        "ORDER_BY": [
+         {
+          "by": "open_value",
+          "dir": "DESC"
+         }
+        ]
+       }
+      }
+     ]
+    }
+   ],
+   "watch": "S-001 382901.05, S-008 134566.3, S-019 370298.45. התוכנית לפי תנאי (Israel) נכונה רק במקרה: לישראל יש בדיוק 3 ספקים, וכולם איחרו. לפי מזהים: IN של שלושה."
+  },
+  {
+   "id": "H9",
+   "user": "AP-01",
+   "question": "Which lines were delivered last week?",
+   "expect": {
+    "status": [
+     "answered",
+     "needs_clarification"
+    ]
+   },
+   "sql": [
+    {
+     "query": "SELECT commitment_id FROM commitments WHERE delivered_at BETWEEN '2026-09-28' AND '2026-10-04'",
+     "compare": "total"
+    },
+    {
+     "query": "SELECT commitment_id FROM commitments WHERE delivered_at BETWEEN '2026-10-02' AND '2026-10-08'",
+     "compare": "total"
+    }
+   ],
+   "plan": [
+    {
+     "disposition": "retrieve",
+     "readings": [
+      {
+       "label": "last_week",
+       "plan": {
+        "SELECT": [
+         {
+          "expr": {
+           "col": "commitments.commitment_id"
+          },
+          "as": "commitment_id"
+         },
+         {
+          "expr": {
+           "col": "commitments.supplier_id"
+          },
+          "as": "supplier_id"
+         },
+         {
+          "expr": {
+           "col": "commitments.delivered_at"
+          },
+          "as": "delivered_at"
+         }
+        ],
+        "FROM": "commitments",
+        "WHERE": {
+         "BETWEEN": {
+          "col": "commitments.delivered_at",
+          "from": {
+           "value": "2026-09-28"
+          },
+          "to": {
+           "value": "2026-10-04"
+          }
+         }
+        },
+        "ORDER_BY": [
+         {
+          "by": "delivered_at",
+          "dir": "DESC"
+         }
+        ]
+       }
+      }
+     ]
+    }
+   ],
+   "watch": "data_as_of 2026-10-09 (יום שישי). שבוע קלנדרי 28.9–4.10: 55 שורות. שבעת הימים שלפני: 53. Examined חייב להראות את התאריכים."
+  }
+ ]
+}
