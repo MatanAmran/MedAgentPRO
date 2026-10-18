@@ -196,7 +196,8 @@ def check_examined(item: dict, response: dict, catalog: Catalog) -> dict[str, bo
     out: dict[str, bool | None] = {"period": None, "metric": None, "forbid": None}
     if exp.get("period") and lines:
         p = exp["period"]
-        out["period"] = any(f"between {p['from']} and {p['to']}" in s for s in lines)
+        # Examined quotes a text or date value ('2026-09-01') and not a number (week between 1 and 13)
+        out["period"] = any(f"between {p['from']} and {p['to']}" in s.replace("'", "") for s in lines)
     if exp.get("metric") and lines:
         phrases = []
         for m in exp["metric"]:

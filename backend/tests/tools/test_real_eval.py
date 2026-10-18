@@ -272,3 +272,13 @@ def test_the_command_writes_the_report_and_the_log(db_path, tmp_path, capsys):
     assert [r["id"] for r in data["results"]] == ["S1", "S2", "S5"]
     assert data["results"][2]["response"]["readings"][0]["not_held"][0]["value"] == "S-099"
     assert "model call:" in (out / "operational.log").read_text(encoding="utf-8")
+
+
+def test_a_date_period_is_found_quoted_as_examined_renders_it():
+    """Real run, 18.10: Examined quotes a date, so the hint read every date period as missing."""
+    item = {"expect": {"period": {"col": "delivered_at", "from": "2026-09-01", "to": "2026-09-30"}}}
+    seen = {"readings": [{"checked": "Examined: purchase order lines where delivery date between "
+                                     "'2026-09-01' and '2026-09-30'"}]}
+    assert ev.check_examined(item, seen, CATALOG)["period"] is True
+    seen["readings"][0]["checked"] = seen["readings"][0]["checked"].replace("2026", "2025")
+    assert ev.check_examined(item, seen, CATALOG)["period"] is False
