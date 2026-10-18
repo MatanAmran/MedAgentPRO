@@ -1,0 +1,10 @@
+/* The demo data viewer in the chat screen's palette (frontend/app/globals.css). Served by Datasette
+   with --static assets:demo_data/datasette, named in demo_data/datasette.yml (extra_css_urls). */
+body { background: #f6f3f2; color: #1c1917; }
+header, footer { background-color: #b91c1c; }
+a:link { color: #991b1b; }
+a:visited { color: #7f1d1d; }
+a:hover, a:focus, a:active { color: #dc2626; }
+form input[type=submit], form button[type=button] { background: #b91c1c; border-color: #991b1b; }
+table.rows-and-columns th { background: #fef2f2; border-bottom-color: #fecaca; }
+table.rows-and-columns td { border-color: #ece4e2; }

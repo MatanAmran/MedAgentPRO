@@ -1,0 +1,248 @@
+# ASCII only: Datasette reads this file in the locale's codepage (cp1255 here), so a dash in a title is the escape \u2014 inside double quotes.
+# Datasette metadata for the demo data viewer (chat 19.10, 02:00). Read-only, for the presenter:
+#   python -m datasette serve -i demo_data/demo.db --port 8001 --metadata demo_data/datasette.yml --static assets:demo_data/datasette
+# Not the pipeline: no model, no compiler, no entitlement. Labels are the readable names of schema.json;
+# each canned query is the plain SQL of a demo question's plan (scripted_exchanges.json), without LIMIT.
+# tests/demo_data/test_datasette.py holds both to the source: the labels, and every query's row count
+# against the compiled plan's count before LIMIT.
+title: MedAgentPro demo data (synthetic, read-only)
+description_html: |-
+  <p>The synthetic demo store, not company data. Read-only: arbitrary SQL is off; use the tables,
+  their filters and facets, or the canned queries (one per demo question).</p>
+  <p>Measures as the plans use them: <b>delivered late</b> delivered_at &gt; due_date;
+  <b>committed late</b> promised_date &gt; due_date; <b>missed commitment</b> delivered_at &gt; promised_date;
+  <b>short delivered</b> received_qty &lt; quantity; <b>below reorder point</b> on_hand &lt; reorder_point.
+  Data as of 2026-10-09.</p>
+allow_sql: false
+extra_css_urls:
+  - /assets/demo.css
+
+databases:
+  demo:
+    tables:
+      suppliers:
+        description: suppliers
+        facets: [region, country]
+        columns:
+          supplier_id: supplier
+          name: supplier name
+          region: region
+          country: country
+      parts:
+        description: parts
+        facets: [category, planner_id]
+        columns:
+          part_id: part
+          description: part description
+          category: part category
+          planner_id: part planner
+          on_hand: stock on hand
+          reorder_point: reorder point
+          bin_location: bin location
+      purchase_orders:
+        description: purchase orders
+        facets: [supplier_id, status, planner_id]
+        columns:
+          po_id: purchase order
+          supplier_id: supplier
+          planner_id: planner
+          order_date: order date
+          status: order status
+          notes: order notes
+      commitments:
+        description: purchase order lines
+        facets: [supplier_id, week, planner_id]
+        columns:
+          commitment_id: order line
+          po_id: purchase order
+          supplier_id: supplier
+          part_id: part
+          planner_id: planner
+          week: week
+          quantity: ordered quantity
+          unit_price: unit price
+          line_value: line value
+          due_date: requested date
+          promised_date: date the supplier committed to
+          delivered_at: delivery date
+          received_qty: received so far
+          delay_reason: delay reason
+      receipts:
+        description: goods receipts
+        columns:
+          receipt_id: goods receipt
+          commitment_id: order line
+          received_on: receipt date
+          quantity: receipt quantity
+      forecast:
+        description: demand forecast
+        facets: [week]
+        columns:
+          part_id: part
+          week: forecast week
+          demand: forecast demand
+
+    queries:
+      q01_late_by_delivery:
+        title: "Q1 \u2014 suppliers late in weeks 1 to 13 (by delivery)"
+        description: "Which suppliers were late in weeks 1 to 13? Lines delivered after the requested date."
+        sql: |-
+          SELECT supplier_id, COUNT(*) AS late_count
+          FROM commitments
+          WHERE week BETWEEN 1 AND 13 AND delivered_at > due_date
+          GROUP BY supplier_id
+          ORDER BY late_count DESC
+      q01_late_by_promise:
+        title: "Q1 \u2014 suppliers late in weeks 1 to 13 (by commitment)"
+        description: "Which suppliers were late in weeks 1 to 13? Lines the supplier committed to a date after the requested date."
+        sql: |-
+          SELECT supplier_id, COUNT(*) AS late_count
+          FROM commitments
+          WHERE week BETWEEN 1 AND 13 AND promised_date > due_date
+          GROUP BY supplier_id
+          ORDER BY late_count DESC
+      q02_late_by_delivery:
+        title: "Q2 \u2014 suppliers late in weeks 14 to 26 (by delivery)"
+        description: "And in weeks 14 to 26? (after Q1) Lines delivered after the requested date."
+        sql: |-
+          SELECT supplier_id, COUNT(*) AS late_count
+          FROM commitments
+          WHERE week BETWEEN 14 AND 26 AND delivered_at > due_date
+          GROUP BY supplier_id
+          ORDER BY late_count DESC
+      q02_late_by_promise:
+        title: "Q2 \u2014 suppliers late in weeks 14 to 26 (by commitment)"
+        description: "And in weeks 14 to 26? (after Q1) Lines the supplier committed to a date after the requested date."
+        sql: |-
+          SELECT supplier_id, COUNT(*) AS late_count
+          FROM commitments
+          WHERE week BETWEEN 14 AND 26 AND promised_date > due_date
+          GROUP BY supplier_id
+          ORDER BY late_count DESC
+      q03_late_in_september:
+        title: "Q3 \u2014 purchase orders delivered late in September"
+        description: "Which purchase orders were delivered late in September? Late lines per supplier and order, delivered 1 to 30 September."
+        sql: |-
+          SELECT supplier_id, po_id, COUNT(*) AS late_lines
+          FROM commitments
+          WHERE delivered_at BETWEEN '2026-09-01' AND '2026-09-30' AND delivered_at > due_date
+          GROUP BY supplier_id, po_id
+          ORDER BY supplier_id ASC, po_id ASC
+      q04_missed_promise:
+        title: "Q4 \u2014 suppliers that missed a commitment in weeks 1 to 13"
+        description: "Which suppliers missed a commitment in weeks 1 to 13? Lines delivered after the date the supplier committed to."
+        sql: |-
+          SELECT supplier_id, COUNT(*) AS missed_count
+          FROM commitments
+          WHERE week BETWEEN 1 AND 13 AND delivered_at > promised_date
+          GROUP BY supplier_id
+          ORDER BY missed_count DESC
+      q05_past_due:
+        title: "Q5 \u2014 open lines past due"
+        description: "Which open lines are past due, and who approved them? Open orders, not delivered, requested before 2026-10-09. Who approved is not held in the records."
+        sql: |-
+          SELECT c.supplier_id, c.po_id, c.due_date
+          FROM commitments c
+          JOIN purchase_orders o ON c.po_id = o.po_id
+          WHERE o.status = 'open' AND c.delivered_at IS NULL AND c.due_date < '2026-10-09'
+          ORDER BY c.due_date ASC
+      q06_recorded_reasons:
+        title: "Q6 \u2014 delay reasons recorded for S-038"
+        description: "What delay reasons were recorded for S-038's late lines? S-038's lines with a delay reason recorded."
+        sql: |-
+          SELECT po_id, delay_reason
+          FROM commitments
+          WHERE supplier_id = 'S-038' AND delay_reason IS NOT NULL
+          ORDER BY po_id ASC
+      q07_s014_late_lines:
+        title: "Q7 \u2014 S-014's lines delivered late (the records, not a cause)"
+        description: "Why is S-014 late so often? On the screen this is referred to an investigation and nothing is retrieved. These are the records behind the question; no cause is held in them."
+        sql: |-
+          SELECT commitment_id, po_id, week, due_date, promised_date, delivered_at, delay_reason
+          FROM commitments
+          WHERE supplier_id = 'S-014' AND delivered_at > due_date
+          ORDER BY week ASC, commitment_id ASC
+      q08_supplied:
+        title: "Q8 \u2014 what S-040 supplied"
+        description: "What did S-040 supply? S-040 exists and has no order lines: no records matched."
+        sql: |-
+          SELECT po_id, part_id
+          FROM commitments
+          WHERE supplier_id = 'S-040'
+      q09_supplied:
+        title: "Q9 \u2014 what S-099 supplied"
+        description: "What did S-099 supply? S-099 is not in the suppliers: the screen says so."
+        sql: |-
+          SELECT po_id, part_id
+          FROM commitments
+          WHERE supplier_id = 'S-099'
+      q10_below_reorder:
+        title: "Q10 \u2014 parts below their reorder point"
+        description: "Which parts are below their reorder point? Stock on hand below the reorder point."
+        sql: |-
+          SELECT part_id, on_hand, reorder_point
+          FROM parts
+          WHERE on_hand < reorder_point
+          ORDER BY on_hand ASC
+      q11_on_time:
+        title: "Q11 \u2014 suppliers with lines delivered on time in weeks 1 to 13"
+        description: "Which supplier delivered the most lines on time in weeks 1 to 13? Delivered lines on or before the requested date."
+        sql: |-
+          SELECT supplier_id, COUNT(*) AS on_time_count
+          FROM commitments
+          WHERE week BETWEEN 1 AND 13 AND delivered_at IS NOT NULL AND delivered_at <= due_date
+          GROUP BY supplier_id
+          ORDER BY on_time_count DESC
+      q12_po_87213:
+        title: "Q12 \u2014 PO-87213's promised dates (unchanged)"
+        description: "Update the promised date of PO-87213 to 20 October. On the screen the action is declined: the assistant changes nothing. These are the order's lines as they stand."
+        sql: |-
+          SELECT commitment_id, po_id, due_date, promised_date, delivered_at
+          FROM commitments
+          WHERE po_id = 'PO-87213'
+          ORDER BY commitment_id ASC
+      q13_late_by_delivery:
+        title: "Q13 \u2014 their open orders, after Q1 (suppliers late by delivery)"
+        description: "What is the total value of their open orders? (after Q1) The suppliers are listed; the value of their open orders depends on other records of them, so it is a gap, not an answer."
+        sql: |-
+          SELECT supplier_id, COUNT(*) AS late_count
+          FROM commitments
+          WHERE week BETWEEN 1 AND 13 AND delivered_at > due_date
+          GROUP BY supplier_id
+          ORDER BY late_count DESC
+      q13_late_by_promise:
+        title: "Q13 \u2014 their open orders, after Q1 (suppliers late by commitment)"
+        description: "What is the total value of their open orders? (after Q1) The suppliers are listed; the value of their open orders is a gap, not an answer."
+        sql: |-
+          SELECT supplier_id, COUNT(*) AS late_count
+          FROM commitments
+          WHERE week BETWEEN 1 AND 13 AND promised_date > due_date
+          GROUP BY supplier_id
+          ORDER BY late_count DESC
+      q14_late_by_delivery:
+        title: "Q14 \u2014 PL-02's lines delivered late in September (by delivery)"
+        description: "Which of my lines were delivered late in September? Asked as PL-02 (my = planner PL-02). Delivered after the requested date."
+        sql: |-
+          SELECT commitment_id, po_id, part_id, due_date, delivered_at
+          FROM commitments
+          WHERE planner_id = 'PL-02' AND delivered_at BETWEEN '2026-09-01' AND '2026-09-30'
+            AND delivered_at > due_date
+          ORDER BY delivered_at ASC
+      q14_late_by_promise:
+        title: "Q14 \u2014 PL-02's lines delivered in September, committed late"
+        description: "Which of my lines were delivered late in September? Asked as PL-02. The supplier committed to a date after the requested date."
+        sql: |-
+          SELECT commitment_id, po_id, part_id, due_date, delivered_at
+          FROM commitments
+          WHERE planner_id = 'PL-02' AND delivered_at BETWEEN '2026-09-01' AND '2026-09-30'
+            AND promised_date > due_date
+          ORDER BY delivered_at ASC
+      q14_missed_promise:
+        title: "Q14 \u2014 PL-02's lines delivered in September, commitment missed"
+        description: "Which of my lines were delivered late in September? Asked as PL-02. Delivered after the date the supplier committed to."
+        sql: |-
+          SELECT commitment_id, po_id, part_id, due_date, delivered_at
+          FROM commitments
+          WHERE planner_id = 'PL-02' AND delivered_at BETWEEN '2026-09-01' AND '2026-09-30'
+            AND delivered_at > promised_date
+          ORDER BY delivered_at ASC
