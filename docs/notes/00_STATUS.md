@@ -4696,6 +4696,20 @@ exchange cost: attempt=EX-bc247dc6774a usd=0.061608 remaining=1.714846
 - **ממוקדת:** ‏12 ‏+ 13 ‏+ 8, בערך **USD 1.6**.
 - **כל ה-offscript (31):** בערך **USD 2.6**. **נשארו USD 2.59 בתקציב.**
 
+### **סבב תיקונים — התוכנית אושרה בצ׳אט (18.10), עם שינויים.** סדר הבנייה: 4 ← 3 ← 1 ← 2
+
+- **D1 ו-H8b: ‏H8b לא הופך לפער.** הבעיה היא רשימה חתוכה או ארוכה מדי, לא רשימה בכלל.
+  - **הכלל:** השכתוב רשאי לנקוב במזהים שהוצגו בקריאה קודמת רק אם הקריאה הזו לא נחתכה (shown == total, מ-D2) ויש לכל היותר 20 מזהים. אחרת הוא אומר את התנאי, וה-intent מחזיר `cross_record_condition` אם צריך.
+  - **השומר ב-`check_rewrite`:** דוחה, עם משוב, מזהה שנוסף מקריאה חתוכה, או יותר מ-20 מזהים שנוספו. **לא "יותר מ-5".**
+  - **משפט הפער:** ‏"“{asked}” depends on other records of {entity}, which cannot be combined in one question yet. Ask it in two steps: first find them, then ask about them by name."
+- **D3:** משפט ה-`PLAN_LIMIT` שהוצע אושר.
+- **D4, מצומצם:**
+  - משפט שמתאר את השורות של קריאה במשהו אחר מהתנאי שלה ("are in the records", ‏"are listed", ‏"also include") הוא `uncovered`.
+  - משפט שממשיך את הקודם על אותה קריאה ("followed with", ‏"each had", ‏"then") לא צריך לחזור על התנאי.
+  - אותו דבר בכלל 13 של הסינתזה.
+- **D6 ו-G1:** הציפייה מתהפכת: PL-02 רואה את השורות של PL-03. שינויים ב-golden צפויים איפה ש-"limited to the records you hold" נעלם, ויירשמו בדוח.
+- **ריצה ממוקדת** (אחר כך, באישור אביתר): 12 שאלות הדמו, 13 הבדיקות, 8 שאלות ה-offscript שהסבב נוגע בהן, ו-4 שאלות offscript שלא נגעו בהן, עם רשימות ארוכות או דירוגים (בחירה של Code, כדי לתפוס רגרסיה מ-D4 ומ-D5). **הערכת עלות לפני הריצה.**
+
 ## מה שנסגר בסבב האחרון
 
 - **הקוד עבר לריפו** — `MedAgentPro\backend` (`query_assistance`, `model_client`, `persistence`, `shared`, `tests`). **`03_Code` נשאר כמקור ומעודכן.** `python -m pytest -q` מתוך `backend`

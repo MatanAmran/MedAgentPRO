@@ -151,11 +151,19 @@ def _plan(table: str, cols: list[str], joins: tuple[str, ...] = ()) -> dict:
     (_plan("suppliers", ["suppliers.supplier_id"], ("commitment_supplier",)), None),
     ({"SELECT": [{"expr": {"col": "commitments.commitment_id"}, "as": "cid"},
                  {"expr": {"metric": "days_late"}, "as": "late"}], "FROM": "commitments"}, None),
-    (LATE, None),
+    # D10: grouped by one identifier column, one row per record of the table it identifies
+    (LATE, "suppliers"),
+    ({**LATE, "SELECT": [{"expr": {"col": "commitments.commitment_id"}, "as": "cid"},
+                         {"expr": {"func": "COUNT", "arg": "*"}, "as": "late_lines"}], "GROUP_BY": ["cid"],
+      "ORDER_BY": [{"by": "late_lines", "dir": "DESC"}]}, "purchase order lines"),
+    ({**LATE, "SELECT": [{"expr": {"col": "commitments.week"}, "as": "week"},
+                         {"expr": {"func": "COUNT", "arg": "*"}, "as": "late_lines"}], "GROUP_BY": ["week"],
+      "ORDER_BY": [{"by": "late_lines", "dir": "DESC"}]}, None),
 ])
 def test_entity_only_where_each_row_is_a_row_of_the_from_table(db, plan, entity):
     """Long list, L4 [demo extension]: plain columns, no GROUP_BY, every JOIN many-to-one by declared keys
-    (references in schema.json); otherwise "rows" on the screen (chat, 18.10)."""
+    (references in schema.json); otherwise "rows" on the screen (chat, 18.10). D10: or grouped by exactly
+    one identifier column."""
     assert k.reading_entity(plan, CAT) == entity
     v = k.reading_view("r", plan, run(db, plan), CAT, "APPROVER")
     assert v.get("entity") == entity

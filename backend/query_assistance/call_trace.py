@@ -81,6 +81,6 @@ def traces(stage: str, made: list[Call], model: str) -> list[CallTrace]:
             input_tokens=r.input_tokens if r else None, output_tokens=r.output_tokens if r else None,
             output_chars=len(r.text) if r and r.text is not None else None,
             reasoning_tokens=r.reasoning_tokens if r else None, claims=_claims(c),
-            temperature=r.temperature if r else None, max_tokens=r.max_tokens if r else None,
+            temperature=r.temperature if r else None, max_tokens=r.max_tokens if r else c.max_tokens,
             duration_ms=c.duration_ms, check=c.check, cost_usd=r.cost_usd if r else None))
     return out

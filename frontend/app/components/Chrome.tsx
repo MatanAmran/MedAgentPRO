@@ -155,7 +155,16 @@ export function Sidebar({
           selected ? "border-blush-3 bg-blush shadow-[0_6px_16px_-10px_rgba(185,28,28,0.45)]" : "border-transparent hover:bg-white"
         }`}
       >
-        <span aria-hidden="true" className={`mt-1.5 h-2 w-2 shrink-0 rounded-full ${selected ? "bg-brand" : "bg-[#D6D3D1]"}`} />
+        {c.archived ? (
+          // U-2 (fix round): an archived conversation is muted and marked by an archive box, not by colour alone
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#78716C" strokeWidth="2" strokeLinecap="round"
+               strokeLinejoin="round" className="mt-0.5 shrink-0" aria-hidden="true" data-testid="archived-icon">
+            <rect x="3" y="4" width="18" height="5" rx="1" />
+            <path d="M5 9v10a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V9M10 13h4" />
+          </svg>
+        ) : (
+          <span aria-hidden="true" className={`mt-1.5 h-2 w-2 shrink-0 rounded-full ${selected ? "bg-brand" : "bg-[#D6D3D1]"}`} />
+        )}
         {renaming === c.conversation_id && renderRename ? (
           renderRename(c)
         ) : (
@@ -173,8 +182,10 @@ export function Sidebar({
           }}
           className="flex min-w-0 flex-1 flex-col gap-1 text-left disabled:opacity-60"
         >
-          <span className={`text-sm leading-snug ${selected ? "font-bold text-ink" : "font-semibold text-ink-2"}`}>
+          <span className={`text-sm leading-snug ${selected ? "font-bold text-ink" : c.archived ? "font-medium text-ink-3"
+                                                                                    : "font-semibold text-ink-2"}`}>
             {c.title ?? "New conversation"}
+            {c.archived && <span className="sr-only"> (archived)</span>}
           </span>
           <span className={`text-xs ${selected ? "font-semibold text-brand-dark" : "text-ink-4"}`}>{conversationMeta(c)}</span>
         </button>

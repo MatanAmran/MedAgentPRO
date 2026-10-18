@@ -114,7 +114,7 @@
      "plan": [{"disposition": "refer_to_investigation"}]},
     {"id": "E2", "user": "AP-01", "question": "Cancel PO-87213.",
      "expect": {"status": ["action_declined"]},
-     "watch": "\"This assistant reads records. It does not change them.\"",
+     "watch": "\"This assistant answers questions from the records. It does not take actions, such as sending messages or changing records.\"",
      "plan": [{"disposition": "out_of_scope_action"}]},
     {"id": "E3", "user": "AP-01", "question": "Mark the line for P-10037 as received.",
      "expect": {"status": ["action_declined"]},

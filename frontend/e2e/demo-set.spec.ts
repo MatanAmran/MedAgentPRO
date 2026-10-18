@@ -81,7 +81,7 @@ const SHOWN: Record<string, (last: Locator) => Promise<void>> = {
   withheld: (x) => expect(x.getByTestId("withheld")).toBeVisible(),
   request_for_input: (x) => expect(x.getByTestId("request-for-input")).toBeVisible(),
   action_declined: async (x) => {
-    await expect(x.getByTestId("notice")).toHaveText("This assistant reads records. It does not change them.");
+    await expect(x.getByTestId("notice")).toHaveText("This assistant answers questions from the records. It does not take actions, such as sending messages or changing records.");
     await expect(x.getByTestId("rating")).toHaveCount(0);
   },
 };

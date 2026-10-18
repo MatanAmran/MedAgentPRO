@@ -1,6 +1,6 @@
 {
  "gaps": [],
- "notice": "This assistant reads records. It does not change them.",
+ "notice": "This assistant answers questions from the records. It does not take actions, such as sending messages or changing records.",
  "outcome": "answered",
  "readings": []
 }

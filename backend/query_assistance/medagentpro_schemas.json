@@ -1139,7 +1139,7 @@
                 "entity": {
                   "type": "string",
                   "minLength": 1,
-                  "$comment": "[demo extension, long list L4] The schema.json label of the FROM table, sent only where each row is a row of it: plain columns, no GROUP_BY, every JOIN many-to-one by declared keys (references). Built in code from the catalog, never model text."
+                  "$comment": "[demo extension, long list L4] The schema.json label of the FROM table, sent only where each row is a row of it: plain columns, no GROUP_BY, every JOIN many-to-one by declared keys (references); or (D10) grouped by exactly one identifier column, naming the table it identifies. Built in code from the catalog, never model text."
                 },
                 "ordered_by": {
                   "type": "string",

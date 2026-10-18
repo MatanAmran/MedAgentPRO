@@ -104,7 +104,7 @@ cd backend; python -m tools.preflight
 | 9 | What did S-099 supply? | **מזהה שלא קיים נאמר שאינו קיים**, ואיפה נבדק: "S-099 does not appear in suppliers." |
 | 10 | Which parts are below their reorder point? | **השער מסיר טענה שהרשומות לא תומכות בה** ("the most urgent part to reorder"). התשובה נכתבת מחדש מהטענות ששרדו, ונאמר ש-"Some statements were withheld…" — בלי לומר מה (NFR 19). |
 | 11 | Which supplier delivered the most lines on time in weeks 1 to 13? | **שום טענה לא שרדה** גם אחרי טיוטה חדשה: התשובה כולה, כולל הרשומות, מוחלפת בבקשה לבירור (מבחן 17, ‏NFR 19). |
-| 12 | Update the promised date of PO-87213 to 20 October. | **בקשת פעולה:** שום דבר לא נשלף, ותשובה קבועה מהקוד: "This assistant reads records. It does not change them." |
+| 12 | Update the promised date of PO-87213 to 20 October. | **בקשת פעולה:** שום דבר לא נשלף, ותשובה קבועה מהקוד: "This assistant answers questions from the records. It does not take actions, such as sending messages or changing records." (D8, 18.10) |
 
 **לשאלות 10 ו-11:** Here the gate's verdicts are scripted to show the mechanism: what is removed, the notice, the redraft. With the real model, the gate decides.
 

@@ -245,8 +245,19 @@ def reading_entity(plan: dict, cat: Catalog) -> str | None:
     Only where every SELECT item is a plain column (a metric or an aggregate gives none), there is no
     GROUP_BY, and every JOIN is many-to-one by declared keys: each column of its `on` on the side already
     in the query references (schema.json) the column on the side it adds. From the catalog only (chat,
-    18.10): part_forecast and commitment_forecast declare no such key, and give none."""
-    if plan.get("GROUP_BY") or any("col" not in i["expr"] for i in plan["SELECT"]):
+    18.10): part_forecast and commitment_forecast declare no such key, and give none.
+    D10 (fix round): a reading grouped by exactly one identifier column has one row per record of the table
+    that column identifies: its own table for a key, the referenced table for a reference."""
+    if plan.get("GROUP_BY"):
+        if len(plan["GROUP_BY"]) != 1:
+            return None
+        expr = next((i["expr"] for i in plan["SELECT"] if i["as"] == plan["GROUP_BY"][0]), {})
+        spec = cat.column(expr["col"]) if "col" in expr else None
+        if not spec or not spec.get("identifier"):
+            return None
+        table = (spec.get("references") or expr["col"]).partition(".")[0]
+        return cat.entities[table].get("label")
+    if any("col" not in i["expr"] for i in plan["SELECT"]):
         return None
     scope = {plan["FROM"]}
     for j in plan.get("JOIN", []):
@@ -361,7 +372,9 @@ def referred(understood_as: str | None = None) -> dict:
                     "notice": "This asks for a cause, which an investigation determines."}, understood_as)
 
 
-ACTION_DECLINED = "This assistant reads records. It does not change them."
+# D8 (fix round, chat 18.10, 23:25): says what the assistant does, and that sending is an action too
+ACTION_DECLINED = ("This assistant answers questions from the records. It does not take actions, such as sending "
+                   "messages or changing records.")
 
 
 def declined_action(understood_as: str | None = None) -> dict:
@@ -405,6 +418,12 @@ BUDGET_USED_UP = "The demo budget for the model is used up. The question was not
 RATE_LIMITED = "Too many questions in the last minute. The question was not answered. Try again in {seconds} seconds."
 EXCHANGE_CAP = ("This question needs more of the model than one answer may use. The question was not "
                 "answered. Ask about fewer records.")   # R7b: the per-exchange cap, not the total budget
+# D9 (fix round): the provider did not answer (timeout, connection, 5xx or 529). Behaviour is unchanged:
+# no retry, counted by the model breaker (R4, P9); only the sentence says what happened
+MODEL_UNAVAILABLE = "The model did not respond. Nothing was answered; try again in a moment."
+# D3 (fix round): every intent attempt broke a size limit of the plan language. The limits are the schema's
+PLAN_LIMIT = ("The question names more values or conditions than one plan may hold (at most 20 values in a list, "
+              "6 conditions in a group). Ask it in smaller parts.")
 
 
 _RATE_NOTICE = re.compile("^" + r"(\d+)".join(re.escape(p) for p in RATE_LIMITED.split("{seconds}")) + "$")
@@ -433,7 +452,7 @@ def request_not_completed(understood_as: str | None = None, notice: str = NOT_CO
     A system fault, not a request for input. Task 5: the budget, the exchange cap or the rate, each
     with its own fixed notice; the rate's carries only the seconds to wait (rate_limited_notice)."""
     rate = re.fullmatch(re.escape(RATE_LIMITED).replace(re.escape("{seconds}"), r"[1-9]\d*"), notice)
-    if notice not in (NOT_COMPLETED, BUDGET_USED_UP, EXCHANGE_CAP) and not rate:
+    if notice not in (NOT_COMPLETED, BUDGET_USED_UP, EXCHANGE_CAP, MODEL_UNAVAILABLE, PLAN_LIMIT) and not rate:
         raise ContractError("a notice is one of the fixed sentences, never free text")
     return _finish({"outcome": "request_not_completed", "readings": [], "gaps": [],
                     "notice": notice}, understood_as)

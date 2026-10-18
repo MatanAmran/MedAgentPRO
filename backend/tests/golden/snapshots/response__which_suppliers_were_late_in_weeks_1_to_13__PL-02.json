@@ -54,6 +54,7 @@
     "supplier_id",
     "late_count"
    ],
+   "entity": "suppliers",
    "evidence": [
     "late_by_delivery.supplier_id",
     "late_by_delivery.late_count"
@@ -127,6 +128,7 @@
     "supplier_id",
     "late_count"
    ],
+   "entity": "suppliers",
    "evidence": [
     "late_by_promise.supplier_id",
     "late_by_promise.late_count"

@@ -2,7 +2,7 @@
 
 import { useEffect, useId, useMemo, useRef, useState } from "react";
 import { FILTER_TAGS_OVER, answerText, foldAnswer, formatCell, groupRows, isTagReading, readingCount, readingCsv,
-  readingCsvName } from "@/lib/present";
+  readingCsvName, shownNotice } from "@/lib/present";
 import type { Cell, Reading } from "@/lib/types";
 
 // UI refresh (Main.dc.html): a reading as a card. Number and title, how many rows, Copy (the answer as
@@ -288,6 +288,7 @@ export function ReadingCard({ reading, index = 1 }: { reading: Reading; index?: 
   const rows = reading.rows ?? [];
   const hasRows = rows.length > 0;
   const folds = !tags && !(grouped && !asTable) && rows.length > FOLD_AFTER;
+  const notice = shownNotice(reading);
   const shownRows = folds && !unfolded ? rows.slice(0, FOLD_AFTER) : rows;
 
   function point(row: number | null, focus: boolean) {
@@ -346,9 +347,9 @@ export function ReadingCard({ reading, index = 1 }: { reading: Reading; index?: 
       {reading.answer_segments?.some((s) => s.ref) && (
         <p className="px-5 pb-1 text-xs text-ink-4">Every marked value is filled in by code from a record. Point at one to see its row.</p>
       )}
-      {(reading.notice || reading.ordered_by) && (
+      {(notice || reading.ordered_by) && (
         <p className="px-5 pb-1.5 pt-2 text-[13px] text-ink-4" data-testid="reading-notice">
-          {[reading.notice, hasRows && reading.ordered_by ? `${reading.ordered_by[0].toUpperCase()}${reading.ordered_by.slice(1)}.` : null]
+          {[notice, hasRows && reading.ordered_by ? `${reading.ordered_by[0].toUpperCase()}${reading.ordered_by.slice(1)}.` : null]
             .filter(Boolean)
             .join(" ")}
         </p>

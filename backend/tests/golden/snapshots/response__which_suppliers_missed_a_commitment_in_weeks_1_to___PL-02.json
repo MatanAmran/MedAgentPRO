@@ -31,6 +31,7 @@
     "supplier_id",
     "missed_count"
    ],
+   "entity": "suppliers",
    "evidence": [
     "missed_promise.supplier_id",
     "missed_promise.missed_count"

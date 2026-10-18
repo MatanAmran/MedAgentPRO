@@ -109,8 +109,12 @@ PATHS: list[Path] = [
     # --- generated from the branch list ----------------------------------------------
     Path("every_failure_kind", f"{B}::test_every_model_failure_kind_ends_the_exchange_once",
          tuple(f"failure:{k}" for k in ("client_error", "connection", "empty", "format", "rate_limited",
-                                        "refusal", "server_error", "timeout", "truncated", "unexpected")),
-         "R4 · P9 · P10", "one case per kind, generated"),
+                                        "refusal", "server_error", "timeout", "truncated", "unexpected"))
+         + ("notice:MODEL_UNAVAILABLE",),
+         "R4 · P9 · P10 · D9", "one case per kind, generated; the provider's silence has its own notice"),
+    Path("plan_limit", f"{P}::test_plan_limit_notice_only_where_every_attempt_broke_a_size_limit",
+         ("notice:PLAN_LIMIT",), "D3", "every intent attempt broke a size limit of the plan language"),
+    Path("failed_call_max_tokens", f"{P}::test_failed_call_records_the_max_tokens_it_was_sent_with", (), "U-4"),
     Path("every_failure_kind_late", f"{B}::test_every_model_failure_kind_at_the_gate_after_paying_for_synthesis",
          (), "R4 · NFR 3"),
     Path("every_gap_kind", f"{B}::test_every_gap_kind_is_rendered_without_a_cause",

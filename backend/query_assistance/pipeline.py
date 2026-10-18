@@ -25,6 +25,7 @@ The decisions of 12.10 this follows are listed in CLAUDE.md, "Task 4 decisions".
 from __future__ import annotations
 
 import json
+import re
 import sqlite3
 import uuid
 from concurrent.futures import ThreadPoolExecutor
@@ -106,7 +107,29 @@ class Outcome:
 
 class _Rejected(Exception):
     """A model stage ended without a usable output: content rejected in every attempt, or a failure
-    with no further attempt (R4). Its calls are already recorded."""
+    with no further attempt (R4). Its calls are already recorded. notice: the fixed sentence the person
+    is shown (D3, D9), NOT_COMPLETED unless the failure has its own."""
+
+    def __init__(self, message: str, notice: str = contract.NOT_COMPLETED):
+        super().__init__(message)
+        self.notice = notice
+
+
+# D9: the provider did not answer. 429 not for money is an outage too (P9), but the model did respond
+_NO_RESPONSE = {"timeout", "connection", "server_error"}
+# D3: a breach of a size limit of the plan language: too many items anywhere, or no alternative fitting an
+# IN or an OR group (the list or the group outgrew its form). From the check's keyword and path only
+_PLAN_LIMIT = re.compile(r"^SchemaBreach:(maxItems@.*|oneOf@(.*/)?(IN|OR)(/\d+)*)$")
+
+
+def _notice_for(ordinal: int, e: Exception) -> str:
+    """The fixed sentence for a stage that ended without output (D3, D9)."""
+    if isinstance(e, StageFailed) and e.kind in _NO_RESPONSE:
+        return contract.MODEL_UNAVAILABLE
+    if (ordinal == INTENT and isinstance(e, StageRejected) and e.calls
+            and all(_PLAN_LIMIT.match(c.check or "") for c in e.calls)):
+        return contract.PLAN_LIMIT
+    return contract.NOT_COMPLETED
 
 
 class ExchangeCancelled(Exception):
@@ -179,7 +202,7 @@ def _recorded(rec: _Record, ordinal: int, deps: Deps, run: Callable[[], tuple[An
         result, made = run()
     except (StageRejected, StageFailed) as e:
         rec.calls(ordinal, e.calls, deps.model)
-        raise _Rejected(f"{STAGE_NAMES[ordinal]}: {e}") from e
+        raise _Rejected(f"{STAGE_NAMES[ordinal]}: {e}", _notice_for(ordinal, e)) from e
     except Exception as e:
         rec.calls(ordinal, model_calls.calls_made(e), deps.model)
         raise
@@ -480,7 +503,7 @@ def run(question: str, history: list[prompts.Exchange], user: dict, deps: Deps,
         return finish(response, final, presented=_presented(response, plans, cat, final))
 
     except _Rejected as e:
-        return finish(contract.request_not_completed(understood), failure=str(e))
+        return finish(contract.request_not_completed(understood, e.notice), failure=str(e))
     except RateLimited as e:
         operational_log.warning("exchange refused: attempt=%s user=%s reason=%s", eid, user.get("user_id"), e)
         return finish(contract.request_not_completed(understood, contract.rate_limited_notice(e.retry_after)),

@@ -547,6 +547,49 @@ def test_timeout_keeps_the_worst_case_charged_and_refused_connection_releases_it
     assert ledger.total == charged
 
 
+def test_failed_call_records_the_max_tokens_it_was_sent_with(db_path, ledger):
+    """U-4: a call that reached the provider and failed shows the max_tokens it was sent; one known not to
+    have left shows none."""
+    seen: list = []
+    gw = budgeted(Script(intent_analysis_demo=[ModelCallError("timeout", "timed out", outage=True)]), ledger)
+    out = pl.run(Q, [], APPROVER, make_deps(gw, db_path), on_call=seen.append)
+    assert out.response["notice"] == contract.MODEL_UNAVAILABLE
+    assert [(t.status, t.max_tokens) for t in seen] == [("failed", 2000)]
+    seen.clear()
+    gw = budgeted(Script(intent_analysis_demo=[ModelCallError("connection", "refused", reached_provider=False)]),
+                  ledger)
+    pl.run(Q, [], APPROVER, make_deps(gw, db_path), on_call=seen.append)
+    assert [(t.status, t.max_tokens) for t in seen] == [("failed", None)]
+
+
+def _too_long_or():
+    """An OR group of seven comparisons: the schema allows six (D3)."""
+    eqs = [{"EQ": [{"col": "commitments.supplier_id"}, {"value": f"S-00{i}"}]} for i in range(1, 8)]
+    return {"disposition": "retrieve", "readings": [{"label": "late", "plan": dict(LATE["plan"], WHERE={"OR": eqs})}]}
+
+
+def _in_with_a_query():
+    """A list that holds a plan instead of values: a breach of the IN's shape, not of its size."""
+    where = {"IN": {"col": "commitments.supplier_id", "values": [{"value": {"SELECT": []}}]}}
+    return {"disposition": "retrieve", "readings": [{"label": "late", "plan": dict(LATE["plan"], WHERE=where)}]}
+
+
+@pytest.mark.parametrize("outputs, notice", [
+    ([_too_long_or(), _too_long_or()], contract.PLAN_LIMIT),
+    ([_in_with_a_query(), _too_long_or()], contract.NOT_COMPLETED),
+    ([_too_long_or(), _in_with_a_query()], contract.NOT_COMPLETED),
+])
+def test_plan_limit_notice_only_where_every_attempt_broke_a_size_limit(db_path, outputs, notice):
+    """D3: the fixed sentence names the plan's limits only where every intent attempt broke one of them
+    (maxItems, or no alternative fitting an IN or an OR). Read from the checks' keywords and paths only."""
+    q = "What did S-001, S-002, S-003, S-004, S-005, S-006 and S-007 deliver?"
+    gw = Script(intent_analysis_demo=outputs)
+    d = make_deps(gw, db_path)
+    out = pl.run(q, [], APPROVER, d)
+    check_invariants(out, gw, d, q, outcome="request_not_completed", recorded=True, calls=2)
+    assert out.response["notice"] == notice
+
+
 def test_cancelled_before_synthesis_makes_no_further_call(db_path, ledger):
     cancelled = threading.Event()
     inner = Script(intent_analysis_demo=[INTENT], synthesis=[SYN], support_scoring=[gate_says("supported")])
