@@ -4319,6 +4319,41 @@ exchange cost: attempt=EX-bc247dc6774a usd=0.061608 remaining=1.714846
 
 **מצב:** שלבים A ו-B ב-commits (`23b66ed`, ‏`b0f68ce`), ועוד commit שמסיר תוצרים שגויים (`7a867bb`). ‏C לא התחיל.
 
+### **ריענון המסך — שלב C בוצע (18.10).** ‏`answer_segments` ומקור ב-hover `[demo extension]`. אביתר אישר את השורה ב-`pipeline.views()`
+
+- **backend:**
+  - **`synthesis.Draft.segments(label, cat)`:** אותו פירוק של `fill`. טקסט רצוף מתמזג. הפניה ← `{"ref": {"alias", "row"}, "text"}`. ערך מעמודת טקסט חופשי — טקסט רגיל (NFR 21).
+  - **`pipeline.views()`:** השורה היחידה בצינור — מעבירה `d.segments(label, cat)` ל-`contract.reading_view`.
+  - **`contract.reading_view(..., answer_segments)`:** השדה נוסף רק כשיש תשובה.
+  - **הסכימה של `exchange_response`:** `answer_segments` אופציונלי, `additionalProperties: false`, ‏`row ≥ 1`.
+- **golden:** 13 תמונות של תשובות עודכנו — **רק הוספות** (427 שורות, אף שורה לא הוסרה). ‏`40_CHAT.md` §6 מתעד את השדה.
+- **מסך:**
+  - כל ערך בתשובה הוא כפתור (`button.ref`). ריחוף או פוקוס מסמנים אותו ואת השורה שלו (`data-hot`, ‏`aria-describedby` לשורה).
+  - פוקוס על ערך משורה מקופלת פותח את הטבלה.
+  - Copy מעתיק את הטקסט המחובר (שווה ל-`answer`, נבדק).
+  - שורת הסבר קבועה: "Every marked value is filled in by code from a record. Point at one to see its row."
+- **בדיקות:**
+  - **pytest 1012:** ‏+27 ב-`test_segments.py`, כולל **כל תשובה ב-golden: החיבור שווה ל-`answer`, וכל ref מצביע על שורה קיימת ועל הערך שלה**.
+  - **stress 8.** ‏**vitest 100** (+4). ‏**Playwright מתוסרט 21** (+1: ריחוף ופוקוס, ו-axe עם ערך בפוקוס). **אמיתי 5.**
+  - **`--plans` 43/43.** ‏ruff ו-bandit נקיים. **צילומי grayscale נוצרו מחדש.**
+- **mypy: 28 במקום 27.**
+  - **החדשה:** בשורה שהוספתי ב-`views()` — אותו דפוס כמו שתי השורות שמעליה, שכבר מסומנות (`d: Draft | None`, ו-`said` לא מצמצם את הטיפוס).
+  - **למה לא תוקנה:** תיקון דורש לשכתב גם אותן, מעבר לשורה שאושרה. ‏mypy לא חוסם (CLAUDE.md).
+
+### **ריענון המסך — גמור (A, ‏B, ‏C).** סיכום לצ׳אט
+
+- **מה נבנה:** המסך בעיצוב החדש (A), ‏`PATCH` לשיחה ותפריט (B), ומקור ב-hover (C).
+- **ענף:** `ui/refresh`, ‏commits ‏`5783158` (תוכנית ועיצוב), ‏`23b66ed` (A), ‏`b0f68ce` (B), ‏`7a867bb` (ניקוי), ‏`682e5d7` (שאלת C), ו-commit של C.
+- **מה חורג מהספר (`[demo extension]`):**
+  - שדות השיחה: title, ‏pinned, ‏archived — ו-`PATCH`.
+  - `answer_segments` בחוזה.
+  - שורה אחת ב-`pipeline.views()`.
+  - **בלי שינוי בפרומפטים, בשלבים או בבדיקות התוכן.**
+- **שני באגים שנמצאו בדרך ותוקנו:**
+  - הגלילה הכפולה (‏`caption` מסוג sr-only, בלי מכולה ממוקמת).
+  - ‏CORS בלי PATCH.
+- **הבא:** push ו-PR של `ui/refresh` מול `master`, באישור אביתר.
+
 ## מה שנסגר בסבב האחרון
 
 - **הקוד עבר לריפו** — `MedAgentPro\backend` (`query_assistance`, `model_client`, `persistence`, `shared`, `tests`). **`03_Code` נשאר כמקור ומעודכן.** `python -m pytest -q` מתוך `backend`

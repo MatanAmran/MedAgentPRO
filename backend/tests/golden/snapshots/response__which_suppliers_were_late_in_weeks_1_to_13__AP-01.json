@@ -7,6 +7,48 @@
  "readings": [
   {
    "answer": "S-038 had 10 lines delivered after the requested date. S-005 had 8.",
+   "answer_segments": [
+    {
+     "ref": {
+      "alias": "supplier_id",
+      "row": 1
+     },
+     "text": "S-038"
+    },
+    {
+     "text": " had "
+    },
+    {
+     "ref": {
+      "alias": "late_count",
+      "row": 1
+     },
+     "text": "10"
+    },
+    {
+     "text": " lines delivered after the requested date. "
+    },
+    {
+     "ref": {
+      "alias": "supplier_id",
+      "row": 2
+     },
+     "text": "S-005"
+    },
+    {
+     "text": " had "
+    },
+    {
+     "ref": {
+      "alias": "late_count",
+      "row": 2
+     },
+     "text": "8"
+    },
+    {
+     "text": "."
+    }
+   ],
    "checked": "Examined: purchase order lines where week between 1 and 13 and delivered after the requested date · grouped by supplier · computed the number of records",
    "columns": [
     "supplier_id",
@@ -75,6 +117,28 @@
   },
   {
    "answer": "S-008 had 6 lines whose promised date was after the requested date.",
+   "answer_segments": [
+    {
+     "ref": {
+      "alias": "supplier_id",
+      "row": 1
+     },
+     "text": "S-008"
+    },
+    {
+     "text": " had "
+    },
+    {
+     "ref": {
+      "alias": "late_count",
+      "row": 1
+     },
+     "text": "6"
+    },
+    {
+     "text": " lines whose promised date was after the requested date."
+    }
+   ],
    "checked": "Examined: purchase order lines where week between 1 and 13 and the supplier committed to a date after the requested date · grouped by supplier · computed the number of records",
    "columns": [
     "supplier_id",

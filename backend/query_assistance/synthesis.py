@@ -149,6 +149,38 @@ class Draft:
         return " ".join(fill(s.template, self.materials, masked_aliases={label: masked})
                         for s in self.sentences.get(label, []))
 
+    def segments(self, label: str, cat: Catalog | None = None) -> list[dict]:
+        """UI refresh, phase C [demo extension]: the answer of a reading, cut where references were filled.
+        Joined, the texts are answer(label) exactly. A filled reference carries {alias, row} (row 1-based in
+        the reading's rows), except a value from a free-text column, which is plain text (NFR 21)."""
+        m = self.materials[label]
+        free = free_text_aliases(m, cat)
+        out: list[dict] = []
+
+        def text(t: str):
+            if not t:
+                return
+            if out and "ref" not in out[-1]:
+                out[-1] = {"text": out[-1]["text"] + t}
+            else:
+                out.append({"text": t})
+
+        for i, s in enumerate(self.sentences.get(label, [])):
+            if i:
+                text(" ")
+            at = 0
+            for mt in REF_RE.finditer(s.template):
+                text(s.template[at:mt.start()])
+                ref_label, alias, row = mt.group(1), mt.group(2), int(mt.group(3))
+                value = format_value(self.materials[ref_label].rows[row - 1][alias])
+                if ref_label == label and alias not in free:
+                    out.append({"ref": {"alias": alias, "row": row}, "text": value})
+                else:
+                    text(value)
+                at = mt.end()
+            text(s.template[at:])
+        return out
+
     def presented_identifiers(self, cat: Catalog) -> list[str]:
         """Identifiers the answer presents, in order. Only identifier columns supply them,
         never a free-text value that happens to look like one (NFR 21, NFR 27)."""

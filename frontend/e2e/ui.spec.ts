@@ -125,3 +125,25 @@ test("phase B: rename, pin and archive from the menu; archived is hidden, its ex
   expect(kept.archived).toBe(true);
   expect(kept.exchanges).toHaveLength(1);
 });
+
+test("phase C: pointing at or focusing a value in the answer marks its row", async ({ page }) => {
+  await page.getByRole("button", NEW_CONVERSATION).click();
+  await askExample(page, LATE);
+  await expect(page.getByTestId("exchange")).toHaveCount(1, { timeout: 20_000 });
+  const card = page.getByTestId("reading").first();
+  const refs = card.getByTestId("answer").locator("button.ref");
+  expect(await refs.count()).toBeGreaterThan(1);
+
+  const first = refs.first();
+  const row = first.getAttribute("data-ref-row");
+  await first.hover();
+  await expect(card.locator(`[data-row="${await row}"]`)).toHaveAttribute("data-hot", "true");
+  await expect(first).toHaveClass(/ref-hot/);
+
+  const second = refs.nth(2);
+  await second.focus();
+  await expect(card.locator(`[data-row="${await second.getAttribute("data-ref-row")}"]`)).toHaveAttribute("data-hot", "true");
+  await axeClean(page, "a value in the answer focused");
+  // the joined answer is what the screen shows
+  await expect(card.getByTestId("answer")).toHaveText(/^S-\d{3} had /);
+});

@@ -27,6 +27,8 @@ export interface Reading {
   not_held?: { value: string; checked_in: string }[];
   notice?: string;
   answer?: string;
+  // [demo extension] UI refresh C: the answer cut at the references code filled; joined, it is answer
+  answer_segments?: AnswerSegment[];
   evidence?: string[];
 }
 
@@ -46,6 +48,11 @@ export interface ExchangeResponse {
   withheld?: string;
   ambiguous_terms?: string[]; // [demo extension] Q4
   request_for_input?: { text: string; readings: { label: string; checked: string }[] };
+}
+
+export interface AnswerSegment {
+  text: string;
+  ref?: { alias: string; row: number }; // the 1-based row of this reading's rows; never on free text (NFR 21)
 }
 
 export interface Cost {

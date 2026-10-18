@@ -32,6 +32,7 @@ const READING_KEYS = [
   "notice",
   "answer",
   "evidence",
+  "answer_segments",
 ] as const satisfies readonly (keyof Reading)[];
 
 describe("the screen's types follow the contract", () => {

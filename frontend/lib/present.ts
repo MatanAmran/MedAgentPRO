@@ -65,6 +65,12 @@ export function readingCsv(reading: Reading): string {
   return lines.join("\r\n") + "\r\n";
 }
 
+/** What Copy copies: the answer as shown. With segments, their joined text, which is the answer (phase C). */
+export function answerText(reading: Reading): string | null {
+  if (reading.answer_segments?.length) return reading.answer_segments.map((s) => s.text).join("");
+  return reading.answer ?? null;
+}
+
 export function readingCsvName(reading: Reading): string {
   const shown = reading.rows?.length ?? 0;
   const total = reading.total ?? shown;

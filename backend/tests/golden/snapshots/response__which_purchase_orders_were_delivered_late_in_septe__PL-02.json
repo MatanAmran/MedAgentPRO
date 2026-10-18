@@ -4,6 +4,28 @@
  "readings": [
   {
    "answer": "S-001 delivered PO-89259 after the requested date.",
+   "answer_segments": [
+    {
+     "ref": {
+      "alias": "supplier_id",
+      "row": 1
+     },
+     "text": "S-001"
+    },
+    {
+     "text": " delivered "
+    },
+    {
+     "ref": {
+      "alias": "po_id",
+      "row": 1
+     },
+     "text": "PO-89259"
+    },
+    {
+     "text": " after the requested date."
+    }
+   ],
    "checked": "Examined: purchase order lines where delivery date between '2026-09-01' and '2026-09-30' and delivered after the requested date · grouped by supplier, purchase order · computed the number of records · limited to the records you hold",
    "columns": [
     "supplier_id",

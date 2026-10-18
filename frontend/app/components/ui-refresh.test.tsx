@@ -294,3 +294,60 @@ describe("the conversation menu", () => {
     expect([g.pinned, g.today, g.earlier].map((x) => x.map((y) => y.conversation_id))).toEqual([["B"], ["A"], []]);
   });
 });
+
+// --------------------------------------------------------------------------
+// phase C [demo extension]: a value in the answer points at its row
+// --------------------------------------------------------------------------
+
+import { answerText } from "@/lib/present";
+
+describe("provenance in the answer", () => {
+  const late1 = late.readings[0];
+  const reasons = GOLDEN["what_delay_reasons_were_recorded_for_s_038_s_late___AP-01"].readings[0];
+
+  it("marks each filled value; pointing at one marks its row", () => {
+    render(<ReadingCard reading={late1} index={1} />);
+    const refs = screen.getByTestId("answer").querySelectorAll("button.ref");
+    expect(refs.length).toBe(late1.answer_segments!.filter((s) => s.ref).length);
+    const first = refs[0] as HTMLButtonElement;
+    fireEvent.mouseEnter(first);
+    expect(first.className).toContain("ref-hot");
+    const row = document.getElementById(first.getAttribute("aria-describedby")!)!;
+    expect(row.getAttribute("data-row")).toBe(first.getAttribute("data-ref-row"));
+    expect(row.getAttribute("data-hot")).toBe("true");
+    fireEvent.mouseLeave(first);
+    expect(row.getAttribute("data-hot")).toBeNull();
+  });
+
+  it("copies the joined segments, which are the answer", async () => {
+    expect(answerText(late1)).toBe(late1.answer);
+    const write = vi.fn(async () => {});
+    Object.assign(navigator, { clipboard: { writeText: write } });
+    render(<ReadingCard reading={late1} index={1} />);
+    await act(async () => fireEvent.click(screen.getByRole("button", { name: /Copy the answer/ })));
+    expect(write).toHaveBeenCalledWith(late1.answer);
+  });
+
+  it("unfolds the table when a value from a folded row is focused", () => {
+    const rows = Array.from({ length: 9 }, (_, i) => ({ supplier_id: `S-${100 + i}`, n: i }));
+    const r: Reading = reading({
+      label: "r", answer: "S-108 had 8.", columns: ["supplier_id", "n"], identifiers: ["supplier_id"], rows,
+      row_count: 9, total: 9,
+      answer_segments: [{ ref: { alias: "supplier_id", row: 9 }, text: "S-108" }, { text: " had " },
+                        { ref: { alias: "n", row: 9 }, text: "8" }, { text: "." }],
+    });
+    render(<ReadingCard reading={r} />);
+    expect(screen.getAllByRole("row")).toHaveLength(FOLD_AFTER + 1);
+    fireEvent.focus(screen.getByRole("button", { name: "S-108" }));
+    expect(screen.getAllByRole("row")).toHaveLength(10);
+    expect(document.querySelector('[data-row="9"]')?.getAttribute("data-hot")).toBe("true");
+  });
+
+  it("never marks a free-text value: a recorded reason stays plain text", () => {
+    render(<ReadingCard reading={reasons} index={1} />);
+    const marked = [...screen.getByTestId("answer").querySelectorAll("button.ref")].map((b) => b.textContent);
+    const texts = (reasons.rows ?? []).map((row) => String(row.delay_reason));
+    expect(marked.some((t) => texts.includes(t ?? ""))).toBe(false);
+    expect(screen.getByTestId("answer").textContent).toBe(reasons.answer);
+  });
+});

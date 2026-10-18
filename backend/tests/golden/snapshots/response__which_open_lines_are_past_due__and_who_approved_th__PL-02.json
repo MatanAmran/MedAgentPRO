@@ -13,6 +13,28 @@
  "readings": [
   {
    "answer": "PO-89382 has the earliest requested date, 2026-09-07.",
+   "answer_segments": [
+    {
+     "ref": {
+      "alias": "po_id",
+      "row": 1
+     },
+     "text": "PO-89382"
+    },
+    {
+     "text": " has the earliest requested date, "
+    },
+    {
+     "ref": {
+      "alias": "due_date",
+      "row": 1
+     },
+     "text": "2026-09-07"
+    },
+    {
+     "text": "."
+    }
+   ],
    "checked": "Examined: purchase order lines with purchase orders where order status = 'open' and delivery date not recorded and requested date < '2026-10-09' · limited to the records you hold",
    "columns": [
     "supplier_id",
