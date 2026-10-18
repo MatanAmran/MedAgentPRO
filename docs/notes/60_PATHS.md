@@ -1,6 +1,6 @@
 # MedAgentPro — מפת המסלולים וההיתכנות
 
-**נוצר אוטומטית** ב-`python -m tools.path_map` (מתוך `backend\`), 18.10.2026 14:27. **לא לערוך ידנית** — המקור הוא `backend\tests\paths\registry.py` ו-`backend\tests\feasibility\constraints.py`.
+**נוצר אוטומטית** ב-`python -m tools.path_map` (מתוך `backend\`), 18.10.2026 14:41. **לא לערוך ידנית** — המקור הוא `backend\tests\paths\registry.py` ו-`backend\tests\feasibility\constraints.py`.
 
 **איך זה גדל:** `tests\paths\branches.py` קורא מהקוד ומהסכמות כל הסתעפות (מצב סיום, שלב, סוג כשל, `except`, הודעה, נקודת קצה, קוד HTTP, סוג פער, תפקיד). **הסתעפות בלי מסלול מפילה את `pytest`.** מגבלה שמתגלה (כמו הטמפרטורה) נכנסת כשורה ב-`constraints.py`, ושורה בלי בדיקה מפילה את `pytest`.
 
@@ -124,7 +124,7 @@
 | ✅ | T08 | technical | No enum in a schema sent to the provider holds two values that differ only in case. | Anthropic docs: enum casing is not guaranteed |
 | ✅ | T09 | technical | The intent schema is not sent as structured output while it exceeds the limits. | Review of 12.10 (P2): unpacked it exceeds 24 / 16 |
 | ✅ | T10 | technical | LiteLLM is pinned to the version the checks were made against, and uses its local map. | H1, 12.10 · requirements.txt |
-| ⚠️ | T11 | technical | The worst path after intent (synthesis, gate, redraft, gate) fits the per-exchange cap at the model's prices, for the largest material the pipeline can retrieve. | R7a |
+| ✅ | T11 | technical | The worst path after intent (synthesis, gate, redraft, gate) fits the per-exchange cap at the model's prices, for the largest material the pipeline can retrieve. Each call is priced at its own output cap: with the gate's at 3000 the path needs about 0.244 of 0.25, so a gate cap above about 3300 breaks it, and raising the gate's cap needs a higher per-exchange cap. | R7a · chat 18.10, 14:40 (G-GATECAP) |
 | ✅ | T12 | technical | The total budget covers at least 10 exchanges each spending its whole cap. | Task 5 budget (USD 10 total) |
 | ✅ | T13 | technical | Every metric and every table compiles to SQL the installed SQLite runs. | compiler.py · sqlite3 |
 | ✅ | T14 | technical | LiteLLM's own retries are off; the only retries are counted ones. | Task 5 'no hidden retries' |

@@ -63,7 +63,10 @@ CONSTRAINTS: list[Constraint] = [
                "H1, 12.10 · requirements.txt"),
     Constraint("T11", "technical",
                "The worst path after intent (synthesis, gate, redraft, gate) fits the per-exchange cap "
-               "at the model's prices, for the largest material the pipeline can retrieve.", "R7a", "map"),
+               "at the model's prices, for the largest material the pipeline can retrieve. Each call is priced at "
+               "its own output cap: with the gate's at 3000 the path needs about 0.244 of 0.25, so a gate cap "
+               "above about 3300 breaks it, and raising the gate's cap needs a higher per-exchange cap.",
+               "R7a · chat 18.10, 14:40 (G-GATECAP)", "map"),
     Constraint("T12", "technical", "The total budget covers at least 10 exchanges each spending its whole cap.",
                "Task 5 budget (USD 10 total)"),
     Constraint("T13", "technical", "Every metric and every table compiles to SQL the installed SQLite runs.",

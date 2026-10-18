@@ -47,8 +47,8 @@ DEFAULTS = {"MODEL_ID": "claude-sonnet-5-5", "MODEL_MAX_OUTPUT_TOKENS": "2000", 
             "MODEL_BUDGET_USD": "3.5", "MODEL_TEMPERATURE": "",
             # intent analysis's own cap, the value Evyatar sets (task 10a, chat 23:35)
             "MODEL_MAX_OUTPUT_TOKENS_INTENT": "3000",
-            # the gate's own cap, the value Evyatar sets (chat, 18.10, 13:50)
-            "MODEL_MAX_OUTPUT_TOKENS_GATE": "4000"}
+            # the gate's own cap, the value Evyatar sets (chat, 18.10, 14:40: 3000, so T11 holds)
+            "MODEL_MAX_OUTPUT_TOKENS_GATE": "3000"}
 
 
 def settings() -> dict:
@@ -235,9 +235,6 @@ def test_T10_litellm_pinned_and_local_map():
     assert installed == pinned.group(1)
 
 
-@pytest.mark.xfail(strict=True, reason="G-GATECAP (chat question, 18.10, after 13:50): with the gate's cap at "
-                   "4000 the largest possible retrieval needs ~0.264 for its path, over the 0.25 cap; at 3000, "
-                   "0.244. The demo questions fit (L05). Open in 00_STATUS")
 def test_T11_worst_path_fits_the_exchange_cap(db_path):
     e = model_entry()
     s = settings()
@@ -250,9 +247,12 @@ def test_T11_worst_path_fits_the_exchange_cap(db_path):
     cost = sum(cfg.cost(n, cfg.output_cap(p)) for n, p in zip(pl._path_inputs(q, None, mats), pl.PATH_PROMPTS,
                                                                strict=True))
     cap = float(s["MODEL_MAX_USD_PER_EXCHANGE"])
+    # the largest gate cap the path still fits: the path holds two gate calls (chat 14:40, G-GATECAP)
+    gate = cfg.output_cap("support_scoring@1")
+    room = int(gate + (cap - cost) / (2 * cfg.price_out / 1_000_000))
     assert cost <= cap, (f"the largest retrieval needs ~${cost:.3f} for synthesis to the second gate, over the "
-                         f"${cap} cap: such a question always ends with the exchange-cap notice. Lower ROW_LIMIT "
-                         f"or raise the cap")
+                         f"${cap} cap: such a question always ends with the exchange-cap notice. Lower ROW_LIMIT, "
+                         f"raise the cap, or lower the gate's cap to at most {room}")
 
 
 def test_T12_budget_covers_enough_worst_case_exchanges():
@@ -448,7 +448,8 @@ def test_L05_every_demo_question_fits_the_default_cap_on_the_real_path(db_path, 
     about USD 0.14 for its worst path (0.135 before the task 10a prompts); the demo's default cap is 0.25.
     Tighten the cap, or grow a question's records, and this fails before the demo does. With intent
     analysis's own cap (chat 01:15), its call reserves 1000 output tokens more, USD 0.01 at Sonnet 5.5. With
-    the gate's own cap at 4000 (chat 13:50), each gate call reserves 2000 more, USD 0.02, twice on R7a's path."""
+    the gate's own cap (chat 13:50), each gate call reserves more, twice on R7a's path: 4000 is checked here
+    as the highest a demo question was ever given room for; Evyatar sets 3000 (chat 14:40, T11)."""
     from fastapi.testclient import TestClient
 
     from tools.fake_real_server import build_app
