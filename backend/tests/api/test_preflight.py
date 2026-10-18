@@ -33,7 +33,7 @@ def fetch_for(app, screen=SCREEN_PAGE):
 def test_scripted_setup_passes_every_check(db_path):
     checks = pf.run("scripted", fetch_for(main.create_app("scripted", db_path)), db_path=db_path)
     assert all(c.ok for c in checks), [str(c) for c in checks]
-    assert any("examples: 12 listed" in c.text for c in checks)
+    assert any("examples: 14 listed" in c.text for c in checks)
     assert any("runs end to end" in c.text for c in checks)
 
 

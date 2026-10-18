@@ -15,10 +15,14 @@ vi.mock("@/lib/api", async (original) => {
     api: {
       health: vi.fn(async () => ({ mode: "scripted", model: "scripted", authentication: "none (demo)" })),
       examples: vi.fn(async () => [
-        { question: "Which suppliers were late in weeks 1 to 13?", follows: null, outcome: "answered", shows: [] },
-        { question: "And in weeks 14 to 26?", follows: "Which suppliers were late in weeks 1 to 13?",
+        { question: "Which suppliers were late in weeks 1 to 13?", follows: null, user: "AP-01", outcome: "answered",
+          shows: [] },
+        { question: "And in weeks 14 to 26?", follows: "Which suppliers were late in weeks 1 to 13?", user: "AP-01",
           outcome: "answered", shows: [] },
-        { question: "Why is S-014 late so often?", follows: null, outcome: "referred_to_investigation", shows: [] },
+        { question: "Why is S-014 late so often?", follows: null, user: "AP-01", outcome: "referred_to_investigation",
+          shows: [] },
+        { question: "Which of my lines were delivered late in September?", follows: null, user: "PL-02",
+          outcome: "answered", shows: [] },
       ]),
       conversations: vi.fn(async () => []),
       newConversation: vi.fn(async () => ({ conversation_id: "CV-1" })),
@@ -103,13 +107,27 @@ describe("scripted examples (task 8, A4)", () => {
   it("offers the questions that stand alone on an empty screen, and sends one on a click", async () => {
     render(<Chat />);
     const box = await screen.findByTestId("examples");
-    const offered = Array.from(box.querySelectorAll("button")).map((b) => b.textContent);
-    expect(offered).toEqual(["Which suppliers were late in weeks 1 to 13?", "Why is S-014 late so often?"]);
+    const offered = Array.from(box.querySelectorAll("button")).map((b) => b.getAttribute("aria-label"));
+    expect(offered).toEqual(["Which suppliers were late in weeks 1 to 13?", "Why is S-014 late so often?",
+      "Which of my lines were delivered late in September?"]);
     expect(box.textContent).toContain("scripted examples");
     fireEvent.click(screen.getByRole("button", { name: "Which suppliers were late in weeks 1 to 13?" }));
     await waitFor(() => expect(api.ask).toHaveBeenCalledTimes(1));
     expect(vi.mocked(api.ask).mock.calls[0][2]).toBe("Which suppliers were late in weeks 1 to 13?");
     expect(screen.queryByTestId("examples")).toBeNull();   // not while the question runs
+  });
+
+  it("says 'as PL-02' on an example scripted for another user, and asks it as the current user", async () => {
+    render(<Chat />);
+    const mine = await screen.findByRole("button", { name: "Which of my lines were delivered late in September?" });
+    expect(document.getElementById(mine.getAttribute("aria-describedby") ?? "")?.textContent).toBe("as PL-02");
+    expect(screen.getAllByTestId("example-user").map((b) => b.textContent)).toEqual(["as PL-02"]);
+    expect(screen.getByRole("button", { name: "Why is S-014 late so often?" }).hasAttribute("aria-describedby"))
+      .toBe(false);
+    fireEvent.click(mine);
+    await waitFor(() => expect(api.ask).toHaveBeenCalledTimes(1));
+    expect(vi.mocked(api.ask).mock.calls[0][0]).toBe("AP-01");   // the chip never switches the user
+    expect(screen.getByTestId("user-picker").textContent).toContain("AP-01");
   });
 
   it("offers a follow-up under the question it follows, once answered", async () => {

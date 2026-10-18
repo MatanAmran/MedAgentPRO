@@ -10,7 +10,7 @@ import { NEW_CONVERSATION, pickUser } from "./helpers";
 // server's tests and the screen's. Contrast is checked on every state (Test 40, WCAG 1.4.3), the set is
 // walked from the keyboard alone (Test 40), and each kind of state is captured in grayscale for review.
 
-type Example = { question: string; follows: string | null; outcome: string; shows: string[] };
+type Example = { question: string; follows: string | null; user: string; outcome: string; shows: string[] };
 type Golden = {
   outcome: string;
   readings: { title: string }[];
@@ -67,13 +67,18 @@ async function contrastHolds(page: Page, where: string) {
   expect(found, `contrast at ${where}`).toEqual([]);
 }
 
-// What each behaviour of the approver's set shows (task 8): kept on top of the golden match
+// What each behaviour of an example shows (task 8), as the demo user it names: kept on top of the golden match
 const SHOWN: Record<string, (last: Locator) => Promise<void>> = {
   two_readings: (x) => expect(x.getByTestId("reading")).toHaveCount(2),
   one_reading: (x) => expect(x.getByTestId("reading")).toHaveCount(1),
+  three_readings: (x) => expect(x.getByTestId("reading")).toHaveCount(3),
   understood_as: (x) => expect(x.getByTestId("understood-as")).toBeVisible(),
   grouped: (x) => expect(x.getByTestId("reading-groups")).toBeVisible(),
   gap: (x) => expect(x.getByTestId("gap")).toHaveCount(1),
+  cross_record_gap: (x) => expect(x.getByTestId("gap")).toContainText("cannot be combined in one question yet"),
+  planner_you: async (x) => {
+    for (const r of await x.getByTestId("reading").all()) await expect(r).toContainText("planner = you");
+  },
   recorded_reason: (x) => expect(x.getByTestId("reading")).toContainText("recorded as"),
   referral: (x) => expect(x.getByRole("button", { name: "Open an investigation" })).toBeDisabled(),
   no_match: (x) => expect(x.getByText("No records matched.")).toBeVisible(),
@@ -95,17 +100,30 @@ for (const role of ROLES) {
     await pickUser(page, role.user);
     await contrastHolds(page, "the empty screen");
     let asked = 0;
-    for (const e of await examples(page)) {
-      if (!e.follows) {
-        await page.getByRole("button", NEW_CONVERSATION).click();
-        asked = 0;
-      }
-      await page.getByTestId("examples").getByRole("button", { name: e.question, exact: true }).click();
+    let previous: string | null = null;
+    const ask = async (question: string) => {
+      await page.getByTestId("examples").getByRole("button", { name: question, exact: true }).click();
       asked += 1;
       await expect(page.getByTestId("exchange")).toHaveCount(asked, { timeout: 20_000 });
+    };
+    for (const e of await examples(page)) {
+      if (!e.follows || e.follows !== previous) {
+        // a new conversation; a follow-up of an earlier question (13 after 1) asks that question first
+        await page.getByRole("button", NEW_CONVERSATION).click();
+        asked = 0;
+        if (e.follows) await ask(e.follows);
+      }
+      if (e.user !== "AP-01" && !e.follows) {
+        // chat 19.10: the chip says whom it is scripted for, and asking it does not switch the user
+        const chip = page.getByTestId("examples").getByRole("button", { name: e.question, exact: true });
+        await expect(chip.getByTestId("example-user")).toHaveText(`as ${e.user}`);
+      }
+      await ask(e.question);
+      await expect(page.getByTestId("user-picker")).toContainText(role.user);
+      previous = e.question;
       const last = page.getByTestId("exchange").last();
       await matchesGolden(last, golden(e.question, role.file));
-      if (role.user === "AP-01") for (const s of e.shows) await SHOWN[s](last);
+      if (role.user === e.user) for (const s of e.shows) await SHOWN[s](last);
       await contrastHolds(page, `${role.user}: ${e.question}`);
     }
   });
@@ -137,18 +155,24 @@ test("the demo set from the keyboard alone (Test 40)", async ({ page }) => {
   await page.goto("/");
   await expect(page.getByTestId("examples")).toBeVisible();
   let asked = 0;
-  for (const e of await examples(page)) {
-    if (!e.follows) {
-      await tabTo(page, page.getByRole("button", NEW_CONVERSATION), "New conversation");
-      await page.keyboard.press("Enter");
-      asked = 0;
-    }
-    const button = page.getByTestId("examples").getByRole("button", { name: e.question, exact: true });
+  let previous: string | null = null;
+  const ask = async (question: string) => {
+    const button = page.getByTestId("examples").getByRole("button", { name: question, exact: true });
     await expect(button).toBeVisible();
-    await tabTo(page, button, e.question);
+    await tabTo(page, button, question);
     await page.keyboard.press("Enter");
     asked += 1;
     await expect(page.getByTestId("exchange")).toHaveCount(asked, { timeout: 20_000 });
+  };
+  for (const e of await examples(page)) {
+    if (!e.follows || e.follows !== previous) {
+      await tabTo(page, page.getByRole("button", NEW_CONVERSATION), "New conversation");
+      await page.keyboard.press("Enter");
+      asked = 0;
+      if (e.follows) await ask(e.follows);
+    }
+    await ask(e.question);
+    previous = e.question;
     await expect(page.getByTestId("exchange").last()).toHaveAttribute("data-outcome", e.outcome);
     if (e.outcome === "answered" && e.shows.includes("two_readings")) {
       const up = page.getByTestId("exchange").last().getByLabel("Rate up");

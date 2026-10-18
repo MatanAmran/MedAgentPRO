@@ -10,6 +10,11 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - **The book is the source of truth** (`C:\Users\EvyatarS\project filles\01_Book\`). Where code and book differ, raise it, do not silently pick one.
 - Never delete files from `project filles\` (the original research folder). Copy, do not move.
 
+## No paid model calls (standing rule, 19.10)
+
+- **No real-model call of any kind** (`python -m main --real`, `tools.real_eval --real`, a smoke test, anything that spends) **unless Evyatar approves it explicitly in that session.** An approval in an earlier session, in a note or in a file does not count.
+- **The demo runs on the scripted model** (`python -m main --panel`). Rehearsals and checks use the scripted model, the fake provider (`tools.fake_real_server`, `playwright.real.config.ts`) or `tools.real_eval --plans` only.
+
 ## When to send Evyatar back to the Claude chat
 
 Architecture decisions and the book are handled in a separate Claude chat (the project "J&J"). Stop and tell Evyatar, in Hebrew, to take it there when:
@@ -50,6 +55,7 @@ When a decision is made in a session, record it in the relevant note (and here, 
 | 11 | UI refresh (docs/design/ui-refresh) | done (18.10), branch `ui/refresh`: A the screen (no API change), B `PATCH /api/conversations/{id}` (title, pinned, archived; archiving only hides), C `answer_segments` and provenance on hover; `[demo extension]`; one line in `pipeline.views()`, approved |
 | 12 | Long list (`LongList.dc.html`, chat 18.10 20:30) | done (18.10), branch `ui/long-list`: quieter references, folding past 8, tag grid, real-model empty text, `?archived=true` and Unarchive, and `entity` in the reading (L4: plain columns, no GROUP_BY, every JOIN many-to-one by declared `references`); `[demo extension]` |
 | 13 | Fix round for the demo (chat 18.10, 23:25) | done (19.10), branch `fix/demo-round`: D1–D11 and D1-POS. Targeted real run 34 exchanges, USD 1.59, no blocker: **prompts frozen for the demo** (rewrite@3, intent_demo@9, synthesis@11, redraft@8, gate@6) |
+| 14 | Scripted demo (chat 19.10) | done (19.10), branch `demo/scripted`: no paid calls (rule above); `70_DEMO.md` for a scripted demo, the real model in an appendix; two scripted exchanges from the 19.10 real run (probes H1b, H11) as demo questions 13 and 14; `expect.user` |
 
 ## Task 4 decisions (settled in the Claude chat, 12.10)
 
@@ -227,7 +233,7 @@ On Evyatar's machine an Application Control policy blocks `.exe` files in the ve
 # Backend (from backend\, venv active)
 python -m pip install -r requirements.txt
 python -m demo_data.seed          # builds demo_data\demo.db
-python -m pytest -q               # the default run; 1051 after the fix round (19.10)
+python -m pytest -q               # the default run; 1068 after the scripted demo (19.10)
 python -m tools.path_map          # runs tests/paths and tests/feasibility, writes docs/notes/60_PATHS.md
 python -m query_assistance.dry_run   # prices two scripted exchanges at the .env prices, no model call, no key
 python -m query_assistance.dry_run --model claude-sonnet-5-5   # the same, prices from LiteLLM's local map, no .env

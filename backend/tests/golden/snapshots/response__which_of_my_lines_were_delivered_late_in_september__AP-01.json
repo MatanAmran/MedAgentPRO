@@ -1,0 +1,99 @@
+{
+ "ambiguous_terms": [
+  "late"
+ ],
+ "gaps": [],
+ "outcome": "answered",
+ "readings": [
+  {
+   "checked": "Examined: purchase order lines where planner = you and delivery date between '2026-09-01' and '2026-09-30' and delivered after the requested date",
+   "columns": [
+    "commitment_id",
+    "po_id",
+    "part_id",
+    "due_date",
+    "delivered_at"
+   ],
+   "entity": "purchase order lines",
+   "headers": {
+    "commitment_id": "order line",
+    "delivered_at": "delivery date",
+    "due_date": "requested date",
+    "part_id": "part",
+    "po_id": "purchase order"
+   },
+   "identifiers": [
+    "commitment_id",
+    "po_id",
+    "part_id"
+   ],
+   "label": "late_by_delivery",
+   "notice": "No records matched.",
+   "result": "empty_no_match",
+   "row_count": 0,
+   "rows": [],
+   "title": "Delivered after the requested date",
+   "total": 0
+  },
+  {
+   "checked": "Examined: purchase order lines where planner = you and delivery date between '2026-09-01' and '2026-09-30' and the supplier committed to a date after the requested date",
+   "columns": [
+    "commitment_id",
+    "po_id",
+    "part_id",
+    "due_date",
+    "delivered_at"
+   ],
+   "entity": "purchase order lines",
+   "headers": {
+    "commitment_id": "order line",
+    "delivered_at": "delivery date",
+    "due_date": "requested date",
+    "part_id": "part",
+    "po_id": "purchase order"
+   },
+   "identifiers": [
+    "commitment_id",
+    "po_id",
+    "part_id"
+   ],
+   "label": "late_by_promise",
+   "notice": "No records matched.",
+   "result": "empty_no_match",
+   "row_count": 0,
+   "rows": [],
+   "title": "The supplier committed to a date after the requested date",
+   "total": 0
+  },
+  {
+   "checked": "Examined: purchase order lines where planner = you and delivery date between '2026-09-01' and '2026-09-30' and delivered after the date the supplier committed to",
+   "columns": [
+    "commitment_id",
+    "po_id",
+    "part_id",
+    "due_date",
+    "delivered_at"
+   ],
+   "entity": "purchase order lines",
+   "headers": {
+    "commitment_id": "order line",
+    "delivered_at": "delivery date",
+    "due_date": "requested date",
+    "part_id": "part",
+    "po_id": "purchase order"
+   },
+   "identifiers": [
+    "commitment_id",
+    "po_id",
+    "part_id"
+   ],
+   "label": "missed_promise",
+   "notice": "No records matched.",
+   "result": "empty_no_match",
+   "row_count": 0,
+   "rows": [],
+   "title": "Delivered after the date the supplier committed to",
+   "total": 0
+  }
+ ]
+}

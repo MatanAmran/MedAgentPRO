@@ -114,9 +114,9 @@ def load_set(path: Path = SET_FILE, catalog: Catalog | None = None) -> list[dict
 
 
 def demo_set(path: Path = seed.HERE / "scripted_exchanges.json") -> list[dict]:
-    """The 12 demo questions in this tool's form: Q01..Q12, a follow-up after the question it follows,
-    the status from the scripted expectation, and the scripted intent as its plan (rule 1). No SQL: their
-    counts are the golden tests' business."""
+    """The demo questions in this tool's form: Q01..Q14, each as the demo user it names, a follow-up after
+    the question it follows, the status from the scripted expectation, and the scripted intent as its plan
+    (rule 1). No SQL: their counts are the golden tests' business."""
     out: list[dict] = []
     ids: dict[str, str] = {}
     for n, e in enumerate(json.loads(Path(path).read_text(encoding="utf-8"))["exchanges"], 1):
@@ -124,8 +124,9 @@ def demo_set(path: Path = seed.HERE / "scripted_exchanges.json") -> list[dict]:
         status = ["action_declined" if "action_declined" in exp.get("shows", []) else exp["outcome"]]
         if exp.get("scripted_gate") and status != ["answered"]:
             status.append("answered")   # the scripted gate decides; the real one may support the answer
-        item = {"id": f"Q{n:02d}", "user": "AP-01", "question": e["question"], "expect": {"status": status},
-                "watch": exp.get("note"), "plan": [e["intent"]] if e.get("intent") else []}
+        item = {"id": f"Q{n:02d}", "user": exp.get("user", "AP-01"), "question": e["question"],
+                "expect": {"status": status}, "watch": exp.get("note"),
+                "plan": [e["intent"]] if e.get("intent") else []}
         if (e.get("rewrite") or {}).get("question"):
             item["rewritten"] = e["rewrite"]["question"]
         if exp.get("follows"):
