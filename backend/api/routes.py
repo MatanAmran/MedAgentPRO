@@ -33,6 +33,7 @@ from demo_data.scripted import load_scripts
 from query_assistance import pipeline
 from shared.circuit_breaker import log as operational_log
 
+from . import trace as panel_trace
 from .state import BUSY, AppState, ConflictError, Conversation
 
 # PROVISIONAL. How often the stream checks that the client is still there while it waits for a stage.
@@ -130,7 +131,7 @@ def router(state: AppState) -> APIRouter:
 
     @r.get("/health")
     def health():
-        out = {"mode": state.mode, "model": state.deps.model, "authentication": "none (demo)"}
+        out = {"mode": state.mode, "model": state.deps.model, "authentication": "none (demo)", "panel": state.panel}
         if hasattr(state.deps.gateway, "remaining"):
             out["budget_remaining_usd"] = round(state.deps.gateway.remaining(), 6)
         return out
@@ -192,13 +193,20 @@ def router(state: AppState) -> APIRouter:
                             return {}          # the client left while waiting: nothing ran
                         raise ConversationBusy()
                 outcome = None
+                trace = None
+                # task 10: the calls' traces, collected by a plain append, which cannot raise into the exchange
+                calls: list = []
                 try:
                     outcome = pipeline.run(body.question, history, user, deps, on_stage,
-                                           context={"request_id": body.request_id, "conversation_id": conv.id})
-                    return {"exchange_id": outcome.exchange_id, "recorded": outcome.recorded,
-                            "response": outcome.response, "cost": outcome.cost}
+                                           context={"request_id": body.request_id, "conversation_id": conv.id},
+                                           on_call=calls.append if state.panel else None)
+                    result = {"exchange_id": outcome.exchange_id, "recorded": outcome.recorded,
+                              "response": outcome.response, "cost": outcome.cost}
+                    if state.panel:
+                        trace = result["trace"] = panel_trace.build(calls, outcome.response, outcome.cost)
+                    return result
                 finally:
-                    state.finish(conv, body.question, outcome)
+                    state.finish(conv, body.question, outcome, trace)
 
             def release_if_unstarted():
                 if claim.take():

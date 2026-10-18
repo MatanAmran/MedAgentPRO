@@ -15,6 +15,7 @@ from __future__ import annotations
 import json
 import re
 import time
+from dataclasses import replace
 from pathlib import Path
 
 from model_client.client import ModelCallError, ModelConfig, ModelGateway, ModelResponse, ScriptedModelGateway
@@ -83,4 +84,4 @@ class ScriptedDemoGateway(ModelGateway):
     def invoke(self, prompt: str, config: ModelConfig) -> ModelResponse:
         if self.delay:
             time.sleep(self.delay)
-        return self._inner.invoke(prompt, config)
+        return replace(self._inner.invoke(prompt, config), cost_usd=0.0)   # the scripted model costs nothing

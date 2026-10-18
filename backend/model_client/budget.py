@@ -349,6 +349,8 @@ class BudgetedGateway(ModelGateway):
             if resp.input_tokens is not None and resp.output_tokens is not None:
                 actual = cfg.cost(resp.input_tokens, resp.output_tokens,
                                   resp.cache_read_tokens or 0, resp.cache_write_tokens or 0)
+                # task 10: the same amount the ledger records, on the response the panel reads
+                return replace(resp, cost_usd=actual)
             return resp
         except (CircuitOpen, BudgetExceeded):
             actual = 0.0   # nothing was sent, or the provider refused before charging

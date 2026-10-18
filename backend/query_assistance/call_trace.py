@@ -39,6 +39,7 @@ class CallTrace:
     max_tokens: int | None            # what was sent; None where nothing was
     duration_ms: float | None
     check: str | None                 # the failure kind or the rejecting check's name, never its message
+    cost_usd: float | None = None     # task 10: as the gateway priced it; None is unknown, not free
 
     @property
     def temperature_sent(self) -> str:
@@ -81,5 +82,5 @@ def traces(stage: str, made: list[Call], model: str) -> list[CallTrace]:
             output_chars=len(r.text) if r and r.text is not None else None,
             reasoning_tokens=r.reasoning_tokens if r else None, claims=_claims(c),
             temperature=r.temperature if r else None, max_tokens=r.max_tokens if r else None,
-            duration_ms=c.duration_ms, check=c.check))
+            duration_ms=c.duration_ms, check=c.check, cost_usd=r.cost_usd if r else None))
     return out

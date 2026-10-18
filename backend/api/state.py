@@ -77,9 +77,10 @@ WAIT_FOR_CONVERSATION_SECONDS = MODEL_REQUEST_TIMEOUT_SECONDS + 10
 
 class AppState:
     def __init__(self, deps: Deps, mode: str, gateway_for: Callable[[str], ModelGateway],
-                 wait_seconds: float = WAIT_FOR_CONVERSATION_SECONDS):
+                 wait_seconds: float = WAIT_FOR_CONVERSATION_SECONDS, panel: bool = False):
         self.deps = deps
         self.mode = mode                       # scripted | real
+        self.panel = panel                     # task 10: "How this was answered" beside each answer (--panel)
         self.gateway_for = gateway_for         # the question's gateway: bound on scripted, shared on real
         self.wait_seconds = wait_seconds
         self._lock = threading.Lock()
@@ -157,13 +158,15 @@ class AppState:
     def deps_for(self, question: str, cancelled: threading.Event) -> Deps:
         return replace(self.deps, gateway=Cancellable(self.gateway_for(question), cancelled))
 
-    def finish(self, conv: Conversation, question: str, outcome: Outcome | None):
+    def finish(self, conv: Conversation, question: str, outcome: Outcome | None, trace: dict | None = None):
         with self._lock:
             if outcome is not None:
                 conv.history.append(outcome.exchange)
-                conv.items.append({"exchange_id": outcome.exchange_id, "posed": question,
-                                   "recorded": outcome.recorded, "response": outcome.response,
-                                   "cost": outcome.cost, "at": _now(), "rating": None})
+                item = {"exchange_id": outcome.exchange_id, "posed": question, "recorded": outcome.recorded,
+                        "response": outcome.response, "cost": outcome.cost, "at": _now(), "rating": None}
+                if trace is not None:
+                    item["trace"] = trace
+                conv.items.append(item)
             conv.busy = False
             self._freed.notify_all()
 

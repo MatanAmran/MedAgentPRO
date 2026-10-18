@@ -26,6 +26,34 @@ cd backend; python -m tools.preflight
 - 12 שאלות לדוגמה;
 - שאלה מתוסרטת אחת עוברת מקצה לקצה.
 
+### הלוח "How this was answered" (משימה 10) `[demo extension]`
+
+**מדליקים אותו בשרת:** `python -m main --panel`, ובמודל האמיתי `python -m main --real --panel`. ברירת המחדל: כבוי, כמו בספר. כבוי — אין כפתור ואין נתונים. **לא עם `--reload`** (השרת מסרב).
+
+**מה רואים:** מתחת לכל תשובה כפתור "How this was answered", סגור. נפתח בקליק או במקלדת (Tab, ואז Enter או Space). בפנים שורה לכל קריאת מודל:
+- השלב: Planning · Rewriting · Drafting · Checking · Redrafting.
+- המודל, וניסיון (עם "with feedback" כשהניסיון נשא את הדחייה הקודמת).
+- טוקנים בקלט ובפלט, ובסוגריים כמה מהם היו חשיבה.
+- תקרת הפלט שנשלחה.
+- בשער: כמה טענות בדק.
+- עלות, זמן, ואיך הקריאה הסתיימה.
+- **"Rejected by":** שם הבדיקה שדחתה, למשל `SchemaBreach:pattern@readings/0/label`. **אף פעם לא הטקסט של הדחייה.**
+
+**בסוף:** סך הטוקנים והעלות של השאלה. העלות היא של השאלה כולה, כפי שהתקציב רשם אותה.
+
+**מה לא רואים, אף פעם:** את הפרומפט, את מה שהמודל כתב, ערכים מהרשומות, או המפתח. רק מספרים ושמות.
+
+**מקרים מיוחדים:**
+- **במודל המתוסרט:** "scripted", עלות $0.0000, והטוקנים מסומנים ≈ (הערכה, לא ספירה של ספק). אפשר לעשות חזרות בחינם.
+- **עלות "—"** = לא ידועה, לא "חינם". למשל קריאה שנכשלה. אם התקציב החזיק סכום על קריאה כזו (timeout, ‏R5), הוא מופיע בשורה נפרדת: "reserved for calls whose cost is unknown".
+- **שאלה 7 (סיבה) ושאלה 12 (שינוי), ובקשת בירור:** שורה אחת, Planning, ומתחתיה "No answer was drafted: the plan alone decided this." **התוכנית שהמודל החזיר היא שהחליטה,** והקוד בנה את התשובה הקבועה.
+- **שאלות 8 ו-9:** שורה אחת, ו-"No answer was drafted: no records matched."
+- **"Not sent: rate limit" / "Not sent: budget":** השאלה לא נשלחה למודל בכלל.
+
+**משפט למציג:** "Under each answer you can see every model call it took: which stage, how many tokens, what it cost, and which check rejected an attempt. The model's own text is never shown; the numbers in the answer are filled in by code."
+
+**שאלות חופשיות על המודל האמיתי (עם הלוח):** שאלה על נתון שאין לו עמודה (טלפון, מוביל, מאשר) מקבלת פער ("there is no data… No column… records it"). שאלה על סיבה או על חריגות מקבלת הפניה לחקירה. **זו התנהגות נכונה, לא תקלה:** המערכת אומרת מה חסר במקום לנחש. המגבלה היא 10 שאלות בדקה.
+
 כל ❌ אומר מה להריץ. **היא לא קוראת למודל לעולם.**
 
 **במודל האמיתי** (`python -m main --real`, אחרי בדיקת העשן R9) מריצים `python -m tools.preflight --real`. הגרסה הזו בודקת גם:

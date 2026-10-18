@@ -57,6 +57,9 @@ class ModelResponse:
     # Of output_tokens, how many the model spent thinking, as the provider reports it (task 10a, chat 22:40).
     # A count only: the thinking itself (reasoning_content, thinking blocks) is never read, kept or shown
     reasoning_tokens: int | None = None
+    # What this call cost, set by the gateway that knows the price (task 10): BudgetedGateway from the tokens
+    # the provider reported, the scripted demo model 0. None where no one priced it: unknown, never 0
+    cost_usd: float | None = None
 
     def problem(self) -> str | None:
         """A call that succeeded and was billed but holds no usable output (R4, P10). LiteLLM maps

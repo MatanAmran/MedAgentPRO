@@ -55,6 +55,33 @@ export interface Cost {
 
 export type Rating = "up" | "down";
 
+// Task 10 [demo extension]: "How this was answered", one row per model call. Metadata only (api/trace.py)
+export interface TraceCall {
+  stage: string;
+  prompt_identity: string;
+  model: string;
+  attempt_number: number;
+  feedback_attempt: boolean;
+  status: "accepted" | "rejected" | "failed";
+  finish_reason: string | null;
+  input_tokens: number | null;
+  output_tokens: number | null;
+  reasoning_tokens: number | null;
+  claims: number | null; // the gate only
+  max_tokens: number | null;
+  duration_ms: number | null;
+  check: string | null; // the name of the check that rejected the output, never its message
+  cost_usd: number | null; // null is unknown, never free
+}
+
+export interface Trace {
+  calls: TraceCall[];
+  total: { input_tokens: number | null; output_tokens: number | null; reasoning_tokens: number | null; usd: number | null };
+  unpriced_usd: number | null;
+  not_sent: "rate_limit" | "budget" | null;
+  note: "plan_decided" | "no_records" | null;
+}
+
 // One item of GET /api/conversations/{id}, and the "result" event of the stream
 export interface ExchangeItem {
   exchange_id: string;
@@ -62,6 +89,7 @@ export interface ExchangeItem {
   recorded: boolean;
   response: ExchangeResponse;
   cost: Cost | null;
+  trace?: Trace; // task 10: only where the server runs with --panel
   at?: string;
   rating: Rating | null;
 }
@@ -86,6 +114,7 @@ export interface Health {
   model: string;
   authentication: string;
   budget_remaining_usd?: number;
+  panel?: boolean; // task 10
 }
 
 export type Stage =

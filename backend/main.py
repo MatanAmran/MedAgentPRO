@@ -79,14 +79,15 @@ def build_deps(mode: str = "scripted", db_path: Path = seed.DEFAULT_OUT, scripte
 
 
 def create_app(mode: str = "scripted", db_path: Path = seed.DEFAULT_OUT, scripted_delay: float = 0.0,
-               gateway: BudgetedGateway | None = None) -> FastAPI:
+               gateway: BudgetedGateway | None = None, panel: bool = False) -> FastAPI:
     """gateway: on the real model, the budgeted gateway to use instead of real_gateway(). Only the fake
-    provider of the end-to-end tests passes one (tools/fake_real_server.py, task 9)."""
+    provider of the end-to-end tests passes one (tools/fake_real_server.py, task 9). panel: the "How this
+    was answered" trace beside each answer (task 10), off unless asked for, as in the book."""
     deps, gateway_for = build_deps(mode, db_path, scripted_delay, gateway)
     app = FastAPI(title="MedAgentPro chat (demo)")
     app.add_middleware(CORSMiddleware, allow_origins=FRONTEND_ORIGINS, allow_methods=["GET", "POST"],
                        allow_headers=["Content-Type", "X-Demo-User"])
-    app.include_router(router(AppState(deps, mode, gateway_for)))
+    app.include_router(router(AppState(deps, mode, gateway_for, panel=panel)))
     return app
 
 
@@ -112,6 +113,8 @@ def main(argv: list[str] | None = None) -> int:
     ap = argparse.ArgumentParser(prog="python -m main")
     ap.add_argument("--real", action="store_true", help="the real model behind the spending cap")
     ap.add_argument("--reload", action="store_true", help="reload on code changes (scripted model only)")
+    ap.add_argument("--panel", action="store_true",
+                    help='show "How this was answered" under each answer (task 10, a demo extension)')
     ap.add_argument("--port", type=int, default=8000)
     ap.add_argument("--scripted-delay", type=float, default=0.0, metavar="SECONDS",
                     help="wait before each scripted model output, so end-to-end tests can act mid-stream")
@@ -122,13 +125,16 @@ def main(argv: list[str] | None = None) -> int:
     if args.real and args.reload:
         print("--reload is refused with --real: each reload would start another counter (R8, T2)")
         return 2
+    if args.panel and args.reload:
+        print("--panel is not passed through --reload; run without --reload to see the panel")
+        return 2
     import uvicorn
     log_to_stdout()
     if args.reload:
         uvicorn.run("main:scripted_app", factory=True, host=HOST, port=args.port, reload=True)
         return 0
     try:
-        app = create_app("real" if args.real else "scripted", scripted_delay=args.scripted_delay)
+        app = create_app("real" if args.real else "scripted", scripted_delay=args.scripted_delay, panel=args.panel)
     except BudgetConfigError as e:
         print(e)
         return 1

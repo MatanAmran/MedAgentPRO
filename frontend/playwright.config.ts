@@ -56,7 +56,8 @@ export default defineConfig({
   testIgnore: "real.spec.ts",
   webServer: [
     {
-      command: `${python} -m demo_data.seed && ${python} -m main --scripted-delay ${SCRIPTED_DELAY}`,
+      // --panel: task 10, "How this was answered" (panel.spec.ts); closed by default, so the other specs do not see it
+      command: `${python} -m demo_data.seed && ${python} -m main --scripted-delay ${SCRIPTED_DELAY} --panel`,
       cwd: join(__dirname, "..", "backend"),
       url: "http://127.0.0.1:8000/api/health",
       reuseExistingServer: false,

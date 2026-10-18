@@ -100,7 +100,7 @@ class FakeProvider:
             model=kwargs["model"])
 
 
-def build_app(db_path: Path = seed.DEFAULT_OUT, spend_dir: Path | None = None, **override):
+def build_app(db_path: Path = seed.DEFAULT_OUT, spend_dir: Path | None = None, panel: bool = False, **override):
     """The app as main.create_app("real") builds it, with the fake provider. Returns (app, provider)."""
     import main
     spend_dir = Path(spend_dir or tempfile.mkdtemp(prefix="medagentpro-fake-spend-"))
@@ -113,7 +113,7 @@ def build_app(db_path: Path = seed.DEFAULT_OUT, spend_dir: Path | None = None, *
     previous = os.environ.get("MEDAGENTPRO_CHAIN_KEY")
     os.environ["MEDAGENTPRO_CHAIN_KEY"] = secrets.token_hex(32)
     try:
-        app = main.create_app("real", db_path, gateway=gateway)
+        app = main.create_app("real", db_path, gateway=gateway, panel=panel)
     finally:
         if previous is None:
             del os.environ["MEDAGENTPRO_CHAIN_KEY"]
@@ -125,9 +125,10 @@ def build_app(db_path: Path = seed.DEFAULT_OUT, spend_dir: Path | None = None, *
 def main_(argv: list[str] | None = None) -> int:
     ap = argparse.ArgumentParser(prog="python -m tools.fake_real_server")
     ap.add_argument("--port", type=int, default=8000)
+    ap.add_argument("--panel", action="store_true", help='"How this was answered" under each answer (task 10)')
     args = ap.parse_args(argv)
     import uvicorn
-    app, _ = build_app()
+    app, _ = build_app(panel=args.panel)
     print(json.dumps({"fake_real_server": True, "model": CONFIG["MODEL_ID"]}))
     uvicorn.run(app, host="127.0.0.1", port=args.port, workers=1)
     return 0
