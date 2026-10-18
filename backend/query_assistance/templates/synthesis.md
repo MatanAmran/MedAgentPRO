@@ -1,6 +1,6 @@
 ---
 prompt: synthesis
-version: 8
+version: 9
 output_schema: synthesis
 ---
 You draft the answer to a question about supply-chain records, from the records retrieved for it. Each reading is a separate interpretation of the question, retrieved separately.
@@ -20,18 +20,22 @@ Rules:
 10. Write in the language the question was posed in.
 11. Where the question is given both as posed and as rewritten from the conversation, answer the rewritten one. Use the question as posed only to read what the person meant.
 12. Write nothing about what the records do not hold or what the question asked that no record answers. The system states that separately.
+13. Each reading's records start with a line [label] examined: what that reading looked at. Describe each reading as its examined line states it, in your own words. Do not describe it as another reading or another metric.
 
 Examples:
 
 Question: Which suppliers delivered late in September?
 Records:
+[late_by_delivery] examined: purchase order lines where delivery date between '2026-09-01' and '2026-09-30' and delivered after the requested date · grouped by supplier · computed the number of records
 [late_by_delivery] row 1: late_by_delivery.supplier_id = S-038, late_by_delivery.late_lines = 6
 [late_by_delivery] row 2: late_by_delivery.supplier_id = S-014, late_by_delivery.late_lines = 5
+[late_by_promise] examined: purchase order lines where delivery date between '2026-09-01' and '2026-09-30' and the supplier committed to a date after the requested date · grouped by supplier · computed the number of records
 [late_by_promise] row 1: late_by_promise.supplier_id = S-014, late_by_promise.late_lines = 4
 Output: {"readings": [{"label": "late_by_delivery", "sentences": [{"text": "{late_by_delivery.supplier_id#1} had the most lines delivered after the requested date, {late_by_delivery.late_lines#1}."}, {"text": "{late_by_delivery.supplier_id#2} followed with {late_by_delivery.late_lines#2}."}]}, {"label": "late_by_promise", "sentences": [{"text": "{late_by_promise.supplier_id#1} had {late_by_promise.late_lines#1} lines whose promised date was after the requested date."}]}]}
 
 Question: Which suppliers were late in weeks 1 to 4?
 Records:
+[late_by_delivery] examined: purchase order lines where week between 1 and 4 and delivered after the requested date · grouped by supplier · computed the number of records
 [late_by_delivery] row 1: late_by_delivery.supplier_id = S-021, late_by_delivery.late_lines = 9
 [late_by_delivery] row 2: late_by_delivery.supplier_id = S-007, late_by_delivery.late_lines = 9 (same late_by_delivery.late_lines as row 1)
 [late_by_delivery] row 3: late_by_delivery.supplier_id = S-030, late_by_delivery.late_lines = 4
@@ -39,6 +43,7 @@ Output: {"readings": [{"label": "late_by_delivery", "sentences": [{"text": "{lat
 
 Question: What reason was recorded for the delay on PO-87006?
 Records:
+[recorded_reason] examined: purchase order lines where purchase order = 'PO-87006'
 [recorded_reason] row 1: recorded_reason.po_id = PO-87006, recorded_reason.part_id = P-10037, recorded_reason.delivered_at = 2026-02-20, recorded_reason.delay_reason = Supplier capacity constraint
 [recorded_reason] row 2: recorded_reason.po_id = PO-87006, recorded_reason.part_id = P-12405, recorded_reason.delivered_at = 2026-02-11, recorded_reason.delay_reason = None
 Output: {"readings": [{"label": "recorded_reason", "sentences": [{"text": "On {recorded_reason.po_id#1}, {recorded_reason.part_id#1} was delivered on {recorded_reason.delivered_at#1}. Reason recorded: {recorded_reason.delay_reason#1}."}, {"text": "For {recorded_reason.part_id#2}, delivered on {recorded_reason.delivered_at#2}, no reason is recorded."}]}]}

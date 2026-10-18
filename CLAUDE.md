@@ -183,7 +183,9 @@ The remote is `MedAgentPRO` (`github.com/MatanAmran/MedAgentPRO`, Matan's reposi
 - **Code does not read meaning.** Do not add word-list heuristics over model text. Constrain the shape of model output instead.
   - **Text we wrote is not model text (task 10a, chat 14.10, 21:50).** A word list may check the scripted answers in `demo_data/scripted_exchanges.json` (`tests/demo_data/test_scripted_places.py`: no place word between rows tied on the ordering field). Never extend it to model output: there the gate judges the words.
   - **Code gives facts about the rows, the model words them.** `prompts.render_records` marks a row that holds the same value as the row before it in the field the rows are ordered by, `(same label.alias as row n)`, for synthesis, the redraft and the gate. The marker names a field and a row, never a value, and never reaches the history or the identifier check.
+  - **Each reading's records start with its examined line** (chat, 18.10, 09:40): `[label] examined: …`, `contract.examined_line`, the same text "Examined" shows, from the plan and the catalog only. Synthesis (`synthesis@9`, rule 13) words a reading as that line states it; the gate (`support_scoring@5`, rule 9) marks a sentence that describes its records otherwise as contradicted.
   - **The marker follows the first `ORDER_BY` key only** (chat, 14.10, 22:30). Where a plan orders by two keys and a tie on the first is broken by the second, the row is still marked "same" by the first: right, since the place is stated on the first key. Adjacent rows only, so a run of equal values is marked row by row.
+- **`needs_clarification`** (chat, 18.10, 11:35) `[demo extension]`: a fourth disposition, as `out_of_scope_action`. A question intent analysis cannot interpret (a follow-up opening a conversation) retrieves nothing and gets a fixed request from code, `contract.NEEDS_CLARIFICATION`, outcome answered, recorded. A term with several readings stays in `ambiguous`.
 - **NFR 19, strict reading.** If no assertion survives the gate after the single redraft, the whole answer is replaced by a request for input, records included (Test 17).
 - **NFR 21.** Text held in a record never reaches the rewriting call or the identifier check: the history gets free-text values as references (`Draft.answer(..., for_history=True)`), presented identifiers come from identifier columns only.
 - **Existence of an identifier** is checked where it is held (`references` in `schema.json`), so a supplier with no orders is "no records matched", not "absent".
@@ -217,7 +219,7 @@ On Evyatar's machine an Application Control policy blocks `.exe` files in the ve
 # Backend (from backend\, venv active)
 python -m pip install -r requirements.txt
 python -m demo_data.seed          # builds demo_data\demo.db
-python -m pytest -q               # the default run; 869 after the 05:10 fixes (18.10)
+python -m pytest -q               # the default run; 880 after the 09:40 and 11:35 changes (18.10)
 python -m tools.path_map          # runs tests/paths and tests/feasibility, writes docs/notes/60_PATHS.md
 python -m query_assistance.dry_run   # prices two scripted exchanges at the .env prices, no model call, no key
 python -m query_assistance.dry_run --model claude-sonnet-5-5   # the same, prices from LiteLLM's local map, no .env

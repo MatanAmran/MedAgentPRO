@@ -539,3 +539,27 @@ def test_feedback_rate_is_read_from_the_audit_entries(db_path, storage):
     gw = model(intent_analysis_demo=[bad, INTENT], synthesis=[SYN], support_scoring=[gate_ok])
     run(gw, db_path, storage)
     assert dry_run.feedback_rate(storage.audit_log) == (1, 1)
+
+
+# --------------------------------------------------------------------------
+# chat, 18.10, 09:40: each reading's records start with what it examined, for synthesis and the gate
+# --------------------------------------------------------------------------
+
+def test_synthesis_and_gate_get_each_readings_examined_line_and_no_record_value(db_path, storage):
+    gw = model(intent_analysis_demo=[INTENT], synthesis=[SYN], support_scoring=[gate_ok])
+    out = run(gw, db_path, storage)
+    assert out.response["outcome"] == "answered"
+    line = "[late] examined: " + contract.examined_line(LATE["plan"], CAT, "APPROVER")
+    assert out.response["readings"][0]["checked"] == "Examined: " + line.split("examined: ", 1)[1]
+    rows = out.response["readings"][0]["rows"]
+    for name in ("synthesis", "support_scoring"):
+        prompt, = prompts_of(gw, name)
+        said, = [x for x in prompt.splitlines() if x.startswith("[late] examined: ")]
+        assert said == line
+        # what the reading examined comes from the plan and the catalog: no row value is in it
+        assert not {str(v) for r in rows for v in r.values()} & set(re.findall(r"[\w-]+", said)) - {"1", "13"}
+
+
+def test_the_examined_line_names_the_role_scope_for_a_planner():
+    line = contract.examined_line(LATE["plan"], CAT, "PLANNER")
+    assert line.endswith("limited to the records you hold") and not line.startswith("Examined")

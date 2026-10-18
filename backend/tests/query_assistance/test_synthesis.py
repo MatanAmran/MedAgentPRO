@@ -79,7 +79,7 @@ def test_sentence_without_reference_fails_the_schema():
 @pytest.mark.parametrize("file", ["synthesis.md", "synthesis_redraft.md"])
 def test_prompt_has_version_schema_and_no_dashes(file):
     pr = p.load(file)
-    assert pr.output_schema == "synthesis" and pr.version == {"synthesis.md": "8", "synthesis_redraft.md": "6"}[file]
+    assert pr.output_schema == "synthesis" and pr.version == {"synthesis.md": "9", "synthesis_redraft.md": "6"}[file]
     assert "—" not in pr.body and "–" not in pr.body
 
 
@@ -311,7 +311,7 @@ def test_draft_fills_and_records_the_call():
     gw = ScriptedModelGateway([GOOD])
     d = s.draft(gw, Q, [LATE], model="demo")
     assert d.answer("late") == "S-038 had the most late lines, 6."
-    assert len(gw.calls) == 1 and d.responses[0].prompt_identity == "synthesis@8"
+    assert len(gw.calls) == 1 and d.responses[0].prompt_identity == "synthesis@9"
 
 
 def test_rejected_draft_is_retried_once_then_accepted():

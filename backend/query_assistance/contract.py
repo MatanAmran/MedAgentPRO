@@ -156,6 +156,12 @@ def render_checked(plan: dict, cat: Catalog, role: str) -> str:
     return " · ".join(parts)
 
 
+def examined_line(plan: dict, cat: Catalog, role: str) -> str:
+    """What a reading examined, without the "Examined: " the screen shows: the line synthesis and the
+    gate get above the reading's rows (chat, 18.10, 09:40). The same text, from the same code."""
+    return render_checked(plan, cat, role).removeprefix("Examined: ")
+
+
 def render_order(plan: dict, cat: Catalog | None = None) -> str | None:
     order = plan.get("ORDER_BY")
     if not order:
@@ -318,6 +324,18 @@ def declined_action(understood_as: str | None = None) -> dict:
     """Task 8, A1 [demo extension]: a request to change records. An existing outcome, answered, with no
     reading, no gap and a fixed notice: no new outcome is needed, and nothing was retrieved."""
     return _finish({"outcome": "answered", "readings": [], "gaps": [], "notice": ACTION_DECLINED}, understood_as)
+
+
+NEEDS_CLARIFICATION = ("The question could not be interpreted on its own. Ask it in full, naming what it concerns, "
+                       "such as the period, supplier or part.")
+
+
+def needs_clarification(understood_as: str | None = None) -> dict:
+    """Chat, 18.10, 11:35 [demo extension]: a question intent analysis could not interpret, such as a
+    follow-up at the start of a conversation. As declined_action: answered, no reading, no gap, a fixed
+    notice, nothing retrieved. Before it, such a question ended as a failure of the system."""
+    return _finish({"outcome": "answered", "readings": [], "gaps": [], "notice": NEEDS_CLARIFICATION},
+                   understood_as)
 
 
 def no_supported_assertion(readings: list[dict], understood_as: str | None = None) -> dict:

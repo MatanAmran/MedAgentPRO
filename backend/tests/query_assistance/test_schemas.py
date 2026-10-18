@@ -128,6 +128,10 @@ case("intent_analysis", "referral carries no readings",
      {"disposition": "refer_to_investigation"}, True,
      "FR 14. A question requiring a cause is routed before any retrieval.")
 
+case("intent_analysis", "a question that cannot be interpreted asks for it in full",
+     {"disposition": "needs_clarification"}, True,
+     "Chat, 18.10, 11:35 [demo extension]: a follow-up at the start of a conversation retrieves nothing.")
+
 # --- rejections ---
 
 case("intent_analysis", "raw SQL smuggled in",
@@ -207,6 +211,15 @@ case("intent_analysis", "referral carrying readings",
      {"disposition": "refer_to_investigation",
       "readings": [{"label": "r", "plan": plan()}]},
      False, "A referred question plans no retrieval.")
+
+case("intent_analysis", "clarification carrying readings",
+     {"disposition": "needs_clarification", "readings": [{"label": "r", "plan": plan()}]},
+     False, "A question that could not be interpreted plans no retrieval: nothing is guessed.")
+
+case("intent_analysis", "clarification carrying an ambiguity",
+     {"disposition": "needs_clarification", "ambiguous": [{"term": "late", "alternatives": [
+         {"col": "commitments.delivered_at"}, {"col": "commitments.promised_date"}]}]},
+     False, "A term with more than one reading is declared ambiguous and answered, not sent back.")
 
 case("intent_analysis", "retrieve with no readings",
      {"disposition": "retrieve", "readings": []},

@@ -67,6 +67,8 @@ class Material:
                A sentence of this reading may write them outside a reference
     id_aliases aliases that select an identifier column. Their values in the rows are written
                only as references, in any reading (F11)
+    examined   what the reading examined, as "Examined" words it, for the records' examined line
+               (chat, 18.10, 09:40). From the plan and the catalog only
     """
     label: str
     rows: list[dict[str, Any]]
@@ -75,6 +77,7 @@ class Material:
     truncated: bool = False
     literals: set[str] = field(default_factory=set)
     id_aliases: set[str] = field(default_factory=set)
+    examined: str | None = None
 
     def identifier_tokens(self) -> set[str]:
         return {t for row in self.rows for a in self.id_aliases if row.get(a) is not None
@@ -93,14 +96,14 @@ def _plan_values(node: Any) -> list[Any]:
 
 
 def material(label: str, plan: dict, rows: list[dict], truncated: bool = False,
-             cat: Catalog | None = None) -> Material:
+             cat: Catalog | None = None, examined: str | None = None) -> Material:
     """Builds a Material from a reading's plan, so the alias -> column map and the literals
     come from what ran. The catalog says which columns are identifiers."""
     cols = {i["as"]: i["expr"].get("col") for i in plan["SELECT"]}
     values = _plan_values(plan.get("WHERE")) + _plan_values(plan.get("HAVING", []))
     literals = {t for v in values if not isinstance(v, bool) for t in _tokens_with_digits(format_value(v))}
     ids = {a for a, col in cols.items() if col and cat and (cat.column(col) or {}).get("identifier")}
-    return Material(label, rows, cols, plan.get("ORDER_BY", []), truncated, literals, ids)
+    return Material(label, rows, cols, plan.get("ORDER_BY", []), truncated, literals, ids, examined)
 
 
 @dataclass
@@ -283,8 +286,14 @@ def ordered_by(materials: list[Material]) -> dict[str, str]:
     return {m.label: m.order_by[0]["by"] for m in materials if m.order_by and m.order_by[0].get("by")}
 
 
+def examined_of(materials: list[Material]) -> dict[str, str]:
+    """Each reading's examined line, for the records synthesis and the gate see (chat, 18.10, 09:40)."""
+    return {m.label: m.examined for m in materials if m.examined}
+
+
 def _records(materials: list[Material]) -> str:
-    return prompts.render_records([(m.label, m.rows) for m in materials if m.rows], ordered_by(materials))
+    return prompts.render_records([(m.label, m.rows) for m in materials if m.rows], ordered_by(materials),
+                                  examined_of(materials))
 
 
 def _rejected(rejected: list[str] | None) -> str:

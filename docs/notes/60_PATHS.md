@@ -1,10 +1,10 @@
 # MedAgentPro — מפת המסלולים וההיתכנות
 
-**נוצר אוטומטית** ב-`python -m tools.path_map` (מתוך `backend\`), 18.10.2026 05:17. **לא לערוך ידנית** — המקור הוא `backend\tests\paths\registry.py` ו-`backend\tests\feasibility\constraints.py`.
+**נוצר אוטומטית** ב-`python -m tools.path_map` (מתוך `backend\`), 18.10.2026 11:43. **לא לערוך ידנית** — המקור הוא `backend\tests\paths\registry.py` ו-`backend\tests\feasibility\constraints.py`.
 
 **איך זה גדל:** `tests\paths\branches.py` קורא מהקוד ומהסכמות כל הסתעפות (מצב סיום, שלב, סוג כשל, `except`, הודעה, נקודת קצה, קוד HTTP, סוג פער, תפקיד). **הסתעפות בלי מסלול מפילה את `pytest`.** מגבלה שמתגלה (כמו הטמפרטורה) נכנסת כשורה ב-`constraints.py`, ושורה בלי בדיקה מפילה את `pytest`.
 
-**תוצאות:** 70 עוברים · 0 נכשלים · 0 פער ידוע · 0 דולגו
+**תוצאות:** 73 עוברים · 0 נכשלים · 0 פער ידוע · 0 דולגו
 
 ## מסלולים
 
@@ -16,10 +16,13 @@
 | ✅ | `planner_sees_own_rows_only` | `role:PLANNER` | NFR 17 · Test 18 |  |
 | ✅ | `referred` | `outcome:referred_to_investigation`, `disposition:refer_to_investigation` | FR 14 · Test 22 |  |
 | ✅ | `action_declined` | `disposition:out_of_scope_action`, `notice:ACTION_DECLINED` | task 8 A1 · FR 14 (extension) | a request to change records: nothing retrieved, a fixed sentence, outcome answered |
+| ✅ | `needs_clarification` | `disposition:needs_clarification`, `notice:NEEDS_CLARIFICATION` | chat 18.10 11:35 (extension of FR 14) | a question that cannot be interpreted, such as a follow-up opening a conversation: nothing retrieved, a fixed request to ask it in full, outcome answered, recorded |
 | ✅ | `empty_result_no_synthesis` | — | Test 35 |  |
 | ✅ | `identifier_not_held` | — | Test 35 · 40_CHAT §6 |  |
 | ✅ | `redraft_from_kept` | `verdict:uncovered`, `stage:regeneration`, `notice:WITHHELD` | NFR 19 · decision 4, 6 |  |
 | ✅ | `contradicted_like_unsupported` | `verdict:contradicted` | decision 3 |  |
+| ✅ | `gate_removes_other_metric_wording` | — | chat 18.10 09:40 · NFR 19 | a sentence worded as another metric than its examined line is contradicted; the rest is kept |
+| ✅ | `gate_removes_only_sentence_other_metric` | — | chat 18.10 09:40 · NFR 19 strict | the only sentence worded as another metric, twice: no_supported_assertion |
 | ✅ | `fresh_draft_then_supported` | — | NFR 19 · decision 4 |  |
 | ✅ | `fresh_draft_then_nothing` | `outcome:no_supported_assertion` | NFR 19 strict · Test 17 |  |
 | ✅ | `redraft_then_nothing` | — | NFR 19 strict · Test 17 |  |
@@ -85,7 +88,7 @@
 
 **outcome** — `answered` (answered_all_supported, answered_two_readings) · `no_supported_assertion` (fresh_draft_then_nothing) · `referred_to_investigation` (referred) · `request_not_completed` (intent_rejected_twice) · `source_unreachable` (source_missing)
 
-**disposition** — `out_of_scope_action` (action_declined) · `refer_to_investigation` (referred) · `retrieve` (answered_all_supported)
+**disposition** — `needs_clarification` (needs_clarification) · `out_of_scope_action` (action_declined) · `refer_to_investigation` (referred) · `retrieve` (answered_all_supported)
 
 **verdict** — `contradicted` (contradicted_like_unsupported) · `supported` (answered_all_supported) · `uncovered` (redraft_from_kept)
 
@@ -99,7 +102,7 @@
 
 **budget** — `exchange` (exchange_cap) · `model` (budget_model) · `provider` (budget_provider) · `total` (budget_used_up)
 
-**notice** — `ACTION_DECLINED` (action_declined) · `BUDGET_USED_UP` (budget_used_up) · `EXCHANGE_CAP` (exchange_cap) · `NOT_COMPLETED` (intent_rejected_twice) · `RATE_LIMITED` (rate_limit) · `WITHHELD` (redraft_from_kept)
+**notice** — `ACTION_DECLINED` (action_declined) · `BUDGET_USED_UP` (budget_used_up) · `EXCHANGE_CAP` (exchange_cap) · `NEEDS_CLARIFICATION` (needs_clarification) · `NOT_COMPLETED` (intent_rejected_twice) · `RATE_LIMITED` (rate_limit) · `WITHHELD` (redraft_from_kept)
 
 **endpoint** — `GET /api/conversations` (server_listing_and_health) · `GET /api/conversations/{conversation_id}` (server_each_ending_then_goes_on) · `GET /api/examples` (server_examples) · `GET /api/health` (server_listing_and_health) · `POST /api/conversations` (server_each_ending_then_goes_on) · `POST /api/conversations/{conversation_id}/exchanges` (server_each_ending_then_goes_on) · `POST /api/exchanges/{exchange_id}/rating` (server_rating)
 

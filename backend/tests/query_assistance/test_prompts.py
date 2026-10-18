@@ -52,7 +52,7 @@ def test_prompt_text_has_no_semicolons_or_dashes(file):
 def test_intent_examples_validate_and_compile():
     pr = p.load("intent_analysis.md")
     exs = examples(pr)
-    assert len(exs) == 4   # task 8, A1: the request to change records
+    assert len(exs) == 5   # task 8, A1: the request to change records; chat 18.10 11:35: one not interpretable
     v = c.intent_validator()
     for inp, out in exs:
         q = re.search(r"Question: (.*)", inp).group(1)
@@ -74,10 +74,11 @@ def test_rewrite_examples_validate_and_name_no_new_identifier():
 
 
 def test_gate_examples_validate_and_evaluate():
-    """v4 (task 10a): one claim per sentence, and a place named between tied rows is contradicted."""
+    """v4 (task 10a): one claim per sentence, and a place named between tied rows is contradicted.
+    v5 (chat, 18.10, 09:40): a sentence that describes its records unlike their examined line is contradicted."""
     pr = p.load("gate.md")
     (inp, out), (tie_in, tie_out) = examples(pr)
-    assert pr.version == "4"
+    assert pr.version == "5"
     for o in (out, tie_out):
         assert not list(validator("support_scoring").iter_errors(o))
     sentences = [(m.group(1), m.group(2)) for m in re.finditer(r"^\d+\. \[(\w+)\] (.*)$", inp, re.M)]

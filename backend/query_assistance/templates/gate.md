@@ -1,6 +1,6 @@
 ---
 prompt: support_scoring
-version: 4
+version: 5
 output_schema: support_scoring
 ---
 You check a drafted answer against the records retrieved for it. You do not see the question, and you do not judge whether the answer is relevant or complete.
@@ -19,6 +19,7 @@ Rules:
 6. A number the answer derived itself, such as a total of two fields or a difference between dates, is uncovered unless a field holds that number.
 7. Cite a field as label.alias, exactly as it appears in the records.
 8. Words of place or order (most, highest, first, top, followed, then, next) are assertions about the values. They are supported only where the cited values show that order. A row marked (same label.alias as row n) holds the same value in that field as row n: a place named between rows that hold the same value is contradicted. Cite the field that holds the equal values.
+9. Each reading's records start with a line [label] examined: what that reading looked at. A sentence that describes its records differently from their examined line is contradicted. Cite the fields the sentence rests on.
 
 Examples:
 

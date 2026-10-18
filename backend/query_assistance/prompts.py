@@ -257,13 +257,19 @@ def render_intent(cat: Catalog, role: str, posed: str, rewritten: str | None = N
                 feedback=feedback_block(feedback), reference_date=cat.data_as_of or "", row_limit=str(ROW_LIMIT))
 
 
-def render_records(results: list[tuple[str, list[dict[str, Any]]]], ordered_by: dict[str, str] | None = None) -> str:
+def render_records(results: list[tuple[str, list[dict[str, Any]]]], ordered_by: dict[str, str] | None = None,
+                   examined: dict[str, str] | None = None) -> str:
     """ordered_by maps a reading label to the alias its rows are ordered by (the first ORDER_BY key of
     the plan that ran). A row holding the same value there as the row before it says so, by name and
     row number only: a fact about the rows, given by code, so that no place is named between equal
-    values (task 10a, chat 21:50). The marker repeats no value."""
-    out = []
+    values (task 10a, chat 21:50). The marker repeats no value.
+    examined maps a label to what the reading examined, as "Examined" shows it (contract.examined_line),
+    so the words around references describe that reading and no other (chat, 18.10, 09:40). It is
+    built from the plan and the catalog, never from a record (NFR 21)."""
+    out, said = [], examined or {}
     for label, rows in results:
+        if said.get(label):
+            out.append(f"[{label}] examined: {said[label]}")
         if not rows:
             out.append(f"[{label}] no rows")
         by = (ordered_by or {}).get(label)
@@ -277,9 +283,9 @@ def render_records(results: list[tuple[str, list[dict[str, Any]]]], ordered_by: 
 
 def render_gate(answer: str, results: list[tuple[str, list[dict[str, Any]]]],
                 prompt: Prompt | None = None, feedback: str | None = None,
-                ordered_by: dict[str, str] | None = None) -> str:
+                ordered_by: dict[str, str] | None = None, examined: dict[str, str] | None = None) -> str:
     """The question is not passed. The gate judges support, not relevance."""
-    return fill(prompt or load("gate.md"), answer=answer, records=render_records(results, ordered_by),
+    return fill(prompt or load("gate.md"), answer=answer, records=render_records(results, ordered_by, examined),
                 feedback=feedback_block(feedback))
 
 

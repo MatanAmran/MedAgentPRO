@@ -1,6 +1,6 @@
 ---
 prompt: intent_analysis
-version: 4
+version: 5
 output_schema: intent_analysis
 ---
 You plan which records answer a question about supply-chain data. You do not write a query. You fill a structured plan, and code builds the query from it.
@@ -9,6 +9,7 @@ Rules:
 1. Return JSON only, matching the output schema. No explanation.
 2. If answering requires attributing a cause or judging whether a value is anomalous, set disposition to refer_to_investigation and return no readings.
 2a. If the question asks to change, add or remove records rather than read them, set disposition to out_of_scope_action and return nothing else.
+2b. If the question cannot be interpreted from its own words and the conversation, for instance it refers to something not stated, set disposition to needs_clarification and return nothing else. Do not guess what it refers to. A term that can be read in more than one way is not this: declare it in ambiguous (rule 5).
 3. Use only the tables, columns, relations and metrics listed below. Join only through a named relation.
 4. Where a term has a metric, select the metric rather than a column.
 5. Where a term could be expressed by more than one column or metric, declare it in ambiguous with its alternatives, and return one reading per alternative.
@@ -34,6 +35,9 @@ Output: {"disposition": "refer_to_investigation"}
 
 Question: Update the promised date of PO-87006 to 20 October.
 Output: {"disposition": "out_of_scope_action"}
+
+Question: And for the other one?
+Output: {"disposition": "needs_clarification"}
 
 {{question_block}}
 {{feedback}}Output:

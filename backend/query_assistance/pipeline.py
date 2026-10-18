@@ -204,8 +204,9 @@ def _gate(deps: Deps, rec: _Record, ordinal: int, d: Draft) -> gate.GateResult:
     aliases = {label: set(m.columns) for label, m in d.materials.items()}
     answer = gate.render_answer(sentences)
     order = synthesis.ordered_by(list(d.materials.values()))
+    examined = synthesis.examined_of(list(d.materials.values()))
     return _ask(deps, rec, ordinal, prompts.load("gate.md"),
-                lambda fb: prompts.render_gate(answer, records, feedback=fb, ordered_by=order),
+                lambda fb: prompts.render_gate(answer, records, feedback=fb, ordered_by=order, examined=examined),
                 lambda out: gate.evaluate(out, sentences, aliases), _GATE_V.schema, _GATE_V)
 
 
@@ -220,7 +221,8 @@ def _path_inputs(question: str, rewritten: str | None, materials: list) -> list[
     answer = gate.render_answer([("label", "x" * longest)] * n)
     records = [(m.label, m.rows) for m in materials if m.rows]
     syn = estimate_input_tokens(synthesis.render(question, materials, rewritten=rewritten))
-    gate_in = estimate_input_tokens(prompts.render_gate(answer, records, ordered_by=synthesis.ordered_by(materials)))
+    gate_in = estimate_input_tokens(prompts.render_gate(answer, records, ordered_by=synthesis.ordered_by(materials),
+                                                        examined=synthesis.examined_of(materials)))
     redraft_in = estimate_input_tokens(synthesis.render_redraft(question, materials, {"label": [answer]},
                                                                 rewritten=rewritten))
     return [syn, gate_in, redraft_in, gate_in]
@@ -388,6 +390,8 @@ def run(question: str, history: list[prompts.Exchange], user: dict, deps: Deps,
             return finish(contract.referred(understood))
         if compiled.disposition == "out_of_scope_action":   # task 8, A1: nothing is retrieved
             return finish(contract.declined_action(understood))
+        if compiled.disposition == "needs_clarification":   # chat 18.10, 11:35: nothing is retrieved
+            return finish(contract.needs_clarification(understood))
 
         # retrieval
         stage("retrieval")
@@ -410,7 +414,8 @@ def run(question: str, history: list[prompts.Exchange], user: dict, deps: Deps,
         plans = {r["label"]: r["plan"] for r in intent["readings"]}
         terms = ambiguous_terms(intent, question)
         results = {res.label: res for res, _, _ in retrieved}
-        materials = [synthesis.material(label, plans[label], res.rows, res.truncated, cat)
+        materials = [synthesis.material(label, plans[label], res.rows, res.truncated, cat,
+                                        contract.examined_line(plans[label], cat, role))
                      for label, res in results.items()]
         gaps = compiled.unresolved
 

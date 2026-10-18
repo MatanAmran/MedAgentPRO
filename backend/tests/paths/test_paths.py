@@ -70,6 +70,8 @@ INTENT_TWO = {"disposition": "retrieve", "ambiguous": [{"term": "late", "alterna
     {"metric": "late_by_delivery"}, {"metric": "late_by_promise"}]}], "readings": [LATE, PROMISE]}
 REFER = {"disposition": "refer_to_investigation"}
 ACTION = {"disposition": "out_of_scope_action"}
+CLARIFY = {"disposition": "needs_clarification"}
+Q_FOLLOW_UP = "And in weeks 14 to 26?"
 EMPTY = {"disposition": "retrieve", "readings": [{"label": "s40", "plan": {
     "SELECT": [{"expr": {"col": "commitments.po_id"}, "as": "po_id"}], "FROM": "commitments",
     "WHERE": {"EQ": [{"col": "commitments.supplier_id"}, {"value": "S-040"}]}}}]}
@@ -103,6 +105,25 @@ def gate_says(*verdicts):
                            "evidence": [] if v == "uncovered" else [f"{label}.supplier_id"]})
         return {"claims": claims}
     return answer
+
+
+# Chat, 18.10, 09:40: words that describe another metric than the reading's examined line (question 3
+# on the real model). The scripted gate contradicts them only where the examined line it was given
+# says the reading is not about promised dates, so the path also shows that line reaches the gate.
+OTHER_METRIC = "{late.supplier_id#2} had {late.late_count#2} lines whose promised date was after the requested date."
+SYN_OTHER_METRIC = {"readings": [{"label": "late", "sentences": [{"text": ONE}, {"text": OTHER_METRIC}]}]}
+SYN_ONLY_OTHER_METRIC = {"readings": [{"label": "late", "sentences": [{"text": OTHER_METRIC}]}]}
+
+
+def gate_reads_examined(prompt):
+    out = gate_says("supported")(prompt)
+    tail = prompt.split("Answer:\n")[-1]   # past the prompt's own examples
+    examined = dict(re.findall(r"^\[(\w+)\] examined: (.*)$", tail, re.M))
+    for claim in out["claims"]:
+        label = re.search(rf"^{claim['sentence']}\. \[(\w+)\]", tail, re.M).group(1)
+        if "promised date" in claim["text"] and "committed" not in examined[label]:
+            claim["verdict"] = "contradicted"
+    return out
 
 
 def gate_skips(prompt):
@@ -220,6 +241,9 @@ A_PATHS = [
     ("action_declined", "Update the promised date of PO-87006 to 20 October.", APPROVER, False,
      dict(intent_analysis_demo=[ACTION]), "answered", True, 1,
      lambda r: r["readings"] == [] and r["gaps"] == [] and r["notice"] == contract.ACTION_DECLINED),
+    ("needs_clarification", Q_FOLLOW_UP, APPROVER, False,
+     dict(intent_analysis_demo=[CLARIFY]), "answered", True, 1,
+     lambda r: r["readings"] == [] and r["gaps"] == [] and r["notice"] == contract.NEEDS_CLARIFICATION),
     ("planner_sees_own_rows_only", Q, PLANNER, False,
      dict(intent_analysis_demo=[INTENT], synthesis=[SYN], support_scoring=[gate_says("supported")]),
      "answered", True, 3, lambda r: "limited to the records you hold" in r["readings"][0]["checked"]),
@@ -240,6 +264,14 @@ A_PATHS = [
      dict(intent_analysis_demo=[INTENT], synthesis=[SYN], synthesis_redraft=[SYN_ONE],
           support_scoring=[gate_says("supported", "contradicted"), gate_says("supported")]),
      "answered", True, 5, lambda r: r.get("withheld")),
+    ("gate_removes_other_metric_wording", Q, APPROVER, False,
+     dict(intent_analysis_demo=[INTENT], synthesis=[SYN_OTHER_METRIC], synthesis_redraft=[SYN_ONE],
+          support_scoring=[gate_reads_examined, gate_reads_examined]),
+     "answered", True, 5, lambda r: r.get("withheld") and "promised" not in r["readings"][0]["answer"]),
+    ("gate_removes_only_sentence_other_metric", Q, APPROVER, False,
+     dict(intent_analysis_demo=[INTENT], synthesis=[SYN_ONLY_OTHER_METRIC, SYN_ONLY_OTHER_METRIC],
+          support_scoring=[gate_reads_examined, gate_reads_examined]),
+     "no_supported_assertion", True, 5, None),
     ("fresh_draft_then_supported", Q, APPROVER, False,
      dict(intent_analysis_demo=[INTENT], synthesis=[SYN, SYN_ONE],
           support_scoring=[gate_says("uncovered"), gate_says("supported")]),
