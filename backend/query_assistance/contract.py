@@ -27,7 +27,7 @@ from .compiler import HERE, Catalog, RetrievalResult
 from .synthesis import format_value
 
 CMP = {"EQ": "=", "NE": "≠", "GT": ">", "GTE": "≥", "LT": "<", "LTE": "≤"}
-AGG = {"SUM": "total", "MIN": "lowest", "MAX": "highest"}
+AGG = {"SUM": "total", "AVG": "average", "MIN": "lowest", "MAX": "highest"}
 
 _BUNDLE = json.loads((HERE / "medagentpro_schemas.json").read_text(encoding="utf-8"))
 _ENTRY = _BUNDLE["schemas"]["exchange_response"]
@@ -70,10 +70,28 @@ def _operand(node: dict, cat: Catalog) -> str:
     return format_value(node["value"]) if not isinstance(node["value"], str) else f"'{node['value']}'"
 
 
-def _func(node: dict, cat: Catalog) -> str:
-    if node["arg"] == "*":
+def _metric_columns(node: dict) -> list[str]:
+    """The columns a metric's expression reads, in order, from schema.json."""
+    if "col" in node:
+        return [node["col"]]
+    return [c for a in node.get("args", []) for c in _metric_columns(a)]
+
+
+def _func(node: dict, cat: Catalog, examined: bool = False) -> str:
+    """examined: the Examined line adds, for an aggregate over a metric, the records it was taken over: a
+    record where a column of the metric is empty has no value, and the query leaves it out (chat, 18.10,
+    13:15). From the metric's expression in schema.json, never from the model."""
+    arg = node["arg"]
+    if arg == "*":
         return "number of records"
-    col = _column(node["arg"]["col"], cat)
+    if "metric" in arg:
+        name = f"{AGG[node['func']]} {_metric(arg['metric'], cat)}"
+        if not examined:
+            return name
+        m = cat.metrics[arg["metric"]]
+        cols = list(dict.fromkeys(_column(c, cat) for c in _metric_columns(m["expr"])))
+        return f"{name}, over {_table(m['entity'], cat)} with {' and '.join(cols)} recorded"
+    col = _column(arg["col"], cat)
     return f"count of {col}" if node["func"] == "COUNT" else f"{AGG[node['func']]} {col}"
 
 
@@ -146,7 +164,7 @@ def render_checked(plan: dict, cat: Catalog, role: str) -> str:
         parts[0] += f" where {_predicate(plan['WHERE'], cat)}"
     if plan.get("GROUP_BY"):
         parts.append("grouped by " + ", ".join(named.get(g, g) for g in plan["GROUP_BY"]))
-    aggs = [_func(i["expr"], cat) for i in plan["SELECT"] if "func" in i["expr"]]
+    aggs = [_func(i["expr"], cat, examined=True) for i in plan["SELECT"] if "func" in i["expr"]]
     if aggs:
         parts.append("computed the " + ", the ".join(aggs))
     for h in plan.get("HAVING", []):

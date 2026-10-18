@@ -79,7 +79,7 @@ def test_sentence_without_reference_fails_the_schema():
 @pytest.mark.parametrize("file", ["synthesis.md", "synthesis_redraft.md"])
 def test_prompt_has_version_schema_and_no_dashes(file):
     pr = p.load(file)
-    assert pr.output_schema == "synthesis" and pr.version == {"synthesis.md": "9", "synthesis_redraft.md": "6"}[file]
+    assert pr.output_schema == "synthesis" and pr.version == {"synthesis.md": "10", "synthesis_redraft.md": "7"}[file]
     assert "—" not in pr.body and "–" not in pr.body
 
 
@@ -311,7 +311,7 @@ def test_draft_fills_and_records_the_call():
     gw = ScriptedModelGateway([GOOD])
     d = s.draft(gw, Q, [LATE], model="demo")
     assert d.answer("late") == "S-038 had the most late lines, 6."
-    assert len(gw.calls) == 1 and d.responses[0].prompt_identity == "synthesis@9"
+    assert len(gw.calls) == 1 and d.responses[0].prompt_identity == "synthesis@10"
 
 
 def test_rejected_draft_is_retried_once_then_accepted():
@@ -339,7 +339,7 @@ def test_redraft_uses_its_own_prompt_and_only_readings_with_kept_assertions():
     gw = ScriptedModelGateway([GOOD])
     d = s.redraft(gw, Q, [LATE, other], {"late": ["S-038 had the most late lines, 6."]}, model="demo")
     prompt, cfg = gw.calls[0]
-    assert cfg.prompt_identity == "synthesis_redraft@6"
+    assert cfg.prompt_identity == "synthesis_redraft@7"
     assert "[other]" not in prompt and d.answer("late")
 
 
@@ -394,3 +394,16 @@ def test_filled_and_only_keep_sentence_order():
     assert d.filled() == [("late", "S-038 had 6."), ("late", "S-014 followed.")]
     assert d.only([False, True]).answer("late") == "S-014 followed."
     assert d.only([False, False]).sentences == {}
+
+@pytest.mark.parametrize("file", ["synthesis.md", "synthesis_redraft.md"])
+def test_the_answer_is_written_in_english_whatever_the_question(file):
+    """Evyatar, 18.10, 12:59 (H2 of the held-out set): one language beside Examined, gaps and notices."""
+    body = p.load(file).body
+    assert "Write the answer in English, whatever language the question is in." in body
+    assert "language the question was posed in" not in body
+
+
+def test_a_unit_after_a_reference_reads_right_for_any_number():
+    """Chat, 18.10, 13:05 (A2: "1 days late")."""
+    assert 'Where a unit follows a reference, write it so it reads right for any number, such as "days late: {ref}".' \
+        in p.load("synthesis.md").body

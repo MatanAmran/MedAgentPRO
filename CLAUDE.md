@@ -114,6 +114,7 @@ Evyatar pays for the model himself, with a total budget of **USD 10**. The code 
 - **One server process (T2).** The cap holds only if all spend goes through one counter: task 6 runs `uvicorn` without workers, and `BudgetedGateway` refuses to start if it detects more than one process using the spend file. **Within the process**, checking the cap, reserving the worst case and recording the actual cost happen under one lock, since retrievals run on threads and FastAPI serves requests concurrently: two calls must never both pass on the same remaining amount.
 - **A dry run before the real one**: a command that prints what one exchange would cost at the configured prices from a scripted run, without calling the model.
 - **Tests never call a real model** (book 6.1). Tests: a call that would cross the total cap is not sent; the exchange cap; spend survives a restart; a missing `.env` value refuses to start; a provider money refusal is not retried; the rate limit.
+- **The gate's own output cap (chat, 18.10, 13:50; D4):** `MODEL_MAX_OUTPUT_TOKENS_GATE`, optional, the same pattern as intent's: `output_cap` by prompt name (`support_scoring`), R7a prices each path call at its own cap (`pipeline.PATH_PROMPTS`), `real_gateway()` refuses a cap above the model's limit, preflight shows it. The synthesis answer's length is not limited.
 - **Intent analysis's own output cap (task 10a, chat 23:35 and 01:15):** `MODEL_MAX_OUTPUT_TOKENS_INTENT`, optional; unset, intent gets `MODEL_MAX_OUTPUT_TOKENS`. `BudgetConfig.output_cap(prompt_identity)` picks it, the reservation and the dry run price at it, `real_gateway()` refuses a cap above the model's own output limit, and preflight shows both caps as numbers.
 - **Model**: Anthropic through `LiteLLMGateway` (book 3.1.4). Recommended Claude Sonnet 5.5 (USD 2 in / 10 out per million, official pricing page, 12.10), about 4 cents a typical exchange. Haiku 5.5 (0.10 / 0.50) as a cheaper alternative. Opus 5.5 (4 / 20) not needed for the demo.
 
@@ -179,6 +180,8 @@ The remote is `MedAgentPRO` (`github.com/MatanAmran/MedAgentPRO`, Matan's reposi
 
 - **The model never writes a query.** It fills a plan (schema 1); `compiler.py` validates it, injects entitlement and LIMIT, and builds parameterised SQL.
   - **No tuple in any stage schema (15.10).** `BETWEEN` and `IN` are objects (`{"col", "from", "to"}`, `{"col", "values"}`): Anthropic does not enforce `prefixItems`, and LiteLLM 1.105 drops it but keeps `items: false`. `tests/query_assistance/test_provider_enforced.py` holds every valid output in the set against what the provider would enforce, in both reduced forms.
+- **Aggregates (chat, 18.10, 13:05):** COUNT, SUM, AVG, MIN, MAX, computed in the query; AVG rounded to two decimals there (`compiler.AVG_DECIMALS`). SUM, AVG, MIN and MAX also take a numeric metric (chat, 13:15); a boolean metric is counted with COUNT and WHERE. Examined says which records an aggregate over a metric was taken over, from the metric's columns.
+- **Answers in English** whatever the question's language (Evyatar, 18.10, 12:59): `synthesis@10`, `synthesis_redraft@7`.
 - **The model never writes a value.** Synthesis writes text with symbolic references `{label.alias#row}`; code fills them (book 4.9, [25]). No digit outside a reference unless the question holds that token. Whether the words around references are true is the gate's job, not code's.
 - **Code does not read meaning.** Do not add word-list heuristics over model text. Constrain the shape of model output instead.
   - **Text we wrote is not model text (task 10a, chat 14.10, 21:50).** A word list may check the scripted answers in `demo_data/scripted_exchanges.json` (`tests/demo_data/test_scripted_places.py`: no place word between rows tied on the ordering field). Never extend it to model output: there the gate judges the words.
@@ -219,13 +222,15 @@ On Evyatar's machine an Application Control policy blocks `.exe` files in the ve
 # Backend (from backend\, venv active)
 python -m pip install -r requirements.txt
 python -m demo_data.seed          # builds demo_data\demo.db
-python -m pytest -q               # the default run; 880 after the 09:40 and 11:35 changes (18.10)
+python -m pytest -q               # the default run; 962 and 1 xfail (T11, G-GATECAP) after the gate cap and rule 1 (18.10)
 python -m tools.path_map          # runs tests/paths and tests/feasibility, writes docs/notes/60_PATHS.md
 python -m query_assistance.dry_run   # prices two scripted exchanges at the .env prices, no model call, no key
 python -m query_assistance.dry_run --model claude-sonnet-5-5   # the same, prices from LiteLLM's local map, no .env
 python -m main                    # the chat server on the scripted model, http://127.0.0.1:8000/api/health
 python -m tools.preflight         # before a demo: database, server, screen, examples, one scripted question; --real adds .env, the map, the budget; never a model call
 python -m tools.fake_real_server  # the real-model path with a fake provider (no key, no network), for the end-to-end tests
+python -m tools.real_eval --plans   # rule 1: every question's hand-written plan through schema, compiler and store, no model; --set demo for the 12
+python -m tools.real_eval --real --confirm --out DIR   # the held-out set (demo_data/offscript_set.json) on the real model, paid, only with Evyatar's approval; report outside the repo; without --real, the scripted model; --set demo for the 12 demo questions
 python -m pytest -m stress        # load, concurrency, and the property tests at 2000 examples (not in the default run)
 UPDATE_GOLDEN=1 python -m pytest tests/golden   # rewrite golden snapshots, printing the diff for review
 

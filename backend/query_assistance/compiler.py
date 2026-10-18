@@ -43,6 +43,7 @@ HERE = Path(__file__).parent
 ROW_LIMIT = 30
 
 NUMERIC = {"integer", "real"}
+AVG_DECIMALS = 2   # an average is rounded to this many decimals, in the query
 DATE_RE = re.compile(r"^\d{4}-\d{2}-\d{2}$")
 CMP_SQL = {"EQ": "=", "NE": "<>", "GT": ">", "GTE": ">=", "LT": "<", "LTE": "<="}
 
@@ -309,11 +310,19 @@ class _ReadingCompiler:
         name, arg = node["func"], node["arg"]
         if arg == "*":
             return Expr("COUNT(*)", "integer", [], is_agg=True)
-        inner = self.col(arg["col"])
+        if "metric" in arg:   # SUM, AVG, MIN, MAX over a numeric metric (chat, 18.10, 13:15)
+            inner = self.metric(arg["metric"])
+            if inner.type not in NUMERIC:
+                self.fail("type_mismatch", f"{name} over metric '{arg['metric']}', which is not numeric. "
+                          "Count a boolean metric with COUNT and WHERE.", metric=arg["metric"])
+        else:
+            inner = self.col(arg["col"])
         if name == "COUNT":
             return Expr(f"COUNT({inner.sql})", "integer", [], is_agg=True)
-        if name == "SUM" and inner.type not in NUMERIC:
-            self.fail("type_mismatch", f"SUM over '{arg['col']}', which is not numeric.", col=arg["col"])
+        if name in ("SUM", "AVG") and inner.type not in NUMERIC:
+            self.fail("type_mismatch", f"{name} over '{arg['col']}', which is not numeric.", col=arg["col"])
+        if name == "AVG":   # rounded in code, to two decimals (chat, 18.10, 13:05)
+            return Expr(f"ROUND(AVG({inner.sql}), {AVG_DECIMALS})", "real", [], is_agg=True)
         return Expr(f"{name}({inner.sql})", inner.type, [], is_agg=True)
 
     def operand(self, node: dict) -> Expr:

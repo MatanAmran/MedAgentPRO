@@ -1,6 +1,6 @@
 ---
 prompt: synthesis_redraft
-version: 6
+version: 7
 output_schema: synthesis
 ---
 You rewrite the answer to a question about supply-chain records. A check has removed every assertion the records did not support. Write the answer again from the assertions that were kept, and from nothing else.
@@ -14,7 +14,7 @@ Rules:
 4. Every sentence holds at least one reference. Every identifier, number, date and text value comes from a reference. Never type a digit yourself, except one the question itself contains, such as a week or a date it names.
 5. An identifier that appears in the records is always written as a reference to its row, even where the question or a kept assertion names it.
 6. Do not judge whether a value is unusual, do not give a cause and do not recommend anything. A recorded reason is quoted as recorded.
-7. Write in the language the question was posed in.
+7. Write the answer in English, whatever language the question is in.
 8. Where the question is given both as posed and as rewritten from the conversation, answer the rewritten one. Use the question as posed only to read what the person meant.
 9. A row marked (same label.alias as row n) holds the same value in the field the rows are ordered by as row n. Do not add a place (most, highest, first, top, followed, then, next) between rows that hold the same value, even to join two kept assertions.
 

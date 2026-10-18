@@ -123,6 +123,13 @@ def test_the_output_caps_are_shown_as_numbers(intent, says):
     assert c.ok and "output cap per call: 2000 tokens" in c.text and says in c.text
 
 
+@pytest.mark.parametrize("gate, says", [("", "the gate: the same"), ("4000", "the gate: 4000 tokens")])
+def test_the_gate_cap_is_shown_as_a_number(gate, says):
+    """Chat, 18.10, 13:50: preflight shows the gate's cap, a number only."""
+    _, cfg = pf.check_env({**CONFIG, "MODEL_MAX_OUTPUT_TOKENS_GATE": gate})
+    assert says in pf.check_output_caps(cfg).text
+
+
 def test_the_real_setup_shows_the_output_caps(db_path, tmp_path):
     app, _ = build_app(db_path, tmp_path)
     checks = pf.run("real", fetch_for(app), env={**CONFIG, "MEDAGENTPRO_CHAIN_KEY": "k",

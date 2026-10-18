@@ -461,17 +461,25 @@
                   "func": {
                     "enum": [
                       "SUM",
+                      "AVG",
                       "MIN",
                       "MAX"
                     ]
                   },
                   "arg": {
-                    "$ref": "#/$defs/col"
+                    "oneOf": [
+                      {
+                        "$ref": "#/$defs/col"
+                      },
+                      {
+                        "$ref": "#/$defs/metric"
+                      }
+                    ]
                   }
                 }
               }
             ],
-            "$comment": "Counts come from the store, not the model. AVG is excluded: an average exists in no row, so it cannot be carried as a reference to a field."
+            "$comment": "Counts, sums, averages, lowest and highest come from the store, not the model: computed in SQL, so each is a field of a retrieved row and is carried as a reference like any other. AVG is rounded to two decimals in code (chat, 18.10, 13:05; NFR 6 read as extended). It was excluded before, as existing in no row; computed in the query, it is a row of the result like COUNT. SUM, AVG, MIN and MAX also take a numeric metric (chat, 18.10, 13:15): rule 4 sends the model to the metric, so it must be possible to aggregate it. A boolean metric is counted with COUNT and WHERE, never aggregated (type_mismatch, in the compiler)."
           },
           "comparison": {
             "oneOf": [

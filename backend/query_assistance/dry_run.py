@@ -28,6 +28,7 @@ import argparse
 import re
 import sys
 import tempfile
+from collections.abc import Sequence
 from pathlib import Path
 
 from demo_data import seed
@@ -80,9 +81,12 @@ class _Meter(ModelGateway):
         self.inner, self.cfg, self.rows = inner, cfg, []
         self.path_worst: float | None = None
 
-    def ensure_path(self, input_tokens: list[int]):
-        """What R7a would reserve before the first synthesis call. Kept, never refused here."""
-        self.path_worst = sum(self.cfg.cost(n, self.cfg.max_output_tokens) for n in input_tokens)
+    def ensure_path(self, input_tokens: list[int], prompt_names: Sequence[str] = ()):
+        """What R7a would reserve before the first synthesis call, each call at its own output cap. Kept,
+        never refused here."""
+        names = list(prompt_names) or [""] * len(input_tokens)
+        self.path_worst = sum(self.cfg.cost(n, self.cfg.output_cap(p))
+                              for n, p in zip(input_tokens, names, strict=True))
 
     def invoke(self, prompt: str, config: ModelConfig) -> ModelResponse:
         resp = self.inner.invoke(prompt, config)
@@ -129,6 +133,8 @@ def _config(env, argv) -> BudgetConfig:
     ap.add_argument("--budget", type=float, default=3.5, help="total to report against, USD (with --model)")
     ap.add_argument("--cap", type=float, default=0.25, help="cap per exchange to report against, USD (with --model)")
     ap.add_argument("--max-output", type=int, default=2000, help="output tokens per call (with --model)")
+    ap.add_argument("--max-output-intent", type=int, help="intent analysis's own output cap (with --model)")
+    ap.add_argument("--max-output-gate", type=int, help="the gate's own output cap (with --model)")
     args = ap.parse_args(argv or [])   # never the test runner's own arguments
     if not args.model:
         return BudgetConfig.from_env(env, need_key=False)
@@ -136,7 +142,8 @@ def _config(env, argv) -> BudgetConfig:
         price_in, price_out = map_prices(args.model)
     except KeyError:
         raise BudgetConfigError(f"{args.model} is not priced in LiteLLM's local map") from None
-    return BudgetConfig(args.model, price_in, price_out, args.budget, args.cap, args.max_output, 10)
+    return BudgetConfig(args.model, price_in, price_out, args.budget, args.cap, args.max_output, 10,
+                        max_output_tokens_intent=args.max_output_intent, max_output_tokens_gate=args.max_output_gate)
 
 
 def main(env=None, argv: list[str] | None = None) -> int:

@@ -435,3 +435,59 @@ def test_dry_run_with_a_model_prices_from_the_local_map_and_reads_no_env(capsys,
     text = capsys.readouterr().out
     assert "2 in / 10 out per million, from LiteLLM's local map" in text and "R7a reserves" in text
     assert dry_run.main(argv=["--model", "claude-not-a-model-9-9"]) == 1
+
+
+# --------------------------------------------------------------------------
+# the gate's own output cap (chat, 18.10, 13:50; D4 of the held-out set)
+# --------------------------------------------------------------------------
+
+@pytest.mark.parametrize("identity, sent", [("support_scoring@5", 4000), ("intent_analysis_demo@8", 3000),
+                                             ("synthesis@10", 1000), ("synthesis_redraft@7", 1000),
+                                             ("question_rewriting@1", 1000)])
+def test_the_gate_cap_applies_to_the_gate_only(ledger, identity, sent):
+    inner = ScriptedModelGateway(lambda p, c: "{}")
+    gw = gateway(ledger, inner, MODEL_MAX_OUTPUT_TOKENS_GATE="4000", MODEL_MAX_OUTPUT_TOKENS_INTENT="3000")
+    gw.invoke("x", ModelConfig("test-model", prompt_identity=identity))
+    assert inner.calls[0][1].max_tokens == sent
+
+
+def test_without_the_gate_cap_the_gate_gets_the_general_one(ledger):
+    assert config().max_output_tokens_gate is None
+    assert config(MODEL_MAX_OUTPUT_TOKENS_GATE="").output_cap("support_scoring@5") == 1000
+
+
+def test_the_gate_cap_is_reserved_at_its_own_worst_case(ledger):
+    """4000 output tokens at 10 per million is 0.04: over an exchange cap of 0.035, under one of 0.045."""
+    gate = ModelConfig("test-model", prompt_identity="support_scoring@5")
+    tight = gateway(ledger, MODEL_MAX_OUTPUT_TOKENS_GATE="4000", MODEL_MAX_USD_PER_EXCHANGE="0.035")
+    with tight.exchange(), pytest.raises(BudgetExceeded, match="its own cap"):
+        tight.invoke("x", gate)
+    roomy = gateway(ledger, MODEL_MAX_OUTPUT_TOKENS_GATE="4000", MODEL_MAX_USD_PER_EXCHANGE="0.045")
+    with roomy.exchange():
+        roomy.invoke("x", gate)
+
+
+def test_r7a_prices_each_gate_call_of_the_path_at_the_gate_cap(ledger):
+    """Synthesis, gate, redraft, gate, one input token each: 1000 + 4000 + 1000 + 4000 output tokens is 0.1
+    at 10 per million (plus 4e-06 of input). Under a cap of 0.1 it is refused; at the general cap, 0.04, not."""
+    from query_assistance.pipeline import PATH_PROMPTS
+    gw = gateway(ledger, MODEL_MAX_OUTPUT_TOKENS_GATE="4000", MODEL_MAX_USD_PER_EXCHANGE="0.1")
+    with gw.exchange():
+        gw.ensure_path([1, 1, 1, 1])                          # without names: the general cap
+        with pytest.raises(BudgetExceeded, match="its own cap"):
+            gw.ensure_path([1, 1, 1, 1], PATH_PROMPTS)
+
+
+@pytest.mark.parametrize("value", ["abc", "0", "-5", "2.5"])
+def test_a_gate_cap_that_is_set_must_be_a_positive_integer(value):
+    with pytest.raises(b.BudgetConfigError, match="MODEL_MAX_OUTPUT_TOKENS_GATE"):
+        config(MODEL_MAX_OUTPUT_TOKENS_GATE=value)
+
+
+def test_the_dry_run_prices_the_gate_and_the_path_at_the_gate_cap(db_path):
+    cfg = config(MODEL_MAX_OUTPUT_TOKENS_GATE="4000")
+    meter = dry_run._Meter(ScriptedModelGateway(lambda p, c: "{}"), cfg)
+    meter.invoke("x", ModelConfig("test-model", prompt_identity="support_scoring@5"))
+    assert round(meter.rows[0][-1], 6) == round(cfg.cost(1, 4000), 6)
+    meter.ensure_path([1, 1, 1, 1], ("synthesis", "support_scoring", "synthesis_redraft", "support_scoring"))
+    assert meter.path_worst == pytest.approx(cfg.cost(4, 10000))

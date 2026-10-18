@@ -63,7 +63,10 @@ CONSTRAINTS: list[Constraint] = [
                "H1, 12.10 · requirements.txt"),
     Constraint("T11", "technical",
                "The worst path after intent (synthesis, gate, redraft, gate) fits the per-exchange cap "
-               "at the model's prices, for the largest material the pipeline can retrieve.", "R7a", "map"),
+               "at the model's prices, for the largest material the pipeline can retrieve. Each call is priced at "
+               "its own output cap: with the gate's at 3000 the path needs about 0.244 of 0.25, so a gate cap "
+               "above about 3300 breaks it, and raising the gate's cap needs a higher per-exchange cap.",
+               "R7a · chat 18.10, 14:40 (G-GATECAP)", "map"),
     Constraint("T12", "technical", "The total budget covers at least 10 exchanges each spending its whole cap.",
                "Task 5 budget (USD 10 total)"),
     Constraint("T13", "technical", "Every metric and every table compiles to SQL the installed SQLite runs.",
@@ -99,7 +102,8 @@ CONSTRAINTS: list[Constraint] = [
     Constraint("L05", "logical",
                "On the real-model path (budget, LiteLLM gateway, fake provider), every demo question fits the "
                "default per-exchange cap (USD 0.25) at Sonnet 5.5's prices; the largest needs about 0.14. So "
-               "with intent analysis's own cap (MODEL_MAX_OUTPUT_TOKENS_INTENT=3000).",
+               "with intent analysis's own cap (MODEL_MAX_OUTPUT_TOKENS_INTENT=3000), and with the gate's "
+               "(MODEL_MAX_OUTPUT_TOKENS_GATE=4000, chat 18.10, 13:50).",
                "Task 9 · R7a · tools/fake_real_server.py"),
     # --- live: only the real model can confirm (R9) -------------------------------------------
     Constraint("V01", "live", "The provider accepts the three reduced schemas (no 400).", "R2 · R9",
