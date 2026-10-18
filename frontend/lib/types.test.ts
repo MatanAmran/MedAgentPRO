@@ -27,6 +27,7 @@ const READING_KEYS = [
   "identifiers",
   "rows",
   "total",
+  "entity",
   "ordered_by",
   "not_held",
   "notice",

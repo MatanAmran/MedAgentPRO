@@ -8,6 +8,7 @@
     "po_id",
     "part_id"
    ],
+   "entity": "purchase order lines",
    "headers": {
     "part_id": "part",
     "po_id": "purchase order"

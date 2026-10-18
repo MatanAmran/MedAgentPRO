@@ -4405,6 +4405,38 @@ exchange cost: attempt=EX-bc247dc6774a usd=0.061608 remaining=1.714846
 - **פרשנות אחת נוספת לאישור:** "עמודות פשוטות" נקרא כאן כפשוטו: כל ביטוי ב-`SELECT` הוא `col`. מדד (`metric`) שנבחר לכל שורה גם הוא ערך לכל רשומה, אבל לפי ההכרעה הוא לא "עמודה", ולכן במקרה כזה "rows".
 - **מצב:** החלק של L4 במסך (`readingCount`, ‏`Reading.entity`) בנוי ונבדק, ובלי השדה מהשרת המסך כותב "rows". **החלק בשרת (`contract.py`, הסכמה, golden) לא נבנה** עד ההכרעה. L5 נבנה בינתיים.
 
+### **L4 — הוכרע בצ׳אט (18.10):** ‏`entity` רק כשכל פריט ב-`SELECT` הוא `col` (מדד נותן "rows"), אין `GROUP_BY` ואין אגרגט, וכל `JOIN` מוסיף את הצד `to` של הקשר. מהתוכנית ומ-`relations.json` בלבד. בדיקות: צירוף אחד-לרבים בלי entity, רבים-לאחד עם entity, מדד בלי entity. ב-golden: תוספות בלבד. אחר כך push ו-PR מול `master`.
+
+### ❓ **L4 — עצירה לפני קוד (18.10): ההנחה "`to` הוא הצד של האחד" לא נכונה לקשר אחד ב-`relations.json`** (לצ׳אט, טרם הוכרע)
+
+- **מה נבדק:** לכל קשר, האם העמודה בצד `from` היא מפתח זר (`references` ב-`schema.json`) לעמודה בצד `to`:
+
+  | קשר | from → to | `on` | רבים-לאחד? |
+  |---|---|---|---|
+  | `commitment_order`, ‏`commitment_supplier`, ‏`commitment_part`, ‏`order_supplier`, ‏`receipt_commitment` | המפתח הזר → המפתח | `references` מצביע על הצד `to` | כן |
+  | **`part_forecast`** | `parts` → `forecast` | `parts.part_id = forecast.part_id` | **לא.** ‏`forecast.part_id` הוא שמפנה ל-`parts.part_id`, ולכל חלק יש שורת תחזית לכל שבוע (`seed.py`). **זה אחד-לרבים בכיוון `to`.** |
+  | `commitment_forecast` | `commitments` → `forecast` | `part_id` ו-`week` | בפועל כן (תחזית אחת לחלק ולשבוע), אבל זה לא מוצהר בשום מקום: `forecast` אין מפתח על (`part_id`, ‏`week`). |
+
+- **התוצאה לפי הכלל שאושר:** ‏`FROM parts` ‏`JOIN part_forecast` עם עמודות בלבד יציג "‎<N> parts" כשכל שורה היא שבוע תחזית. זו בדיוק הטעות שהכלל נועד למנוע.
+- **אפשרויות:**
+  - **(א) שדה מפורש בכל קשר ב-`relations.json`**, למשל `"to_one": true`, שנכתב ביד לכל אחד מהשבעה (`part_forecast`: ‏false). הכלל: כל `JOIN` מוסיף את הצד `to` **של קשר שמסומן `to_one`**. עדיין "מהתוכנית ומ-`relations.json` בלבד". **הפרומפט לא משתנה:** `prompts.render_schema` מציג מכל קשר רק את השם ואת `on`, וזה ייבדק בסנפשוטים של ה-golden. **ההמלצה של Code.**
+  - **(ב) להסיק מ-`references` ב-`schema.json`:** רבים-לאחד רק כשכל עמודה בצד הקיים מפנה לעמודה בצד שנוסף. זה בלי סימון ידני, אבל חורג מ"relations.json בלבד", ו-`commitment_forecast` יקבל "rows" (שמרני).
+  - **(ג) להפוך את הכיוון של `part_forecast`** ל-`forecast` → `parts`. ‏**לא מומלץ:** הסדר ב-`on` משתנה, ואיתו שורת הקשר בפרומפט (`render_schema`), ו-`render_checked` קורא את הכיוון.
+- **מה שבנוי עד עכשיו:** כלום מ-L4 בשרת. הענף `ui/long-list` נשאר ב-`2259643`, בלי push.
+
+### **L4 — הוכרע בצ׳אט (18.10): אפשרות (ב).** רבים-לאחד לפי המפתחות המוצהרים
+
+- `JOIN` שומר על הרזולוציה של `FROM` (שורה = רשומה של טבלת ה-`FROM`) רק כשכל עמודה ב-`on` בצד שכבר נמצא בהיקף מפנה (`references` ב-`schema.json`) לעמודה שבצד שנוסף. לכן `part_forecast` ו-`commitment_forecast` נותנים "rows".
+- מהקטלוג בלבד (`schema.json` ו-`relations.json`), בלי שינוי בפרומפט. ב-golden בודקים ש-`render_schema` לא השתנה.
+- בדיקות: `parts` עם `JOIN part_forecast` בלי entity · `commitments` עם `JOIN commitment_supplier` עם entity · `commitments` עם `JOIN commitment_forecast` בלי entity · מדד בלי entity.
+
+### **L4 — בוצע (18.10, ענף `ui/long-list`).** הרשימה הארוכה גמורה, כל ששת הסעיפים
+
+- `contract.reading_entity(plan, cat)` עובר על הצירופים כמו `compiler.build_scope`. לכל זוג ב-`on` הוא בודק שהעמודה בצד שבהיקף מפנה (`references`) לעמודה בצד שנוסף. ה-entity הוא ה-`label` של טבלת ה-`FROM`, ואם אין label אין שדה. הוא נכנס ל-`reading_view` כשדה `entity`, וב-`exchange_response` (‏`medagentpro_schemas.json`) כשדה אופציונלי `[demo extension]`.
+- **בדיקות (`test_contract.py`, 8 מקרים):** ‏`parts` לבד: ‏"parts" · ‏`commitment_supplier`: ‏"purchase order lines" · ‏`receipt_commitment` ואחריו `commitment_order` (שני צירופים): ‏"goods receipts" · ‏`part_forecast`: אין · ‏`commitment_forecast`: אין · ‏`FROM suppliers` ‏`JOIN commitment_supplier` (מהצד של האחד): אין · מדד: אין · ‏`GROUP_BY` עם אגרגט: אין.
+- **golden:** ‏10 שורות נוספו ו-0 הוסרו (`"entity": "parts"` ב-2, ‏`"purchase order lines"` ב-8). **סנפשוטים של הפרומפטים לא השתנו**, וביניהם `render_schema` בפרומפט הכוונה.
+- pytest **‏1021** · path_map ‏147 · vitest ‏120 (`types.test.ts` מכיר את `entity`) · Playwright על Edge: מתוסרט 24, נתיב אמיתי 6 · ruff ו-bandit נקיים.
+
 ### **רשימה ארוכה — בוצע (18.10, ענף `ui/long-list`), חוץ מהחלק של L4 בשרת.** בלי שינוי בפרומפט, בצינור או בחוזה
 
 - **1, הפניות בתשובה:** בלי צ׳יפ ובלי מסגרת. גופן mono עם קו תחתון מנוקד, אדום רק ב-hover או בפוקוס (`globals.css`, ‏`.ref`). הריפוד מקוזז במרווח שלילי, ולכן אין רווח לפני סימן הפיסוק. סימן הפיסוק שאחרי הערך נשאר איתו באותה שורה (`whitespace-nowrap`). הטקסט של התשובה לא משתנה (נבדק).
@@ -4416,7 +4448,7 @@ exchange cost: attempt=EX-bc247dc6774a usd=0.061608 remaining=1.714846
 - **בדיקות:**
   - pytest **‏1013** (+1, ‏`test_server_archived_listing`: משתמש אחר לא רואה את שבארכיון), רשומה `server_archived_listing` ב-registry, ‏path_map ‏147. ב-golden השתנה רק `openapi.json`, בתוספות בלבד (11 שורות).
   - vitest **‏120** (+18, ‏`long-list.test.tsx` ושניים ב-`chat.test.tsx`).
-  - Playwright מקומית על Edge: מצב מתוסרט 25 (+2), נתיב אמיתי 6 (+1).
+  - Playwright מקומית על Edge: מצב מתוסרט 24 (+2), נתיב אמיתי 6 (+1).
   - axe על הארכיון הפתוח, על הרשימה הארוכה פתוחה ועל התגיות מסוננות.
   - צילום אפור `10-long-list.png`.
   - **הרשימה הארוכה ב-e2e מוגשת דרך `page.route`**, כי בסט המתוסרט אין קריאה של עמודה אחת או תשובה עם יותר מ-8 הפניות. Firefox ו-WebKit ירוצו ב-CI.

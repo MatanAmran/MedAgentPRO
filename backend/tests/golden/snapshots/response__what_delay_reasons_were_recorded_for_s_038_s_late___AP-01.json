@@ -24,6 +24,7 @@
     "po_id",
     "delay_reason"
    ],
+   "entity": "purchase order lines",
    "evidence": [
     "recorded_reasons.po_id",
     "recorded_reasons.delay_reason"
