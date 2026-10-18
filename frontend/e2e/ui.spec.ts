@@ -87,3 +87,41 @@ test("the conversation list groups and searches", async ({ page }) => {
   await page.getByLabel("Search conversations").fill("no conversation is called this");
   await expect(page.getByText("No conversation matches.")).toBeVisible();
 });
+
+test("phase B: rename, pin and archive from the menu; archived is hidden, its exchange still served", async ({ page }) => {
+  const created = page.waitForResponse((r) => r.url().endsWith("/api/conversations") && r.request().method() === "POST");
+  await page.getByRole("button", NEW_CONVERSATION).click();
+  const { conversation_id } = await (await created).json();
+  await askExample(page, LATE);
+  await expect(page.getByTestId("exchange")).toHaveCount(1, { timeout: 20_000 });
+  // the conversation just asked in: other tests on the shared server leave conversations with the same title
+  const item = page.getByTestId("conversation-item").filter({ has: page.locator('[aria-current="page"]') });
+
+  // rename, from the keyboard
+  const options = item.getByTestId("conversation-options");
+  await options.focus();
+  await page.keyboard.press("ArrowDown");
+  await expect(page.getByRole("menu")).toBeVisible();
+  await axeClean(page, "the open conversation menu");
+  await page.keyboard.press("Enter"); // Rename, the first item
+  await page.getByLabel("Conversation name").fill("Renamed by the phase B test");
+  await page.keyboard.press("Enter");
+  const renamed = page.getByTestId("conversation-item").filter({ hasText: "Renamed by the phase B test" });
+  await expect(renamed).toHaveCount(1);
+
+  // pin: the conversation moves to the Pinned group
+  await renamed.getByTestId("conversation-options").click();
+  await page.getByRole("menuitem", { name: "Pin to top" }).click();
+  await expect(page.getByRole("region", { name: "Pinned" })).toContainText("Renamed by the phase B test");
+
+  // archive: gone from the list, the thread cleared; the server still serves its exchange by id
+  await page.getByRole("region", { name: "Pinned" }).getByTestId("conversation-options").click();
+  await page.getByRole("menuitem", { name: "Archive" }).click();
+  await expect(page.getByTestId("conversation-item").filter({ hasText: "Renamed by the phase B test" })).toHaveCount(0);
+  await expect(page.getByTestId("exchange")).toHaveCount(0);
+  const kept = await (
+    await page.request.get(`http://127.0.0.1:8000/api/conversations/${conversation_id}`, { headers: { "X-Demo-User": "AP-01" } })
+  ).json();
+  expect(kept.archived).toBe(true);
+  expect(kept.exchanges).toHaveLength(1);
+});

@@ -95,12 +95,16 @@ export interface ExchangeItem {
 }
 
 export interface ConversationSummary {
-  pinned?: boolean; // phase B
   conversation_id: string;
   created_at: string;
   title: string | null;
   exchanges: number;
+  pinned?: boolean; // UI refresh, phase B [demo extension]
+  archived?: boolean;
 }
+
+// UI refresh, phase B: PATCH /api/conversations/{id}. Archiving hides from the list; the record stays
+export type ConversationChange = { title?: string; pinned?: boolean; archived?: boolean };
 
 // Task 8, A4: a scripted demo question (GET /api/examples), in the demo's order
 export interface Example {

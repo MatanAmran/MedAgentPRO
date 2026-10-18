@@ -5,6 +5,7 @@ MedAgentPro - the chat API (task 6; 4.9, Figure 8: synchronous, answered while t
   GET  /api/conversations                         the user's conversations
   GET  /api/conversations/{id}                    its exchanges, as presented
   POST /api/conversations/{id}/exchanges          a question: text/event-stream (S1)
+  PATCH /api/conversations/{id}                   its title, pinned, archived [demo extension, UI refresh B]
   POST /api/exchanges/{id}/rating                 FR 12
   GET  /api/health                                the mode, and the budget left on the real model
   GET  /api/examples                              the scripted demo questions, in order (task 8, A4)
@@ -26,7 +27,7 @@ from typing import AsyncIterator, Callable
 
 from fastapi import APIRouter, Depends, Header, HTTPException, Request
 from fastapi.responses import StreamingResponse
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field, StrictBool, model_validator
 from starlette.background import BackgroundTask
 
 from demo_data.scripted import load_scripts
@@ -47,6 +48,26 @@ class AskBody(BaseModel):
 
 class RatingBody(BaseModel):
     rating: str = Field(pattern=r"^(up|down)$")
+
+
+class ConversationChange(BaseModel):
+    """UI refresh, phase B [demo extension]. At least one field; nothing else is accepted."""
+    model_config = ConfigDict(extra="forbid")
+    title: str | None = Field(default=None, min_length=1, max_length=200)
+    pinned: StrictBool | None = None
+    archived: StrictBool | None = None
+
+    @model_validator(mode="after")
+    def something_and_a_real_title(self):
+        if self.title is not None:
+            self.title = self.title.strip()
+            if not self.title:
+                raise ValueError("a title holds more than spaces")
+        if not self.model_fields_set:
+            raise ValueError("name a title, pinned or archived")
+        if any(getattr(self, k) is None for k in self.model_fields_set):
+            raise ValueError("a field named is given a value, not null")
+        return self
 
 
 class ConversationBusy(Exception):
@@ -152,14 +173,19 @@ def router(state: AppState) -> APIRouter:
 
     @r.get("/conversations")
     def list_conversations(user: dict = Depends(demo_user)):
-        return [{"conversation_id": c.id, "created_at": c.created_at,
-                 "title": c.items[0]["posed"] if c.items else None, "exchanges": len(c.items)}
-                for c in state.conversations(user)]
+        return [c.summary() for c in state.conversations(user)]
 
     @r.get("/conversations/{conversation_id}")
     def get_conversation(conversation_id: str, user: dict = Depends(demo_user)):
         c = owned(conversation_id, user)
-        return {"conversation_id": c.id, "created_at": c.created_at, "exchanges": c.items}
+        return {**c.summary(), "exchanges": c.items}
+
+    @r.patch("/conversations/{conversation_id}")
+    def update_conversation(conversation_id: str, body: ConversationChange, user: dict = Depends(demo_user)):
+        """Phase B: how the list shows a conversation. Only its own user (S3); the audit record is never
+        touched (FR 13, NFR 5), so an archived conversation's exchanges stay recorded."""
+        owned(conversation_id, user)
+        return state.update(conversation_id, user, body.model_dump(exclude_unset=True)).summary()
 
     @r.post("/conversations/{conversation_id}/exchanges")
     async def ask(conversation_id: str, body: AskBody, request: Request, user: dict = Depends(demo_user)):

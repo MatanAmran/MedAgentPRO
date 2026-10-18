@@ -79,13 +79,18 @@ export function conversationMeta(c: ConversationSummary, now: Date = new Date())
   return `${n} · ${when}`;
 }
 
-/** Today and Earlier, each in the order given; a search keeps the conversations whose title holds it. */
+/** Pinned, then Today and Earlier, each in the order given; a search keeps the conversations whose title
+ * holds it. An archived conversation is never listed (the server leaves it out; phase B). */
 export function groupConversations(list: ConversationSummary[], search: string, now: Date = new Date()) {
   const q = search.trim().toLowerCase();
-  const kept = q ? list.filter((c) => (c.title ?? "new conversation").toLowerCase().includes(q)) : list;
+  const kept = (q ? list.filter((c) => (c.title ?? "new conversation").toLowerCase().includes(q)) : list).filter(
+    (c) => !c.archived,
+  );
+  const rest = kept.filter((c) => !c.pinned);
   return {
-    today: kept.filter((c) => sameDay(new Date(c.created_at), now)),
-    earlier: kept.filter((c) => !sameDay(new Date(c.created_at), now)),
+    pinned: kept.filter((c) => c.pinned),
+    today: rest.filter((c) => sameDay(new Date(c.created_at), now)),
+    earlier: rest.filter((c) => !sameDay(new Date(c.created_at), now)),
   };
 }
 
@@ -96,6 +101,8 @@ export function Sidebar({
   onNew,
   locked,
   renderOptions,
+  renaming,
+  renderRename,
 }: {
   conversations: ConversationSummary[];
   current: string | null;
@@ -103,6 +110,8 @@ export function Sidebar({
   onNew: () => void;
   locked: boolean;
   renderOptions?: (c: ConversationSummary) => React.ReactNode;
+  renaming?: string | null;
+  renderRename?: (c: ConversationSummary) => React.ReactNode;
 }) {
   const [search, setSearch] = useState("");
   const groups = useMemo(() => groupConversations(conversations, search), [conversations, search]);
@@ -118,6 +127,9 @@ export function Sidebar({
         }`}
       >
         <span aria-hidden="true" className={`mt-1.5 h-2 w-2 shrink-0 rounded-full ${selected ? "bg-brand" : "bg-[#D6D3D1]"}`} />
+        {renaming === c.conversation_id && renderRename ? (
+          renderRename(c)
+        ) : (
         <button
           type="button"
           disabled={locked}
@@ -126,12 +138,12 @@ export function Sidebar({
           className="flex min-w-0 flex-1 flex-col gap-1 text-left disabled:opacity-60"
         >
           <span className={`text-sm leading-snug ${selected ? "font-bold text-ink" : "font-semibold text-ink-2"}`}>
-            {c.pinned ? "📌︎ " : ""}
             {c.title ?? "New conversation"}
           </span>
           <span className={`text-xs ${selected ? "font-semibold text-brand-dark" : "text-ink-4"}`}>{conversationMeta(c)}</span>
         </button>
-        {renderOptions?.(c)}
+        )}
+        {renaming !== c.conversation_id && renderOptions?.(c)}
       </li>
     );
   };
@@ -175,12 +187,17 @@ export function Sidebar({
         />
       </label>
       <div className="flex flex-col gap-4" data-testid="conversations">
+        {group("Pinned", groups.pinned)}
         {group("Today", groups.today)}
         {group("Earlier", groups.earlier)}
-        {search && groups.today.length + groups.earlier.length === 0 && (
+        {search && groups.pinned.length + groups.today.length + groups.earlier.length === 0 && (
           <p className="px-2 text-sm text-ink-4">No conversation matches.</p>
         )}
       </div>
+      <div className="flex-1" />
+      <p className="rounded-xl bg-canvas p-3 text-xs leading-relaxed text-ink-3">
+        Archived conversations stay in the audit record. Archiving only hides them here.
+      </p>
     </nav>
   );
 }

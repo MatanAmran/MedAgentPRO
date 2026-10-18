@@ -215,3 +215,82 @@ describe("how the agent worked", () => {
     expect(card.queryByText(/Retrieved/)).toBeNull();
   });
 });
+
+// --------------------------------------------------------------------------
+// phase B [demo extension]: rename, pin, archive
+// --------------------------------------------------------------------------
+
+import { ConversationMenu, RenameField } from "./ConversationMenu";
+
+describe("the conversation menu", () => {
+  const c: ConversationSummary = { conversation_id: "CV-1", created_at: "2026-10-18T16:19:00", title: "Late suppliers",
+    exchanges: 1, pinned: false };
+
+  function open(over: Partial<ConversationSummary> = {}) {
+    const calls = { rename: vi.fn(), pin: vi.fn(), archive: vi.fn() };
+    render(<ConversationMenu conversation={{ ...c, ...over }} onRename={calls.rename} onPin={calls.pin}
+                             onArchive={calls.archive} disabled={false} />);
+    const button = screen.getByRole("button", { name: "Options for Late suppliers" });
+    return { calls, button };
+  }
+
+  it("opens from the keyboard on its first item, moves with the arrows, and Escape returns focus", () => {
+    const { button } = open();
+    expect(button.getAttribute("aria-haspopup")).toBe("menu");
+    fireEvent.keyDown(button, { key: "ArrowDown" });
+    const items = screen.getAllByRole("menuitem");
+    expect(items.map((i) => i.textContent)).toEqual(["Rename", "Pin to top", "Archive"]);
+    expect(document.activeElement).toBe(items[0]);
+    fireEvent.keyDown(screen.getByRole("menu"), { key: "ArrowUp" });
+    expect(document.activeElement).toBe(items[2]);
+    fireEvent.keyDown(screen.getByRole("menu"), { key: "Home" });
+    expect(document.activeElement).toBe(items[0]);
+    fireEvent.keyDown(screen.getByRole("menu"), { key: "Escape" });
+    expect(screen.queryByRole("menu")).toBeNull();
+    expect(document.activeElement).toBe(button);
+  });
+
+  it("says archiving keeps the record, and each item does what it names", () => {
+    const { calls, button } = open({ pinned: true });
+    fireEvent.click(button);
+    expect(screen.getByRole("menu").textContent).toContain("Every exchange stays in the audit record.");
+    fireEvent.click(screen.getByRole("menuitem", { name: "Unpin" }));
+    expect(calls.pin).toHaveBeenCalledWith(false);
+    fireEvent.click(button);
+    fireEvent.click(screen.getByRole("menuitem", { name: "Archive" }));
+    expect(calls.archive).toHaveBeenCalledOnce();
+    fireEvent.click(button);
+    fireEvent.click(screen.getByRole("menuitem", { name: "Rename" }));
+    expect(calls.rename).toHaveBeenCalledOnce();
+  });
+
+  it("renames in place: Enter saves the trimmed name, Escape cancels, an empty name is not sent", () => {
+    const save = vi.fn();
+    const cancel = vi.fn();
+    render(<RenameField initial="Late suppliers" onSave={save} onCancel={cancel} />);
+    const field = screen.getByLabelText("Conversation name");
+    expect(document.activeElement).toBe(field);
+    fireEvent.change(field, { target: { value: "   " } });
+    fireEvent.submit(field.closest("form")!);
+    expect(save).not.toHaveBeenCalled();
+    fireEvent.change(field, { target: { value: "  Weeks 1 to 13  " } });
+    fireEvent.submit(field.closest("form")!);
+    expect(save).toHaveBeenCalledWith("Weeks 1 to 13");
+    fireEvent.keyDown(field, { key: "Escape" });
+    expect(cancel).toHaveBeenCalledOnce();
+  });
+
+  it("lists pinned conversations first, and never an archived one", () => {
+    const now = new Date("2026-10-18T17:00:00");
+    const g = groupConversations(
+      [
+        { ...c, conversation_id: "A" },
+        { ...c, conversation_id: "B", pinned: true, created_at: "2026-10-01T10:00:00" },
+        { ...c, conversation_id: "C", archived: true },
+      ],
+      "",
+      now,
+    );
+    expect([g.pinned, g.today, g.earlier].map((x) => x.map((y) => y.conversation_id))).toEqual([["B"], ["A"], []]);
+  });
+});

@@ -4277,6 +4277,28 @@ exchange cost: attempt=EX-bc247dc6774a usd=0.061608 remaining=1.714846
   - **צילומי grayscale חדשים:** `docs/notes/ui_refresh_grayscale/`. של משימה 9 נשארו כתיעוד.
   - ‏pytest 983, ‏`--plans` 43/43, ‏tsc ו-eslint נקיים.
 
+### **ריענון המסך — שלב B בוצע (18.10).** ‏`PATCH /api/conversations/{id}` ותפריט שיחה `[demo extension]`
+
+- **API:**
+  - **הגוף:** `title` (1–200 תווים, אחרי trim), ‏`pinned`, ‏`archived` (‏`StrictBool`: ‏"yes" נדחה, וגם `null` מפורש). לפחות שדה אחד, ושדה לא מוכר נדחה — 422.
+  - **רק המשתמש של השיחה:** 403 לאחר, 404 לשיחה שלא קיימת.
+  - **ארכוב מסתיר מהרשימה בלבד.** ‏`GET /api/conversations/{id}` עדיין מחזיר אותה, עם החילופים.
+  - **יומן הביקורת לא נוגע:** אחרי ארכוב, `audit_trail` זהה ו-`verify_chain` עובר (נבדק).
+  - הכותרת שנתנו גוברת על השאלה הראשונה. השדות נשמרים בזיכרון השרת, כמו השיחה עצמה.
+- **באג שנמצא ב-e2e ותוקן:** ‏CORS התיר רק GET ו-POST, ולכן הדפדפן חסם את ה-PATCH, והמסך הציג "The server could not be reached". נוסף PATCH, עם בדיקת preflight ב-`tests/api/test_api.py`.
+- **מסך:** `ConversationMenu.tsx`:
+  - תפריט עם `role="menu"`: חצים, Home/End, ‏Esc עם החזרת פוקוס.
+  - Rename, ‏Pin to top / Unpin, ‏Archive, והמשפט על יומן הביקורת.
+  - שינוי שם במקום: Enter שומר, Esc מבטל, שם ריק לא נשלח.
+  - קבוצת **Pinned** מעל Today/Earlier, ובתחתית הרשימה "Archived conversations stay in the audit record…".
+- **נקודה 3:** ‏"Complaints · later" הוסר גם מ-`docs/design/ui-refresh/Main.dc.html`.
+- **מסלולים:** `server_conversation_update` ב-`tests/paths/registry.py` (‏`endpoint:PATCH /api/conversations/{conversation_id}`), ‏`test_server_conversation_update`. ‏golden: ‏`openapi.json` עודכן — רק הוספות.
+- **בדיקות:** pytest ‏**985** · ‏vitest **96** (+4) · Playwright מתוסרט **20** (+1: שינוי שם, נעיצה וארכוב במקלדת, ו-axe עם התפריט פתוח) · אמיתי 5 · ‏`--plans` 43/43 · ruff ו-bandit נקיים · mypy ללא שינוי (27).
+- **תקלה בתהליך (לא בקוד):**
+  - **מה קרה:** הרצתי פקודות frontend במקביל, ו-`cd` לא נשמר באחת מהן. ‏npx רץ מחוץ לפרויקט, **הוריד מ-npm את `tsc@2.0.4` ואת `eslint@10.13.0` למטמון של npx, והריץ אותם ב-`backend`**.
+  - **ההשפעה:** אף קובץ בריפו לא השתנה (נבדק ב-`git status`).
+  - **מעכשיו:** כל `cd` עם `|| exit 1`, ובלי הרצה במקביל.
+
 ## מה שנסגר בסבב האחרון
 
 - **הקוד עבר לריפו** — `MedAgentPro\backend` (`query_assistance`, `model_client`, `persistence`, `shared`, `tests`). **`03_Code` נשאר כמקור ומעודכן.** `python -m pytest -q` מתוך `backend`

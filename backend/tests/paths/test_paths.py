@@ -777,6 +777,26 @@ def test_server_refuses_what_it_should(db_path):
     assert s.ask(cid, Q, request_id=rid).status_code == 409
 
 
+def test_server_conversation_update(db_path):
+    """UI refresh, phase B [demo extension]: a conversation's title, pin and archive, by its own user only. An
+    archived conversation leaves the list; its exchanges stay in the audit record, and the chain holds."""
+    s = Server(db_path, {Q: Script(intent_analysis_demo=[REFER])})
+    cid = s.conversation()
+    eid = check_stream(s.ask(cid, Q))["exchange_id"]
+    patch = lambda body, h=AP, c=cid: s.client.patch(f"/api/conversations/{c}", headers=h, json=body)  # noqa: E731
+    assert patch({"title": "  Late suppliers  "}).json()["title"] == "Late suppliers"
+    assert patch({"pinned": True}).json()["pinned"] is True
+    assert patch({"archived": True}, PL).status_code == 403
+    assert patch({"archived": True}, c="CV-nope").status_code == 404
+    for bad in ({}, {"title": "   "}, {"title": "x" * 201}, {"colour": "red"}, {"pinned": "yes"}, {"pinned": None}):
+        assert patch(bad).status_code == 422, bad
+    before = s.storage.audit_trail(eid)
+    assert patch({"archived": True}).json()["archived"] is True
+    assert cid not in [c["conversation_id"] for c in s.client.get("/api/conversations", headers=AP).json()]
+    assert s.client.get(f"/api/conversations/{cid}", headers=AP).json()["exchanges"][0]["exchange_id"] == eid
+    assert s.storage.audit_trail(eid) == before and s.state.deps.audit.verify_chain(eid) == len(before)
+
+
 def test_server_rating_rules(db_path):
     s = Server(db_path, {Q: Script(intent_analysis_demo=[INTENT], synthesis=[SYN],
                                    support_scoring=[gate_says("supported")]),

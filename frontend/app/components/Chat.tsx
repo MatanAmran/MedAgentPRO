@@ -2,8 +2,17 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { api, ApiError, newRequestId } from "@/lib/api";
-import type { ConversationSummary, DemoUserId, Example, ExchangeItem, Rating, Stage } from "@/lib/types";
+import type {
+  ConversationChange,
+  ConversationSummary,
+  DemoUserId,
+  Example,
+  ExchangeItem,
+  Rating,
+  Stage,
+} from "@/lib/types";
 import { Header, Sidebar } from "./Chrome";
+import { ConversationMenu, RenameField } from "./ConversationMenu";
 import { Composer } from "./Composer";
 import { Examples } from "./Examples";
 import { ExchangeView, Pending } from "./ExchangeView";
@@ -37,6 +46,7 @@ export function Chat() {
   const [pending, setPending] = useState<PendingState | null>(null);
   const [ratings, setRatings] = useState<Record<string, { busy: boolean; error: string | null }>>({});
   const [loadError, setLoadError] = useState<string | null>(null);
+  const [renaming, setRenaming] = useState<string | null>(null);
   const abort = useRef<AbortController | null>(null);
   const bottom = useRef<HTMLDivElement | null>(null);
   const composer = useRef<HTMLTextAreaElement | null>(null);
@@ -149,6 +159,20 @@ export function Chat() {
     }
   }
 
+  // UI refresh, phase B [demo extension]: rename, pin, archive. The audit record is never touched
+  async function change(id: string, c: ConversationChange) {
+    try {
+      await api.updateConversation(user, id, c);
+      if (c.archived && id === current) {
+        setCurrent(null);
+        setItems([]);
+      }
+      await loadConversations(user);
+    } catch (e) {
+      setLoadError(message(e));
+    }
+  }
+
   function stop() {
     setPending((p) => (p ? { ...p, stopping: true } : p));
     abort.current?.abort();
@@ -169,7 +193,33 @@ export function Chat() {
     <div className="flex h-screen flex-col overflow-hidden bg-canvas">
       <Header user={user} onUser={setUser} mode={mode} budget={budget} locked={locked} />
       <div className="flex min-h-0 flex-1">
-        <Sidebar conversations={conversations} current={current} onSelect={select} onNew={startNew} locked={locked} />
+        <Sidebar
+          conversations={conversations}
+          current={current}
+          onSelect={select}
+          onNew={startNew}
+          locked={locked}
+          renaming={renaming}
+          renderRename={(c) => (
+            <RenameField
+              initial={c.title ?? ""}
+              onCancel={() => setRenaming(null)}
+              onSave={(title) => {
+                setRenaming(null);
+                change(c.conversation_id, { title });
+              }}
+            />
+          )}
+          renderOptions={(c) => (
+            <ConversationMenu
+              conversation={c}
+              disabled={locked}
+              onRename={() => setRenaming(c.conversation_id)}
+              onPin={(pinned) => change(c.conversation_id, { pinned })}
+              onArchive={() => change(c.conversation_id, { archived: true })}
+            />
+          )}
+        />
         <main className="flex min-w-0 flex-1 flex-col">
           {/* relative: an absolutely placed child (an sr-only caption or status) is placed in the thread, not
               against the page, which otherwise grew a second scrollbar with the panel open */}
