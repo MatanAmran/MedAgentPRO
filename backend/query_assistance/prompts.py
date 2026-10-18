@@ -333,9 +333,11 @@ _TOKEN = re.compile(r"[^\s,;:.!?()\[\]\"']+")
 
 def check_rewrite(output: dict, posed: str, history: list[Exchange] | None = None) -> str:
     """Returns the question to plan. Schema validation runs before this.
-    D1, by shape only: an identifier is a whole token the history presented. The rewrite may not add one
-    shown by a reading whose rows were cut (Exchange.cut), nor more than MAX_ADDED_IDENTIFIERS in all;
-    there it states the condition that produced them. The message gives counts only, never a value."""
+    D1, by shape only: an identifier is a whole token the history presented. The rewrite may add one
+    identifier shown by a reading whose rows were cut (Exchange.cut), a row the person saw and pointed at
+    (D1-POS, chat 19.10); two or more from cut readings, or more than MAX_ADDED_IDENTIFIERS in all, are a
+    list that is not the whole result, so it states the condition that produced them instead. The message
+    gives counts only, never a value."""
     q = output["question"].strip()
     if not q:
         raise RewriteError("empty question")
@@ -345,10 +347,10 @@ def check_rewrite(output: dict, posed: str, history: list[Exchange] | None = Non
     cut = {v for ex in history or [] for v in ex.cut}
     typed = set(_TOKEN.findall(posed))
     added = [t for t in dict.fromkeys(_TOKEN.findall(q)) if t in known and t not in typed]
-    if any(t in cut for t in added):
-        raise RewriteError(f"names {sum(t in cut for t in added)} identifier(s) shown by an earlier reading whose "
-                           "rows were cut, so they are not the whole result; state the condition that produced "
-                           "them instead")
+    from_cut = sum(t in cut for t in added)
+    if from_cut > 1:
+        raise RewriteError(f"names {from_cut} identifiers shown by an earlier reading whose rows were cut, so "
+                           "they are not the whole result; state the condition that produced them instead")
     if len(added) > MAX_ADDED_IDENTIFIERS:
         raise RewriteError(f"names {len(added)} identifiers the latest question does not hold, more than "
                            f"{MAX_ADDED_IDENTIFIERS}; state the condition that produced them instead")

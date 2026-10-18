@@ -322,13 +322,16 @@ def test_layer_two_drops_old_answers_one_at_a_time_and_keeps_the_conditions():
 
 @pytest.mark.parametrize("question, history, rejected", [
     ("What are the open values of S-001, S-008 and S-019?", [_late(3, 3, ["S-001", "S-008", "S-019"])], False),
-    ("What are the open values of S-038?", [_late(30, 39, ["S-038", "S-005"])], True),       # from a cut reading
+    ("What are the open values of S-038?", [_late(30, 39, ["S-038", "S-005"])], False),      # one, as by position
+    ("What are the open values of S-038 and S-005?", [_late(30, 39, ["S-038", "S-005"])], True),   # a list, cut
     ("What are the open values of the suppliers late in weeks 1 to 13?",
      [_late(30, 39, ["S-038", "S-005"])], False),                                               # the condition
     ("What are the open values of " + ", ".join(f"S-{i:03d}" for i in range(1, 22)) + "?",
      [_late(21, 21, [f"S-{i:03d}" for i in range(1, 22)])], True),                             # 21 added
 ])
 def test_rewrite_guard_names_ids_only_from_a_whole_result_of_at_most_twenty(question, history, rejected):
+    """D1 and D1-POS (chat 19.10): one identifier from a cut reading is a row the person pointed at; two or
+    more are a list that is not the whole result."""
     out = {"question": question, "carried_from_history": True}
     if rejected:
         with pytest.raises(p.RewriteError) as e:
