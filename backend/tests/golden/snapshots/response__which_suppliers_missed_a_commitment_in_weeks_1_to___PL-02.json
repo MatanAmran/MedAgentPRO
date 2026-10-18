@@ -3,8 +3,11 @@
  "outcome": "answered",
  "readings": [
   {
-   "answer": "S-038 had the most lines delivered after the date it committed to, 9.",
+   "answer": "25 suppliers had lines in weeks 1 to 13 delivered after the date they committed to, among them S-038 and S-005. S-038 had 9 such lines.",
    "answer_segments": [
+    {
+     "text": "25 suppliers had lines in weeks 1 to 13 delivered after the date they committed to, among them "
+    },
     {
      "ref": {
       "alias": "supplier_id",
@@ -13,7 +16,27 @@
      "text": "S-038"
     },
     {
-     "text": " had the most lines delivered after the date it committed to, "
+     "text": " and "
+    },
+    {
+     "ref": {
+      "alias": "supplier_id",
+      "row": 2
+     },
+     "text": "S-005"
+    },
+    {
+     "text": ". "
+    },
+    {
+     "ref": {
+      "alias": "supplier_id",
+      "row": 1
+     },
+     "text": "S-038"
+    },
+    {
+     "text": " had "
     },
     {
      "ref": {
@@ -23,7 +46,7 @@
      "text": "9"
     },
     {
-     "text": "."
+     "text": " such lines."
     }
    ],
    "checked": "Examined: purchase order lines where week between 1 and 13 and delivered after the date the supplier committed to · grouped by supplier · computed the number of records",
@@ -34,6 +57,7 @@
    "entity": "suppliers",
    "evidence": [
     "missed_promise.supplier_id",
+    "missed_promise.total",
     "missed_promise.missed_count"
    ],
    "headers": {

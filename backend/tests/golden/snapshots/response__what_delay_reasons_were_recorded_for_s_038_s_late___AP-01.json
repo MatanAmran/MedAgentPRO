@@ -3,10 +3,10 @@
  "outcome": "answered",
  "readings": [
   {
-   "answer": "For PO-87069, the delay is recorded as Supplier capacity constraint.",
+   "answer": "5 lines of S-038 have a delay reason recorded, among them a line of PO-87069. For that line, the delay is recorded as Supplier capacity constraint.",
    "answer_segments": [
     {
-     "text": "For "
+     "text": "5 lines of S-038 have a delay reason recorded, among them a line of "
     },
     {
      "ref": {
@@ -16,7 +16,7 @@
      "text": "PO-87069"
     },
     {
-     "text": ", the delay is recorded as Supplier capacity constraint."
+     "text": ". For that line, the delay is recorded as Supplier capacity constraint."
     }
    ],
    "checked": "Examined: purchase order lines where supplier = 'S-038' and delay reason recorded",
@@ -27,6 +27,7 @@
    "entity": "purchase order lines",
    "evidence": [
     "recorded_reasons.po_id",
+    "recorded_reasons.total",
     "recorded_reasons.delay_reason"
    ],
    "headers": {

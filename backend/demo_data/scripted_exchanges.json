@@ -1,6 +1,6 @@
 {
-  "$comment": "Task 6 (S5) and task 8: what the scripted model answers in the server's default mode, in the order the demo presents them. Keyed by the question as posed. Each output replaces the model only: it goes through the schema, the compiler, the references, the gate and the contract like a real one. The gate's claims are built from the numbered sentences in the gate prompt, one per sentence, with the verdict and the cited aliases given here; a stage that runs twice (the gate before and after a redraft) takes a list. expect is what the exchange must end in (tests/feasibility L01, frontend e2e): outcome, what it shows, the question it follows, and whether the gate's verdicts are scripted to show the mechanism. A question with no entry ends as request_not_completed.",
-  "version": 2,
+  "$comment": "Task 6 (S5) and task 8: what the scripted model answers in the server's default mode, in the order the demo presents them. Keyed by the question as posed. Each output replaces the model only: it goes through the schema, the compiler, the references, the gate and the contract like a real one. The gate's claims are built from the numbered sentences in the gate prompt, one per sentence, with the verdict and the cited aliases given here; a stage that runs twice (the gate before and after a redraft) takes a list. expect is what the exchange must end in (tests/feasibility L01, frontend e2e): outcome, what it shows, the question it follows, and whether the gate's verdicts are scripted to show the mechanism. A question with no entry ends as request_not_completed. Version 3 (fix round, 19.10): the answers state each reading's condition (D4) and a list gives {label.total} with a few rows (D5), as the real model now writes them.",
+  "version": 3,
   "exchanges": [
     {
       "question": "Which suppliers were late in weeks 1 to 13?",
@@ -140,10 +140,10 @@
             "label": "late_by_delivery",
             "sentences": [
               {
-                "text": "{late_by_delivery.supplier_id#1} had {late_by_delivery.late_count#1} lines delivered after the requested date."
+                "text": "{late_by_delivery.total} suppliers had lines delivered after the requested date in weeks 1 to 13, among them {late_by_delivery.supplier_id#1}, {late_by_delivery.supplier_id#2} and {late_by_delivery.supplier_id#3}."
               },
               {
-                "text": "{late_by_delivery.supplier_id#2} had {late_by_delivery.late_count#2}."
+                "text": "{late_by_delivery.supplier_id#1} had {late_by_delivery.late_count#1} such lines."
               }
             ]
           },
@@ -151,7 +151,7 @@
             "label": "late_by_promise",
             "sentences": [
               {
-                "text": "{late_by_promise.supplier_id#1} had {late_by_promise.late_count#1} lines whose promised date was after the requested date."
+                "text": "{late_by_promise.total} suppliers had lines in weeks 1 to 13 whose promised date was after the requested date, among them {late_by_promise.supplier_id#1} and {late_by_promise.supplier_id#2}."
               }
             ]
           }
@@ -163,10 +163,12 @@
         ],
         "evidence": {
           "late_by_delivery": [
+            "total",
             "supplier_id",
             "late_count"
           ],
           "late_by_promise": [
+            "total",
             "supplier_id",
             "late_count"
           ]
@@ -322,7 +324,7 @@
             "label": "late_by_delivery",
             "sentences": [
               {
-                "text": "{late_by_delivery.supplier_id#1} had {late_by_delivery.late_count#1} lines delivered after the requested date."
+                "text": "{late_by_delivery.total} suppliers had lines delivered after the requested date in weeks 14 to 26, among them {late_by_delivery.supplier_id#1} and {late_by_delivery.supplier_id#2}."
               }
             ]
           },
@@ -330,7 +332,7 @@
             "label": "late_by_promise",
             "sentences": [
               {
-                "text": "{late_by_promise.supplier_id#1} had {late_by_promise.late_count#1} lines whose promised date was after the requested date."
+                "text": "{late_by_promise.total} suppliers had lines in weeks 14 to 26 whose promised date was after the requested date, among them {late_by_promise.supplier_id#1} and {late_by_promise.supplier_id#2}."
               }
             ]
           }
@@ -342,10 +344,12 @@
         ],
         "evidence": {
           "late_by_delivery": [
+            "total",
             "supplier_id",
             "late_count"
           ],
           "late_by_promise": [
+            "total",
             "supplier_id",
             "late_count"
           ]
@@ -441,7 +445,7 @@
             "label": "late_in_september",
             "sentences": [
               {
-                "text": "{late_in_september.supplier_id#1} delivered {late_in_september.po_id#1} after the requested date."
+                "text": "{late_in_september.total} purchase orders had lines delivered after the requested date in September, among them {late_in_september.po_id#1} from {late_in_september.supplier_id#1} and {late_in_september.po_id#2} from {late_in_september.supplier_id#2}."
               }
             ]
           }
@@ -453,6 +457,7 @@
         ],
         "evidence": {
           "late_in_september": [
+            "total",
             "supplier_id",
             "po_id"
           ]
@@ -536,7 +541,10 @@
             "label": "missed_promise",
             "sentences": [
               {
-                "text": "{missed_promise.supplier_id#1} had the most lines delivered after the date it committed to, {missed_promise.missed_count#1}."
+                "text": "{missed_promise.total} suppliers had lines in weeks 1 to 13 delivered after the date they committed to, among them {missed_promise.supplier_id#1} and {missed_promise.supplier_id#2}."
+              },
+              {
+                "text": "{missed_promise.supplier_id#1} had {missed_promise.missed_count#1} such lines."
               }
             ]
           }
@@ -548,6 +556,7 @@
         ],
         "evidence": {
           "missed_promise": [
+            "total",
             "supplier_id",
             "missed_count"
           ]
@@ -651,7 +660,7 @@
             "label": "past_due",
             "sentences": [
               {
-                "text": "{past_due.po_id#1} has the earliest requested date, {past_due.due_date#1}."
+                "text": "{past_due.total} lines on open purchase orders are not delivered and past their requested date, among them a line of {past_due.po_id#1}, requested for {past_due.due_date#1}."
               }
             ]
           }
@@ -663,6 +672,7 @@
         ],
         "evidence": {
           "past_due": [
+            "total",
             "po_id",
             "due_date"
           ]
@@ -736,7 +746,10 @@
             "label": "recorded_reasons",
             "sentences": [
               {
-                "text": "For {recorded_reasons.po_id#1}, the delay is recorded as {recorded_reasons.delay_reason#1}."
+                "text": "{recorded_reasons.total} lines of S-038 have a delay reason recorded, among them a line of {recorded_reasons.po_id#1}."
+              },
+              {
+                "text": "For that line, the delay is recorded as {recorded_reasons.delay_reason#1}."
               }
             ]
           }
@@ -748,6 +761,7 @@
         ],
         "evidence": {
           "recorded_reasons": [
+            "total",
             "po_id",
             "delay_reason"
           ]
@@ -921,6 +935,9 @@
             "label": "below_reorder",
             "sentences": [
               {
+                "text": "{below_reorder.total} parts have stock on hand below the reorder point, among them {below_reorder.part_id#1}."
+              },
+              {
                 "text": "{below_reorder.part_id#1} has {below_reorder.on_hand#1} on hand against a reorder point of {below_reorder.reorder_point#1}."
               },
               {
@@ -934,10 +951,12 @@
         {
           "verdicts": [
             "supported",
+            "supported",
             "uncovered"
           ],
           "evidence": {
             "below_reorder": [
+              "total",
               "part_id",
               "on_hand",
               "reorder_point"
@@ -950,6 +969,7 @@
           ],
           "evidence": {
             "below_reorder": [
+              "total",
               "part_id",
               "on_hand",
               "reorder_point"
@@ -962,6 +982,9 @@
           {
             "label": "below_reorder",
             "sentences": [
+              {
+                "text": "{below_reorder.total} parts have stock on hand below the reorder point, among them {below_reorder.part_id#1}."
+              },
               {
                 "text": "{below_reorder.part_id#1} has {below_reorder.on_hand#1} on hand against a reorder point of {below_reorder.reorder_point#1}."
               }

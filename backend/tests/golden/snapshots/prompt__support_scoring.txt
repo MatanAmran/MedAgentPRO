@@ -46,9 +46,9 @@ Records:
 Output: {"claims": [{"sentence": 1, "text": "64 lines were delivered after the requested date in August, among them C-100512.", "verdict": "supported", "evidence": ["late_lines.total", "late_lines.commitment_id"]}, {"sentence": 2, "text": "C-100530 is also listed in the records.", "verdict": "uncovered", "evidence": []}]}
 
 Answer:
-1. [late_by_delivery] S-038 had 10 lines delivered after the requested date.
-2. [late_by_delivery] S-005 had 8.
-3. [late_by_promise] S-008 had 6 lines whose promised date was after the requested date.
+1. [late_by_delivery] 28 suppliers had lines delivered after the requested date in weeks 1 to 13, among them S-038, S-005 and S-001.
+2. [late_by_delivery] S-038 had 10 such lines.
+3. [late_by_promise] 13 suppliers had lines in weeks 1 to 13 whose promised date was after the requested date, among them S-008 and S-018.
 Records:
 [late_by_delivery] examined: purchase order lines where week between 1 and 13 and delivered after the requested date · grouped by supplier · computed the number of records
 [late_by_delivery] late_by_delivery.total = 28 rows matched, 10 shown

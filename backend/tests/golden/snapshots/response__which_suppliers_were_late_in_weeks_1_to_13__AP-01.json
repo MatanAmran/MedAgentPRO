@@ -6,8 +6,41 @@
  "outcome": "answered",
  "readings": [
   {
-   "answer": "S-038 had 10 lines delivered after the requested date. S-005 had 8.",
+   "answer": "28 suppliers had lines delivered after the requested date in weeks 1 to 13, among them S-038, S-005 and S-001. S-038 had 10 such lines.",
    "answer_segments": [
+    {
+     "text": "28 suppliers had lines delivered after the requested date in weeks 1 to 13, among them "
+    },
+    {
+     "ref": {
+      "alias": "supplier_id",
+      "row": 1
+     },
+     "text": "S-038"
+    },
+    {
+     "text": ", "
+    },
+    {
+     "ref": {
+      "alias": "supplier_id",
+      "row": 2
+     },
+     "text": "S-005"
+    },
+    {
+     "text": " and "
+    },
+    {
+     "ref": {
+      "alias": "supplier_id",
+      "row": 3
+     },
+     "text": "S-001"
+    },
+    {
+     "text": ". "
+    },
     {
      "ref": {
       "alias": "supplier_id",
@@ -26,27 +59,7 @@
      "text": "10"
     },
     {
-     "text": " lines delivered after the requested date. "
-    },
-    {
-     "ref": {
-      "alias": "supplier_id",
-      "row": 2
-     },
-     "text": "S-005"
-    },
-    {
-     "text": " had "
-    },
-    {
-     "ref": {
-      "alias": "late_count",
-      "row": 2
-     },
-     "text": "8"
-    },
-    {
-     "text": "."
+     "text": " such lines."
     }
    ],
    "checked": "Examined: purchase order lines where week between 1 and 13 and delivered after the requested date · grouped by supplier · computed the number of records",
@@ -57,6 +70,7 @@
    "entity": "suppliers",
    "evidence": [
     "late_by_delivery.supplier_id",
+    "late_by_delivery.total",
     "late_by_delivery.late_count"
    ],
    "headers": {
@@ -117,8 +131,11 @@
    "total": 28
   },
   {
-   "answer": "S-008 had 6 lines whose promised date was after the requested date.",
+   "answer": "13 suppliers had lines in weeks 1 to 13 whose promised date was after the requested date, among them S-008 and S-018.",
    "answer_segments": [
+    {
+     "text": "13 suppliers had lines in weeks 1 to 13 whose promised date was after the requested date, among them "
+    },
     {
      "ref": {
       "alias": "supplier_id",
@@ -127,17 +144,17 @@
      "text": "S-008"
     },
     {
-     "text": " had "
+     "text": " and "
     },
     {
      "ref": {
-      "alias": "late_count",
-      "row": 1
+      "alias": "supplier_id",
+      "row": 2
      },
-     "text": "6"
+     "text": "S-018"
     },
     {
-     "text": " lines whose promised date was after the requested date."
+     "text": "."
     }
    ],
    "checked": "Examined: purchase order lines where week between 1 and 13 and the supplier committed to a date after the requested date · grouped by supplier · computed the number of records",
@@ -148,7 +165,7 @@
    "entity": "suppliers",
    "evidence": [
     "late_by_promise.supplier_id",
-    "late_by_promise.late_count"
+    "late_by_promise.total"
    ],
    "headers": {
     "late_count": "number of records",

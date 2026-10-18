@@ -144,8 +144,9 @@ test("phase C: pointing at or focusing a value in the answer marks its row", asy
   await second.focus();
   await expect(card.locator(`[data-row="${await second.getAttribute("data-ref-row")}"]`)).toHaveAttribute("data-hot", "true");
   await axeClean(page, "a value in the answer focused");
-  // the joined answer is what the screen shows
-  await expect(card.getByTestId("answer")).toHaveText(/^S-\d{3} had /);
+  // the joined answer is what the screen shows; the count opens it, filled by code and not a marked value (D5)
+  await expect(card.getByTestId("answer")).toHaveText(/^\d+ suppliers had .* among them S-\d{3}/);
+  expect(await refs.first().textContent()).toMatch(/^S-\d{3}$/);
 });
 
 test("the conversation list and each answer stay one tab stop, however many conversations the server holds", async ({ page }) => {
