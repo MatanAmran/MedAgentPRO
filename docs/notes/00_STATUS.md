@@ -3830,6 +3830,26 @@ exchange cost: attempt=EX-bc247dc6774a usd=0.061608 remaining=1.714846
 
 **הבא:** שני הסטים, **באישור אביתר**: `python -m tools.real_eval --real --confirm --set demo --out …`, ואז אותו דבר בלי `--set`.
 
+### **שני הסטים מחדש על המודל האמיתי (18.10, ~13:20, באישור אביתר; `b66d816`).** ‏1.5999$ (‏0.4502 + ‏1.1497), נשארו **3.8213$**. הדוחות ב-scratchpad
+
+- **התקרה:** 2$ לשתי הריצות יחד. הדמו רץ עם תקרה של 2$, והסט עם 2 − 0.4502 = ‏1.5498$. אף ריצה לא נעצרה.
+- **הדמו, 12 שאלות:** 11 מתוך 12 בסטטוס של התסריט.
+  - **Q11** ענתה (‏S-010 עם 13 שורות בזמן, ‏S-008 עם 15 מול ההתחייבות) במקום `no_supported_assertion`. הציפייה הזו בתסריט מגיעה משער מתוסרט (`scripted_gate: true`), ולכן אין בה סתירה למודל האמיתי.
+  - ‏Q02: "Understood as" עם שבועות 14–26. ‏Q03: בספטמבר 2026. ‏Q05: עם פער על "who approved". ‏Q06: "Reason recorded". ‏Q07: הופנתה לחקירה. ‏Q12: סורבה.
+  - ‏Q08: ניסיון משוב אחד בכוונה (`SchemaBreach:pattern@readings/0/label`), שהצליח.
+- **הסט, 31 שאלות:** 30 מתוך 31 כמצופה, וכל הספירות ✅.
+  - **B1 ו-B5 תוקנו:** נובמבר ודצמבר 2026, ‏138 ו-30 שורות.
+  - **C4 תוקן:** ‏"computed the average days late, over purchase order lines with requested date and delivery date recorded". התשובה: "the average is 3.65 days late", עם הודעת withheld (השער הסיר משפט).
+  - **H2:** התשובה באנגלית.
+  - **A2:** לפי order date, ‏7 הזמנות. "1 line" בלשון יחיד, בלי "1 days".
+  - **G1:** שוב בלי דליפה.
+  - **F2 — לשיפוט:** ‏Understood as ארוך ("…both after the requested date and after the date the supplier committed to"), והתשובה כותבת "this supplier" במקום הפניה ל-S-014.
+- **❌ D4 — רגרסיה, לא מהתיקונים:**
+  - **מה קרה:** השער נעצר על **תקרת הפלט**: `finish_reason=length`, ‏2000 מתוך `MODEL_MAX_OUTPUT_TOKENS` 2000, מתוכם 723 טוקני חשיבה. הוא נדחה כ-`truncated` (בלי ניסיון נוסף, R4) ונגמר ב-`request_not_completed`.
+  - **ההקשר:** בריצה הקודמת D4 עבר. התשובה כאן ארוכה: שתי קריאות (‏late_by_delivery ו-late_by_promise), משפטים ארוכים עם הרבה הפניות, ולכן הרבה טענות לשער. ‏input לשער: 9974 טוקנים.
+  - ❓ **שאלה לצ׳אט (לא נגעתי):** תקרת פלט נפרדת לשער, כמו `MODEL_MAX_OUTPUT_TOKENS_INTENT` לכוונה? או הגבלה על אורך התשובה בסינתזה (מספר משפטים או הפניות)? זו שאלה של תקציב ושל הסכמה, ולכן לא החלטתי.
+- **לא תוקן שום דבר בעקבות הריצות האלה.**
+
 ## מה שנסגר בסבב האחרון
 
 - **הקוד עבר לריפו** — `MedAgentPro\backend` (`query_assistance`, `model_client`, `persistence`, `shared`, `tests`). **`03_Code` נשאר כמקור ומעודכן.** `python -m pytest -q` מתוך `backend`
