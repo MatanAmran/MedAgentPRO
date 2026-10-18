@@ -5,6 +5,7 @@ cases the demo relies on, and works with the compiler and the prompt rendering u
 
 import hashlib
 import sqlite3
+from pathlib import Path
 
 import pytest
 
@@ -138,9 +139,9 @@ def test_every_planner_holds_lines(db):
 # the pipeline runs on it unchanged
 # --------------------------------------------------------------------------
 
-def run(db, plan, user=APPROVER, question="Which suppliers were late in September?"):
+def run(db, plan, user=APPROVER, question="Which suppliers were late in September?", cat=None):
     intent = {"disposition": "retrieve", "readings": [{"label": "r", "plan": plan}]}
-    compiled = c.compile_intent(intent, question, user, CAT)
+    compiled = c.compile_intent(intent, question, user, cat or CAT)
     return c.execute(compiled.readings[0], db)
 
 
@@ -162,10 +163,14 @@ def test_compiler_runs_a_grouped_metric_query(db):
 
 
 def test_entitlement_restricts_a_planner_to_own_lines(db):
+    """On the restricted test catalog (D6): the store holds lines of several planners, so the mechanism
+    narrows a planner's count. In the demo itself both roles count every line."""
+    restricted = c.Catalog.load(Path(__file__).parents[1] / "fixtures" / "restricted_schema.json",
+                                seed.HERE / "relations.json")
     plan = {"SELECT": [{"expr": {"func": "COUNT", "arg": "*"}, "as": "n"}], "FROM": "commitments"}
-    own = run(db, plan, user=PLANNER).rows[0]["n"]
+    own = run(db, plan, user=PLANNER, cat=restricted).rows[0]["n"]
     assert own == one(db, "SELECT COUNT(*) FROM commitments WHERE planner_id = 'PL-02'")
-    assert own < run(db, plan).rows[0]["n"]
+    assert own < run(db, plan).rows[0]["n"] == run(db, plan, user=PLANNER).rows[0]["n"]
 
 
 def test_join_through_order_to_status(db):

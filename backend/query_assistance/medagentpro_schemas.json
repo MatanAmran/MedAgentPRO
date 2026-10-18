@@ -422,8 +422,24 @@
               },
               {
                 "$ref": "#/$defs/value"
+              },
+              {
+                "$ref": "#/$defs/me"
               }
             ]
+          },
+          "me": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "me"
+            ],
+            "properties": {
+              "me": {
+                "const": true
+              }
+            },
+            "$comment": "[demo extension, fix round D7] The person asking: \"my\", \"mine\", \"I\". The compiler fills the asker's user_id as a parameter; the model never writes it. Allowed only in EQ or NE against a column marked user_column in schema.json."
           },
           "func": {
             "oneOf": [

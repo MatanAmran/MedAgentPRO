@@ -4,6 +4,7 @@ gaps, and one constructor per outcome. Real plans run on the demo store.
 """
 
 import sqlite3
+from pathlib import Path
 
 import pytest
 
@@ -12,6 +13,8 @@ from query_assistance import compiler as c
 from query_assistance import contract as k
 
 CAT = c.Catalog.load(seed.HERE / "schema.json", seed.HERE / "relations.json")
+RESTRICTED = c.Catalog.load(Path(__file__).parents[1] / "fixtures" / "restricted_schema.json",
+                            seed.HERE / "relations.json")   # D6: the entitlement mechanism, on a test catalog
 APPROVER = {"role": "APPROVER", "user_id": "AP-01"}
 PLANNER = {"role": "PLANNER", "user_id": "PL-02"}
 
@@ -64,14 +67,16 @@ def test_two_readings_differ_exactly_where_the_term_was_open():
 
 
 def test_checked_states_when_entitlement_narrowed_the_query():
-    assert "limited to the records you hold" in k.render_checked(LATE, CAT, "PLANNER")
-    assert "limited" not in k.render_checked(LATE, CAT, "APPROVER")
+    assert "limited to the records you hold" in k.render_checked(LATE, RESTRICTED, "PLANNER")
+    assert "limited" not in k.render_checked(LATE, RESTRICTED, "APPROVER")
+    # D6: in the demo both roles read every table, so nothing is said
+    assert "limited" not in k.render_checked(LATE, CAT, "PLANNER")
 
 
 def test_checked_states_a_restricted_joined_table():
     plan = {"SELECT": [{"expr": {"col": "suppliers.name"}, "as": "name"}], "FROM": "suppliers",
             "JOIN": [{"rel": "commitment_supplier", "type": "INNER"}]}
-    text = k.render_checked(plan, CAT, "PLANNER")
+    text = k.render_checked(plan, RESTRICTED, "PLANNER")
     assert text.startswith("Examined: suppliers with purchase order lines") and "limited" in text
 
 
@@ -167,6 +172,42 @@ def test_entity_only_where_each_row_is_a_row_of_the_from_table(db, plan, entity)
     assert k.reading_entity(plan, CAT) == entity
     v = k.reading_view("r", plan, run(db, plan), CAT, "APPROVER")
     assert v.get("entity") == entity
+
+
+MY_LATE = {"SELECT": [{"expr": {"col": "commitments.commitment_id"}, "as": "commitment_id"},
+                      {"expr": {"col": "commitments.planner_id"}, "as": "planner_id"}],
+           "FROM": "commitments",
+           "WHERE": {"AND": [{"EQ": [{"col": "commitments.planner_id"}, {"me": True}]},
+                             {"EQ": [{"metric": "late_by_delivery"}, {"value": True}]}]}}
+
+
+def test_my_is_the_asker_filled_by_code_and_said_as_you(db):
+    """D7 (fix round): {"me": true} is the asker's user_id, a parameter the compiler fills; the model never
+    writes it, so the question need not hold it (NFR 27). Examined says "planner = you"."""
+    pl = run(db, MY_LATE, user={"role": "PLANNER", "user_id": "PL-02"}, question="Which of my lines were late?")
+    assert pl.rows and {r["planner_id"] for r in pl.rows} == {"PL-02"}
+    assert pl.total == db.execute("SELECT COUNT(*) FROM commitments WHERE planner_id = 'PL-02' "
+                                  "AND delivered_at > due_date").fetchone()[0]
+    assert "planner = you" in k.render_checked(MY_LATE, CAT, "PLANNER")
+
+
+def test_my_from_someone_who_plans_nothing_is_a_finding(db):
+    """D7: the approver plans no line, so "my lines" match none: no records, not an error."""
+    ap = run(db, MY_LATE, user={"role": "APPROVER", "user_id": "AP-01"}, question="Which of my lines were late?")
+    v = k.reading_view("r", MY_LATE, ap, CAT, "APPROVER")
+    assert ap.rows == [] and v["result"] == "empty_no_match" and v["notice"] == "No records matched."
+
+
+@pytest.mark.parametrize("where", [
+    {"EQ": [{"col": "commitments.supplier_id"}, {"me": True}]},     # not a column that holds a user
+    {"GT": [{"col": "commitments.planner_id"}, {"me": True}]},       # only equality
+    {"EQ": [{"me": True}, {"value": "PL-02"}]},                      # no column at all
+])
+def test_me_is_refused_anywhere_but_equality_with_a_user_column(db, where):
+    plan = {**MY_LATE, "WHERE": where}
+    with pytest.raises(c.CompileError) as e:
+        run(db, plan, user={"role": "PLANNER", "user_id": "PL-02"}, question="Which of my lines were late?")
+    assert e.value.code in ("me_not_allowed", "no_column_in_comparison")
 
 
 def test_view_of_an_empty_result_is_a_finding(db):

@@ -435,7 +435,7 @@
    },
    "sql": [
     {
-     "query": "SELECT supplier_id FROM commitments WHERE planner_id = 'PL-02' AND week BETWEEN 1 AND 13 AND delivered_at > due_date GROUP BY supplier_id",
+     "query": "SELECT supplier_id FROM commitments WHERE week BETWEEN 1 AND 13 AND delivered_at > due_date GROUP BY supplier_id",
      "compare": "total"
     }
    ],
@@ -501,7 +501,7 @@
      ]
     }
    ],
-   "watch": "S-008 עם 4 בתחום של PL-02. בכל השורות זה S-038 עם 10. האם הטקסט אומר את התחום ('of your lines')?"
+   "watch": "D6: PL-02 רואה את כל השורות. S-038 עם 10 (לפני D6, בתחום של PL-02: S-008 עם 4)."
   },
   {
    "id": "H6",
@@ -520,10 +520,6 @@
    "sql": [
     {
      "query": "SELECT COUNT(*) FROM receipts WHERE received_on BETWEEN '2026-09-01' AND '2026-09-30'",
-     "compare": "value"
-    },
-    {
-     "query": "SELECT COUNT(*) FROM receipts r JOIN commitments c ON c.commitment_id = r.commitment_id WHERE r.received_on BETWEEN '2026-09-01' AND '2026-09-30' AND c.planner_id = 'PL-02'",
      "compare": "value"
     }
    ],
@@ -597,7 +593,7 @@
      ]
     }
    ],
-   "watch": "256 (כולן) או 34 (של השורות שלו), לפי צורת התוכנית. G2 מצפה ל-256 (receipts פתוח לכל התפקידים, שאלה פתוחה ללקוח)."
+   "watch": "D6: ‏256 בשתי צורות התוכנית (לפני D6: ‏256 או 34, לפי הצירוף)."
   },
   {
    "id": "H7",

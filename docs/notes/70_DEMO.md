@@ -85,7 +85,7 @@ cd backend; python -m tools.preflight
 
 המסך נמצא ב-`http://localhost:3000`. השאלות מופיעות במסך ריק תחת **"Try a question"** (מסומנות "scripted examples"), והמציג לוחץ עליהן. **לא להקליד ידנית:** התסריט מותאם לנוסח השאלה, ושאלה אחרת תסתיים ב-"The request could not be completed."
 
-**המשתמש:** ‏`AP-01` (Approver) רואה הכל. ‏`PL-02` (Planner) רואה רק את ההזמנות שלו. המעבר נעשה מהבורר בפינה.
+**המשתמש:** ‏`AP-01` (Approver) ו-`PL-02` (Planner) רואים את כל הנתונים (D6, 18.10: ‏`planner_id` אומר מי מטפל בשורה, לא מי רשאי לראות אותה). המעבר נעשה מהבורר בפינה.
 
 ## הסדר
 
@@ -108,7 +108,7 @@ cd backend; python -m tools.preflight
 
 **לשאלות 10 ו-11:** Here the gate's verdicts are scripted to show the mechanism: what is removed, the notice, the redraft. With the real model, the gate decides.
 
-**שאלה 1 כמתכנן (`PL-02`):** אותה שאלה, ו-"Examined" מסתיים ב-"limited to the records you hold". ההרשאה מוחלת בתוך השאילתה (NFR 17), לא על התוצאות אחריה.
+**שאלה 1 כמתכנן (`PL-02`):** אותה שאלה ואותה תשובה (D6). מה שמשתנה בין התפקידים הוא "my": ‏"Which of my lines were late?" מוגבל ל-`planner = you` (D7). מנגנון ההרשאה עצמו (NFR 17) נשאר בקוד, ונבדק על קטלוג בדיקה.
 
 ## מה לא מודגם, ואיפה הוא נבדק
 

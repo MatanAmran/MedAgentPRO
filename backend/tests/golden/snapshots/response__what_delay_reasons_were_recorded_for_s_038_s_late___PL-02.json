@@ -3,12 +3,32 @@
  "outcome": "answered",
  "readings": [
   {
-   "checked": "Examined: purchase order lines where supplier = 'S-038' and delay reason recorded · limited to the records you hold",
+   "answer": "For PO-87069, the delay is recorded as Supplier capacity constraint.",
+   "answer_segments": [
+    {
+     "text": "For "
+    },
+    {
+     "ref": {
+      "alias": "po_id",
+      "row": 1
+     },
+     "text": "PO-87069"
+    },
+    {
+     "text": ", the delay is recorded as Supplier capacity constraint."
+    }
+   ],
+   "checked": "Examined: purchase order lines where supplier = 'S-038' and delay reason recorded",
    "columns": [
     "po_id",
     "delay_reason"
    ],
    "entity": "purchase order lines",
+   "evidence": [
+    "recorded_reasons.po_id",
+    "recorded_reasons.delay_reason"
+   ],
    "headers": {
     "delay_reason": "delay reason",
     "po_id": "purchase order"
@@ -17,12 +37,33 @@
     "po_id"
    ],
    "label": "recorded_reasons",
-   "notice": "No records matched.",
-   "result": "empty_no_match",
-   "row_count": 0,
-   "rows": [],
+   "ordered_by": "ordered by purchase order, lowest first",
+   "result": "rows_returned",
+   "row_count": 5,
+   "rows": [
+    {
+     "delay_reason": "Supplier capacity constraint",
+     "po_id": "PO-87069"
+    },
+    {
+     "delay_reason": "Quality hold at supplier",
+     "po_id": "PO-87768"
+    },
+    {
+     "delay_reason": "Quality hold at supplier",
+     "po_id": "PO-88602"
+    },
+    {
+     "delay_reason": "Raw material shortage at supplier",
+     "po_id": "PO-89031"
+    },
+    {
+     "delay_reason": "Tooling repair",
+     "po_id": "PO-89196"
+    }
+   ],
    "title": "Reading 1",
-   "total": 0
+   "total": 5
   }
  ]
 }

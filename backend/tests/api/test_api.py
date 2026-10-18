@@ -121,11 +121,12 @@ def test_scripted_output_breaking_a_check_is_rejected_like_a_real_one(db_path):
     assert [c[1].prompt_identity.split("@")[0] for c in gw.calls].count("synthesis") == 2
 
 
-def test_planner_sees_only_their_records(client):
-    """NFR 17 through the API: the plan is limited to the records the planner holds."""
-    ap = result(ask(client, conversation(client), TWO))["response"]["readings"][0]["checked"]
-    pl = result(ask(client, conversation(client, PL), TWO, PL))["response"]["readings"][0]["checked"]
-    assert "limited to the records you hold" in pl and "limited to the records you hold" not in ap
+def test_planner_and_approver_read_the_same_records(client):
+    """D6 (fix round, Evyatar): data is open to both roles; planner_id says who handles a line, not who may
+    see it. Through the API, both roles get the same reading, with no scope said."""
+    ap = result(ask(client, conversation(client), TWO))["response"]["readings"][0]
+    pl = result(ask(client, conversation(client, PL), TWO, PL))["response"]["readings"][0]
+    assert ap["checked"] == pl["checked"] and "limited" not in pl["checked"] and ap["rows"] == pl["rows"]
 
 
 def test_a_repeated_request_id_is_refused(client):

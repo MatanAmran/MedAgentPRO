@@ -3,7 +3,7 @@
  "outcome": "answered",
  "readings": [
   {
-   "answer": "S-001 delivered PO-89259 after the requested date.",
+   "answer": "S-001 delivered PO-88626 after the requested date.",
    "answer_segments": [
     {
      "ref": {
@@ -20,13 +20,13 @@
       "alias": "po_id",
       "row": 1
      },
-     "text": "PO-89259"
+     "text": "PO-88626"
     },
     {
      "text": " after the requested date."
     }
    ],
-   "checked": "Examined: purchase order lines where delivery date between '2026-09-01' and '2026-09-30' and delivered after the requested date · grouped by supplier, purchase order · computed the number of records · limited to the records you hold",
+   "checked": "Examined: purchase order lines where delivery date between '2026-09-01' and '2026-09-30' and delivered after the requested date · grouped by supplier, purchase order · computed the number of records",
    "columns": [
     "supplier_id",
     "po_id",
@@ -46,10 +46,26 @@
     "po_id"
    ],
    "label": "late_in_september",
+   "notice": "Showing 30 of 67.",
    "ordered_by": "ordered by supplier, lowest first, then purchase order, lowest first",
    "result": "rows_returned",
-   "row_count": 4,
+   "row_count": 30,
    "rows": [
+    {
+     "late_lines": 1,
+     "po_id": "PO-88626",
+     "supplier_id": "S-001"
+    },
+    {
+     "late_lines": 1,
+     "po_id": "PO-88779",
+     "supplier_id": "S-001"
+    },
+    {
+     "late_lines": 1,
+     "po_id": "PO-88797",
+     "supplier_id": "S-001"
+    },
     {
      "late_lines": 2,
      "po_id": "PO-89259",
@@ -62,17 +78,132 @@
     },
     {
      "late_lines": 1,
+     "po_id": "PO-89187",
+     "supplier_id": "S-002"
+    },
+    {
+     "late_lines": 2,
+     "po_id": "PO-89286",
+     "supplier_id": "S-002"
+    },
+    {
+     "late_lines": 1,
+     "po_id": "PO-89067",
+     "supplier_id": "S-004"
+    },
+    {
+     "late_lines": 2,
+     "po_id": "PO-88683",
+     "supplier_id": "S-005"
+    },
+    {
+     "late_lines": 1,
+     "po_id": "PO-89127",
+     "supplier_id": "S-005"
+    },
+    {
+     "late_lines": 1,
+     "po_id": "PO-89445",
+     "supplier_id": "S-005"
+    },
+    {
+     "late_lines": 1,
+     "po_id": "PO-89229",
+     "supplier_id": "S-006"
+    },
+    {
+     "late_lines": 2,
+     "po_id": "PO-88788",
+     "supplier_id": "S-007"
+    },
+    {
+     "late_lines": 1,
+     "po_id": "PO-89025",
+     "supplier_id": "S-007"
+    },
+    {
+     "late_lines": 1,
+     "po_id": "PO-88752",
+     "supplier_id": "S-008"
+    },
+    {
+     "late_lines": 1,
+     "po_id": "PO-88773",
+     "supplier_id": "S-008"
+    },
+    {
+     "late_lines": 1,
+     "po_id": "PO-89151",
+     "supplier_id": "S-008"
+    },
+    {
+     "late_lines": 1,
+     "po_id": "PO-89331",
+     "supplier_id": "S-008"
+    },
+    {
+     "late_lines": 1,
      "po_id": "PO-89121",
      "supplier_id": "S-009"
     },
     {
      "late_lines": 1,
-     "po_id": "PO-89298",
-     "supplier_id": "S-032"
+     "po_id": "PO-89148",
+     "supplier_id": "S-009"
+    },
+    {
+     "late_lines": 1,
+     "po_id": "PO-88923",
+     "supplier_id": "S-010"
+    },
+    {
+     "late_lines": 1,
+     "po_id": "PO-89235",
+     "supplier_id": "S-010"
+    },
+    {
+     "late_lines": 1,
+     "po_id": "PO-88914",
+     "supplier_id": "S-011"
+    },
+    {
+     "late_lines": 1,
+     "po_id": "PO-88956",
+     "supplier_id": "S-011"
+    },
+    {
+     "late_lines": 1,
+     "po_id": "PO-89076",
+     "supplier_id": "S-011"
+    },
+    {
+     "late_lines": 1,
+     "po_id": "PO-89310",
+     "supplier_id": "S-011"
+    },
+    {
+     "late_lines": 1,
+     "po_id": "PO-88893",
+     "supplier_id": "S-012"
+    },
+    {
+     "late_lines": 1,
+     "po_id": "PO-89010",
+     "supplier_id": "S-012"
+    },
+    {
+     "late_lines": 1,
+     "po_id": "PO-88650",
+     "supplier_id": "S-013"
+    },
+    {
+     "late_lines": 1,
+     "po_id": "PO-88761",
+     "supplier_id": "S-013"
     }
    ],
    "title": "Delivered after the requested date",
-   "total": 4
+   "total": 67
   }
  ]
 }

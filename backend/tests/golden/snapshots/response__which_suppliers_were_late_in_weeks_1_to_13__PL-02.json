@@ -6,14 +6,14 @@
  "outcome": "answered",
  "readings": [
   {
-   "answer": "S-008 had 4 lines delivered after the requested date. S-003 had 2.",
+   "answer": "S-038 had 10 lines delivered after the requested date. S-005 had 8.",
    "answer_segments": [
     {
      "ref": {
       "alias": "supplier_id",
       "row": 1
      },
-     "text": "S-008"
+     "text": "S-038"
     },
     {
      "text": " had "
@@ -23,7 +23,7 @@
       "alias": "late_count",
       "row": 1
      },
-     "text": "4"
+     "text": "10"
     },
     {
      "text": " lines delivered after the requested date. "
@@ -33,7 +33,7 @@
       "alias": "supplier_id",
       "row": 2
      },
-     "text": "S-003"
+     "text": "S-005"
     },
     {
      "text": " had "
@@ -43,13 +43,13 @@
       "alias": "late_count",
       "row": 2
      },
-     "text": "2"
+     "text": "8"
     },
     {
      "text": "."
     }
    ],
-   "checked": "Examined: purchase order lines where week between 1 and 13 and delivered after the requested date · grouped by supplier · computed the number of records · limited to the records you hold",
+   "checked": "Examined: purchase order lines where week between 1 and 13 and delivered after the requested date · grouped by supplier · computed the number of records",
    "columns": [
     "supplier_id",
     "late_count"
@@ -67,40 +67,57 @@
     "supplier_id"
    ],
    "label": "late_by_delivery",
+   "notice": "Showing 10 of 28.",
    "ordered_by": "ordered by number of records, highest first",
    "result": "rows_returned",
-   "row_count": 6,
+   "row_count": 10,
    "rows": [
     {
-     "late_count": 4,
+     "late_count": 10,
+     "supplier_id": "S-038"
+    },
+    {
+     "late_count": 8,
+     "supplier_id": "S-005"
+    },
+    {
+     "late_count": 6,
+     "supplier_id": "S-001"
+    },
+    {
+     "late_count": 6,
      "supplier_id": "S-008"
     },
     {
-     "late_count": 2,
-     "supplier_id": "S-003"
-    },
-    {
-     "late_count": 2,
-     "supplier_id": "S-014"
-    },
-    {
-     "late_count": 1,
-     "supplier_id": "S-015"
-    },
-    {
-     "late_count": 1,
+     "late_count": 6,
      "supplier_id": "S-018"
     },
     {
-     "late_count": 1,
-     "supplier_id": "S-032"
+     "late_count": 4,
+     "supplier_id": "S-003"
+    },
+    {
+     "late_count": 4,
+     "supplier_id": "S-019"
+    },
+    {
+     "late_count": 4,
+     "supplier_id": "S-033"
+    },
+    {
+     "late_count": 3,
+     "supplier_id": "S-011"
+    },
+    {
+     "late_count": 3,
+     "supplier_id": "S-013"
     }
    ],
    "title": "Delivered after the requested date",
-   "total": 6
+   "total": 28
   },
   {
-   "answer": "S-008 had 4 lines whose promised date was after the requested date.",
+   "answer": "S-008 had 6 lines whose promised date was after the requested date.",
    "answer_segments": [
     {
      "ref": {
@@ -117,13 +134,13 @@
       "alias": "late_count",
       "row": 1
      },
-     "text": "4"
+     "text": "6"
     },
     {
      "text": " lines whose promised date was after the requested date."
     }
    ],
-   "checked": "Examined: purchase order lines where week between 1 and 13 and the supplier committed to a date after the requested date · grouped by supplier · computed the number of records · limited to the records you hold",
+   "checked": "Examined: purchase order lines where week between 1 and 13 and the supplier committed to a date after the requested date · grouped by supplier · computed the number of records",
    "columns": [
     "supplier_id",
     "late_count"
@@ -141,16 +158,41 @@
     "supplier_id"
    ],
    "label": "late_by_promise",
+   "notice": "Showing 10 of 13.",
    "ordered_by": "ordered by number of records, highest first",
    "result": "rows_returned",
-   "row_count": 5,
+   "row_count": 10,
    "rows": [
     {
-     "late_count": 4,
+     "late_count": 6,
      "supplier_id": "S-008"
     },
     {
-     "late_count": 1,
+     "late_count": 5,
+     "supplier_id": "S-018"
+    },
+    {
+     "late_count": 5,
+     "supplier_id": "S-036"
+    },
+    {
+     "late_count": 4,
+     "supplier_id": "S-005"
+    },
+    {
+     "late_count": 3,
+     "supplier_id": "S-032"
+    },
+    {
+     "late_count": 3,
+     "supplier_id": "S-033"
+    },
+    {
+     "late_count": 2,
+     "supplier_id": "S-001"
+    },
+    {
+     "late_count": 2,
      "supplier_id": "S-003"
     },
     {
@@ -159,15 +201,11 @@
     },
     {
      "late_count": 1,
-     "supplier_id": "S-018"
-    },
-    {
-     "late_count": 1,
-     "supplier_id": "S-032"
+     "supplier_id": "S-019"
     }
    ],
    "title": "The supplier committed to a date after the requested date",
-   "total": 5
+   "total": 13
   }
  ]
 }

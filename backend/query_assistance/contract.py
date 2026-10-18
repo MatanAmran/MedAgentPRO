@@ -67,6 +67,8 @@ def _operand(node: dict, cat: Catalog) -> str:
         return _metric(node["metric"], cat)
     if "func" in node:
         return _func(node, cat)
+    if "me" in node:   # D7 (fix round): the asker, named as the person reading the answer
+        return "you"
     return format_value(node["value"]) if not isinstance(node["value"], str) else f"'{node['value']}'"
 
 

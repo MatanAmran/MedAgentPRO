@@ -110,6 +110,8 @@ def _column_note(spec: dict) -> str:
         notes.append("identifier")
     if spec.get("values"):
         notes.append("one of: " + ", ".join(spec["values"]))
+    if spec.get("user_column"):   # D7 (fix round): the only place the model may say "the person asking"
+        notes.append('a user; for the person asking, compare with {"me": true}')
     return ("  -- " + "; ".join(notes)) if notes else ""
 
 
