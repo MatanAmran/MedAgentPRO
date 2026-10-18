@@ -26,6 +26,7 @@ from dataclasses import dataclass
 from typing import Any, Callable
 
 from jsonschema import Draft202012Validator
+from jsonschema.exceptions import best_match
 
 from model_client.client import BudgetExceeded, ModelCallError, ModelConfig, ModelGateway, ModelResponse
 
@@ -42,7 +43,13 @@ class OutputRejected(Exception):
 
 
 class SchemaBreach(OutputRejected):
-    pass
+    """`check` names the rule and where it broke, `SchemaBreach:<keyword>@<path>` (task 10a, chat 01:15):
+    the path is built from keys the schema defines and from item numbers, never from a value or a key
+    the model made up (every object is closed, so such a key breaks additionalProperties at its parent)."""
+
+    def __init__(self, message: str, feedback: str | None = None, check: str = "SchemaBreach"):
+        super().__init__(message, feedback)
+        self.check = check
 
 
 # An exception ask() does not handle (an open breaker, the budget, a cancellation, a bug) leaves with
@@ -93,9 +100,21 @@ class StageRejected(Exception):
         return [c.rejection for c in self.calls if c.rejection]
 
 
+def _innermost(error):
+    """Where oneOf or anyOf fails, the alternative that came closest, as jsonschema's best_match finds it:
+    the deepest error inside it. Without this, every mistake inside a WHERE reads the same, "the value at
+    readings/0/plan/WHERE breaks 'oneOf'" (task 10a, chat 01:15). Only the path and the keyword are used."""
+    return best_match([error]) if error.validator in ("oneOf", "anyOf") and error.context else error
+
+
+def _where(error) -> str:
+    return "/".join(map(str, error.absolute_path))
+
+
 def schema_feedback(error) -> str:
     """Where and which rule, never the value that broke it (a gate claim or a sentence may hold one)."""
-    where = "/".join(map(str, error.absolute_path)) or "the top level"
+    error = _innermost(error)
+    where = _where(error) or "the top level"
     limit = error.validator_value if isinstance(error.validator_value, (int, float, str, bool)) else None
     return f"the value at {where} breaks the schema rule '{error.validator}'" + (f" ({limit})" if limit is not None
                                                                                    else "")
@@ -169,10 +188,13 @@ def ask(gateway: ModelGateway, model: str, prompt_identity: str, render: Callabl
         try:
             breach = _first(validator, out) if validator else None
             if breach is not None:
-                raise SchemaBreach(f"schema: {breach.message}", schema_feedback(breach))
+                inner = _innermost(breach)
+                raise SchemaBreach(f"schema: {breach.message}", schema_feedback(breach),
+                                   f"SchemaBreach:{inner.validator}@{_where(inner)}")
             result = accept(out)
         except content as e:
-            calls.append(Call(prompt_identity, resp, is_feedback, str(e), type(e).__name__, took))
+            calls.append(Call(prompt_identity, resp, is_feedback, str(e), getattr(e, "check", type(e).__name__),
+                              took))
             feedback = getattr(e, "feedback", None) or getattr(e, "reason", None) or str(e)
             continue
         calls.append(Call(prompt_identity, resp, is_feedback, duration_ms=took))

@@ -43,7 +43,8 @@ CONSTRAINTS: list[Constraint] = [
     Constraint("T03", "technical",
                "The model supports native structured output, which rewriting, synthesis and the gate use.",
                "LiteLLM map supports_native_structured_output (R2)", "map"),
-    Constraint("T04", "technical", "MODEL_MAX_OUTPUT_TOKENS is within the model's own output limit.",
+    Constraint("T04", "technical", "MODEL_MAX_OUTPUT_TOKENS, and intent analysis's own cap where set, are within "
+               "the model's own output limit.",
                "LiteLLM map max_output_tokens", "map"),
     Constraint("T05", "technical", "The largest prompt the pipeline can build fits the model's context window.",
                "LiteLLM map max_input_tokens · ROW_LIMIT · history budget", "map"),
@@ -74,6 +75,10 @@ CONSTRAINTS: list[Constraint] = [
                "counts against max_tokens. We send nothing that sets it, and the per-call line counts it.",
                "LiteLLM 1.105 map: thinking_always_on (task 10a, chat 22:40); R9: ~1 output token per visible "
                "character", "map"),
+    Constraint("T16", "technical",
+               "No schema sent to the provider carries a $comment on an object type.",
+               "Anthropic API, 15.10: 400 \"For 'object' type, property '$comment' is not supported\" on the intent "
+               "schema (00_STATUS, task 10a, step 3; chat 18.10, 03:25)"),
     # --- logical: the design on the demo data ------------------------------------------------------
     Constraint("L01", "logical",
                "Every scripted demo question runs through the real checks to the outcome its script means.",
@@ -86,7 +91,8 @@ CONSTRAINTS: list[Constraint] = [
                "40_CHAT §15 · tests/demo_data/test_demo_prompt.py"),
     Constraint("L05", "logical",
                "On the real-model path (budget, LiteLLM gateway, fake provider), every demo question fits the "
-               "default per-exchange cap (USD 0.25) at Sonnet 5.5's prices; the largest needs about 0.14.",
+               "default per-exchange cap (USD 0.25) at Sonnet 5.5's prices; the largest needs about 0.14. So "
+               "with intent analysis's own cap (MODEL_MAX_OUTPUT_TOKENS_INTENT=3000).",
                "Task 9 · R7a · tools/fake_real_server.py"),
     # --- live: only the real model can confirm (R9) -------------------------------------------
     Constraint("V01", "live", "The provider accepts the three reduced schemas (no 400).", "R2 · R9",

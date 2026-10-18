@@ -104,6 +104,55 @@ def test_output_is_capped_on_every_call(ledger):
     assert inner.calls[0][1].max_tokens == 1000
 
 
+# --------------------------------------------------------------------------
+# intent analysis's own output cap (task 10a, chat 23:35 and 01:15)
+# --------------------------------------------------------------------------
+
+@pytest.mark.parametrize("identity, sent", [("intent_analysis_demo@5", 3000), ("intent_analysis@3", 3000),
+                                             ("synthesis@1", 1000), ("support_scoring@1", 1000),
+                                             ("question_rewriting@1", 1000)])
+def test_the_intent_cap_applies_to_intent_analysis_only(ledger, identity, sent):
+    inner = ScriptedModelGateway(lambda p, c: "{}")
+    gw = gateway(ledger, inner, MODEL_MAX_OUTPUT_TOKENS_INTENT="3000", MODEL_MAX_USD_PER_EXCHANGE="0.5")
+    gw.invoke("x", ModelConfig("test-model", prompt_identity=identity))
+    assert inner.calls[0][1].max_tokens == sent
+
+
+def test_without_the_intent_cap_intent_gets_the_general_one(ledger):
+    inner = ScriptedModelGateway(lambda p, c: "{}")
+    assert config().max_output_tokens_intent is None and config(MODEL_MAX_OUTPUT_TOKENS_INTENT="").output_cap(
+        "intent_analysis_demo@5") == 1000
+    gateway(ledger, inner).invoke("x", ModelConfig("test-model", prompt_identity="intent_analysis_demo@5"))
+    assert inner.calls[0][1].max_tokens == 1000
+
+
+def test_the_intent_cap_is_reserved_at_its_own_worst_case(ledger):
+    """3000 output tokens at 10 per million is 0.03: over an exchange cap of 0.025, under one of 0.035."""
+    intent = ModelConfig("test-model", prompt_identity="intent_analysis_demo@5")
+    tight = gateway(ledger, MODEL_MAX_OUTPUT_TOKENS_INTENT="3000", MODEL_MAX_USD_PER_EXCHANGE="0.025")
+    with tight.exchange():
+        tight.invoke("x", ModelConfig("test-model", prompt_identity="synthesis@1"))   # 0.01 at the general cap
+        with pytest.raises(BudgetExceeded, match="its own cap"):
+            tight.invoke("x", intent)
+    roomy = gateway(ledger, MODEL_MAX_OUTPUT_TOKENS_INTENT="3000", MODEL_MAX_USD_PER_EXCHANGE="0.035")
+    with roomy.exchange():
+        roomy.invoke("x", intent)
+
+
+@pytest.mark.parametrize("value", ["abc", "0", "-5", "2.5"])
+def test_an_intent_cap_that_is_set_must_be_a_positive_integer(value):
+    with pytest.raises(b.BudgetConfigError, match="MODEL_MAX_OUTPUT_TOKENS_INTENT"):
+        config(MODEL_MAX_OUTPUT_TOKENS_INTENT=value)
+
+
+def test_the_dry_run_prices_intent_at_its_own_cap(db_path):
+    cfg = config(MODEL_MAX_OUTPUT_TOKENS_INTENT="3000")
+    meter = dry_run._Meter(ScriptedModelGateway(lambda p, c: "{}"), cfg)
+    meter.invoke("x", ModelConfig("test-model", prompt_identity="intent_analysis_demo@5"))
+    meter.invoke("x", ModelConfig("test-model", prompt_identity="synthesis@1"))
+    assert [round(r[-1], 6) for r in meter.rows] == [round(cfg.cost(1, 3000), 6), round(cfg.cost(1, 1000), 6)]
+
+
 def test_a_model_not_priced_in_env_is_refused(ledger):
     with pytest.raises(BudgetExceeded, match="not the one priced"):
         gateway(ledger).invoke("x", ModelConfig("another-model"))

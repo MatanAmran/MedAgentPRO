@@ -505,7 +505,7 @@
                         }
                       }
                     },
-                    "$comment": "[15.10] An object, not a tuple: Anthropic's structured outputs do not enforce prefixItems, and LiteLLM 1.105 drops prefixItems but keeps items: false, which leaves an array that must be empty. An object with every field required is enforced by any provider (00_STATUS, task 10a, chat 01:40)."
+                    "$comment": "[15.10] An object, not a tuple: Anthropic's structured outputs do not enforce prefixItems, and LiteLLM 1.105 drops prefixItems but keeps items: false, which leaves an array that must be empty. An object with every field required is enforceable without prefixItems, which Anthropic does not support (00_STATUS, task 10a, chat 01:40)."
                   }
                 }
               },
@@ -535,7 +535,7 @@
                         "$ref": "#/$defs/value"
                       }
                     },
-                    "$comment": "[15.10] An object, not a tuple: Anthropic's structured outputs do not enforce prefixItems, and LiteLLM 1.105 drops prefixItems but keeps items: false, which leaves an array that must be empty. An object with every field required is enforced by any provider (00_STATUS, task 10a, chat 01:40). Both ends included, as SQL BETWEEN."
+                    "$comment": "[15.10] An object, not a tuple: Anthropic's structured outputs do not enforce prefixItems, and LiteLLM 1.105 drops prefixItems but keeps items: false, which leaves an array that must be empty. An object with every field required is enforceable without prefixItems, which Anthropic does not support (00_STATUS, task 10a, chat 01:40). Both ends included, as SQL BETWEEN."
                   }
                 }
               },
@@ -954,11 +954,11 @@
         "[demo extension] Each reading carries its records, their total and ordering, assembled in code (query_assistance/contract.py). Where outcome is no_supported_assertion, readings is empty and request_for_input names the readings with what was examined under each (NFR 19 strict reading, Test 17)."
       ],
       "templates": {
-        "no_such_column": "On {asked} there is no data. No column in {entity} records it.",
-        "no_such_table": "On {asked} there is no data. There is no {entity} table.",
-        "value_not_present": "{asked} does not appear in {entity}.",
-        "source_outside_system": "{asked} is not held by the system.",
-        "unspecified": "On {asked} no data could be located."
+        "no_such_column": "{asked}: there is no data. No column in {entity} records it.",
+        "no_such_table": "{asked}: there is no data. There is no {entity} table.",
+        "value_not_present": "{asked}: does not appear in {entity}.",
+        "source_outside_system": "{asked}: not held by the system.",
+        "unspecified": "{asked}: no data could be located."
       },
       "schema": {
         "$schema": "https://json-schema.org/draft/2020-12/schema",

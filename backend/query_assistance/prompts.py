@@ -20,7 +20,7 @@ from pathlib import Path
 from typing import Any
 
 from .calls import OutputRejected
-from .compiler import Catalog, Conversation, _norm
+from .compiler import ROW_LIMIT, Catalog, Conversation, _norm
 
 HERE = Path(__file__).parent
 PROMPTS = HERE / "templates"
@@ -247,8 +247,14 @@ def question_block(posed: str, rewritten: str | None = None) -> str:
 
 def render_intent(cat: Catalog, role: str, posed: str, rewritten: str | None = None,
                   prompt: Prompt | None = None, feedback: str | None = None) -> str:
-    return fill(prompt or load("intent_analysis.md"), schema=render_schema(cat, role),
-                question_block=question_block(posed, rewritten), feedback=feedback_block(feedback))
+    """The reference date resolves a month or period given without a year (task 10a, chat 01:15). It is
+    the date the catalog's data runs to, never the system clock, so the same question plans the same
+    way on any day. A prompt that names it, over a catalog that holds none, fails here."""
+    pr = prompt or load("intent_analysis.md")
+    if "{{reference_date}}" in pr.body and not cat.data_as_of:
+        raise ValueError(f"{pr.name}: the catalog holds no data_as_of for {{{{reference_date}}}}")
+    return fill(pr, schema=render_schema(cat, role), question_block=question_block(posed, rewritten),
+                feedback=feedback_block(feedback), reference_date=cat.data_as_of or "", row_limit=str(ROW_LIMIT))
 
 
 def render_records(results: list[tuple[str, list[dict[str, Any]]]], ordered_by: dict[str, str] | None = None) -> str:

@@ -89,7 +89,7 @@ class _Meter(ModelGateway):
         typical_in, high_in = len(prompt) // 4 + 1, estimate_input_tokens(prompt)
         out = len(resp.text) // 4 + 1
         self.rows.append((config.prompt_identity, typical_in, high_in, out, self.cfg.cost(typical_in, out),
-                          self.cfg.cost(high_in, self.cfg.max_output_tokens)))
+                          self.cfg.cost(high_in, self.cfg.output_cap(config.prompt_identity))))
         return resp
 
 

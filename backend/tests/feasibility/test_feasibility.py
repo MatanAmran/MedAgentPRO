@@ -44,7 +44,9 @@ ANTHROPIC_MAX_UNION = 16
 MIN_WORST_CASE_EXCHANGES = 10
 
 DEFAULTS = {"MODEL_ID": "claude-sonnet-5-5", "MODEL_MAX_OUTPUT_TOKENS": "2000", "MODEL_MAX_USD_PER_EXCHANGE": "0.25",
-            "MODEL_BUDGET_USD": "3.5", "MODEL_TEMPERATURE": ""}
+            "MODEL_BUDGET_USD": "3.5", "MODEL_TEMPERATURE": "",
+            # intent analysis's own cap, the value Evyatar sets (task 10a, chat 23:35)
+            "MODEL_MAX_OUTPUT_TOKENS_INTENT": "3000"}
 
 
 def settings() -> dict:
@@ -154,6 +156,7 @@ def test_T03_model_supports_native_structured_output():
 def test_T04_output_cap_within_the_models_limit():
     limit = model_entry().get("max_output_tokens")
     assert limit and int(settings()["MODEL_MAX_OUTPUT_TOKENS"]) <= limit
+    assert int(settings()["MODEL_MAX_OUTPUT_TOKENS_INTENT"] or 0) <= limit
 
 
 def test_T05_largest_prompt_fits_the_context_window(db_path):
@@ -163,7 +166,9 @@ def test_T05_largest_prompt_fits_the_context_window(db_path):
     intent = b.estimate_input_tokens(prompts.render_intent(CAT, "APPROVER", q, None,
                                                            prompts.load(seed.HERE / "intent_analysis.md")))
     rewrite = prompts.HISTORY_BUDGET_TOKENS * 2 + b.estimate_input_tokens(prompts.load("rewrite.md").body)
-    worst = max(largest, intent, rewrite) + int(settings()["MODEL_MAX_OUTPUT_TOKENS"])
+    s = settings()
+    out, out_intent = int(s["MODEL_MAX_OUTPUT_TOKENS"]), int(s["MODEL_MAX_OUTPUT_TOKENS_INTENT"] or 0)
+    worst = max(largest + out, rewrite + out, intent + max(out, out_intent))
     assert worst <= window, f"worst prompt ~{worst} tokens > window {window}"
 
 
@@ -186,6 +191,12 @@ def test_T07_patterns_use_supported_features(stage):
 @pytest.mark.parametrize("stage", sorted(SENT))
 def test_T08_no_enum_values_differing_only_in_case(stage):
     assert not complexity(calls.provider_schema(SENT[stage]))["enum_case"]
+
+
+@pytest.mark.parametrize("stage", sorted(SENT))
+def test_T16_no_comment_on_an_object_in_what_is_sent(stage):
+    from tests.query_assistance.test_provider_enforced import objects_with_comment
+    assert not objects_with_comment(calls.provider_schema(SENT[stage]))
 
 
 def test_T09_intent_schema_not_sent_while_it_exceeds(db_path):
@@ -419,14 +430,17 @@ def test_a_live_row_records_what_the_smoke_test_saw_and_only_a_live_row_does():
         assert bool(c.result) == bool(c.observed), c.id
 
 
-def test_L05_every_demo_question_fits_the_default_cap_on_the_real_path(db_path, tmp_path):
+@pytest.mark.parametrize("intent_cap", ["", "3000"], ids=["general cap", "intent cap 3000"])
+def test_L05_every_demo_question_fits_the_default_cap_on_the_real_path(db_path, tmp_path, intent_cap):
     """Task 9: found while building the fake provider. The largest demo question (30 rows) reserves
     about USD 0.14 for its worst path (0.135 before the task 10a prompts); the demo's default cap is 0.25.
-    Tighten the cap, or grow a question's records, and this fails before the demo does."""
+    Tighten the cap, or grow a question's records, and this fails before the demo does. With intent
+    analysis's own cap (chat 01:15), its call reserves 1000 output tokens more, USD 0.01 at Sonnet 5.5."""
     from fastapi.testclient import TestClient
 
     from tools.fake_real_server import build_app
-    app, _ = build_app(db_path, tmp_path, MODEL_MAX_USD_PER_EXCHANGE="0.25")
+    app, _ = build_app(db_path, tmp_path, MODEL_MAX_USD_PER_EXCHANGE="0.25",
+                       MODEL_MAX_OUTPUT_TOKENS_INTENT=intent_cap)
     ap = {"X-Demo-User": "AP-01"}
     with TestClient(app) as c:
         cid = None

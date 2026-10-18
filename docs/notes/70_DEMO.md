@@ -58,7 +58,7 @@ cd backend; python -m tools.preflight
 | 2 | And in weeks 14 to 26? *(כפתור "Follow up" מתחת לתשובה 1)* | **"Understood as"** — שאלת ההמשך נקראה כשאלה שלמה (מבחן 44). |
 | 3 | Which purchase orders were delivered late in September? | **הקיבוץ של איור 15:** ספק, ותחתיו ההזמנות שלו כתגים. הקיבוץ נקבע מהמבנה (עמודות מזהות ב-`schema.json`), לא מקריאת משמעות. "Show as table" מציג את כל העמודות. |
 | 4 | Which suppliers missed a commitment in weeks 1 to 13? | קריאה אחת, שהכותרת שלה היא ההגדרה העסקית של המדד. |
-| 5 | Which open lines are past due, and who approved them? | **מה שמוחזק — נענה. מה שאין לו עמודה — פער**, בלי ניחוש ובלי סיבה: "On who approved them there is no data. No column in purchase orders records it." |
+| 5 | Which open lines are past due, and who approved them? | **מה שמוחזק — נענה. מה שאין לו עמודה — פער**, בלי ניחוש ובלי סיבה: "who approved them: there is no data. No column in purchase orders records it." |
 | 6 | What delay reasons were recorded for S-038's late lines? | **סיבה שמישהו רשם מצוטטת כפי שנרשמה** ("recorded as…"). זו לא סיבה שהמערכת הסיקה. |
 | 7 | Why is S-014 late so often? | **שאלת סיבה מופנית לחקירה** (מבחן 22, ‏FR 14). הכפתור מוצג ונעול: בדמו אין חקירות. |
 | 8 | What did S-040 supply? | **תוצאה ריקה היא ממצא** (מבחן 35): ספק קיים בלי הזמנות ← "No records matched." |

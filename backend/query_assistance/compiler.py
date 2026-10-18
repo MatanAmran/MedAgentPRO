@@ -130,6 +130,8 @@ class Catalog:
     def __init__(self, schema: dict, relations: dict):
         self.entities = schema["entities"]
         self.metrics = schema.get("metrics", {})
+        # The date the data runs to (YYYY-MM-DD), where the store declares one: the demo's reference date
+        self.data_as_of: str | None = schema.get("data_as_of")
         self.relations = relations["relations"]
         for table, ent in self.entities.items():
             for col, spec in ent["columns"].items():

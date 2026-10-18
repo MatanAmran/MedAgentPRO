@@ -6,6 +6,11 @@ leaves. A shape the reduction breaks, as it broke BETWEEN and IN as tuples (pref
 
 Both reduced forms are checked: (b) what LiteLLM 1.105 sends (every $ref inlined, calls.provider_schema),
 and (a) $defs kept, each definition filtered the same way, the form a direct call would send.
+
+Both forms are our estimate of what the provider would enforce, not the provider's own word. Step 3 checked
+(a) against the provider itself (chat, 15.10, 02:05): it refused the intent schema, first for a $comment on
+an object, then because "the compiled grammar is too large" (00_STATUS, task 10a, 15.10). The one rule the
+provider showed is checked below on what is actually sent: no $comment on an object.
 """
 
 import copy
@@ -88,3 +93,39 @@ def test_no_stage_schema_holds_a_tuple(stage):
     """prefixItems is not enforced by Anthropic, and LiteLLM's reduction turns a tuple into an empty array."""
     text = json.dumps(FULL[stage])
     assert '"prefixItems":' not in text and '"items": false' not in text
+
+
+# The three stages that send a schema today: rewriting, synthesis and the gate (intent sends none, T09)
+SENT_NOW = ("question_rewriting", "synthesis", "support_scoring")
+
+
+def objects_with_comment(schema) -> list[str]:
+    """Paths of every object type that carries a $comment. Anthropic refused the intent schema with
+    "For 'object' type, property '$comment' is not supported" (400, 15.10). Only this rule is checked:
+    it is the one the provider showed; a full allowlist of keywords needs a schema adapter of our own on
+    the live path, which belongs to the task after the demo (chat, 18.10, 03:25)."""
+    found = []
+
+    def walk(node, path):
+        if isinstance(node, dict):
+            if "$comment" in node and (node.get("type") == "object"
+                                       or isinstance(node.get("type"), list) and "object" in node["type"]):
+                found.append("/".join(map(str, path)) or "the top level")
+            for k, v in node.items():
+                walk(v, path + (k,))
+        elif isinstance(node, list):
+            for i, v in enumerate(node):
+                walk(v, path + (i,))
+    walk(schema, ())
+    return found
+
+
+@pytest.mark.parametrize("stage", SENT_NOW)
+def test_no_comment_on_an_object_in_what_is_sent(stage):
+    assert not objects_with_comment(mc.provider_schema(FULL[stage]))
+
+
+def test_the_comment_rule_finds_what_the_provider_refused():
+    """The intent schema, which the provider refused for it, is caught by the same check."""
+    assert objects_with_comment(mc.provider_schema(FULL["intent_analysis"]))
+    assert objects_with_comment(with_defs(FULL["intent_analysis"]))

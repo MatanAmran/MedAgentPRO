@@ -185,6 +185,15 @@ def test_a_price_below_the_map_refuses_to_start(var, value):
         b.check_against_provider_map(cfg(**{var: value}), lambda n: INFO)
 
 
+@pytest.mark.parametrize("var", ["MODEL_MAX_OUTPUT_TOKENS", "MODEL_MAX_OUTPUT_TOKENS_INTENT"])
+def test_an_output_cap_above_the_models_own_limit_refuses_to_start(var):
+    """Task 10a (chat 01:15): the intent cap is checked as the general one is."""
+    info = {**INFO, "max_output_tokens": 2500}
+    b.check_against_provider_map(cfg(MODEL_MAX_OUTPUT_TOKENS_INTENT="2500"), lambda n: info)
+    with pytest.raises(b.BudgetConfigError, match=var + " in"):
+        b.check_against_provider_map(cfg(**{var: "3000"}), lambda n: info)
+
+
 def test_a_price_above_the_map_is_allowed():
     b.check_against_provider_map(cfg(MODEL_PRICE_IN="3", MODEL_PRICE_OUT="15"), lambda n: INFO)
 

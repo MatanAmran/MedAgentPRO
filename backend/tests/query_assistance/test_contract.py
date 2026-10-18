@@ -156,9 +156,9 @@ def test_view_carries_the_gated_answer_and_its_evidence(db):
 # --------------------------------------------------------------------------
 
 @pytest.mark.parametrize("kind, entity, text", [
-    ("no_such_column", "parts", "On who is the buyer contact there is no data. No column in parts records it."),
-    ("source_outside_system", "the warehouse system", "who is the buyer contact is not held by the system."),
-    ("unspecified", None, "On who is the buyer contact no data could be located."),
+    ("no_such_column", "parts", "who is the buyer contact: there is no data. No column in parts records it."),
+    ("source_outside_system", "the warehouse system", "who is the buyer contact: not held by the system."),
+    ("unspecified", None, "who is the buyer contact: no data could be located."),
 ])
 def test_gap_is_filled_from_its_template(kind, entity, text):
     needs = {"kind": kind} if entity is None else {"kind": kind, "entity": entity}
@@ -170,11 +170,11 @@ def test_gap_text_names_the_table_or_column_by_its_label():
     """Task 7 review, item 2, applied to gaps (task 8): the text reads the label; missing keeps the name."""
     g = k.render_gap({"asked": "who approved them", "needs": {"kind": "no_such_column", "entity": "purchase_orders"}},
                      CAT)
-    assert g["text"] == "On who approved them there is no data. No column in purchase orders records it."
+    assert g["text"] == "who approved them: there is no data. No column in purchase orders records it."
     assert g["missing"] == {"kind": "no_such_column", "entity": "purchase_orders"}
     col = k.render_gap({"asked": "x", "needs": {"kind": "value_not_present",
                                                 "entity": "commitments.delay_reason"}}, CAT)
-    assert col["text"] == "x does not appear in delay reason."
+    assert col["text"] == "x: does not appear in delay reason."
 
 
 # --------------------------------------------------------------------------
@@ -239,3 +239,9 @@ def test_failure_outcomes(make, outcome):
 def test_an_invalid_assembly_is_a_bug_not_a_response():
     with pytest.raises(k.ContractError):
         k.answered([{"label": "x"}])
+
+
+def test_every_gap_template_opens_with_what_was_asked():
+    """Task 10a (chat 23:35): "On {asked} ..." read wrongly whenever asked was not a noun phrase ("On who
+    approved them"). Every template now opens "{asked}: ", whatever grammatical form asked takes."""
+    assert all(t.startswith("{asked}: ") for t in k.TEMPLATES.values()), k.TEMPLATES

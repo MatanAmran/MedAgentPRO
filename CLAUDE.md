@@ -114,6 +114,7 @@ Evyatar pays for the model himself, with a total budget of **USD 10**. The code 
 - **One server process (T2).** The cap holds only if all spend goes through one counter: task 6 runs `uvicorn` without workers, and `BudgetedGateway` refuses to start if it detects more than one process using the spend file. **Within the process**, checking the cap, reserving the worst case and recording the actual cost happen under one lock, since retrievals run on threads and FastAPI serves requests concurrently: two calls must never both pass on the same remaining amount.
 - **A dry run before the real one**: a command that prints what one exchange would cost at the configured prices from a scripted run, without calling the model.
 - **Tests never call a real model** (book 6.1). Tests: a call that would cross the total cap is not sent; the exchange cap; spend survives a restart; a missing `.env` value refuses to start; a provider money refusal is not retried; the rate limit.
+- **Intent analysis's own output cap (task 10a, chat 23:35 and 01:15):** `MODEL_MAX_OUTPUT_TOKENS_INTENT`, optional; unset, intent gets `MODEL_MAX_OUTPUT_TOKENS`. `BudgetConfig.output_cap(prompt_identity)` picks it, the reservation and the dry run price at it, `real_gateway()` refuses a cap above the model's own output limit, and preflight shows both caps as numbers.
 - **Model**: Anthropic through `LiteLLMGateway` (book 3.1.4). Recommended Claude Sonnet 5.5 (USD 2 in / 10 out per million, official pricing page, 12.10), about 4 cents a typical exchange. Haiku 5.5 (0.10 / 0.50) as a cheaper alternative. Opus 5.5 (4 / 20) not needed for the demo.
 
 ## Task 5 review (Claude chat, 12.10, revised after an independent check)
@@ -129,6 +130,7 @@ Evyatar pays for the model himself, with a total budget of **USD 10**. The code 
   - timeout: an explicit request timeout in code (LiteLLM's default is 6000 s); no retry; the reservation stays charged (unknown whether billed).
   - format failure after R2 and R3: no retry.
   - content failure (`check`, `CompileError`, `GateOutputError`, `RewriteError`): **one more attempt whose prompt carries the specific rejection message** ("Your previous output was rejected: …"), as a new template version `[proposal, not in the book; Table 15 names "Model call attempts" only]`. The message holds model-written text and names only, never a record value (NFR 21): test it.
+  - **A schema breach (task 10a, chat 01:15, done 18.10):** where `oneOf`/`anyOf` fails, the feedback and the `check` point at the closest alternative (`jsonschema` `best_match`), path and keyword only, never a value or `message`. The `check` is `SchemaBreach:<keyword>@<path>`. No prompt version changed for this (the feedback is not in the template), but what the model is told did.
   - record per call whether it was a feedback attempt and whether it succeeded; `dry_run` and the smoke test report the rate. If feedback attempts rarely succeed, set attempts to 1.
 - **R5 Ledger:** release the reservation when a call failed before reaching the provider (client-side error, connection refused). Keep it on timeout.
 - **R6 Input and robustness bugs found in the check:**
@@ -215,7 +217,7 @@ On Evyatar's machine an Application Control policy blocks `.exe` files in the ve
 # Backend (from backend\, venv active)
 python -m pip install -r requirements.txt
 python -m demo_data.seed          # builds demo_data\demo.db
-python -m pytest -q               # the default run; 780 after BETWEEN/IN as objects (15.10)
+python -m pytest -q               # the default run; 820 after task 10a items 2-4 (18.10)
 python -m tools.path_map          # runs tests/paths and tests/feasibility, writes docs/notes/60_PATHS.md
 python -m query_assistance.dry_run   # prices two scripted exchanges at the .env prices, no model call, no key
 python -m query_assistance.dry_run --model claude-sonnet-5-5   # the same, prices from LiteLLM's local map, no .env
