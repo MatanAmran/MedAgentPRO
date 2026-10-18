@@ -87,9 +87,10 @@
             "enum": [
               "retrieve",
               "refer_to_investigation",
-              "out_of_scope_action"
+              "out_of_scope_action",
+              "needs_clarification"
             ],
-            "$comment": "FR 14. A question that requires attributing a cause or judging whether a value is anomalous is referred to an investigation instead of being answered. Deciding this here means no retrieval is planned for such a question. [demo extension, task 8 A1] out_of_scope_action: a request to change records rather than read them. Nothing is retrieved, and code answers with a fixed sentence."
+            "$comment": "FR 14. A question that requires attributing a cause or judging whether a value is anomalous is referred to an investigation instead of being answered. Deciding this here means no retrieval is planned for such a question. [demo extension, task 8 A1] out_of_scope_action: a request to change records rather than read them. Nothing is retrieved, and code answers with a fixed sentence. [demo extension, chat 18.10 11:35] needs_clarification: a question that cannot be interpreted from its own words and the conversation, such as a follow-up at the start of one. Nothing is retrieved, and code asks for the question in full with a fixed sentence. A term with more than one reading is not this: it is declared in ambiguous."
           },
           "readings": {
             "type": "array",
@@ -202,6 +203,28 @@
               "properties": {
                 "disposition": {
                   "const": "out_of_scope_action"
+                }
+              }
+            },
+            "then": {
+              "properties": {
+                "readings": {
+                  "maxItems": 0
+                },
+                "unresolved": {
+                  "maxItems": 0
+                },
+                "ambiguous": {
+                  "maxItems": 0
+                }
+              }
+            }
+          },
+          {
+            "if": {
+              "properties": {
+                "disposition": {
+                  "const": "needs_clarification"
                 }
               }
             },
@@ -486,14 +509,17 @@
                 ],
                 "properties": {
                   "IN": {
-                    "type": "array",
-                    "minItems": 2,
-                    "maxItems": 2,
-                    "prefixItems": [
-                      {
-                        "$ref": "#/$defs/col"
+                    "type": "object",
+                    "additionalProperties": false,
+                    "required": [
+                      "col",
+                      "values"
+                    ],
+                    "properties": {
+                      "col": {
+                        "$ref": "#/$defs/qualified"
                       },
-                      {
+                      "values": {
                         "type": "array",
                         "minItems": 1,
                         "maxItems": 20,
@@ -501,8 +527,8 @@
                           "$ref": "#/$defs/value"
                         }
                       }
-                    ],
-                    "items": false
+                    },
+                    "$comment": "[15.10] An object, not a tuple: Anthropic's structured outputs do not enforce prefixItems, and LiteLLM 1.105 drops prefixItems but keeps items: false, which leaves an array that must be empty. An object with every field required is enforceable without prefixItems, which Anthropic does not support (00_STATUS, task 10a, chat 01:40)."
                   }
                 }
               },
@@ -514,21 +540,25 @@
                 ],
                 "properties": {
                   "BETWEEN": {
-                    "type": "array",
-                    "minItems": 3,
-                    "maxItems": 3,
-                    "prefixItems": [
-                      {
-                        "$ref": "#/$defs/col"
+                    "type": "object",
+                    "additionalProperties": false,
+                    "required": [
+                      "col",
+                      "from",
+                      "to"
+                    ],
+                    "properties": {
+                      "col": {
+                        "$ref": "#/$defs/qualified"
                       },
-                      {
+                      "from": {
                         "$ref": "#/$defs/value"
                       },
-                      {
+                      "to": {
                         "$ref": "#/$defs/value"
                       }
-                    ],
-                    "items": false
+                    },
+                    "$comment": "[15.10] An object, not a tuple: Anthropic's structured outputs do not enforce prefixItems, and LiteLLM 1.105 drops prefixItems but keeps items: false, which leaves an array that must be empty. An object with every field required is enforceable without prefixItems, which Anthropic does not support (00_STATUS, task 10a, chat 01:40). Both ends included, as SQL BETWEEN."
                   }
                 }
               },
@@ -947,11 +977,11 @@
         "[demo extension] Each reading carries its records, their total and ordering, assembled in code (query_assistance/contract.py). Where outcome is no_supported_assertion, readings is empty and request_for_input names the readings with what was examined under each (NFR 19 strict reading, Test 17)."
       ],
       "templates": {
-        "no_such_column": "On {asked} there is no data. No column in {entity} records it.",
-        "no_such_table": "On {asked} there is no data. There is no {entity} table.",
-        "value_not_present": "{asked} does not appear in {entity}.",
-        "source_outside_system": "{asked} is not held by the system.",
-        "unspecified": "On {asked} no data could be located."
+        "no_such_column": "{asked}: there is no data. No column in {entity} records it.",
+        "no_such_table": "{asked}: there is no data. There is no {entity} table.",
+        "value_not_present": "{asked}: does not appear in {entity}.",
+        "source_outside_system": "{asked}: not held by the system.",
+        "unspecified": "{asked}: no data could be located."
       },
       "schema": {
         "$schema": "https://json-schema.org/draft/2020-12/schema",

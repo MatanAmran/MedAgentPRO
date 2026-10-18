@@ -53,6 +53,13 @@ describe("the exchange", () => {
     expect(screen.queryByTestId("rating")).toBeNull();
   });
 
+  it("a question that could not be interpreted shows the fixed request, no thumbs (chat 18.10, 11:35)", () => {
+    const ask = "The question could not be interpreted on its own. Ask it in full, naming what it concerns, such as the period, supplier or part.";
+    show({ outcome: "answered", readings: [], gaps: [], notice: ask });
+    expect(screen.getByTestId("notice").textContent).toBe(ask);
+    expect(screen.queryByTestId("rating")).toBeNull();
+  });
+
   it("no thumbs under an answer that was not recorded", () => {
     show(late, { recorded: false });
     expect(screen.queryByTestId("rating")).toBeNull();

@@ -42,7 +42,7 @@ LATE = {"label": "late", "plan": {
     "SELECT": [{"expr": {"col": "commitments.supplier_id"}, "as": "supplier_id"},
                {"expr": {"func": "COUNT", "arg": "*"}, "as": "late_count"}],
     "FROM": "commitments",
-    "WHERE": {"AND": [{"BETWEEN": [{"col": "commitments.week"}, {"value": 1}, {"value": 13}]},
+    "WHERE": {"AND": [{"BETWEEN": {"col": "commitments.week", "from": {"value": 1}, "to": {"value": 13}}},
                       {"EQ": [{"metric": "late_by_delivery"}, {"value": True}]}]},
     "GROUP_BY": ["supplier_id"], "ORDER_BY": [{"by": "late_count", "dir": "DESC"}], "LIMIT": 5}}
 INTENT = {"disposition": "retrieve", "readings": [LATE]}
@@ -185,6 +185,15 @@ def test_a_price_below_the_map_refuses_to_start(var, value):
         b.check_against_provider_map(cfg(**{var: value}), lambda n: INFO)
 
 
+@pytest.mark.parametrize("var", ["MODEL_MAX_OUTPUT_TOKENS", "MODEL_MAX_OUTPUT_TOKENS_INTENT"])
+def test_an_output_cap_above_the_models_own_limit_refuses_to_start(var):
+    """Task 10a (chat 01:15): the intent cap is checked as the general one is."""
+    info = {**INFO, "max_output_tokens": 2500}
+    b.check_against_provider_map(cfg(MODEL_MAX_OUTPUT_TOKENS_INTENT="2500"), lambda n: info)
+    with pytest.raises(b.BudgetConfigError, match=var + " in"):
+        b.check_against_provider_map(cfg(**{var: "3000"}), lambda n: info)
+
+
 def test_a_price_above_the_map_is_allowed():
     b.check_against_provider_map(cfg(MODEL_PRICE_IN="3", MODEL_PRICE_OUT="15"), lambda n: INFO)
 
@@ -255,12 +264,32 @@ def test_stages_send_their_schema_except_intent(db_path, storage):
         assert sent[name] == BUNDLE[key]["schema"]
 
 
-def test_breach_of_what_the_provider_enforced_is_a_format_failure(db_path, storage):
-    """The provider enforced required fields: a gate output without claims means it did not hold."""
-    gw = model(intent_analysis_demo=[INTENT], synthesis=[SYN], support_scoring=[{"verdicts": []}, gate_ok])
+def test_breach_of_the_schema_sent_is_a_content_failure_with_feedback(db_path, storage):
+    """A gate output without claims breaks `required` in the schema sent: the provider did not hold to it,
+    so it is not assumed to (chat, 18.10, 05:10, 1). One feedback attempt, path and keyword only."""
+    gw = model(intent_analysis_demo=[INTENT], synthesis=[SYN], support_scoring=[{}, gate_ok])
     out = run(gw, db_path, storage)
-    assert out.response["outcome"] == "request_not_completed" and len(prompts_of(gw, "support_scoring")) == 1
-    assert "format" in storage.investigations[out.exchange_id]["failure"]
+    assert out.response["outcome"] == "answered"
+    first, second = prompts_of(gw, "support_scoring")
+    assert "breaks the schema rule 'required'" in second and "breaks the schema rule" not in first
+
+
+def test_breach_of_the_schema_sent_twice_ends_the_exchange(db_path, storage):
+    gw = model(intent_analysis_demo=[INTENT], synthesis=[SYN], support_scoring=[{"verdicts": []}, {"verdicts": []}])
+    out = run(gw, db_path, storage)
+    assert out.response["outcome"] == "request_not_completed" and len(prompts_of(gw, "support_scoring")) == 2
+
+
+def test_additional_property_in_the_schema_sent_gets_feedback(db_path, storage):
+    def extra(prompt):
+        o = gate_ok(prompt)
+        o["secret_key"] = "S-SECRET-4711"
+        return o
+    gw = model(intent_analysis_demo=[INTENT], synthesis=[SYN], support_scoring=[extra, gate_ok])
+    out = run(gw, db_path, storage)
+    assert out.response["outcome"] == "answered"
+    second = prompts_of(gw, "support_scoring")[1]
+    assert "'additionalProperties'" in second and "S-SECRET-4711" not in second and "secret_key" not in second
 
 
 def test_breach_of_the_full_schema_only_is_a_content_failure_with_feedback(db_path, storage):
@@ -510,3 +539,27 @@ def test_feedback_rate_is_read_from_the_audit_entries(db_path, storage):
     gw = model(intent_analysis_demo=[bad, INTENT], synthesis=[SYN], support_scoring=[gate_ok])
     run(gw, db_path, storage)
     assert dry_run.feedback_rate(storage.audit_log) == (1, 1)
+
+
+# --------------------------------------------------------------------------
+# chat, 18.10, 09:40: each reading's records start with what it examined, for synthesis and the gate
+# --------------------------------------------------------------------------
+
+def test_synthesis_and_gate_get_each_readings_examined_line_and_no_record_value(db_path, storage):
+    gw = model(intent_analysis_demo=[INTENT], synthesis=[SYN], support_scoring=[gate_ok])
+    out = run(gw, db_path, storage)
+    assert out.response["outcome"] == "answered"
+    line = "[late] examined: " + contract.examined_line(LATE["plan"], CAT, "APPROVER")
+    assert out.response["readings"][0]["checked"] == "Examined: " + line.split("examined: ", 1)[1]
+    rows = out.response["readings"][0]["rows"]
+    for name in ("synthesis", "support_scoring"):
+        prompt, = prompts_of(gw, name)
+        said, = [x for x in prompt.splitlines() if x.startswith("[late] examined: ")]
+        assert said == line
+        # what the reading examined comes from the plan and the catalog: no row value is in it
+        assert not {str(v) for r in rows for v in r.values()} & set(re.findall(r"[\w-]+", said)) - {"1", "13"}
+
+
+def test_the_examined_line_names_the_role_scope_for_a_planner():
+    line = contract.examined_line(LATE["plan"], CAT, "PLANNER")
+    assert line.endswith("limited to the records you hold") and not line.startswith("Examined")

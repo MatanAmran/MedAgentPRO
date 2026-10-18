@@ -20,7 +20,7 @@ from pathlib import Path
 from typing import Any
 
 from .calls import OutputRejected
-from .compiler import Catalog, Conversation, _norm
+from .compiler import ROW_LIMIT, Catalog, Conversation, _norm
 
 HERE = Path(__file__).parent
 PROMPTS = HERE / "templates"
@@ -247,24 +247,45 @@ def question_block(posed: str, rewritten: str | None = None) -> str:
 
 def render_intent(cat: Catalog, role: str, posed: str, rewritten: str | None = None,
                   prompt: Prompt | None = None, feedback: str | None = None) -> str:
-    return fill(prompt or load("intent_analysis.md"), schema=render_schema(cat, role),
-                question_block=question_block(posed, rewritten), feedback=feedback_block(feedback))
+    """The reference date resolves a month or period given without a year (task 10a, chat 01:15). It is
+    the date the catalog's data runs to, never the system clock, so the same question plans the same
+    way on any day. A prompt that names it, over a catalog that holds none, fails here."""
+    pr = prompt or load("intent_analysis.md")
+    if "{{reference_date}}" in pr.body and not cat.data_as_of:
+        raise ValueError(f"{pr.name}: the catalog holds no data_as_of for {{{{reference_date}}}}")
+    return fill(pr, schema=render_schema(cat, role), question_block=question_block(posed, rewritten),
+                feedback=feedback_block(feedback), reference_date=cat.data_as_of or "", row_limit=str(ROW_LIMIT))
 
 
-def render_records(results: list[tuple[str, list[dict[str, Any]]]]) -> str:
-    out = []
+def render_records(results: list[tuple[str, list[dict[str, Any]]]], ordered_by: dict[str, str] | None = None,
+                   examined: dict[str, str] | None = None) -> str:
+    """ordered_by maps a reading label to the alias its rows are ordered by (the first ORDER_BY key of
+    the plan that ran). A row holding the same value there as the row before it says so, by name and
+    row number only: a fact about the rows, given by code, so that no place is named between equal
+    values (task 10a, chat 21:50). The marker repeats no value.
+    examined maps a label to what the reading examined, as "Examined" shows it (contract.examined_line),
+    so the words around references describe that reading and no other (chat, 18.10, 09:40). It is
+    built from the plan and the catalog, never from a record (NFR 21)."""
+    out, said = [], examined or {}
     for label, rows in results:
+        if said.get(label):
+            out.append(f"[{label}] examined: {said[label]}")
         if not rows:
             out.append(f"[{label}] no rows")
+        by = (ordered_by or {}).get(label)
         for n, row in enumerate(rows, 1):
-            out.append(f"[{label}] row {n}: " + ", ".join(f"{label}.{k} = {v}" for k, v in row.items()))
+            line = f"[{label}] row {n}: " + ", ".join(f"{label}.{k} = {v}" for k, v in row.items())
+            if by and n > 1 and row.get(by) is not None and row[by] == rows[n - 2].get(by):
+                line += f" (same {label}.{by} as row {n - 1})"
+            out.append(line)
     return "\n".join(out)
 
 
 def render_gate(answer: str, results: list[tuple[str, list[dict[str, Any]]]],
-                prompt: Prompt | None = None, feedback: str | None = None) -> str:
+                prompt: Prompt | None = None, feedback: str | None = None,
+                ordered_by: dict[str, str] | None = None, examined: dict[str, str] | None = None) -> str:
     """The question is not passed. The gate judges support, not relevance."""
-    return fill(prompt or load("gate.md"), answer=answer, records=render_records(results),
+    return fill(prompt or load("gate.md"), answer=answer, records=render_records(results, ordered_by, examined),
                 feedback=feedback_block(feedback))
 
 

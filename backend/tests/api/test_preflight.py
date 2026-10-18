@@ -66,8 +66,8 @@ def test_real_setup_checks_env_map_key_and_budget_without_asking_the_model(db_pa
     checks = pf.run("real", fetch_for(app), env=env, db_path=db_path)
     assert all(c.ok for c in checks), [str(c) for c in checks]
     left = next(c for c in checks if "worst-case exchanges left" in c.text)
-    assert "38" in left.text and not left.warn   # 5 / 0.13, the fake run's caps
-    assert all("5.0" not in c.text and "0.13" not in c.text for c in checks)   # a count, never an amount
+    assert "36" in left.text and not left.warn   # 5 / 0.137, the fake run's caps
+    assert all("5.0" not in c.text and "0.137" not in c.text for c in checks)   # a count, never an amount
     assert provider.requests == []   # nothing was sent to the model
 
 
@@ -113,3 +113,18 @@ def test_the_marks_print_on_a_console_without_them(monkeypatch):
     sys.stdout.flush()
     out = raw.getvalue().decode("utf-8")
     assert "✅ a" in out and "⚠️ b" in out and "❌ c" in out
+
+
+@pytest.mark.parametrize("intent, says", [("", "intent analysis: the same"), ("3000", "intent analysis: 3000 tokens")])
+def test_the_output_caps_are_shown_as_numbers(intent, says):
+    """Task 10a (chat 23:35): preflight shows the intent cap, a number only."""
+    _, cfg = pf.check_env({**CONFIG, "MODEL_MAX_OUTPUT_TOKENS_INTENT": intent})
+    c = pf.check_output_caps(cfg)
+    assert c.ok and "output cap per call: 2000 tokens" in c.text and says in c.text
+
+
+def test_the_real_setup_shows_the_output_caps(db_path, tmp_path):
+    app, _ = build_app(db_path, tmp_path)
+    checks = pf.run("real", fetch_for(app), env={**CONFIG, "MEDAGENTPRO_CHAIN_KEY": "k",
+                                                  "MODEL_MAX_OUTPUT_TOKENS_INTENT": "3000"}, db_path=db_path)
+    assert any("intent analysis: 3000 tokens" in c.text for c in checks)

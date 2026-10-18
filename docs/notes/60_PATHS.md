@@ -1,10 +1,10 @@
 # MedAgentPro — מפת המסלולים וההיתכנות
 
-**נוצר אוטומטית** ב-`python -m tools.path_map` (מתוך `backend\`), 14.10.2026 18:31. **לא לערוך ידנית** — המקור הוא `backend\tests\paths\registry.py` ו-`backend\tests\feasibility\constraints.py`.
+**נוצר אוטומטית** ב-`python -m tools.path_map` (מתוך `backend\`), 18.10.2026 11:43. **לא לערוך ידנית** — המקור הוא `backend\tests\paths\registry.py` ו-`backend\tests\feasibility\constraints.py`.
 
 **איך זה גדל:** `tests\paths\branches.py` קורא מהקוד ומהסכמות כל הסתעפות (מצב סיום, שלב, סוג כשל, `except`, הודעה, נקודת קצה, קוד HTTP, סוג פער, תפקיד). **הסתעפות בלי מסלול מפילה את `pytest`.** מגבלה שמתגלה (כמו הטמפרטורה) נכנסת כשורה ב-`constraints.py`, ושורה בלי בדיקה מפילה את `pytest`.
 
-**תוצאות:** 67 עוברים · 0 נכשלים · 0 פער ידוע · 0 דולגו
+**תוצאות:** 73 עוברים · 0 נכשלים · 0 פער ידוע · 0 דולגו
 
 ## מסלולים
 
@@ -16,10 +16,13 @@
 | ✅ | `planner_sees_own_rows_only` | `role:PLANNER` | NFR 17 · Test 18 |  |
 | ✅ | `referred` | `outcome:referred_to_investigation`, `disposition:refer_to_investigation` | FR 14 · Test 22 |  |
 | ✅ | `action_declined` | `disposition:out_of_scope_action`, `notice:ACTION_DECLINED` | task 8 A1 · FR 14 (extension) | a request to change records: nothing retrieved, a fixed sentence, outcome answered |
+| ✅ | `needs_clarification` | `disposition:needs_clarification`, `notice:NEEDS_CLARIFICATION` | chat 18.10 11:35 (extension of FR 14) | a question that cannot be interpreted, such as a follow-up opening a conversation: nothing retrieved, a fixed request to ask it in full, outcome answered, recorded |
 | ✅ | `empty_result_no_synthesis` | — | Test 35 |  |
 | ✅ | `identifier_not_held` | — | Test 35 · 40_CHAT §6 |  |
 | ✅ | `redraft_from_kept` | `verdict:uncovered`, `stage:regeneration`, `notice:WITHHELD` | NFR 19 · decision 4, 6 |  |
 | ✅ | `contradicted_like_unsupported` | `verdict:contradicted` | decision 3 |  |
+| ✅ | `gate_removes_other_metric_wording` | — | chat 18.10 09:40 · NFR 19 | a sentence worded as another metric than its examined line is contradicted; the rest is kept |
+| ✅ | `gate_removes_only_sentence_other_metric` | — | chat 18.10 09:40 · NFR 19 strict | the only sentence worded as another metric, twice: no_supported_assertion |
 | ✅ | `fresh_draft_then_supported` | — | NFR 19 · decision 4 |  |
 | ✅ | `fresh_draft_then_nothing` | `outcome:no_supported_assertion` | NFR 19 strict · Test 17 |  |
 | ✅ | `redraft_then_nothing` | — | NFR 19 strict · Test 17 |  |
@@ -29,7 +32,10 @@
 | ✅ | `intent_not_json` | — | R4 format |  |
 | ✅ | `synthesis_fixed_by_feedback` | — | R4 · F7, F11 |  |
 | ✅ | `synthesis_rejected_twice` | — | R4 |  |
-| ✅ | `synthesis_format_failure_not_retried` | — | R4 · P3 |  |
+| ✅ | `synthesis_no_reference_fixed_by_feedback` | — | R4 · chat 18.10 05:10 (1) | a breach of the schema sent to the provider is a content failure: the provider did not enforce it (T17) |
+| ✅ | `synthesis_no_reference_twice` | — | R4 · chat 18.10 05:10 (1) |  |
+| ✅ | `synthesis_not_json_not_retried` | — | R4 format |  |
+| ✅ | `gate_provider_breach_fixed_by_feedback` | — | R4 · chat 18.10 05:10 (1) |  |
 | ✅ | `gate_skips_then_covers` | — | decision 12 (R4 of task 4) |  |
 | ✅ | `gate_skips_twice` | — | decision 12 |  |
 | ✅ | `refusal_not_retried` | — | R4 · P10 |  |
@@ -82,7 +88,7 @@
 
 **outcome** — `answered` (answered_all_supported, answered_two_readings) · `no_supported_assertion` (fresh_draft_then_nothing) · `referred_to_investigation` (referred) · `request_not_completed` (intent_rejected_twice) · `source_unreachable` (source_missing)
 
-**disposition** — `out_of_scope_action` (action_declined) · `refer_to_investigation` (referred) · `retrieve` (answered_all_supported)
+**disposition** — `needs_clarification` (needs_clarification) · `out_of_scope_action` (action_declined) · `refer_to_investigation` (referred) · `retrieve` (answered_all_supported)
 
 **verdict** — `contradicted` (contradicted_like_unsupported) · `supported` (answered_all_supported) · `uncovered` (redraft_from_kept)
 
@@ -96,7 +102,7 @@
 
 **budget** — `exchange` (exchange_cap) · `model` (budget_model) · `provider` (budget_provider) · `total` (budget_used_up)
 
-**notice** — `ACTION_DECLINED` (action_declined) · `BUDGET_USED_UP` (budget_used_up) · `EXCHANGE_CAP` (exchange_cap) · `NOT_COMPLETED` (intent_rejected_twice) · `RATE_LIMITED` (rate_limit) · `WITHHELD` (redraft_from_kept)
+**notice** — `ACTION_DECLINED` (action_declined) · `BUDGET_USED_UP` (budget_used_up) · `EXCHANGE_CAP` (exchange_cap) · `NEEDS_CLARIFICATION` (needs_clarification) · `NOT_COMPLETED` (intent_rejected_twice) · `RATE_LIMITED` (rate_limit) · `WITHHELD` (redraft_from_kept)
 
 **endpoint** — `GET /api/conversations` (server_listing_and_health) · `GET /api/conversations/{conversation_id}` (server_each_ending_then_goes_on) · `GET /api/examples` (server_examples) · `GET /api/health` (server_listing_and_health) · `POST /api/conversations` (server_each_ending_then_goes_on) · `POST /api/conversations/{conversation_id}/exchanges` (server_each_ending_then_goes_on) · `POST /api/exchanges/{exchange_id}/rating` (server_rating)
 
@@ -111,7 +117,7 @@
 | ✅ | T01 | technical | The configured model is in the local map of the pinned LiteLLM, with prices. | LiteLLM 1.105 local map (H1, 12.10) |
 | ✅ | T02 | technical | No temperature is configured for a model that takes none. | Claude 5: supports_sampling_params false (R1, 12.10) |
 | ✅ | T03 | technical | The model supports native structured output, which rewriting, synthesis and the gate use. | LiteLLM map supports_native_structured_output (R2) |
-| ✅ | T04 | technical | MODEL_MAX_OUTPUT_TOKENS is within the model's own output limit. | LiteLLM map max_output_tokens |
+| ✅ | T04 | technical | MODEL_MAX_OUTPUT_TOKENS, and intent analysis's own cap where set, are within the model's own output limit. | LiteLLM map max_output_tokens |
 | ✅ | T05 | technical | The largest prompt the pipeline can build fits the model's context window. | LiteLLM map max_input_tokens · ROW_LIMIT · history budget |
 | ✅ | T06 | technical | Every schema sent to the provider, as LiteLLM reduces it, is within Anthropic's limits: at most 24 optional properties, at most 16 anyOf or type arrays, no recursion, additionalProperties false on every object. | Anthropic docs, Structured outputs, complexity limits |
 | ✅ | T07 | technical | Regex patterns sent to the provider use only supported features: no lookaround, no backreferences, no \b. | Anthropic docs, Structured outputs, pattern support |
@@ -122,15 +128,18 @@
 | ✅ | T12 | technical | The total budget covers at least 10 exchanges each spending its whole cap. | Task 5 budget (USD 10 total) |
 | ✅ | T13 | technical | Every metric and every table compiles to SQL the installed SQLite runs. | compiler.py · sqlite3 |
 | ✅ | T14 | technical | LiteLLM's own retries are off; the only retries are counted ones. | Task 5 'no hidden retries' |
+| ✅ | T15 | technical | The model thinks always and cannot be told not to; its thinking is billed inside output_tokens and counts against max_tokens. We send nothing that sets it, and the per-call line counts it. | LiteLLM 1.105 map: thinking_always_on (task 10a, chat 22:40); R9: ~1 output token per visible character |
+| ✅ | T16 | technical | No schema sent to the provider carries a $comment on an object type. | Anthropic API, 15.10: 400 "For 'object' type, property '$comment' is not supported" on the intent schema (00_STATUS, task 10a, step 3; chat 18.10, 03:25) |
+| ✅ | T17 | live | Anthropic did not enforce an unanchored pattern in structured output (synthesis text). So a breach of the schema sent is a content failure with one feedback attempt, never assumed held. No claim on an anchored pattern: not checked. **נצפה:** 18.10, 05:00: a synthesis sentence with no reference (no brace at all) came back from the provider; check format_provider_schema:pattern@readings/0/sentences/3/text | Diagnostic run of demo question 5, 18.10 05:00 (00_STATUS); chat 18.10, 05:10 |
 | ✅ | L01 | logical | Every scripted demo question runs through the real checks to the outcome its script means. | S5 |
 | ✅ | L02 | logical | Every table a role is shown in the intent prompt is one it may read, and every table it may read is shown. | NFR 17 · prompts.visible_tables |
 | ✅ | L03 | logical | Every metric in schema.json compiles for every role, with entitlement applied. | NFR 17 · 40_CHAT §7 |
 | ✅ | L04 | logical | Every example in the intent prompt passes the same checks as real output. | 40_CHAT §15 · tests/demo_data/test_demo_prompt.py |
-| ✅ | L05 | logical | On the real-model path (budget, LiteLLM gateway, fake provider), every demo question fits the default per-exchange cap (USD 0.25) at Sonnet 5.5's prices; the largest needs about 0.135. | Task 9 · R7a · tools/fake_real_server.py |
+| ✅ | L05 | logical | On the real-model path (budget, LiteLLM gateway, fake provider), every demo question fits the default per-exchange cap (USD 0.25) at Sonnet 5.5's prices; the largest needs about 0.14. So with intent analysis's own cap (MODEL_MAX_OUTPUT_TOKENS_INTENT=3000). | Task 9 · R7a · tools/fake_real_server.py |
 | ✅ | V01 | live | The provider accepts the three reduced schemas (no 400). **נצפה:** R9, 14.10: rewriting (question 2), synthesis and the gate (both) accepted, no 400 (00_STATUS, R9) | R2 · R9 |
 | ✅ | V02 | live | The provider accepts a request with no temperature and the configured max_tokens. **נצפה:** R9, 14.10: all 7 calls sent no temperature (provider default) and max_tokens=2000, per the model call line (00_STATUS, R9) | R1 · R9 |
 | ✅ | V03 | live | The cost recorded for one exchange matches Usage in the Console. **נצפה:** R9, 14.10: the tokens are the provider's own usage report on each response; priced at the card they give USD 0.0943, and the credit balance fell 3.82 -> 3.72, consistent at cent precision. Usage and the key's Last used showed nothing yet (reporting lag) | R9 |
-| ◐ | V04 | live | Real outputs pass the checks often enough: the feedback attempt rate is measured. **נצפה:** R9, 14.10: 0/7, feedback success not yet observed. All 7 calls passed at the first attempt; the sample is small, so no claim on a rate (chat, 18:20) | R4 · R9 |
+| ◐ | V04 | live | Real outputs pass the checks often enough: the feedback attempt rate is measured. **נצפה:** R9, 14.10: 0/7 calls needed feedback. Task 10a, question 3 (14.10): 1/1 feedback attempt passed the checks; its output dropped the date filter and declared a false gap. On intent v5 (18.10) the same question needed none. No claim on a rate (chat, 23:35) | R4 · R9 |
 
 ✅ עובר · ❌ נכשל · ⚠️ פער ידוע (xfail) · ⏭️ דולג (חסרה הטבלה של LiteLLM בסביבה) · ⏳ רק מול המודל האמיתי, בבדיקת העשן (R9), עוד לא נבדק · ◐ נצפה בבדיקת העשן, אבל לא כל מה שנטען (למשל: אין עדיין שיעור)
 

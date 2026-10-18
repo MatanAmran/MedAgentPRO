@@ -146,6 +146,14 @@ def check_provider_map(cfg) -> Check:
     return Check(True, "model and prices agree with LiteLLM's map")
 
 
+def check_output_caps(cfg) -> Check:
+    """The max_tokens each call is sent, numbers only: the general cap, and intent analysis's where
+    MODEL_MAX_OUTPUT_TOKENS_INTENT is set (task 10a, chat 23:35)."""
+    intent = cfg.max_output_tokens_intent
+    return Check(True, f"output cap per call: {cfg.max_output_tokens} tokens; intent analysis: "
+                       + (f"{intent} tokens" if intent else "the same"))
+
+
 def check_chain_key(env: dict | None = None) -> Check:
     import os
 
@@ -182,6 +190,7 @@ def run(mode: str, fetch: Fetch = http_fetch, env: dict | None = None, db_path: 
         checks.append(env_check)
         if cfg is not None:
             checks.append(check_provider_map(cfg))
+            checks.append(check_output_caps(cfg))
         checks.append(check_chain_key(env))
     server, health = check_server(fetch, mode, api)
     checks.append(server)

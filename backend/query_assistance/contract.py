@@ -18,6 +18,7 @@ The interface language is English, as in the book's screens.
 from __future__ import annotations
 
 import json
+import re
 from typing import Any
 
 from jsonschema import Draft202012Validator
@@ -81,10 +82,15 @@ def headers(plan: dict, cat: Catalog) -> dict[str, str]:
     return {i["as"]: _operand(i["expr"], cat) for i in plan["SELECT"]}
 
 
+def _negated(name: str, cat: Catalog) -> str:
+    """A boolean metric asked not to hold reads as schema.json words it (chat, 18.10, 05:00): "not" put
+    before the description gave "not the supplier committed to ..." for three of the five."""
+    return cat.metrics[name]["description_negated"].rstrip(".")
+
+
 def _metric_phrase(name: str, cat: Catalog, negate: bool = False) -> str:
-    desc = cat.metrics[name]["description"].rstrip(".")
-    desc = desc[0].lower() + desc[1:]
-    return f"{'not ' if negate else ''}{desc}"
+    desc = _negated(name, cat) if negate else cat.metrics[name]["description"].rstrip(".")
+    return desc[0].lower() + desc[1:]
 
 
 def _predicate(node: dict, cat: Catalog) -> str:
@@ -101,10 +107,10 @@ def _predicate(node: dict, cat: Catalog) -> str:
                 return _metric_phrase(m["metric"], cat, negate=(v["value"] is False) != (op == "NE"))
         return f"{_operand(a, cat)} {CMP[op]} {_operand(b, cat)}"
     if op == "IN":
-        vals = ", ".join(_operand(v, cat) for v in arg[1])
-        return f"{_column(arg[0]['col'], cat)} in ({vals})"
+        vals = ", ".join(_operand(v, cat) for v in arg["values"])
+        return f"{_column(arg['col'], cat)} in ({vals})"
     if op == "BETWEEN":
-        return f"{_column(arg[0]['col'], cat)} between {_operand(arg[1], cat)} and {_operand(arg[2], cat)}"
+        return f"{_column(arg['col'], cat)} between {_operand(arg['from'], cat)} and {_operand(arg['to'], cat)}"
     if op == "IS_NULL":
         return f"{_column(arg['col'], cat)} not recorded"
     if op == "IS_NOT_NULL":
@@ -150,6 +156,12 @@ def render_checked(plan: dict, cat: Catalog, role: str) -> str:
     return " · ".join(parts)
 
 
+def examined_line(plan: dict, cat: Catalog, role: str) -> str:
+    """What a reading examined, without the "Examined: " the screen shows: the line synthesis and the
+    gate get above the reading's rows (chat, 18.10, 09:40). The same text, from the same code."""
+    return render_checked(plan, cat, role).removeprefix("Examined: ")
+
+
 def render_order(plan: dict, cat: Catalog | None = None) -> str | None:
     order = plan.get("ORDER_BY")
     if not order:
@@ -176,13 +188,38 @@ def _metrics_named(node: Any) -> set[str]:
     return set()
 
 
+def _metric_tests(node: Any) -> list[bool]:
+    """For each comparison of a metric with true or false (EQ or NE), whether it asks for the metric
+    not to hold, read as _predicate reads it."""
+    out: list[bool] = []
+    if isinstance(node, dict):
+        for op, arg in node.items():
+            if op in ("EQ", "NE") and isinstance(arg, list) and len(arg) == 2:
+                for m, v in ((arg[0], arg[1]), (arg[1], arg[0])):
+                    if (isinstance(m, dict) and "metric" in m and isinstance(v, dict)
+                            and isinstance(v.get("value"), bool)):
+                        out.append((v["value"] is False) != (op == "NE"))
+                        break
+            out.extend(_metric_tests(arg))
+    elif isinstance(node, list):
+        for v in node:
+            out.extend(_metric_tests(v))
+    return out
+
+
 def reading_title(plan: dict, cat: Catalog) -> str | None:
     """Task 7, Q2 [demo extension]: the business description of the one metric the plan names, from
-    schema.json. None where the plan names none or several; answered() then numbers the reading."""
+    schema.json. None where the plan names none or several; answered() then numbers the reading.
+    A metric the plan asks not to hold is titled as Examined reads it, by its description_negated
+    (question 11 on the real model, chat 18.10, 04:45 and 05:00); one tested both ways gets no title."""
     named = _metrics_named(plan)
     if len(named) != 1:
         return None
-    return cat.metrics[named.pop()]["description"].rstrip(".")
+    name = named.pop()
+    tests = set(_metric_tests([plan.get("WHERE"), plan.get("HAVING")]))
+    if len(tests) > 1:
+        return None
+    return _negated(name, cat) if tests == {True} else cat.metrics[name]["description"].rstrip(".")
 
 
 def reading_view(label: str, plan: dict, result: RetrievalResult, cat: Catalog, role: str,
@@ -289,6 +326,18 @@ def declined_action(understood_as: str | None = None) -> dict:
     return _finish({"outcome": "answered", "readings": [], "gaps": [], "notice": ACTION_DECLINED}, understood_as)
 
 
+NEEDS_CLARIFICATION = ("The question could not be interpreted on its own. Ask it in full, naming what it concerns, "
+                       "such as the period, supplier or part.")
+
+
+def needs_clarification(understood_as: str | None = None) -> dict:
+    """Chat, 18.10, 11:35 [demo extension]: a question intent analysis could not interpret, such as a
+    follow-up at the start of a conversation. As declined_action: answered, no reading, no gap, a fixed
+    notice, nothing retrieved. Before it, such a question ended as a failure of the system."""
+    return _finish({"outcome": "answered", "readings": [], "gaps": [], "notice": NEEDS_CLARIFICATION},
+                   understood_as)
+
+
 def no_supported_assertion(readings: list[dict], understood_as: str | None = None) -> dict:
     """NFR 19, strict reading, Test 17: the whole answer is replaced, records included.
     NFR 20: what is presented names the reading under which the question was taken, and no cause."""
@@ -308,16 +357,24 @@ def source_unreachable(source: str, understood_as: str | None = None) -> dict:
 
 NOT_COMPLETED = "The request could not be completed."
 BUDGET_USED_UP = "The demo budget for the model is used up. The question was not answered."
-RATE_LIMITED = "Too many questions in the last minute. The question was not answered. Try again shortly."
+# {seconds} is filled in code from the rate window, a whole number only (chat, 18.10, 04:45)
+RATE_LIMITED = "Too many questions in the last minute. The question was not answered. Try again in {seconds} seconds."
 EXCHANGE_CAP = ("This question needs more of the model than one answer may use. The question was not "
                 "answered. Ask about fewer records.")   # R7b: the per-exchange cap, not the total budget
+
+
+def rate_limited_notice(seconds: int) -> str:
+    if isinstance(seconds, bool) or not isinstance(seconds, int) or seconds < 1:
+        raise ContractError("the wait is a whole number of seconds")
+    return RATE_LIMITED.format(seconds=seconds)
 
 
 def request_not_completed(understood_as: str | None = None, notice: str = NOT_COMPLETED) -> dict:
     """Test 13: a rejected retrieval parameter set, or a model output rejected within its attempts.
     A system fault, not a request for input. Task 5: the budget, the exchange cap or the rate, each
-    with its own fixed notice."""
-    if notice not in (NOT_COMPLETED, BUDGET_USED_UP, RATE_LIMITED, EXCHANGE_CAP):
+    with its own fixed notice; the rate's carries only the seconds to wait (rate_limited_notice)."""
+    rate = re.fullmatch(re.escape(RATE_LIMITED).replace(re.escape("{seconds}"), r"[1-9]\d*"), notice)
+    if notice not in (NOT_COMPLETED, BUDGET_USED_UP, EXCHANGE_CAP) and not rate:
         raise ContractError("a notice is one of the fixed sentences, never free text")
     return _finish({"outcome": "request_not_completed", "readings": [], "gaps": [],
                     "notice": notice}, understood_as)

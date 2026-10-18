@@ -79,7 +79,7 @@ case("intent_analysis", "aggregate with group by and having",
      intent([{"label": "late_by_supplier", "plan": plan(
          SELECT=[{"expr": {"col": "commitments.supplier_id"}, "as": "supplier_id"},
                  {"expr": {"func": "COUNT", "arg": "*"}, "as": "late_count"}],
-         WHERE={"BETWEEN": [{"col": "commitments.week"}, {"value": 1}, {"value": 13}]},
+         WHERE={"BETWEEN": {"col": "commitments.week", "from": {"value": 1}, "to": {"value": 13}}},
          GROUP_BY=["supplier_id"],
          HAVING=[{"agg": "late_count", "op": "GT", "value": 3}],
          ORDER_BY=[{"by": "late_count", "dir": "DESC"}],
@@ -128,6 +128,10 @@ case("intent_analysis", "referral carries no readings",
      {"disposition": "refer_to_investigation"}, True,
      "FR 14. A question requiring a cause is routed before any retrieval.")
 
+case("intent_analysis", "a question that cannot be interpreted asks for it in full",
+     {"disposition": "needs_clarification"}, True,
+     "Chat, 18.10, 11:35 [demo extension]: a follow-up at the start of a conversation retrieves nothing.")
+
 # --- rejections ---
 
 case("intent_analysis", "raw SQL smuggled in",
@@ -165,7 +169,7 @@ case("intent_analysis", "JOIN carrying its own condition",
 
 case("intent_analysis", "subquery in IN",
      intent([{"label": "r", "plan": plan(
-         WHERE={"IN": [{"col": "commitments.item_id"}, {"SELECT": []}]})}]),
+         WHERE={"IN": {"col": "commitments.item_id", "values": {"SELECT": []}}})}]),
      False, "Subqueries are outside the permitted subset.")
 
 case("intent_analysis", "predicate nested three deep",
@@ -207,6 +211,15 @@ case("intent_analysis", "referral carrying readings",
      {"disposition": "refer_to_investigation",
       "readings": [{"label": "r", "plan": plan()}]},
      False, "A referred question plans no retrieval.")
+
+case("intent_analysis", "clarification carrying readings",
+     {"disposition": "needs_clarification", "readings": [{"label": "r", "plan": plan()}]},
+     False, "A question that could not be interpreted plans no retrieval: nothing is guessed.")
+
+case("intent_analysis", "clarification carrying an ambiguity",
+     {"disposition": "needs_clarification", "ambiguous": [{"term": "late", "alternatives": [
+         {"col": "commitments.delivered_at"}, {"col": "commitments.promised_date"}]}]},
+     False, "A term with more than one reading is declared ambiguous and answered, not sent back.")
 
 case("intent_analysis", "retrieve with no readings",
      {"disposition": "retrieve", "readings": []},

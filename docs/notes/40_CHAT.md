@@ -91,7 +91,7 @@
         {"expr": {"func": "COUNT", "arg": "*"},      "as": "late_count"}
       ],
       "FROM": "commitments",
-      "WHERE": {"BETWEEN": [{"col": "commitments.week"}, {"value": 1}, {"value": 13}]},
+      "WHERE": {"BETWEEN": {"col": "commitments.week", "from": {"value": 1}, "to": {"value": 13}}},
       "GROUP_BY": ["supplier_id"],
       "HAVING": [{"agg": "late_count", "op": "GT", "value": 3}],
       "ORDER_BY": [{"by": "late_count", "dir": "DESC"}],
@@ -106,6 +106,8 @@
 **פסוקיות.** `SELECT` · `FROM` · `JOIN` · `WHERE` · `GROUP_BY` · `HAVING` · `ORDER_BY` · `LIMIT`
 
 **אופרטורים.** `EQ` `NE` `GT` `GTE` `LT` `LTE` · `IN` · `BETWEEN` · `IS_NULL` `IS_NOT_NULL`
+
+**`IN` ו-`BETWEEN` הם אובייקטים, לא tuples (משימה 10א, 15.10):** ‏`{"BETWEEN": {"col": "t.c", "from": {"value": …}, "to": {"value": …}}}`, ‏`{"IN": {"col": "t.c", "values": [{"value": …}]}}`. כל השדות ב-`required`. **למה:** ‏Anthropic לא אוכף `prefixItems`, ו-LiteLLM 1.105 מוחק את `prefixItems` ומשאיר `"items": false`, כלומר מערך שחייב להיות ריק. אובייקט עם שדות חובה נאכף אצל כל ספק. ‏`tests/query_assistance/test_provider_enforced.py`: כל פלט תקין בסט עובר גם את הסכמה שהספק יאכוף.
 
 **פונקציות.** `COUNT` `SUM` `MIN` `MAX`
 

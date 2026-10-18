@@ -383,7 +383,7 @@ def test_empty_with_unknown_identifier_names_it(db):
 
 
 def test_in_list_reports_only_the_absent_identifier(db):
-    p = plan(WHERE={"AND": [{"IN": [{"col": "commitments.po_id"}, [{"value": "PO-1"}, {"value": "PO-404"}]]},
+    p = plan(WHERE={"AND": [{"IN": {"col": "commitments.po_id", "values": [{"value": "PO-1"}, {"value": "PO-404"}]}},
                             {"EQ": [{"col": "commitments.week"}, {"value": 13}]}]})
     res, = run(intent(p), db, question="Were PO-1 and PO-404 late in week 13?")
     assert res.missing == [{"column": "commitments.po_id", "value": "PO-404",

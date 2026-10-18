@@ -82,10 +82,10 @@ def _comparison(rnd, cols, metrics, from_table, named):
     if kind < 0.3 and col.startswith(from_table + "."):
         return {rnd.choice(["IS_NULL", "IS_NOT_NULL"]): {"col": col}}
     if kind < 0.45:
-        return {"IN": [{"col": col}, [{"value": _value(rnd, spec, named)} for _ in range(rnd.randint(1, 3))]]}
+        return {"IN": {"col": col, "values": [{"value": _value(rnd, spec, named)} for _ in range(rnd.randint(1, 3))]}}
     if kind < 0.55 and spec["type"] in NUMERIC + ("date",):
         lo, hi = sorted([_value(rnd, spec, named), _value(rnd, spec, named)])
-        return {"BETWEEN": [{"col": col}, {"value": lo}, {"value": hi}]}
+        return {"BETWEEN": {"col": col, "from": {"value": lo}, "to": {"value": hi}}}
     ops = ["EQ", "NE"] if spec["type"] in ("text", "boolean") else ["EQ", "NE", "GT", "GTE", "LT", "LTE"]
     return {rnd.choice(ops): [{"col": col}, {"value": _value(rnd, spec, named)}]}
 

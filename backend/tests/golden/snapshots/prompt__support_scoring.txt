@@ -4,7 +4,7 @@ The answer is given as numbered sentences. Each sentence carries, in brackets, t
 
 Rules:
 1. Return JSON only, matching the output schema. No explanation.
-2. List every assertion the answer makes, in order. Copy each one exactly as the answer words it. Do not shorten or rephrase it.
+2. Give one assertion per sentence, in order, and copy the whole sentence exactly as the answer words it. Split a sentence into parts only where the parts would get different verdicts, and then copy each part exactly. Do not shorten or rephrase.
 3. Give each assertion the number of the sentence it comes from. Every sentence makes at least one assertion, so every sentence number appears at least once.
 4. Give each assertion one verdict:
    supported: the records state it. Cite every field it rests on.
@@ -13,6 +13,8 @@ Rules:
 5. Only the records count. What you know about suppliers, parts or the world is not support.
 6. A number the answer derived itself, such as a total of two fields or a difference between dates, is uncovered unless a field holds that number.
 7. Cite a field as label.alias, exactly as it appears in the records.
+8. Words of place or order (most, highest, first, top, followed, then, next) are assertions about the values. They are supported only where the cited values show that order. A row marked (same label.alias as row n) holds the same value in that field as row n: a place named between rows that hold the same value is contradicted. Cite the field that holds the equal values.
+9. Each reading's records start with a line [label] examined: what that reading looked at. A sentence that describes its records differently from their examined line is contradicted. Cite the fields the sentence rests on.
 
 Examples:
 
@@ -24,28 +26,38 @@ Records:
 Output: {"claims": [{"sentence": 1, "text": "S-031 had 7 late commitments.", "verdict": "supported", "evidence": ["late_suppliers.supplier_id", "late_suppliers.late_count"]}, {"sentence": 2, "text": "The delays were caused by a raw material shortage.", "verdict": "uncovered", "evidence": []}]}
 
 Answer:
-1. [late_by_delivery] S-038 had the most lines delivered after the requested date, 10.
-2. [late_by_delivery] S-005 followed with 8.
-3. [late_by_promise] S-008 had the most lines whose promised date was after the requested date, 6.
+1. [late_by_delivery] S-021 had the most lines delivered after the requested date, 9.
+2. [late_by_delivery] S-007 also had 9.
 Records:
+[late_by_delivery] row 1: late_by_delivery.supplier_id = S-021, late_by_delivery.late_lines = 9
+[late_by_delivery] row 2: late_by_delivery.supplier_id = S-007, late_by_delivery.late_lines = 9 (same late_by_delivery.late_lines as row 1)
+Output: {"claims": [{"sentence": 1, "text": "S-021 had the most lines delivered after the requested date, 9.", "verdict": "contradicted", "evidence": ["late_by_delivery.late_lines"]}, {"sentence": 2, "text": "S-007 also had 9.", "verdict": "supported", "evidence": ["late_by_delivery.supplier_id", "late_by_delivery.late_lines"]}]}
+
+Answer:
+1. [late_by_delivery] S-038 had 10 lines delivered after the requested date.
+2. [late_by_delivery] S-005 had 8.
+3. [late_by_promise] S-008 had 6 lines whose promised date was after the requested date.
+Records:
+[late_by_delivery] examined: purchase order lines where week between 1 and 13 and delivered after the requested date · grouped by supplier · computed the number of records
 [late_by_delivery] row 1: late_by_delivery.supplier_id = S-038, late_by_delivery.late_count = 10
 [late_by_delivery] row 2: late_by_delivery.supplier_id = S-005, late_by_delivery.late_count = 8
 [late_by_delivery] row 3: late_by_delivery.supplier_id = S-001, late_by_delivery.late_count = 6
-[late_by_delivery] row 4: late_by_delivery.supplier_id = S-008, late_by_delivery.late_count = 6
-[late_by_delivery] row 5: late_by_delivery.supplier_id = S-018, late_by_delivery.late_count = 6
+[late_by_delivery] row 4: late_by_delivery.supplier_id = S-008, late_by_delivery.late_count = 6 (same late_by_delivery.late_count as row 3)
+[late_by_delivery] row 5: late_by_delivery.supplier_id = S-018, late_by_delivery.late_count = 6 (same late_by_delivery.late_count as row 4)
 [late_by_delivery] row 6: late_by_delivery.supplier_id = S-003, late_by_delivery.late_count = 4
-[late_by_delivery] row 7: late_by_delivery.supplier_id = S-019, late_by_delivery.late_count = 4
-[late_by_delivery] row 8: late_by_delivery.supplier_id = S-033, late_by_delivery.late_count = 4
+[late_by_delivery] row 7: late_by_delivery.supplier_id = S-019, late_by_delivery.late_count = 4 (same late_by_delivery.late_count as row 6)
+[late_by_delivery] row 8: late_by_delivery.supplier_id = S-033, late_by_delivery.late_count = 4 (same late_by_delivery.late_count as row 7)
 [late_by_delivery] row 9: late_by_delivery.supplier_id = S-011, late_by_delivery.late_count = 3
-[late_by_delivery] row 10: late_by_delivery.supplier_id = S-013, late_by_delivery.late_count = 3
+[late_by_delivery] row 10: late_by_delivery.supplier_id = S-013, late_by_delivery.late_count = 3 (same late_by_delivery.late_count as row 9)
+[late_by_promise] examined: purchase order lines where week between 1 and 13 and the supplier committed to a date after the requested date · grouped by supplier · computed the number of records
 [late_by_promise] row 1: late_by_promise.supplier_id = S-008, late_by_promise.late_count = 6
 [late_by_promise] row 2: late_by_promise.supplier_id = S-018, late_by_promise.late_count = 5
-[late_by_promise] row 3: late_by_promise.supplier_id = S-036, late_by_promise.late_count = 5
+[late_by_promise] row 3: late_by_promise.supplier_id = S-036, late_by_promise.late_count = 5 (same late_by_promise.late_count as row 2)
 [late_by_promise] row 4: late_by_promise.supplier_id = S-005, late_by_promise.late_count = 4
 [late_by_promise] row 5: late_by_promise.supplier_id = S-032, late_by_promise.late_count = 3
-[late_by_promise] row 6: late_by_promise.supplier_id = S-033, late_by_promise.late_count = 3
+[late_by_promise] row 6: late_by_promise.supplier_id = S-033, late_by_promise.late_count = 3 (same late_by_promise.late_count as row 5)
 [late_by_promise] row 7: late_by_promise.supplier_id = S-001, late_by_promise.late_count = 2
-[late_by_promise] row 8: late_by_promise.supplier_id = S-003, late_by_promise.late_count = 2
+[late_by_promise] row 8: late_by_promise.supplier_id = S-003, late_by_promise.late_count = 2 (same late_by_promise.late_count as row 7)
 [late_by_promise] row 9: late_by_promise.supplier_id = S-014, late_by_promise.late_count = 1
-[late_by_promise] row 10: late_by_promise.supplier_id = S-019, late_by_promise.late_count = 1
+[late_by_promise] row 10: late_by_promise.supplier_id = S-019, late_by_promise.late_count = 1 (same late_by_promise.late_count as row 9)
 Output:

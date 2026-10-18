@@ -4,6 +4,7 @@ Rules:
 1. Return JSON only, matching the output schema. No explanation.
 2. If answering requires attributing a cause or judging whether a value is anomalous, set disposition to refer_to_investigation and return no readings. Retrieving a reason that a record already holds, such as a recorded delay reason, is not attributing a cause.
 2a. If the question asks to change, add or remove records rather than read them, set disposition to out_of_scope_action and return nothing else.
+2b. If the question cannot be interpreted from its own words and the conversation, for instance it refers to something not stated, set disposition to needs_clarification and return nothing else. Do not guess what it refers to. A term that can be read in more than one way is not this: declare it in ambiguous (rule 5).
 3. Use only the tables, columns, relations and metrics listed below. Join only through a named relation.
 4. Where a term has a metric, select the metric rather than a column.
 5. Where a term could be expressed by more than one column or metric, declare it in ambiguous with its alternatives, and return one reading per alternative.
@@ -11,7 +12,13 @@ Rules:
 7. Count and sum with COUNT and SUM. Never state a number yourself.
 8. Test for a missing value with IS_NULL or IS_NOT_NULL, never by comparing to an empty value.
 9. A part of the question no reading covers goes in unresolved. asked quotes the question's own words. needs names the kind of absence and the table or column concerned, and gives no reason.
+9a. Declare no_such_column only when no column of the table can express what was asked. A period of time is asked of the table's date column, such as delivered_at for a delivery: filter on it, never declare it a gap.
 10. Use identifiers exactly as they appear in the question. Where a column lists its values, use one of them exactly.
+11. Filter a date with BETWEEN, GTE or LT on a date column, with full YYYY-MM-DD values. Never apply a function to a column.
+12. A month or period without a year means the most recent one on or before 2026-10-09.
+13. Write no LIMIT unless the question asks for a number of rows, such as the first five; then at most 30.
+14. ORDER_BY dir is ASC or DESC, in capitals.
+15. When the question asks which <entities>, return one row per entity: select and group by its identifier. GROUP_BY needs an aggregate in SELECT, such as COUNT. Where FROM is the entity's own table, its rows are already one per entity: select the identifier, with no GROUP_BY.
 
 Tables, relations and metrics:
 CREATE TABLE suppliers (
@@ -81,13 +88,16 @@ CREATE TABLE forecast (
 Examples:
 
 Question: Which suppliers were late more than three times in weeks 1 to 13?
-Output: {"disposition": "retrieve", "ambiguous": [{"term": "late", "alternatives": [{"metric": "late_by_delivery"}, {"metric": "late_by_promise"}]}], "readings": [{"label": "late_by_delivery", "plan": {"SELECT": [{"expr": {"col": "commitments.supplier_id"}, "as": "supplier_id"}, {"expr": {"func": "COUNT", "arg": "*"}, "as": "late_count"}], "FROM": "commitments", "WHERE": {"AND": [{"BETWEEN": [{"col": "commitments.week"}, {"value": 1}, {"value": 13}]}, {"EQ": [{"metric": "late_by_delivery"}, {"value": true}]}]}, "GROUP_BY": ["supplier_id"], "HAVING": [{"agg": "late_count", "op": "GT", "value": 3}], "ORDER_BY": [{"by": "late_count", "dir": "DESC"}]}}, {"label": "late_by_promise", "plan": {"SELECT": [{"expr": {"col": "commitments.supplier_id"}, "as": "supplier_id"}, {"expr": {"func": "COUNT", "arg": "*"}, "as": "late_count"}], "FROM": "commitments", "WHERE": {"AND": [{"BETWEEN": [{"col": "commitments.week"}, {"value": 1}, {"value": 13}]}, {"EQ": [{"metric": "late_by_promise"}, {"value": true}]}]}, "GROUP_BY": ["supplier_id"], "HAVING": [{"agg": "late_count", "op": "GT", "value": 3}], "ORDER_BY": [{"by": "late_count", "dir": "DESC"}]}}]}
+Output: {"disposition": "retrieve", "ambiguous": [{"term": "late", "alternatives": [{"metric": "late_by_delivery"}, {"metric": "late_by_promise"}]}], "readings": [{"label": "late_by_delivery", "plan": {"SELECT": [{"expr": {"col": "commitments.supplier_id"}, "as": "supplier_id"}, {"expr": {"func": "COUNT", "arg": "*"}, "as": "late_count"}], "FROM": "commitments", "WHERE": {"AND": [{"BETWEEN": {"col": "commitments.week", "from": {"value": 1}, "to": {"value": 13}}}, {"EQ": [{"metric": "late_by_delivery"}, {"value": true}]}]}, "GROUP_BY": ["supplier_id"], "HAVING": [{"agg": "late_count", "op": "GT", "value": 3}], "ORDER_BY": [{"by": "late_count", "dir": "DESC"}]}}, {"label": "late_by_promise", "plan": {"SELECT": [{"expr": {"col": "commitments.supplier_id"}, "as": "supplier_id"}, {"expr": {"func": "COUNT", "arg": "*"}, "as": "late_count"}], "FROM": "commitments", "WHERE": {"AND": [{"BETWEEN": {"col": "commitments.week", "from": {"value": 1}, "to": {"value": 13}}}, {"EQ": [{"metric": "late_by_promise"}, {"value": true}]}]}, "GROUP_BY": ["supplier_id"], "HAVING": [{"agg": "late_count", "op": "GT", "value": 3}], "ORDER_BY": [{"by": "late_count", "dir": "DESC"}]}}]}
 
 Question: What is the value of open orders with S-014?
 Output: {"disposition": "retrieve", "readings": [{"label": "open_value", "plan": {"SELECT": [{"expr": {"func": "SUM", "arg": {"col": "commitments.line_value"}}, "as": "open_value"}], "FROM": "commitments", "JOIN": [{"rel": "commitment_order", "type": "INNER"}], "WHERE": {"AND": [{"EQ": [{"col": "commitments.supplier_id"}, {"value": "S-014"}]}, {"EQ": [{"col": "purchase_orders.status"}, {"value": "open"}]}]}}}]}
 
 Question: What is on hand for P-10037, and who is the buyer contact for it?
 Output: {"disposition": "retrieve", "readings": [{"label": "on_hand", "plan": {"SELECT": [{"expr": {"col": "parts.part_id"}, "as": "part_id"}, {"expr": {"col": "parts.on_hand"}, "as": "on_hand"}, {"expr": {"col": "parts.bin_location"}, "as": "bin_location"}], "FROM": "parts", "WHERE": {"EQ": [{"col": "parts.part_id"}, {"value": "P-10037"}]}}}], "unresolved": [{"asked": "who is the buyer contact for it", "needs": {"kind": "no_such_column", "entity": "parts"}}]}
+
+Question: What did S-014 deliver in March?
+Output: {"disposition": "retrieve", "readings": [{"label": "delivered_in_march", "plan": {"SELECT": [{"expr": {"col": "commitments.po_id"}, "as": "po_id"}, {"expr": {"col": "commitments.part_id"}, "as": "part_id"}, {"expr": {"col": "commitments.delivered_at"}, "as": "delivered_at"}], "FROM": "commitments", "WHERE": {"AND": [{"EQ": [{"col": "commitments.supplier_id"}, {"value": "S-014"}]}, {"BETWEEN": {"col": "commitments.delivered_at", "from": {"value": "2026-03-01"}, "to": {"value": "2026-03-31"}}}]}, "ORDER_BY": [{"by": "delivered_at", "dir": "ASC"}]}}]}
 
 Question: What reason was recorded for the delay on PO-87006?
 Output: {"disposition": "retrieve", "readings": [{"label": "recorded_reason", "plan": {"SELECT": [{"expr": {"col": "commitments.po_id"}, "as": "po_id"}, {"expr": {"col": "commitments.part_id"}, "as": "part_id"}, {"expr": {"col": "commitments.delivered_at"}, "as": "delivered_at"}, {"expr": {"col": "commitments.delay_reason"}, "as": "delay_reason"}], "FROM": "commitments", "WHERE": {"EQ": [{"col": "commitments.po_id"}, {"value": "PO-87006"}]}}}]}
@@ -97,6 +107,9 @@ Output: {"disposition": "refer_to_investigation"}
 
 Question: Update the promised date of PO-87006 to 20 October.
 Output: {"disposition": "out_of_scope_action"}
+
+Question: And for the other one?
+Output: {"disposition": "needs_clarification"}
 
 Question: Which suppliers were late in weeks 1 to 13?
 Output:

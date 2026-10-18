@@ -6,7 +6,7 @@
     "entity": "purchase_orders",
     "kind": "no_such_column"
    },
-   "text": "On who approved them there is no data. No column in purchase orders records it."
+   "text": "who approved them: there is no data. No column in purchase orders records it."
   }
  ],
  "outcome": "answered",

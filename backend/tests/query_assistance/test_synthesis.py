@@ -79,7 +79,7 @@ def test_sentence_without_reference_fails_the_schema():
 @pytest.mark.parametrize("file", ["synthesis.md", "synthesis_redraft.md"])
 def test_prompt_has_version_schema_and_no_dashes(file):
     pr = p.load(file)
-    assert pr.output_schema == "synthesis" and pr.version == {"synthesis.md": "6", "synthesis_redraft.md": "5"}[file]
+    assert pr.output_schema == "synthesis" and pr.version == {"synthesis.md": "9", "synthesis_redraft.md": "6"}[file]
     assert "—" not in pr.body and "–" not in pr.body
 
 
@@ -96,7 +96,8 @@ def _materials(block):
         if not m:
             continue
         row = {}
-        for pair in m.group(3).split(", "):
+        fields = re.sub(r" \(same [\w.]+ as row \d+\)$", "", m.group(3))   # the tie marker (task 10a)
+        for pair in fields.split(", "):
             k, _, v = pair.partition(" = ")
             row[k.split(".", 1)[1]] = None if v == "None" else int(v) if v.isdigit() else v
         mats.setdefault(m.group(1), []).append(row)
@@ -310,7 +311,7 @@ def test_draft_fills_and_records_the_call():
     gw = ScriptedModelGateway([GOOD])
     d = s.draft(gw, Q, [LATE], model="demo")
     assert d.answer("late") == "S-038 had the most late lines, 6."
-    assert len(gw.calls) == 1 and d.responses[0].prompt_identity == "synthesis@6"
+    assert len(gw.calls) == 1 and d.responses[0].prompt_identity == "synthesis@9"
 
 
 def test_rejected_draft_is_retried_once_then_accepted():
@@ -338,7 +339,7 @@ def test_redraft_uses_its_own_prompt_and_only_readings_with_kept_assertions():
     gw = ScriptedModelGateway([GOOD])
     d = s.redraft(gw, Q, [LATE, other], {"late": ["S-038 had the most late lines, 6."]}, model="demo")
     prompt, cfg = gw.calls[0]
-    assert cfg.prompt_identity == "synthesis_redraft@5"
+    assert cfg.prompt_identity == "synthesis_redraft@6"
     assert "[other]" not in prompt and d.answer("late")
 
 

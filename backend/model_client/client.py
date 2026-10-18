@@ -54,6 +54,9 @@ class ModelResponse:
     finish_reason: str | None = None
     temperature: float | None = None          # what was sent, None where nothing was (R1)
     max_tokens: int | None = None             # what was sent, None where nothing was (R9, V02)
+    # Of output_tokens, how many the model spent thinking, as the provider reports it (task 10a, chat 22:40).
+    # A count only: the thinking itself (reasoning_content, thinking blocks) is never read, kept or shown
+    reasoning_tokens: int | None = None
 
     def problem(self) -> str | None:
         """A call that succeeded and was billed but holds no usable output (R4, P10). LiteLLM maps
@@ -93,7 +96,12 @@ class BudgetExceeded(Exception):
 
 
 class RateLimited(Exception):
-    """Too many exchanges in the last minute (task 5). Refused before any model call."""
+    """Too many exchanges in the last minute (task 5). Refused before any model call. `retry_after` is
+    how many whole seconds until the window takes one more (chat, 18.10, 04:45): a number only."""
+
+    def __init__(self, message: str, retry_after: int = 60):
+        super().__init__(message)
+        self.retry_after = retry_after
 
 
 class ModelCallError(Exception):
@@ -209,6 +217,14 @@ class _Passed:
         self.error = error
 
 
+def _reasoning_tokens(details: Any) -> int | None:
+    """usage.completion_tokens_details.reasoning_tokens, as LiteLLM 1.105 fills it for Anthropic: the
+    provider's thinking count, an estimate where only thinking text came back, None where a thinking
+    block came back with no count, 0 where there was none. Only an int is taken (never a bool)."""
+    v = details.get("reasoning_tokens") if isinstance(details, dict) else getattr(details, "reasoning_tokens", None)
+    return v if isinstance(v, int) and not isinstance(v, bool) else None
+
+
 class LiteLLMGateway(ModelGateway):
     """No hidden retries: LiteLLM's own are off, so the only further attempt is the counted
     feedback attempt (task 5, R4). Temperature is sent only where it is configured (R1); the
@@ -271,4 +287,5 @@ class LiteLLMGateway(ModelGateway):
         return ModelResponse(choice.message.content, getattr(resp, "model", config.model),
                              get("prompt_tokens"), get("completion_tokens"), config.prompt_identity,
                              get("cache_read_input_tokens"), get("cache_creation_input_tokens"),
-                             getattr(choice, "finish_reason", None), temperature, kwargs.get("max_tokens"))
+                             getattr(choice, "finish_reason", None), temperature, kwargs.get("max_tokens"),
+                             _reasoning_tokens(get("completion_tokens_details")))

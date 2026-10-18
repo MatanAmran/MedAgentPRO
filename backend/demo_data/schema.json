@@ -1,5 +1,6 @@
 {
-  "$comment": "DEMO ONLY. A synthetic supply-chain store for demonstrating the query assistance pipeline. Not the company inventory, which has not been received. Columns that exist but are sparsely filled (notes, bin_location, promised_date, delay_reason) are deliberate: they let the demo show record-level gaps.",
+  "$comment": "DEMO ONLY. A synthetic supply-chain store for demonstrating the query assistance pipeline. Not the company inventory, which has not been received. Columns that exist but are sparsely filled (notes, bin_location, promised_date, delay_reason) are deliberate: they let the demo show record-level gaps. data_as_of is the last day the data records (orders, deliveries, receipts): seed.py builds up to it, and the intent prompt resolves a month without a year against it (task 10a, chat 01:15). It is not the latest date in the store: due and promised dates run past it.",
+  "data_as_of": "2026-10-09",
   "entities": {
     "suppliers": {
       "label": "suppliers",
@@ -287,7 +288,8 @@
           }
         ]
       },
-      "description": "Delivered after the requested date."
+      "description": "Delivered after the requested date.",
+      "description_negated": "Delivered on or before the requested date."
     },
     "late_by_promise": {
       "label": "committed late",
@@ -304,7 +306,8 @@
           }
         ]
       },
-      "description": "The supplier committed to a date after the requested date."
+      "description": "The supplier committed to a date after the requested date.",
+      "description_negated": "The supplier committed to a date on or before the requested date."
     },
     "missed_promise": {
       "label": "missed commitment",
@@ -321,7 +324,8 @@
           }
         ]
       },
-      "description": "Delivered after the date the supplier committed to."
+      "description": "Delivered after the date the supplier committed to.",
+      "description_negated": "Delivered on or before the date the supplier committed to."
     },
     "days_late": {
       "label": "days late",
@@ -355,7 +359,8 @@
           }
         ]
       },
-      "description": "Less received so far than ordered on the line."
+      "description": "Less received so far than ordered on the line.",
+      "description_negated": "Received so far at least as much as ordered on the line."
     },
     "below_reorder_point": {
       "label": "below reorder point",
@@ -372,7 +377,8 @@
           }
         ]
       },
-      "description": "Stock on hand is below the reorder point."
+      "description": "Stock on hand is below the reorder point.",
+      "description_negated": "Stock on hand is at or above the reorder point."
     }
   }
 }

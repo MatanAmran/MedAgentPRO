@@ -6,7 +6,7 @@
  "outcome": "answered",
  "readings": [
   {
-   "answer": "S-008 had the most lines delivered after the requested date, 4. S-003 followed with 2.",
+   "answer": "S-008 had 4 lines delivered after the requested date. S-003 had 2.",
    "checked": "Examined: purchase order lines where week between 1 and 13 and delivered after the requested date · grouped by supplier · computed the number of records · limited to the records you hold",
    "columns": [
     "supplier_id",
@@ -57,7 +57,7 @@
    "total": 6
   },
   {
-   "answer": "S-008 had the most lines whose promised date was after the requested date, 4.",
+   "answer": "S-008 had 4 lines whose promised date was after the requested date.",
    "checked": "Examined: purchase order lines where week between 1 and 13 and the supplier committed to a date after the requested date · grouped by supplier · computed the number of records · limited to the records you hold",
    "columns": [
     "supplier_id",

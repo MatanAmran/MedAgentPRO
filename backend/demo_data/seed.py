@@ -34,8 +34,9 @@ HERE = Path(__file__).parent
 SCHEMA = HERE / "schema.json"
 DEFAULT_OUT = HERE / "demo.db"
 
-# The data ends here. Lines due after it are still open.
-DATA_CUTOFF = date(2026, 10, 9)
+# The data ends here. Lines due after it are still open. Read from schema.json, which the intent prompt's
+# reference date also comes from, so the two cannot disagree
+DATA_CUTOFF = date.fromisoformat(json.loads(SCHEMA.read_text(encoding="utf-8"))["data_as_of"])
 YEAR_START = date(2026, 1, 5)
 
 SQLITE_TYPES = {"text": "TEXT", "integer": "INTEGER", "real": "REAL", "date": "TEXT", "boolean": "INTEGER"}

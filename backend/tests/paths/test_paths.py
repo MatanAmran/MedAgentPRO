@@ -59,17 +59,19 @@ LATE = {"label": "late", "plan": {
     "SELECT": [{"expr": {"col": "commitments.supplier_id"}, "as": "supplier_id"},
                {"expr": {"func": "COUNT", "arg": "*"}, "as": "late_count"}],
     "FROM": "commitments",
-    "WHERE": {"AND": [{"BETWEEN": [{"col": "commitments.week"}, {"value": 1}, {"value": 13}]},
+    "WHERE": {"AND": [{"BETWEEN": {"col": "commitments.week", "from": {"value": 1}, "to": {"value": 13}}},
                       {"EQ": [{"metric": "late_by_delivery"}, {"value": True}]}]},
     "GROUP_BY": ["supplier_id"], "ORDER_BY": [{"by": "late_count", "dir": "DESC"}], "LIMIT": 5}}
 PROMISE = {"label": "promise", "plan": dict(LATE["plan"], WHERE={"AND": [
-    {"BETWEEN": [{"col": "commitments.week"}, {"value": 1}, {"value": 13}]},
+    {"BETWEEN": {"col": "commitments.week", "from": {"value": 1}, "to": {"value": 13}}},
     {"EQ": [{"metric": "late_by_promise"}, {"value": True}]}]})}
 INTENT = {"disposition": "retrieve", "readings": [LATE]}
 INTENT_TWO = {"disposition": "retrieve", "ambiguous": [{"term": "late", "alternatives": [
     {"metric": "late_by_delivery"}, {"metric": "late_by_promise"}]}], "readings": [LATE, PROMISE]}
 REFER = {"disposition": "refer_to_investigation"}
 ACTION = {"disposition": "out_of_scope_action"}
+CLARIFY = {"disposition": "needs_clarification"}
+Q_FOLLOW_UP = "And in weeks 14 to 26?"
 EMPTY = {"disposition": "retrieve", "readings": [{"label": "s40", "plan": {
     "SELECT": [{"expr": {"col": "commitments.po_id"}, "as": "po_id"}], "FROM": "commitments",
     "WHERE": {"EQ": [{"col": "commitments.supplier_id"}, {"value": "S-040"}]}}}]}
@@ -103,6 +105,25 @@ def gate_says(*verdicts):
                            "evidence": [] if v == "uncovered" else [f"{label}.supplier_id"]})
         return {"claims": claims}
     return answer
+
+
+# Chat, 18.10, 09:40: words that describe another metric than the reading's examined line (question 3
+# on the real model). The scripted gate contradicts them only where the examined line it was given
+# says the reading is not about promised dates, so the path also shows that line reaches the gate.
+OTHER_METRIC = "{late.supplier_id#2} had {late.late_count#2} lines whose promised date was after the requested date."
+SYN_OTHER_METRIC = {"readings": [{"label": "late", "sentences": [{"text": ONE}, {"text": OTHER_METRIC}]}]}
+SYN_ONLY_OTHER_METRIC = {"readings": [{"label": "late", "sentences": [{"text": OTHER_METRIC}]}]}
+
+
+def gate_reads_examined(prompt):
+    out = gate_says("supported")(prompt)
+    tail = prompt.split("Answer:\n")[-1]   # past the prompt's own examples
+    examined = dict(re.findall(r"^\[(\w+)\] examined: (.*)$", tail, re.M))
+    for claim in out["claims"]:
+        label = re.search(rf"^{claim['sentence']}\. \[(\w+)\]", tail, re.M).group(1)
+        if "promised date" in claim["text"] and "committed" not in examined[label]:
+            claim["verdict"] = "contradicted"
+    return out
 
 
 def gate_skips(prompt):
@@ -220,6 +241,9 @@ A_PATHS = [
     ("action_declined", "Update the promised date of PO-87006 to 20 October.", APPROVER, False,
      dict(intent_analysis_demo=[ACTION]), "answered", True, 1,
      lambda r: r["readings"] == [] and r["gaps"] == [] and r["notice"] == contract.ACTION_DECLINED),
+    ("needs_clarification", Q_FOLLOW_UP, APPROVER, False,
+     dict(intent_analysis_demo=[CLARIFY]), "answered", True, 1,
+     lambda r: r["readings"] == [] and r["gaps"] == [] and r["notice"] == contract.NEEDS_CLARIFICATION),
     ("planner_sees_own_rows_only", Q, PLANNER, False,
      dict(intent_analysis_demo=[INTENT], synthesis=[SYN], support_scoring=[gate_says("supported")]),
      "answered", True, 3, lambda r: "limited to the records you hold" in r["readings"][0]["checked"]),
@@ -240,6 +264,14 @@ A_PATHS = [
      dict(intent_analysis_demo=[INTENT], synthesis=[SYN], synthesis_redraft=[SYN_ONE],
           support_scoring=[gate_says("supported", "contradicted"), gate_says("supported")]),
      "answered", True, 5, lambda r: r.get("withheld")),
+    ("gate_removes_other_metric_wording", Q, APPROVER, False,
+     dict(intent_analysis_demo=[INTENT], synthesis=[SYN_OTHER_METRIC], synthesis_redraft=[SYN_ONE],
+          support_scoring=[gate_reads_examined, gate_reads_examined]),
+     "answered", True, 5, lambda r: r.get("withheld") and "promised" not in r["readings"][0]["answer"]),
+    ("gate_removes_only_sentence_other_metric", Q, APPROVER, False,
+     dict(intent_analysis_demo=[INTENT], synthesis=[SYN_ONLY_OTHER_METRIC, SYN_ONLY_OTHER_METRIC],
+          support_scoring=[gate_reads_examined, gate_reads_examined]),
+     "no_supported_assertion", True, 5, None),
     ("fresh_draft_then_supported", Q, APPROVER, False,
      dict(intent_analysis_demo=[INTENT], synthesis=[SYN, SYN_ONE],
           support_scoring=[gate_says("uncovered"), gate_says("supported")]),
@@ -269,8 +301,17 @@ A_PATHS = [
     ("synthesis_rejected_twice", Q, APPROVER, False,
      dict(intent_analysis_demo=[INTENT], synthesis=[SYN_TYPED_DIGIT, SYN_TYPED_DIGIT]),
      "request_not_completed", True, 3, None),
-    ("synthesis_format_failure_not_retried", Q, APPROVER, False,
-     dict(intent_analysis_demo=[INTENT], synthesis=[SYN_NO_REFERENCE]), "request_not_completed", True, 2, None),
+    ("synthesis_no_reference_fixed_by_feedback", Q, APPROVER, False,
+     dict(intent_analysis_demo=[INTENT], synthesis=[SYN_NO_REFERENCE, SYN], support_scoring=[gate_says("supported")]),
+     "answered", True, 4, None),
+    ("synthesis_no_reference_twice", Q, APPROVER, False,
+     dict(intent_analysis_demo=[INTENT], synthesis=[SYN_NO_REFERENCE, SYN_NO_REFERENCE]),
+     "request_not_completed", True, 3, None),
+    ("synthesis_not_json_not_retried", Q, APPROVER, False,
+     dict(intent_analysis_demo=[INTENT], synthesis=[Raw("this is not json")]), "request_not_completed", True, 2, None),
+    ("gate_provider_breach_fixed_by_feedback", Q, APPROVER, False,
+     dict(intent_analysis_demo=[INTENT], synthesis=[SYN], support_scoring=[{"verdicts": []}, gate_says("supported")]),
+     "answered", True, 4, None),
     ("gate_skips_then_covers", Q, APPROVER, False,
      dict(intent_analysis_demo=[INTENT], synthesis=[SYN], support_scoring=[gate_skips, gate_says("supported")]),
      "answered", True, 4, None),
@@ -491,7 +532,8 @@ def test_rate_limit_refuses_before_any_call(db_path, ledger):
     outs = [pl.run("Why is S-014 late so often?", [], APPROVER, make_deps(Cancellable(gw, threading.Event()), db_path))
             for _ in range(3)]
     assert [o.response["outcome"] for o in outs] == ["referred_to_investigation"] * 2 + ["request_not_completed"]
-    assert outs[2].response.get("notice") == contract.RATE_LIMITED
+    notice = outs[2].response.get("notice")
+    assert notice.startswith(contract.RATE_LIMITED.split("{seconds}")[0]) and notice.endswith(" seconds.")
 
 
 def test_timeout_keeps_the_worst_case_charged_and_refused_connection_releases_it(db_path, ledger):

@@ -44,7 +44,7 @@ LATE = {"label": "late", "plan": {
     "SELECT": [{"expr": {"col": "commitments.supplier_id"}, "as": "supplier_id"},
                {"expr": {"func": "COUNT", "arg": "*"}, "as": "late_count"}],
     "FROM": "commitments",
-    "WHERE": {"AND": [{"BETWEEN": [{"col": "commitments.week"}, {"value": 1}, {"value": 13}]},
+    "WHERE": {"AND": [{"BETWEEN": {"col": "commitments.week", "from": {"value": 1}, "to": {"value": 13}}},
                       {"EQ": [{"metric": "late_by_delivery"}, {"value": True}]}]},
     "GROUP_BY": ["supplier_id"], "ORDER_BY": [{"by": "late_count", "dir": "DESC"}], "LIMIT": 5}}
 INTENT = {"disposition": "retrieve", "readings": [LATE]}
@@ -89,7 +89,7 @@ class _Meter(ModelGateway):
         typical_in, high_in = len(prompt) // 4 + 1, estimate_input_tokens(prompt)
         out = len(resp.text) // 4 + 1
         self.rows.append((config.prompt_identity, typical_in, high_in, out, self.cfg.cost(typical_in, out),
-                          self.cfg.cost(high_in, self.cfg.max_output_tokens)))
+                          self.cfg.cost(high_in, self.cfg.output_cap(config.prompt_identity))))
         return resp
 
 

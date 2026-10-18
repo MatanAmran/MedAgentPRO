@@ -18,8 +18,8 @@ PLANNER = {"role": "PLANNER", "user_id": "PL-02"}
 LATE = {"SELECT": [{"expr": {"col": "commitments.supplier_id"}, "as": "supplier_id"},
                    {"expr": {"func": "COUNT", "arg": "*"}, "as": "late_lines"}],
         "FROM": "commitments",
-        "WHERE": {"AND": [{"BETWEEN": [{"col": "commitments.delivered_at"}, {"value": "2026-09-01"},
-                                       {"value": "2026-09-30"}]},
+        "WHERE": {"AND": [{"BETWEEN": {"col": "commitments.delivered_at", "from": {"value": "2026-09-01"},
+                                       "to": {"value": "2026-09-30"}}},
                           {"EQ": [{"metric": "late_by_delivery"}, {"value": True}]}]},
         "GROUP_BY": ["supplier_id"],
         "ORDER_BY": [{"by": "late_lines", "dir": "DESC"}]}
@@ -80,8 +80,8 @@ def test_checked_covers_each_clause():
                        {"expr": {"func": "SUM", "arg": {"col": "commitments.line_value"}}, "as": "value"}],
             "FROM": "commitments",
             "JOIN": [{"rel": "commitment_order", "type": "INNER"}, {"rel": "order_supplier", "type": "LEFT"}],
-            "WHERE": {"AND": [{"OR": [{"IN": [{"col": "commitments.supplier_id"},
-                                              [{"value": "S-001"}, {"value": "S-002"}]]},
+            "WHERE": {"AND": [{"OR": [{"IN": {"col": "commitments.supplier_id",
+                                              "values": [{"value": "S-001"}, {"value": "S-002"}]}},
                                       {"GT": [{"col": "commitments.quantity"}, {"value": 100}]}]},
                               {"IS_NULL": {"col": "commitments.delivered_at"}},
                               {"EQ": [{"metric": "late_by_promise"}, {"value": False}]}]},
@@ -90,7 +90,8 @@ def test_checked_covers_each_clause():
     assert "with purchase orders with suppliers where held" in text
     assert "(supplier in ('S-001', 'S-002') or ordered quantity > 100)" in text
     assert "delivery date not recorded" in text
-    assert "not the supplier committed to a date after the requested date" in text
+    assert "the supplier committed to a date on or before the requested date" in text
+    assert "not the supplier" not in text
     assert "grouped by part" in text
     assert "computed the total line value" in text and "kept where total line value ≥ 1000" in text
 
@@ -156,9 +157,9 @@ def test_view_carries_the_gated_answer_and_its_evidence(db):
 # --------------------------------------------------------------------------
 
 @pytest.mark.parametrize("kind, entity, text", [
-    ("no_such_column", "parts", "On who is the buyer contact there is no data. No column in parts records it."),
-    ("source_outside_system", "the warehouse system", "who is the buyer contact is not held by the system."),
-    ("unspecified", None, "On who is the buyer contact no data could be located."),
+    ("no_such_column", "parts", "who is the buyer contact: there is no data. No column in parts records it."),
+    ("source_outside_system", "the warehouse system", "who is the buyer contact: not held by the system."),
+    ("unspecified", None, "who is the buyer contact: no data could be located."),
 ])
 def test_gap_is_filled_from_its_template(kind, entity, text):
     needs = {"kind": kind} if entity is None else {"kind": kind, "entity": entity}
@@ -170,11 +171,11 @@ def test_gap_text_names_the_table_or_column_by_its_label():
     """Task 7 review, item 2, applied to gaps (task 8): the text reads the label; missing keeps the name."""
     g = k.render_gap({"asked": "who approved them", "needs": {"kind": "no_such_column", "entity": "purchase_orders"}},
                      CAT)
-    assert g["text"] == "On who approved them there is no data. No column in purchase orders records it."
+    assert g["text"] == "who approved them: there is no data. No column in purchase orders records it."
     assert g["missing"] == {"kind": "no_such_column", "entity": "purchase_orders"}
     col = k.render_gap({"asked": "x", "needs": {"kind": "value_not_present",
                                                 "entity": "commitments.delay_reason"}}, CAT)
-    assert col["text"] == "x does not appear in delay reason."
+    assert col["text"] == "x: does not appear in delay reason."
 
 
 # --------------------------------------------------------------------------
@@ -239,3 +240,57 @@ def test_failure_outcomes(make, outcome):
 def test_an_invalid_assembly_is_a_bug_not_a_response():
     with pytest.raises(k.ContractError):
         k.answered([{"label": "x"}])
+
+
+def test_every_gap_template_opens_with_what_was_asked():
+    """Task 10a (chat 23:35): "On {asked} ..." read wrongly whenever asked was not a noun phrase ("On who
+    approved them"). Every template now opens "{asked}: ", whatever grammatical form asked takes."""
+    assert all(t.startswith("{asked}: ") for t in k.TEMPLATES.values()), k.TEMPLATES
+
+
+def test_the_rate_notice_carries_a_whole_number_of_seconds_and_nothing_else():
+    """Chat, 18.10, 04:45: the rate refusal says how long to wait, a number from the window only."""
+    assert k.request_not_completed(None, k.rate_limited_notice(7))["notice"].endswith("Try again in 7 seconds.")
+    for bad in (0, -1, 2.5, True, "7"):
+        with pytest.raises(k.ContractError):
+            k.rate_limited_notice(bad)
+    for bad in (k.RATE_LIMITED, k.RATE_LIMITED.format(seconds="soon"), k.RATE_LIMITED.format(seconds="07")):
+        with pytest.raises(k.ContractError):
+            k.request_not_completed(None, bad)
+
+
+BOOLEAN_METRICS = sorted(m for m, spec in CAT.metrics.items() if spec.get("type") == "boolean")
+
+
+@pytest.mark.parametrize("metric", BOOLEAN_METRICS)
+@pytest.mark.parametrize("op, value, swap", [("EQ", True, False), ("EQ", False, False), ("NE", True, False),
+                                             ("NE", False, False), ("EQ", False, True), ("NE", True, True)])
+def test_the_title_never_contradicts_what_was_examined(metric, op, value, swap):
+    """Question 11 on the real model (chat, 18.10, 04:45): "on time" as late_by_delivery = false was
+    titled "Delivered after the requested date". The title reads the comparison as Examined does."""
+    pair = [{"metric": metric}, {"value": value}]
+    table = CAT.metrics[metric].get("table") or next(iter(CAT.metrics[metric].get("tables", ["commitments"])))
+    plan = {"SELECT": [{"expr": {"func": "COUNT", "arg": "*"}, "as": "n"}], "FROM": table,
+            "WHERE": {op: pair[::-1] if swap else pair}}
+    title = k.reading_title(plan, CAT)
+    examined = k.render_checked(plan, CAT, "APPROVER")
+    negated = (value is False) != (op == "NE")
+    said = CAT.metrics[metric]["description_negated" if negated else "description"].rstrip(".")
+    other = CAT.metrics[metric]["description" if negated else "description_negated"].rstrip(".")
+    lower = lambda t: t[0].lower() + t[1:]   # noqa: E731
+    assert lower(said) in examined and lower(other) not in examined
+    assert title == said
+
+
+@pytest.mark.parametrize("metric", BOOLEAN_METRICS)
+def test_every_boolean_metric_words_its_negation(metric):
+    """Chat, 18.10, 05:00: "not" before the description gave "not the supplier committed to ..."."""
+    neg = CAT.metrics[metric].get("description_negated")
+    assert neg and not neg.lower().startswith("not") and neg != CAT.metrics[metric]["description"]
+
+
+def test_a_metric_tested_both_ways_gets_no_title():
+    plan = {"SELECT": [{"expr": {"func": "COUNT", "arg": "*"}, "as": "n"}], "FROM": "commitments",
+            "WHERE": {"OR": [{"EQ": [{"metric": "late_by_delivery"}, {"value": True}]},
+                             {"EQ": [{"metric": "late_by_delivery"}, {"value": False}]}]}}
+    assert k.reading_title(plan, CAT) is None

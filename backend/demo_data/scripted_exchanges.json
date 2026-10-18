@@ -42,17 +42,15 @@
               "WHERE": {
                 "AND": [
                   {
-                    "BETWEEN": [
-                      {
-                        "col": "commitments.week"
-                      },
-                      {
+                    "BETWEEN": {
+                      "col": "commitments.week",
+                      "from": {
                         "value": 1
                       },
-                      {
+                      "to": {
                         "value": 13
                       }
-                    ]
+                    }
                   },
                   {
                     "EQ": [
@@ -100,17 +98,15 @@
               "WHERE": {
                 "AND": [
                   {
-                    "BETWEEN": [
-                      {
-                        "col": "commitments.week"
-                      },
-                      {
+                    "BETWEEN": {
+                      "col": "commitments.week",
+                      "from": {
                         "value": 1
                       },
-                      {
+                      "to": {
                         "value": 13
                       }
-                    ]
+                    }
                   },
                   {
                     "EQ": [
@@ -144,10 +140,10 @@
             "label": "late_by_delivery",
             "sentences": [
               {
-                "text": "{late_by_delivery.supplier_id#1} had the most lines delivered after the requested date, {late_by_delivery.late_count#1}."
+                "text": "{late_by_delivery.supplier_id#1} had {late_by_delivery.late_count#1} lines delivered after the requested date."
               },
               {
-                "text": "{late_by_delivery.supplier_id#2} followed with {late_by_delivery.late_count#2}."
+                "text": "{late_by_delivery.supplier_id#2} had {late_by_delivery.late_count#2}."
               }
             ]
           },
@@ -155,7 +151,7 @@
             "label": "late_by_promise",
             "sentences": [
               {
-                "text": "{late_by_promise.supplier_id#1} had the most lines whose promised date was after the requested date, {late_by_promise.late_count#1}."
+                "text": "{late_by_promise.supplier_id#1} had {late_by_promise.late_count#1} lines whose promised date was after the requested date."
               }
             ]
           }
@@ -228,17 +224,15 @@
               "WHERE": {
                 "AND": [
                   {
-                    "BETWEEN": [
-                      {
-                        "col": "commitments.week"
-                      },
-                      {
+                    "BETWEEN": {
+                      "col": "commitments.week",
+                      "from": {
                         "value": 14
                       },
-                      {
+                      "to": {
                         "value": 26
                       }
-                    ]
+                    }
                   },
                   {
                     "EQ": [
@@ -286,17 +280,15 @@
               "WHERE": {
                 "AND": [
                   {
-                    "BETWEEN": [
-                      {
-                        "col": "commitments.week"
-                      },
-                      {
+                    "BETWEEN": {
+                      "col": "commitments.week",
+                      "from": {
                         "value": 14
                       },
-                      {
+                      "to": {
                         "value": 26
                       }
-                    ]
+                    }
                   },
                   {
                     "EQ": [
@@ -330,7 +322,7 @@
             "label": "late_by_delivery",
             "sentences": [
               {
-                "text": "{late_by_delivery.supplier_id#1} had the most lines delivered after the requested date, {late_by_delivery.late_count#1}."
+                "text": "{late_by_delivery.supplier_id#1} had {late_by_delivery.late_count#1} lines delivered after the requested date."
               }
             ]
           },
@@ -338,7 +330,7 @@
             "label": "late_by_promise",
             "sentences": [
               {
-                "text": "{late_by_promise.supplier_id#1} had the most lines whose promised date was after the requested date, {late_by_promise.late_count#1}."
+                "text": "{late_by_promise.supplier_id#1} had {late_by_promise.late_count#1} lines whose promised date was after the requested date."
               }
             ]
           }
@@ -402,17 +394,15 @@
               "WHERE": {
                 "AND": [
                   {
-                    "BETWEEN": [
-                      {
-                        "col": "commitments.delivered_at"
-                      },
-                      {
+                    "BETWEEN": {
+                      "col": "commitments.delivered_at",
+                      "from": {
                         "value": "2026-09-01"
                       },
-                      {
+                      "to": {
                         "value": "2026-09-30"
                       }
-                    ]
+                    }
                   },
                   {
                     "EQ": [
@@ -504,17 +494,15 @@
               "WHERE": {
                 "AND": [
                   {
-                    "BETWEEN": [
-                      {
-                        "col": "commitments.week"
-                      },
-                      {
+                    "BETWEEN": {
+                      "col": "commitments.week",
+                      "from": {
                         "value": 1
                       },
-                      {
+                      "to": {
                         "value": 13
                       }
-                    ]
+                    }
                   },
                   {
                     "EQ": [
@@ -1018,17 +1006,15 @@
               "WHERE": {
                 "AND": [
                   {
-                    "BETWEEN": [
-                      {
-                        "col": "commitments.week"
-                      },
-                      {
+                    "BETWEEN": {
+                      "col": "commitments.week",
+                      "from": {
                         "value": 1
                       },
-                      {
+                      "to": {
                         "value": 13
                       }
-                    ]
+                    }
                   },
                   {
                     "IS_NOT_NULL": {

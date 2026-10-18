@@ -50,7 +50,9 @@ SPEND_FILE = BACKEND / ".model_spend.json"
 
 REQUIRED = ("ANTHROPIC_API_KEY", "MODEL_ID", "MODEL_PRICE_IN", "MODEL_PRICE_OUT", "MODEL_BUDGET_USD",
             "MODEL_MAX_USD_PER_EXCHANGE", "MODEL_MAX_OUTPUT_TOKENS", "MODEL_MAX_EXCHANGES_PER_MINUTE")
-OPTIONAL = ("MODEL_PRICE_CACHE_READ", "MODEL_PRICE_CACHE_WRITE", "MODEL_TEMPERATURE")
+OPTIONAL = ("MODEL_PRICE_CACHE_READ", "MODEL_PRICE_CACHE_WRITE", "MODEL_TEMPERATURE", "MODEL_MAX_OUTPUT_TOKENS_INTENT")
+# The stage MODEL_MAX_OUTPUT_TOKENS_INTENT applies to, by the prompt identity's name
+INTENT_PROMPTS = ("intent_analysis", "intent_analysis_demo")
 
 
 class BudgetConfigError(Exception):
@@ -70,6 +72,9 @@ class BudgetConfig:
     price_cache_write: float | None = None
     api_key: str = field(default="", repr=False)
     temperature: float | None = None   # sent only where set (R1)
+    # Intent analysis alone, where set (task 10a, chat 23:35): it thinks the longest (question 3 used 90%
+    # of 2000, 74% of it thinking). A higher cap only gives room; the effort is not changed
+    max_output_tokens_intent: int | None = None
 
     @classmethod
     def from_env(cls, env: Mapping[str, str] | None = None, env_file: Path = ENV_FILE,
@@ -109,7 +114,15 @@ class BudgetConfig:
                    number("MODEL_MAX_OUTPUT_TOKENS", int), number("MODEL_MAX_EXCHANGES_PER_MINUTE", int),
                    number("MODEL_PRICE_CACHE_READ", required=False),
                    number("MODEL_PRICE_CACHE_WRITE", required=False),
-                   str(env.get("ANTHROPIC_API_KEY") or "").strip(), temperature)
+                   str(env.get("ANTHROPIC_API_KEY") or "").strip(), temperature,
+                   number("MODEL_MAX_OUTPUT_TOKENS_INTENT", int, required=False))
+
+    def output_cap(self, prompt_identity: str = "") -> int:
+        """The max_tokens a call of this prompt is sent: the intent cap for intent analysis where set,
+        else the general one."""
+        if self.max_output_tokens_intent and prompt_identity.split("@")[0] in INTENT_PROMPTS:
+            return self.max_output_tokens_intent
+        return self.max_output_tokens
 
     def cost(self, input_tokens: int, output_tokens: int, cache_read: int = 0, cache_write: int = 0) -> float:
         cached = self.price_cache_write or 2 * self.price_in
@@ -274,7 +287,9 @@ class BudgetedGateway(ModelGateway):
             while self._starts and now - self._starts[0] >= 60:
                 self._starts.popleft()
             if len(self._starts) >= self.config.max_exchanges_per_minute:
-                raise RateLimited("too many exchanges in the last minute")
+                # the window takes one more once its oldest start is 60 seconds old
+                wait = max(1, math.ceil(60 - (now - self._starts[0])))
+                raise RateLimited("too many exchanges in the last minute", retry_after=wait)
             self._starts.append(now)
         spend = ExchangeSpend()
         token = self._current.set(spend)
@@ -305,7 +320,8 @@ class BudgetedGateway(ModelGateway):
         cfg = self.config
         if config.model != cfg.model_id:
             raise BudgetExceeded(f"model {config.model} is not the one priced in backend/.env", scope="model")
-        call = replace(config, max_tokens=min(config.max_tokens or cfg.max_output_tokens, cfg.max_output_tokens))
+        cap = cfg.output_cap(config.prompt_identity)
+        call = replace(config, max_tokens=min(config.max_tokens or cap, cap))
         worst = cfg.cost(estimate_input_tokens(prompt), call.max_tokens)
         ex = self._current.get()
         with self._lock:
@@ -375,7 +391,8 @@ def check_against_provider_map(cfg: BudgetConfig, model_info: Callable[[str], di
     """P1: refuse to start where the model is not in LiteLLM's map (Haiku 5.5 in the local map of the
     pinned 1.105, R1, H1), where the map holds no price for it, where a temperature is set for a model
     that takes none, or where a price in .env is lower than the map's (a typo of 0.2 for 2 would
-    undercount tenfold). A higher price is allowed."""
+    undercount tenfold). A higher price is allowed. Nor where an output cap, the general one or intent's,
+    is above the model's own output limit."""
     model_info = model_info or map_entry
     name = cfg.model_id if "/" in cfg.model_id else f"anthropic/{cfg.model_id}"
     try:
@@ -392,3 +409,8 @@ def check_against_provider_map(cfg: BudgetConfig, model_info: Callable[[str], di
             raise BudgetConfigError(f"LiteLLM's model map holds no price for this model, so {var} cannot be checked")
         if ours < listed * 1_000_000 - 1e-9:
             raise BudgetConfigError(f"{var} in backend/.env is lower than LiteLLM's price for this model")
+    limit = info.get("max_output_tokens")
+    for var, cap in (("MODEL_MAX_OUTPUT_TOKENS", cfg.max_output_tokens),
+                     ("MODEL_MAX_OUTPUT_TOKENS_INTENT", cfg.max_output_tokens_intent)):
+        if limit and cap and cap > limit:
+            raise BudgetConfigError(f"{var} in backend/.env is above this model's own output limit")
