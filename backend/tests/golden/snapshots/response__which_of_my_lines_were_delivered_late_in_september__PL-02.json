@@ -1,0 +1,283 @@
+{
+ "ambiguous_terms": [
+  "late"
+ ],
+ "gaps": [],
+ "outcome": "answered",
+ "readings": [
+  {
+   "answer": "5 of your purchase order lines were delivered after the requested date in September, among them C-101572, C-101600 and C-101615.",
+   "answer_segments": [
+    {
+     "text": "5 of your purchase order lines were delivered after the requested date in September, among them "
+    },
+    {
+     "ref": {
+      "alias": "commitment_id",
+      "row": 1
+     },
+     "text": "C-101572"
+    },
+    {
+     "text": ", "
+    },
+    {
+     "ref": {
+      "alias": "commitment_id",
+      "row": 2
+     },
+     "text": "C-101600"
+    },
+    {
+     "text": " and "
+    },
+    {
+     "ref": {
+      "alias": "commitment_id",
+      "row": 3
+     },
+     "text": "C-101615"
+    },
+    {
+     "text": "."
+    }
+   ],
+   "checked": "Examined: purchase order lines where planner = you and delivery date between '2026-09-01' and '2026-09-30' and delivered after the requested date",
+   "columns": [
+    "commitment_id",
+    "po_id",
+    "part_id",
+    "due_date",
+    "delivered_at"
+   ],
+   "entity": "purchase order lines",
+   "evidence": [
+    "late_by_delivery.commitment_id",
+    "late_by_delivery.total"
+   ],
+   "headers": {
+    "commitment_id": "order line",
+    "delivered_at": "delivery date",
+    "due_date": "requested date",
+    "part_id": "part",
+    "po_id": "purchase order"
+   },
+   "identifiers": [
+    "commitment_id",
+    "po_id",
+    "part_id"
+   ],
+   "label": "late_by_delivery",
+   "ordered_by": "ordered by delivery date, lowest first",
+   "result": "rows_returned",
+   "row_count": 5,
+   "rows": [
+    {
+     "commitment_id": "C-101572",
+     "delivered_at": "2026-09-12",
+     "due_date": "2026-09-06",
+     "part_id": "P-12738",
+     "po_id": "PO-89259"
+    },
+    {
+     "commitment_id": "C-101600",
+     "delivered_at": "2026-09-13",
+     "due_date": "2026-09-04",
+     "part_id": "P-12923",
+     "po_id": "PO-89298"
+    },
+    {
+     "commitment_id": "C-101615",
+     "delivered_at": "2026-09-14",
+     "due_date": "2026-09-05",
+     "part_id": "P-10370",
+     "po_id": "PO-89322"
+    },
+    {
+     "commitment_id": "C-101474",
+     "delivered_at": "2026-09-26",
+     "due_date": "2026-09-17",
+     "part_id": "P-15069",
+     "po_id": "PO-89121"
+    },
+    {
+     "commitment_id": "C-101573",
+     "delivered_at": "2026-09-26",
+     "due_date": "2026-09-17",
+     "part_id": "P-15254",
+     "po_id": "PO-89259"
+    }
+   ],
+   "title": "Delivered after the requested date",
+   "total": 5
+  },
+  {
+   "answer": "1 of your purchase order lines in September had a supplier-committed date after the requested date, namely C-101573, delivered on 2026-09-26.",
+   "answer_segments": [
+    {
+     "text": "1 of your purchase order lines in September had a supplier-committed date after the requested date, namely "
+    },
+    {
+     "ref": {
+      "alias": "commitment_id",
+      "row": 1
+     },
+     "text": "C-101573"
+    },
+    {
+     "text": ", delivered on "
+    },
+    {
+     "ref": {
+      "alias": "delivered_at",
+      "row": 1
+     },
+     "text": "2026-09-26"
+    },
+    {
+     "text": "."
+    }
+   ],
+   "checked": "Examined: purchase order lines where planner = you and delivery date between '2026-09-01' and '2026-09-30' and the supplier committed to a date after the requested date",
+   "columns": [
+    "commitment_id",
+    "po_id",
+    "part_id",
+    "due_date",
+    "delivered_at"
+   ],
+   "entity": "purchase order lines",
+   "evidence": [
+    "late_by_promise.commitment_id",
+    "late_by_promise.delivered_at",
+    "late_by_promise.total"
+   ],
+   "headers": {
+    "commitment_id": "order line",
+    "delivered_at": "delivery date",
+    "due_date": "requested date",
+    "part_id": "part",
+    "po_id": "purchase order"
+   },
+   "identifiers": [
+    "commitment_id",
+    "po_id",
+    "part_id"
+   ],
+   "label": "late_by_promise",
+   "ordered_by": "ordered by delivery date, lowest first",
+   "result": "rows_returned",
+   "row_count": 1,
+   "rows": [
+    {
+     "commitment_id": "C-101573",
+     "delivered_at": "2026-09-26",
+     "due_date": "2026-09-17",
+     "part_id": "P-15254",
+     "po_id": "PO-89259"
+    }
+   ],
+   "title": "The supplier committed to a date after the requested date",
+   "total": 1
+  },
+  {
+   "answer": "4 of your purchase order lines were delivered in September after the date the supplier committed to, among them C-101572, C-101600 and C-101615.",
+   "answer_segments": [
+    {
+     "text": "4 of your purchase order lines were delivered in September after the date the supplier committed to, among them "
+    },
+    {
+     "ref": {
+      "alias": "commitment_id",
+      "row": 1
+     },
+     "text": "C-101572"
+    },
+    {
+     "text": ", "
+    },
+    {
+     "ref": {
+      "alias": "commitment_id",
+      "row": 2
+     },
+     "text": "C-101600"
+    },
+    {
+     "text": " and "
+    },
+    {
+     "ref": {
+      "alias": "commitment_id",
+      "row": 3
+     },
+     "text": "C-101615"
+    },
+    {
+     "text": "."
+    }
+   ],
+   "checked": "Examined: purchase order lines where planner = you and delivery date between '2026-09-01' and '2026-09-30' and delivered after the date the supplier committed to",
+   "columns": [
+    "commitment_id",
+    "po_id",
+    "part_id",
+    "due_date",
+    "delivered_at"
+   ],
+   "entity": "purchase order lines",
+   "evidence": [
+    "missed_promise.commitment_id",
+    "missed_promise.total"
+   ],
+   "headers": {
+    "commitment_id": "order line",
+    "delivered_at": "delivery date",
+    "due_date": "requested date",
+    "part_id": "part",
+    "po_id": "purchase order"
+   },
+   "identifiers": [
+    "commitment_id",
+    "po_id",
+    "part_id"
+   ],
+   "label": "missed_promise",
+   "ordered_by": "ordered by delivery date, lowest first",
+   "result": "rows_returned",
+   "row_count": 4,
+   "rows": [
+    {
+     "commitment_id": "C-101572",
+     "delivered_at": "2026-09-12",
+     "due_date": "2026-09-06",
+     "part_id": "P-12738",
+     "po_id": "PO-89259"
+    },
+    {
+     "commitment_id": "C-101600",
+     "delivered_at": "2026-09-13",
+     "due_date": "2026-09-04",
+     "part_id": "P-12923",
+     "po_id": "PO-89298"
+    },
+    {
+     "commitment_id": "C-101615",
+     "delivered_at": "2026-09-14",
+     "due_date": "2026-09-05",
+     "part_id": "P-10370",
+     "po_id": "PO-89322"
+    },
+    {
+     "commitment_id": "C-101474",
+     "delivered_at": "2026-09-26",
+     "due_date": "2026-09-17",
+     "part_id": "P-15069",
+     "po_id": "PO-89121"
+    }
+   ],
+   "title": "Delivered after the date the supplier committed to",
+   "total": 4
+  }
+ ]
+}

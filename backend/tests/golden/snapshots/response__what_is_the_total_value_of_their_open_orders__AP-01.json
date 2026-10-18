@@ -1,0 +1,306 @@
+{
+ "gaps": [
+  {
+   "asked": "the total value of the open orders of the suppliers that were late in weeks 1 to 13",
+   "missing": {
+    "entity": "suppliers",
+    "kind": "cross_record_condition"
+   },
+   "text": "“the total value of the open orders of the suppliers that were late in weeks 1 to 13” depends on other records of suppliers, which cannot be combined in one question yet. Ask it in two steps: first find them, then ask about them by name."
+  }
+ ],
+ "outcome": "answered",
+ "readings": [
+  {
+   "answer": "28 suppliers had lines delivered after the requested date in weeks 1 to 13, among them S-038, S-005 and S-001.",
+   "answer_segments": [
+    {
+     "text": "28 suppliers had lines delivered after the requested date in weeks 1 to 13, among them "
+    },
+    {
+     "ref": {
+      "alias": "supplier_id",
+      "row": 1
+     },
+     "text": "S-038"
+    },
+    {
+     "text": ", "
+    },
+    {
+     "ref": {
+      "alias": "supplier_id",
+      "row": 2
+     },
+     "text": "S-005"
+    },
+    {
+     "text": " and "
+    },
+    {
+     "ref": {
+      "alias": "supplier_id",
+      "row": 3
+     },
+     "text": "S-001"
+    },
+    {
+     "text": "."
+    }
+   ],
+   "checked": "Examined: purchase order lines where week between 1 and 13 and delivered after the requested date · grouped by supplier · computed the number of records",
+   "columns": [
+    "supplier_id",
+    "late_count"
+   ],
+   "entity": "suppliers",
+   "evidence": [
+    "late_by_delivery.supplier_id",
+    "late_by_delivery.total"
+   ],
+   "headers": {
+    "late_count": "number of records",
+    "supplier_id": "supplier"
+   },
+   "identifiers": [
+    "supplier_id"
+   ],
+   "label": "late_by_delivery",
+   "ordered_by": "ordered by number of records, highest first",
+   "result": "rows_returned",
+   "row_count": 28,
+   "rows": [
+    {
+     "late_count": 10,
+     "supplier_id": "S-038"
+    },
+    {
+     "late_count": 8,
+     "supplier_id": "S-005"
+    },
+    {
+     "late_count": 6,
+     "supplier_id": "S-001"
+    },
+    {
+     "late_count": 6,
+     "supplier_id": "S-008"
+    },
+    {
+     "late_count": 6,
+     "supplier_id": "S-018"
+    },
+    {
+     "late_count": 4,
+     "supplier_id": "S-003"
+    },
+    {
+     "late_count": 4,
+     "supplier_id": "S-019"
+    },
+    {
+     "late_count": 4,
+     "supplier_id": "S-033"
+    },
+    {
+     "late_count": 3,
+     "supplier_id": "S-011"
+    },
+    {
+     "late_count": 3,
+     "supplier_id": "S-013"
+    },
+    {
+     "late_count": 3,
+     "supplier_id": "S-025"
+    },
+    {
+     "late_count": 3,
+     "supplier_id": "S-032"
+    },
+    {
+     "late_count": 3,
+     "supplier_id": "S-036"
+    },
+    {
+     "late_count": 2,
+     "supplier_id": "S-006"
+    },
+    {
+     "late_count": 2,
+     "supplier_id": "S-010"
+    },
+    {
+     "late_count": 2,
+     "supplier_id": "S-014"
+    },
+    {
+     "late_count": 2,
+     "supplier_id": "S-015"
+    },
+    {
+     "late_count": 2,
+     "supplier_id": "S-016"
+    },
+    {
+     "late_count": 2,
+     "supplier_id": "S-023"
+    },
+    {
+     "late_count": 2,
+     "supplier_id": "S-026"
+    },
+    {
+     "late_count": 2,
+     "supplier_id": "S-028"
+    },
+    {
+     "late_count": 2,
+     "supplier_id": "S-034"
+    },
+    {
+     "late_count": 2,
+     "supplier_id": "S-035"
+    },
+    {
+     "late_count": 1,
+     "supplier_id": "S-012"
+    },
+    {
+     "late_count": 1,
+     "supplier_id": "S-017"
+    },
+    {
+     "late_count": 1,
+     "supplier_id": "S-022"
+    },
+    {
+     "late_count": 1,
+     "supplier_id": "S-024"
+    },
+    {
+     "late_count": 1,
+     "supplier_id": "S-031"
+    }
+   ],
+   "title": "Delivered after the requested date",
+   "total": 28
+  },
+  {
+   "answer": "13 suppliers committed to a date after the requested date on lines in weeks 1 to 13, among them S-008, S-018 and S-005.",
+   "answer_segments": [
+    {
+     "text": "13 suppliers committed to a date after the requested date on lines in weeks 1 to 13, among them "
+    },
+    {
+     "ref": {
+      "alias": "supplier_id",
+      "row": 1
+     },
+     "text": "S-008"
+    },
+    {
+     "text": ", "
+    },
+    {
+     "ref": {
+      "alias": "supplier_id",
+      "row": 2
+     },
+     "text": "S-018"
+    },
+    {
+     "text": " and "
+    },
+    {
+     "ref": {
+      "alias": "supplier_id",
+      "row": 4
+     },
+     "text": "S-005"
+    },
+    {
+     "text": "."
+    }
+   ],
+   "checked": "Examined: purchase order lines where week between 1 and 13 and the supplier committed to a date after the requested date · grouped by supplier · computed the number of records",
+   "columns": [
+    "supplier_id",
+    "late_count"
+   ],
+   "entity": "suppliers",
+   "evidence": [
+    "late_by_promise.supplier_id",
+    "late_by_promise.total"
+   ],
+   "headers": {
+    "late_count": "number of records",
+    "supplier_id": "supplier"
+   },
+   "identifiers": [
+    "supplier_id"
+   ],
+   "label": "late_by_promise",
+   "ordered_by": "ordered by number of records, highest first",
+   "result": "rows_returned",
+   "row_count": 13,
+   "rows": [
+    {
+     "late_count": 6,
+     "supplier_id": "S-008"
+    },
+    {
+     "late_count": 5,
+     "supplier_id": "S-018"
+    },
+    {
+     "late_count": 5,
+     "supplier_id": "S-036"
+    },
+    {
+     "late_count": 4,
+     "supplier_id": "S-005"
+    },
+    {
+     "late_count": 3,
+     "supplier_id": "S-032"
+    },
+    {
+     "late_count": 3,
+     "supplier_id": "S-033"
+    },
+    {
+     "late_count": 2,
+     "supplier_id": "S-001"
+    },
+    {
+     "late_count": 2,
+     "supplier_id": "S-003"
+    },
+    {
+     "late_count": 1,
+     "supplier_id": "S-014"
+    },
+    {
+     "late_count": 1,
+     "supplier_id": "S-019"
+    },
+    {
+     "late_count": 1,
+     "supplier_id": "S-022"
+    },
+    {
+     "late_count": 1,
+     "supplier_id": "S-035"
+    },
+    {
+     "late_count": 1,
+     "supplier_id": "S-038"
+    }
+   ],
+   "title": "The supplier committed to a date after the requested date",
+   "total": 13
+  }
+ ],
+ "understood_as": "What is the total value of the open orders of the suppliers that were late in weeks 1 to 13, both those with lines delivered after the requested date and those that committed to a date after the requested date?"
+}

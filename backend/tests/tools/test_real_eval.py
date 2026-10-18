@@ -284,18 +284,20 @@ def test_a_date_period_is_found_quoted_as_examined_renders_it():
     assert ev.check_examined(item, seen, CATALOG)["period"] is False
 
 
-def test_the_demo_set_is_the_12_questions_with_2_after_1():
+def test_the_demo_set_is_the_14_questions_with_2_and_13_after_1():
+    """Q13 and Q14 (scripted demo, 19.10) are probes H1b and H11; Q14 is asked as PL-02."""
     items = ev.demo_set()
-    assert [i["id"] for i in items] == [f"Q{n:02d}" for n in range(1, 13)]
-    assert items[1]["after"] == "Q01" and not any(i.get("after") for i in items[2:])
+    assert [i["id"] for i in items] == [f"Q{n:02d}" for n in range(1, 15)]
+    assert [(i["id"], i["after"]) for i in items if i.get("after")] == [("Q02", "Q01"), ("Q13", "Q01")]
     assert items[6]["expect"]["status"] == ["referred_to_investigation"]
     assert items[11]["expect"]["status"] == ["action_declined"]
+    assert [i["user"] for i in items] == ["AP-01"] * 13 + ["PL-02"]
 
 
 def test_the_demo_set_passes_on_the_scripted_model(db_path, conn):
     deps, gateway_for = main.build_deps("scripted", db_path)
     run = ev.run_set(ev.demo_set(), deps, gateway_for, conn)
-    assert [r.status_ok for r in run.results] == [True] * 12, ev.summary_table(run)
+    assert [r.status_ok for r in run.results] == [True] * 14, ev.summary_table(run)
 
 
 # --------------------------------------------------------------------------
@@ -304,11 +306,11 @@ def test_the_demo_set_passes_on_the_scripted_model(db_path, conn):
 
 @pytest.mark.parametrize("which", ["offscript", "demo"])
 def test_every_question_of_both_sets_has_a_plan_that_passes(conn, which):
-    """43 questions: a question no plan passes for is a gap in the plan language, fixed before a real run."""
+    """45 questions: a question no plan passes for is a gap in the plan language, fixed before a real run."""
     items = ev.load_set(ev.SET_FILE, CATALOG) if which == "offscript" else ev.demo_set()
     results = ev.check_plans(items, CATALOG, conn)
     assert ev.without_plan(items, results) == [], ev.plans_table(results)
-    assert len(items) == {"offscript": 31, "demo": 12}[which]
+    assert len(items) == {"offscript": 31, "demo": 14}[which]
 
 
 def test_c4_has_a_plan_for_each_average(conn):
@@ -351,7 +353,7 @@ def test_the_plans_command_says_how_many_pass(db_path, capsys):
     assert ev.main(["--plans", "--db", str(db_path)]) == 0
     assert "31 of 31 questions have a plan that passes" in capsys.readouterr().out
     assert ev.main(["--plans", "--set", "demo", "--db", str(db_path)]) == 0
-    assert "12 of 12" in capsys.readouterr().out
+    assert "14 of 14" in capsys.readouterr().out
 
 
 def test_q11_on_the_real_model_may_be_answered():

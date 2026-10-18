@@ -118,6 +118,7 @@ export type ConversationChange = { title?: string; pinned?: boolean; archived?: 
 export interface Example {
   question: string;
   follows: string | null; // asked after this question, in the same conversation
+  user: string; // the demo user it is shown as (scripted demo, 19.10): PL-02 for "my" lines
   outcome: Outcome;
   shows: string[];
 }

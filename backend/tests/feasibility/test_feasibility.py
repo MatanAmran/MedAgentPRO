@@ -335,9 +335,15 @@ SHOWS = {
     "two_readings": lambda r: len(r["readings"]) == 2
     and all(x["checked"].startswith("Examined") for x in r["readings"]),
     "one_reading": lambda r: len(r["readings"]) == 1 and r["readings"][0]["checked"].startswith("Examined"),
+    "three_readings": lambda r: len(r["readings"]) == 3
+    and all(x["checked"].startswith("Examined") for x in r["readings"]),
     "understood_as": lambda r: bool(r.get("understood_as")),
     "grouped": lambda r: _grouped(r["readings"][0]),
     "gap": lambda r: bool(r["gaps"]) and all(g.get("text") for g in r["gaps"]),
+    "cross_record_gap": lambda r: [g["missing"]["kind"] for g in r["gaps"]] == ["cross_record_condition"]
+    and all(g.get("text") for g in r["gaps"]),
+    "planner_you": lambda r: bool(r["readings"]) and all("planner = you" in x["checked"] for x in r["readings"])
+    and all(x["result"] == "rows_returned" for x in r["readings"]),
     "recorded_reason": lambda r: "recorded as" in r["readings"][0]["answer"]
     and "because" not in r["readings"][0]["answer"],
     "referral": lambda r: r.get("offer_investigation") is True,
@@ -349,25 +355,27 @@ SHOWS = {
 }
 
 
-def _run_scripted(db_path, scripts, question, history):
+def _run_scripted(db_path, scripts, question, history, user="AP-01"):
     audit = AuditRepository(MemoryStorage(), CircuitBreaker("s", MemoryStore()), b"k")
     d = pl.Deps(ScriptedDemoGateway(question, scripts), "scripted-demo", CAT,
                 pl.connect_readonly(db_path), audit, prompts.load(seed.HERE / "intent_analysis.md"))
-    return pl.run(question, history, USERS["APPROVER"], d), audit
+    asker = next(u for u in USERS.values() if u["user_id"] == user)
+    return pl.run(question, history, asker, d), audit
 
 
 def test_L01_every_scripted_demo_question_runs_through_the_real_checks(db_path):
     """Task 8: each scripted question ends exactly as its expect says, through every real check, and
-    shows each behaviour it is in the set for. A follow-up runs after the question it follows."""
+    shows each behaviour it is in the set for. A follow-up runs after the question it follows; an exchange
+    runs as the demo user its expect names (AP-01 unless it says otherwise)."""
     scripts = load_scripts()
     assert len(scripts) >= 12
     for entry in scripts.values():
         expect = entry["expect"]
         history = []
         if expect.get("follows"):
-            before, _ = _run_scripted(db_path, scripts, expect["follows"], [])
+            before, _ = _run_scripted(db_path, scripts, expect["follows"], [], expect.get("user", "AP-01"))
             history = [before.exchange]
-        out, audit = _run_scripted(db_path, scripts, entry["question"], history)
+        out, audit = _run_scripted(db_path, scripts, entry["question"], history, expect.get("user", "AP-01"))
         r = out.response
         assert r["outcome"] == expect["outcome"], (
             entry["question"], r["outcome"], audit.storage.get_investigation(out.exchange_id).get("failure"))

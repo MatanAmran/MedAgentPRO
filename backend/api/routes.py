@@ -160,10 +160,12 @@ def router(state: AppState) -> APIRouter:
     @r.get("/examples")
     def examples():
         """Task 8, A4: the questions the scripted model answers, in the demo's order, for the empty
-        screen. None on the real model, whose answers are not scripted."""
+        screen. None on the real model, whose answers are not scripted. user: the demo user the example is
+        shown as (scripted demo, 19.10)."""
         if state.mode != "scripted":
             return []
         return [{"question": e["question"], "follows": e["expect"].get("follows"),
+                 "user": e["expect"].get("user", "AP-01"),
                  "outcome": e["expect"]["outcome"], "shows": e["expect"]["shows"]}
                 for e in load_scripts().values()]
 
