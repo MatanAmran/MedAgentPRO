@@ -4053,17 +4053,81 @@ exchange cost: attempt=EX-bc247dc6774a usd=0.061608 remaining=1.714846
 - **בדיקות:** כמו בהגדרה (אין טקסט, ערך מרשומה או מפתח; סגור כברירת מחדל; מקלדת; axe; ‏Playwright בשני המצבים), ובנוסף `--plans` נשאר 43 מתוך 43.
 - **אין צורך בריצה אמיתית לפני מיזוג.** הספק המזויף מכסה את הנתיב. הלוח ייראה בחזרה על הדמו.
 
-**3. נוסחים לספר — לאביתר** (הצ׳אט לא נוגע בספר). נבדק מול `Book Phase A - גרסה עדכנית ל-15.10.docx`:
-- **NFR 6 — המשפט האחרון:**
-  - **היום:** "A count or a sum over records shall be computed without a model call and carried in the same way."
-  - **← החדש:** "A count, sum, average, minimum or maximum over records, or over a value defined from them, shall be computed without a model call and carried in the same way."
-- **FR 14 — משפט שלישי, בסוף:** "Where a question cannot be interpreted from its own words and the conversation, the system shall retrieve nothing and ask for the question to be stated in full."
-- **4.9 — בסוף פסקת השער,** אחרי "…that the assistant does not change records.": "A question that cannot be interpreted from its own words and the conversation retrieves nothing and receives a request to state it in full."
-- **מבחן 22:**
-  - **צעד רביעי:** "Begin a new conversation with a follow-up question that names nothing it refers to, and read what is returned."
-  - **בסוף התוצאה:** "The fourth retrieves nothing. What returns asks for the question to be stated in full."
-- **3.1.4 — כבר עודכן בגרסה של 15.10** ("Enforcement of a structured output schema differs between providers… validated against its schema in code…"). **מה שנשאר: משפט על העתיד, אחרי "…whichever provider serves the call.":** "Where a provider cannot enforce a schema of this size in a single call, the plan can be built in smaller calls, each held to a narrower schema; this remains to be evaluated in phase B."
-- **בסוף: רענון תוכן העניינים.**
+**3. נוסחים לספר — לאביתר** (הצ׳אט לא נוגע בספר). המיקומים נבדקו מול `Book Phase A - גרסה עדכנית ל-15.10.docx`. הפירוט המלא — בתשובה של הצ׳אט ב-18.10, 15:15:
+- **NFR 6** (5.2, טבלה 14) — המשפט האחרון מוחלף: ממוצע, מינימום ומקסימום, גם על ערך שמוגדר מהרשומות.
+- **FR 14** (5.1, טבלה 13) — משפט שלישי: שאלה שלא ניתנת לפירוש.
+- **4.9, הפסקה החמישית** ("The answer is drafted with symbolic references…") — משפט אחרון חדש.
+- **מבחן 22** (6.2, טבלה 17) — צעד חמישי, ומשפט בסוף התוצאה.
+- **3.1.4, הפסקה שאחרי טבלה 5** — משפט אחרי "…whichever provider serves the call."
+- **בסוף:** עדכון השדות (תוכן העניינים).
+- **✅ בוצע על ידי אביתר (18.10, 15:03).** נבדק בצ׳אט בטקסט של ה-docx: כל חמשת השינויים במקומם, והמשפט הישן של NFR 6 הוסר. **Code: לעדכן את `10_BOOK.md`** בהתאם (NFR 6, ‏FR 14, ‏4.9, מבחן 22, ‏3.1.4).
+
+### **משימה 10 — תוכנית (18.10, ענף `task10/panel` מ-`master` ‏`46b8f79`).** ‏**עצירה לפני קוד**
+
+**העיקרון:** הלוח הוא API ומסך בלבד. לא משתנים פרומפט, `pipeline.run` או החוזה. הנתונים מגיעים מ-`CallTrace` — אותו מקור כמו שורת הלוג של R9 ורשומת הביקורת.
+
+**1. מקור הנתונים (backend):**
+- **אוסף הקריאות:** `api/routes.py` מעביר ל-`pipeline.run` את `on_call`, שכבר קיים (נוסף לכלי של הסט). כך כל `CallTrace` של החילוף נאסף בצד ה-API. **אין שינוי ב-`pipeline.py`.**
+- **עלות לכל קריאה:** שדה חדש `ModelResponse.cost_usd`. ‏`BudgetedGateway` ממלא אותו כשהוא רושם את ההוצאה בפועל, באותו חישוב שנכנס לספר ההוצאה. ‏`CallTrace` מקבל `cost_usd` מהתשובה.
+  - **קריאה שנכשלה** (אין תשובה) — `cost_usd` ריק, ומוצג "—".
+  - **הסך בתחתית הלוח לוקח את הסכום מ-`Outcome.cost`, שהוא הסמכותי, ולא את הסכום של השורות.** אחרי timeout המקרה הגרוע נשאר מחויב (R5), ולכן הסך יכול להיות גדול מסכום השורות. ההפרש מוצג בשורה נפרדת: "reserved for calls whose cost is unknown".
+- **סירוב קצב:** `RateLimited` נתפס ב-`pipeline.run` (קיים) ונגמר בהודעה הקבועה `contract.RATE_LIMITED`. ה-API מזהה אותו מההודעה — טקסט שהקוד כתב, כמו ב-`real_eval` — ומסמן `"not_sent": "rate_limit"`. **בלי שינוי בצינור.**
+
+**2. השדה ב-API — `trace`, מחוץ ל-`exchange_response`** (כמו `cost`, ‏T3). באירוע `result` ובכל פריט של `GET /api/conversations/{id}`:
+```
+"trace": {
+  "calls": [ { stage, prompt_identity, model, attempt_number, feedback_attempt, status,
+               finish_reason, input_tokens, output_tokens, reasoning_tokens, max_tokens,
+               duration_ms, check, cost_usd } ],
+  "total": { input_tokens, output_tokens, reasoning_tokens, usd },
+  "not_sent": null | "rate_limit"
+}
+```
+- **רשימה לבנה של שדות, לא `as_dict()` המלא.**
+- `check` בלבד. **אף פעם לא** `rejection_reason`, ‏`superseded_reason` או `failure` — הם גם לא קיימים ב-`CallTrace`.
+- `output_chars` ו-`claims` לא נכנסים ללוח, כי לא ביקשו אותם. (הצעה: `claims` של השער יכול להסביר שער ארוך. לא נכנס בלי אישור.)
+
+**3. ההפעלה:**
+- **`python -m main --panel`** (גם עם `--real`). ‏`AppState.panel`. ‏`/api/health` מחזיר `"panel": true|false`.
+- **ברירת מחדל: כבוי.** כשכבוי, אין שדה `trace` בכלל, והמסך לא מציג כפתור.
+- `tools/fake_real_server.py` מקבל `--panel` לבדיקות הקצה.
+
+**4. המסך:**
+- **רכיב חדש, `HowAnswered.tsx`**, מתחת לכל תשובה שיש לה `trace`: כפתור "How this was answered", עם `aria-expanded` ו-`aria-controls`, **סגור כברירת מחדל**. נפתח בקליק, ב-Enter וב-Space.
+- **בפתיחה — טבלה:** שלב · מודל · ניסיון · משוב · טוקנים (קלט / פלט / מתוכם חשיבה) · ‏`max_tokens` · עלות · זמן · ‏`finish_reason` · דחייה (`check`). בסוף שורת סך.
+- **במצב המתוסרט:** המודל "scripted", העלות 0. הטוקנים מסומנים "≈", כי הם הערכה של השער המתוסרט (תווים חלקי 4), ולא ספירה של ספק.
+- **בלי קריאות:** ‏`not_sent: rate_limit` ← "Not sent: rate limit". אין קריאות מסיבה אחרת (למשל סירוב תקציב לפני הכוונה) ← "No model call".
+
+**❓ שאלה לצ׳אט — "No model call" בשאלות 7 ו-12 (ובבקשת בירור):**
+- **אצלן יש קריאת מודל אחת:** ניתוח הכוונה. ההפניה לחקירה, הסירוב לשינוי והבירור הם ה-`disposition` שהכוונה החזירה. הקוד רק בונה מהם תשובה קבועה. ב-8 וב-9 יש רק כוונה, ואין סינתזה ושער.
+- **ההצעה שלי:**
+  - הלוח מראה את מה שקרה בפועל — שורה אחת, ‏`intent_analysis`.
+  - מתחתיה הערה קבועה, לפי ה-outcome: "No answer was drafted: the plan alone decided this" (7, ‏12, בירור), או "No answer was drafted: no records matched" (8, ‏9).
+  - "No model call" — רק כשאין שום קריאה.
+- **עד ההכרעה לא אבנה את ההערות האלה.** השאר לא תלוי בה.
+
+**5. בדיקות:**
+- **backend:**
+  - `trace` מכיל רק את השדות שברשימה הלבנה.
+  - **אף מחרוזת ב-`trace`** אינה השאלה, טקסט של המודל, ערך מהשורות שהוצגו, הודעת דחייה (שער שנדחה עם ניסיון משוב) או המפתח (`sk-ant`, קטע מהמפתח המזויף).
+  - בספק המזויף: לכל קריאה שהצליחה יש `cost_usd`, וסכומן שווה ל-`Outcome.cost` כשאין timeout.
+  - כשהלוח כבוי — אין `trace`.
+  - סירוב קצב ← `not_sent: rate_limit` ואפס קריאות.
+  - `max_tokens` = תקרת הכוונה ותקרת השער, בהתאמה.
+- **מסלול חדש ב-`tests/paths/registry.py`,** אם `branches.py` מזהה נקודת קצה או קוד חדש (לא צפוי, כי זה שדה ולא נקודת קצה).
+- **frontend (vitest):** סגור כברירת מחדל; נפתח במקלדת; ‏axe (מבחן 40); "Not sent: rate limit"; תצוגה מתוסרטת ("scripted", ≈); אין רכיב בלי `trace`.
+- **Playwright, בשני המצבים, עם `--panel`:** המתוסרט, והספק המזויף (`playwright.real.config.ts`). פותחים את הלוח בשאלה 1 ובשאלה 7, ובודקים עמודות וסך.
+- **`--plans` נשאר 43 מתוך 43**, וגם `pytest` המלא.
+
+**6. `70_DEMO.md`:**
+- איך מדליקים: `python -m main --real --panel`.
+- מה רואים בלוח, ומה לומר עליו.
+- המגבלה כבר 10 לדקה.
+- **הערה למציג:** שאלה חופשית על נתון שאין לו עמודה מקבלת פער או הפניה לחקירה. זו התנהגות נכונה, לא תקלה.
+
+**לא בתוכנית:** ריצה אמיתית. הספק המזויף מכסה את הנתיב, והלוח ייראה בחזרה על הדמו.
+
+**הבא:** אישור התוכנית, והכרעה על "No model call". אחר כך קוד, בסדר הזה: backend ← API ← מסך ← בדיקות ← `70_DEMO.md`.
 
 ## מה שנסגר בסבב האחרון
 
