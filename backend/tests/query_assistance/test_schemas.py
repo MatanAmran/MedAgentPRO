@@ -146,8 +146,13 @@ case("intent_analysis", "raw SQL smuggled in",
 case("intent_analysis", "AVG over a metric",
      intent([{"label": "r", "plan": plan(
          SELECT=[{"expr": {"func": "AVG", "arg": {"metric": "days_late"}}, "as": "q"}])}]),
-     False, "An aggregate takes a column. Over a metric (C4 of the held-out set, days_late) is an open "
-            "question for the chat (18.10, 13:05 follow-up), so it stays refused.")
+     True, "Rule 4 sends the model to a metric, so it can be aggregated (chat, 18.10, 13:15; C4 of the "
+           "held-out set). A boolean one is refused by the compiler, not the schema.")
+
+case("intent_analysis", "COUNT over a metric",
+     intent([{"label": "r", "plan": plan(
+         SELECT=[{"expr": {"func": "COUNT", "arg": {"metric": "late_by_delivery"}}, "as": "q"}])}]),
+     False, "A boolean metric is counted with COUNT(*) and WHERE; COUNT takes a column or the star.")
 
 case("intent_analysis", "SUM over star",
      intent([{"label": "r", "plan": plan(

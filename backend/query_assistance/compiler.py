@@ -310,7 +310,13 @@ class _ReadingCompiler:
         name, arg = node["func"], node["arg"]
         if arg == "*":
             return Expr("COUNT(*)", "integer", [], is_agg=True)
-        inner = self.col(arg["col"])
+        if "metric" in arg:   # SUM, AVG, MIN, MAX over a numeric metric (chat, 18.10, 13:15)
+            inner = self.metric(arg["metric"])
+            if inner.type not in NUMERIC:
+                self.fail("type_mismatch", f"{name} over metric '{arg['metric']}', which is not numeric. "
+                          "Count a boolean metric with COUNT and WHERE.", metric=arg["metric"])
+        else:
+            inner = self.col(arg["col"])
         if name == "COUNT":
             return Expr(f"COUNT({inner.sql})", "integer", [], is_agg=True)
         if name in ("SUM", "AVG") and inner.type not in NUMERIC:

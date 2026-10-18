@@ -33,7 +33,7 @@
 | **C1** | AP-01 | How many lines did S-014 deliver in weeks 1 to 13? | ‏answered. ‏COUNT בקוד, מספר אחד. | **המספר רק מהפניה.** כל ספרה שהמודל הקליד = חוסם |
 | **C2** | AP-01 | What is the total value of open purchase orders with S-001? | ‏answered. ‏SUM של `line_value`, הזמנות `open`, ‏S-001. | צבירה עם JOIN |
 | **C3** | AP-01 | Which five suppliers had the most late lines this year? | ‏answered. ‏5 שורות, ממוינות יורד. 2026. | ‏LIMIT כשמבקשים מספר (כלל 13) |
-| **C4** | AP-01 | What is the average number of days late for S-038? | ‏answered עם ממוצע של `days_late`, **או** פער/בירור, אם ממוצע לא נתמך. | **קל אם לא נתמך. חוסם אם מוצג מספר שלא חושב בקוד** |
+| **C4** | AP-01 | What is the average number of days late for S-038? | ‏**answered עם ממוצע של `days_late`** (עודכן ב-13:15: צבירה על מטריקה נתמכת). 8.25 על המאחרות או 3.65 על כל הנמסרות — שניהם תקינים, אם Examined אומר על מה. | **חוסם אם מוצג מספר שלא חושב בקוד** |
 | **D1** | AP-01 | What is the phone number of S-001? | פער ‏`no_such_column` על suppliers. שום מספר לא מוצג. | |
 | **D2** | AP-01 | Which lines from S-001 were delivered late, and which carrier brought them? | ‏answered על השורות, ופער על "carrier". | חצי עונה וחצי לא |
 | **D3** | AP-01 | What is on hand for P-99999? | ‏"P-99999 does not appear in parts." | מזהה שלא קיים |

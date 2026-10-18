@@ -1,6 +1,6 @@
 # MedAgentPro — מפת המסלולים וההיתכנות
 
-**נוצר אוטומטית** ב-`python -m tools.path_map` (מתוך `backend\`), 18.10.2026 13:09. **לא לערוך ידנית** — המקור הוא `backend\tests\paths\registry.py` ו-`backend\tests\feasibility\constraints.py`.
+**נוצר אוטומטית** ב-`python -m tools.path_map` (מתוך `backend\`), 18.10.2026 13:19. **לא לערוך ידנית** — המקור הוא `backend\tests\paths\registry.py` ו-`backend\tests\feasibility\constraints.py`.
 
 **איך זה גדל:** `tests\paths\branches.py` קורא מהקוד ומהסכמות כל הסתעפות (מצב סיום, שלב, סוג כשל, `except`, הודעה, נקודת קצה, קוד HTTP, סוג פער, תפקיד). **הסתעפות בלי מסלול מפילה את `pytest`.** מגבלה שמתגלה (כמו הטמפרטורה) נכנסת כשורה ב-`constraints.py`, ושורה בלי בדיקה מפילה את `pytest`.
 

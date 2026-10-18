@@ -104,3 +104,81 @@ def test_an_average_reaches_the_answer_as_a_reference(db_path):
         "SELECT ROUND(AVG(quantity), 2) FROM commitments WHERE supplier_id = 'S-038'").fetchone()[0]
     assert view["rows"][0]["avg_qty"] == want
     assert view["answer"] == f"S-038 had an average ordered quantity of {want:.2f}".rstrip("0").rstrip(".") + "."
+
+
+# --------------------------------------------------------------------------
+# over a numeric metric (chat, 18.10, 13:15; C4 of the held-out set)
+# --------------------------------------------------------------------------
+
+DAYS = "julianday(delivered_at) - julianday(due_date)"
+QM = "Average days late on S-038 lines?"   # not C4 of the held-out set, which never becomes a fixture
+
+
+def metric_plan(func="AVG", metric="days_late", alias="days"):
+    return {"SELECT": [{"expr": {"func": func, "arg": {"metric": metric}}, "as": alias}],
+            "FROM": "commitments",
+            "WHERE": {"EQ": [{"col": "commitments.supplier_id"}, {"value": "S-038"}]}}
+
+
+@pytest.mark.parametrize("func, sql", [
+    ("AVG", f"ROUND(AVG({DAYS}), 2)"), ("MIN", f"MIN({DAYS})"), ("MAX", f"MAX({DAYS})"), ("SUM", f"SUM({DAYS})")])
+def test_each_aggregate_over_a_metric_matches_plain_sql(db, func, sql):
+    reading = compile_(metric_plan(func), question=QM).readings[0]
+    got = c.execute(reading, db).rows[0]["days"]
+    want = db.execute(f"SELECT {sql} FROM commitments WHERE supplier_id = 'S-038'").fetchone()[0]  # nosec B608
+    assert got == pytest.approx(want)
+
+
+def test_an_average_over_a_metric_leaves_out_the_records_it_has_no_value_for(db):
+    """A line not yet delivered has no days_late; the average is over the delivered lines only."""
+    got = c.execute(compile_(metric_plan(), question=QM).readings[0], db).rows[0]["days"]
+    delivered = db.execute(f"SELECT AVG({DAYS}) FROM commitments WHERE supplier_id = 'S-038' "  # nosec B608
+                           "AND delivered_at IS NOT NULL").fetchone()[0]
+    assert db.execute("SELECT COUNT(*) FROM commitments WHERE supplier_id = 'S-038' "
+                      "AND delivered_at IS NULL").fetchone()[0] > 0
+    assert got == round(delivered, 2)
+
+
+@pytest.mark.parametrize("func", ["SUM", "AVG", "MIN", "MAX"])
+def test_a_boolean_metric_is_not_aggregated(func):
+    with pytest.raises(c.CompileError) as e:
+        compile_(metric_plan(func, metric="late_by_delivery"), question=QM)
+    assert e.value.code == "type_mismatch" and "COUNT and WHERE" in str(e.value)
+
+
+def test_count_still_takes_no_metric():
+    assert list(c.intent_validator().iter_errors(intent(metric_plan("COUNT"))))
+
+
+def test_examined_says_what_an_aggregate_over_a_metric_was_taken_over():
+    pl_ = metric_plan()
+    assert contract.render_checked(pl_, CAT, "APPROVER").endswith(
+        "computed the average days late, over purchase order lines with requested date and delivery date recorded")
+    assert contract.headers(pl_, CAT)["days"] == "average days late"
+
+
+def test_an_average_over_a_metric_reaches_the_answer_as_a_reference(db_path):
+    syn = {"readings": [{"label": "avg", "sentences": [{"text": "The average days late was {avg.days#1}."}]}]}
+
+    def gate(prompt):
+        body = prompt.split("Answer:\n")[-1].split("\nRecords:")[0]
+        text = body.split(". ", 1)[1].split("] ", 1)[1].strip()
+        return {"claims": [{"sentence": 1, "text": text, "verdict": "supported", "evidence": ["avg.days"]}]}
+
+    planned = {"disposition": "retrieve", "readings": [{"label": "avg", "plan": metric_plan()}]}
+    outputs = {"intent_analysis_demo": [planned], "synthesis": [syn], "support_scoring": [gate]}
+
+    def answer(prompt, cfg):
+        out = outputs[cfg.prompt_identity.split("@")[0]].pop(0)
+        return out(prompt) if callable(out) else out
+
+    audit = AuditRepository(MemoryStorage(), CircuitBreaker("system_store", MemoryStore()), b"test-key")
+    deps = pl.Deps(ScriptedModelGateway(answer), "demo", CAT, lambda: sqlite3.connect(db_path), audit,
+                   p.load(seed.HERE / "intent_analysis.md"))
+    out = pl.run(QM, [], APPROVER, deps)
+    assert out.response["outcome"] == "answered", out.response
+    view = out.response["readings"][0]
+    want = sqlite3.connect(db_path).execute(f"SELECT ROUND(AVG({DAYS}), 2) FROM commitments "  # nosec B608
+                                            "WHERE supplier_id = 'S-038'").fetchone()[0]
+    assert view["rows"][0]["days"] == want and view["answer"] == f"The average days late was {want}."
+    assert "over purchase order lines with requested date and delivery date recorded" in view["checked"]
