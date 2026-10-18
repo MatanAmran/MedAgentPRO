@@ -19,6 +19,7 @@ import os
 import secrets
 import sys
 from pathlib import Path
+from typing import Callable
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
@@ -28,6 +29,7 @@ from api.state import AppState
 from demo_data import seed
 from demo_data.scripted import ScriptedDemoGateway, load_scripts
 from model_client.budget import ENV_FILE, BudgetConfigError, BudgetedGateway, real_gateway
+from model_client.client import ModelGateway
 from persistence.audit_repository import AuditRepository, MemoryStorage
 from query_assistance import pipeline, prompts
 from query_assistance.compiler import Catalog
@@ -54,10 +56,11 @@ def _chain_key(mode: str) -> bytes:
     return secrets.token_bytes(32)
 
 
-def create_app(mode: str = "scripted", db_path: Path = seed.DEFAULT_OUT, scripted_delay: float = 0.0,
-               gateway: BudgetedGateway | None = None) -> FastAPI:
-    """gateway: on the real model, the budgeted gateway to use instead of real_gateway(). Only the fake
-    provider of the end-to-end tests passes one (tools/fake_real_server.py, task 9)."""
+def build_deps(mode: str = "scripted", db_path: Path = seed.DEFAULT_OUT, scripted_delay: float = 0.0,
+               gateway: BudgetedGateway | None = None) -> tuple[pipeline.Deps, Callable[[str], ModelGateway]]:
+    """The pipeline's dependencies, built once (N12), and the gateway for each question: bound to it on
+    the scripted model, the one budgeted gateway on the real one. The server and tools/real_eval.py
+    build them here, the same way. gateway: see create_app."""
     if not Path(db_path).exists():
         raise SystemExit(f"{db_path} is missing. Build it first: python -m demo_data.seed")
     catalog = Catalog.load(seed.HERE / "schema.json", seed.HERE / "relations.json")
@@ -72,6 +75,14 @@ def create_app(mode: str = "scripted", db_path: Path = seed.DEFAULT_OUT, scripte
         gateway_for = lambda question: ScriptedDemoGateway(question, scripts, scripted_delay)   # noqa: E731
     deps = pipeline.Deps(gateway, model, catalog, pipeline.connect_readonly(db_path), audit,
                          prompts.load(seed.HERE / "intent_analysis.md"))
+    return deps, gateway_for
+
+
+def create_app(mode: str = "scripted", db_path: Path = seed.DEFAULT_OUT, scripted_delay: float = 0.0,
+               gateway: BudgetedGateway | None = None) -> FastAPI:
+    """gateway: on the real model, the budgeted gateway to use instead of real_gateway(). Only the fake
+    provider of the end-to-end tests passes one (tools/fake_real_server.py, task 9)."""
+    deps, gateway_for = build_deps(mode, db_path, scripted_delay, gateway)
     app = FastAPI(title="MedAgentPro chat (demo)")
     app.add_middleware(CORSMiddleware, allow_origins=FRONTEND_ORIGINS, allow_methods=["GET", "POST"],
                        allow_headers=["Content-Type", "X-Demo-User"])

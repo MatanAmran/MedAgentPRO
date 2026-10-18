@@ -219,13 +219,14 @@ On Evyatar's machine an Application Control policy blocks `.exe` files in the ve
 # Backend (from backend\, venv active)
 python -m pip install -r requirements.txt
 python -m demo_data.seed          # builds demo_data\demo.db
-python -m pytest -q               # the default run; 880 after the 09:40 and 11:35 changes (18.10)
+python -m pytest -q               # the default run; 906 after the held-out set's tool (18.10)
 python -m tools.path_map          # runs tests/paths and tests/feasibility, writes docs/notes/60_PATHS.md
 python -m query_assistance.dry_run   # prices two scripted exchanges at the .env prices, no model call, no key
 python -m query_assistance.dry_run --model claude-sonnet-5-5   # the same, prices from LiteLLM's local map, no .env
 python -m main                    # the chat server on the scripted model, http://127.0.0.1:8000/api/health
 python -m tools.preflight         # before a demo: database, server, screen, examples, one scripted question; --real adds .env, the map, the budget; never a model call
 python -m tools.fake_real_server  # the real-model path with a fake provider (no key, no network), for the end-to-end tests
+python -m tools.real_eval --real --confirm --out DIR   # the held-out set (demo_data/offscript_set.json) on the real model, paid, only with Evyatar's approval; report outside the repo; without --real, the scripted model
 python -m pytest -m stress        # load, concurrency, and the property tests at 2000 examples (not in the default run)
 UPDATE_GOLDEN=1 python -m pytest tests/golden   # rewrite golden snapshots, printing the diff for review
 

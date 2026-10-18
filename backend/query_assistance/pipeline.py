@@ -131,10 +131,12 @@ def _now() -> str:
 # --------------------------------------------------------------------------
 
 class _Record:
-    def __init__(self, exchange_id: str, user: dict, context: dict | None = None):
+    def __init__(self, exchange_id: str, user: dict, context: dict | None = None,
+                 on_call: Callable[[call_trace.CallTrace], None] | None = None):
         self.exchange_id = exchange_id
         self.user = user
         self.context = context or {}     # request and conversation ids, for the log line only
+        self.on_call = on_call           # sees each call's trace, metadata only (tools/real_eval.py)
         self.entries: list[AuditEntry] = []
 
     def _entry(self, ordinal: int, event_type: str, **kw) -> AuditEntry:
@@ -163,6 +165,8 @@ class _Record:
                         feedback_attempt=t.feedback_attempt, rejection_reason=c.rejection)
             operational_log.info("%s", t.log_line(exchange=self.exchange_id, request=self.context.get("request_id"),
                                                   conversation=self.context.get("conversation_id")))
+            if self.on_call:
+                self.on_call(t)
 
 
 # --------------------------------------------------------------------------
@@ -311,12 +315,14 @@ def _presented(response: dict, plans: dict[str, dict], cat: Catalog, answer: Dra
 # --------------------------------------------------------------------------
 
 def run(question: str, history: list[prompts.Exchange], user: dict, deps: Deps,
-        on_stage: Callable[[str], None] | None = None, context: dict | None = None) -> Outcome:
+        on_stage: Callable[[str], None] | None = None, context: dict | None = None,
+        on_call: Callable[[call_trace.CallTrace], None] | None = None) -> Outcome:
     """history holds the earlier exchanges of the same conversation, oldest first. context holds the
-    request and conversation ids, which only the operational log line carries (R9)."""
+    request and conversation ids, which only the operational log line carries (R9). on_call receives
+    the trace of each model call as it is recorded, the same metadata as that line."""
     stage = on_stage or (lambda name: None)
     eid = "EX-" + uuid.uuid4().hex[:12]
-    rec = _Record(eid, user, context)
+    rec = _Record(eid, user, context, on_call)
     cat, role = deps.catalog, user["role"]
     understood: str | None = None
     rewritten: str | None = None
