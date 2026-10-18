@@ -320,17 +320,23 @@ def ambiguous_terms(intent: dict, question: str) -> list[str]:
     return [a["term"] for a in intent.get("ambiguous", []) if _norm(a["term"]) in posed]
 
 
-def _presented(response: dict, plans: dict[str, dict], cat: Catalog, answer: Draft | None) -> list[str]:
-    """NFR 27: the identifier-column values of the rows shown, in display order, then any in the
-    answer text. Never a free-text value (NFR 21, review F5)."""
+def _shown_identifiers(views: list[dict], plans: dict[str, dict], cat: Catalog) -> list[str]:
+    """The identifier-column values of the rows shown, in display order. Never a free-text value."""
     out: list[str] = []
-    for view in response["readings"]:
+    for view in views:
         cols = {i["as"]: i["expr"].get("col") for i in plans[view["label"]]["SELECT"]}
-        ids = [a for a in view["columns"] if cols.get(a) and (cat.column(cols[a]) or {}).get("identifier")]
-        for row in view["rows"]:
+        ids = [a for a in view.get("columns", []) if cols.get(a) and (cat.column(cols[a]) or {}).get("identifier")]
+        for row in view.get("rows", []):
             for a in ids:
                 if row.get(a) is not None and str(row[a]) not in out:
                     out.append(str(row[a]))
+    return out
+
+
+def _presented(response: dict, plans: dict[str, dict], cat: Catalog, answer: Draft | None) -> list[str]:
+    """NFR 27: the identifier-column values of the rows shown, in display order, then any in the
+    answer text. Never a free-text value (NFR 21, review F5)."""
+    out = _shown_identifiers(response["readings"], plans, cat)
     for v in answer.presented_identifiers(cat) if answer is not None else []:
         if v not in out:
             out.append(v)
@@ -387,6 +393,12 @@ def run(question: str, history: list[prompts.Exchange], user: dict, deps: Deps,
             return Outcome(contract.request_not_completed(understood), prompts.Exchange(question, understood),
                            eid, recorded=False, cost=spent)
         ex = prompts.Exchange(question, understood, presented=list(presented or []))
+        if response["readings"]:   # D2, D1 (fix round): the condition of each reading, and what was cut
+            ex.readings = [prompts.ReadingNote(r["label"], r["checked"].removeprefix("Examined: "),
+                                               r.get("row_count", 0), r.get("total", r.get("row_count", 0)))
+                           for r in response["readings"]]
+            ex.cut = _shown_identifiers([r for r in response["readings"]
+                                         if r.get("total", 0) > r.get("row_count", 0)], plans, cat)
         if answer is not None and answer.sentences:
             ex.answer = "\n".join(f"[{label}] {answer.answer(label, cat, for_history=True)}"
                                   for label in answer.sentences)
@@ -403,7 +415,8 @@ def run(question: str, history: list[prompts.Exchange], user: dict, deps: Deps,
             built = prompts.build_history(history)
             rewritten = _ask(deps, rec, REWRITING, prompts.load("rewrite.md"),
                              lambda fb: prompts.render_rewrite(built, question, feedback=fb),
-                             lambda out: prompts.check_rewrite(out, question), _REWRITE_V.schema, _REWRITE_V)
+                             lambda out: prompts.check_rewrite(out, question, history), _REWRITE_V.schema,
+                             _REWRITE_V)
             if _norm(rewritten) != _norm(question):
                 understood = rewritten
 

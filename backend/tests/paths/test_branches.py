@@ -54,6 +54,7 @@ GAP_ENTITY = {
     "no_such_table": "shipments",
     "value_not_present": "commitments.supplier_id",
     "source_outside_system": "shipments",
+    "cross_record_condition": "suppliers",
     "unspecified": None,
 }
 

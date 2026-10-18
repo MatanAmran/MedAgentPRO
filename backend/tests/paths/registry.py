@@ -119,8 +119,9 @@ PATHS: list[Path] = [
     Path("every_failure_kind_late", f"{B}::test_every_model_failure_kind_at_the_gate_after_paying_for_synthesis",
          (), "R4 · NFR 3"),
     Path("every_gap_kind", f"{B}::test_every_gap_kind_is_rendered_without_a_cause",
-         tuple(f"gap:{k}" for k in ("no_such_column", "no_such_table", "source_outside_system", "unspecified",
-                                    "value_not_present")), "FR 11 · NFR 20", "one case per kind, generated"),
+         tuple(f"gap:{k}" for k in ("cross_record_condition", "no_such_column", "no_such_table",
+                                    "source_outside_system", "unspecified", "value_not_present")),
+         "FR 11 · NFR 20 · D1", "one case per kind, generated"),
     # --- the real-model wiring ---------------------------------------------------------
     Path("real_answers_with_cost", f"{P}::test_real_wiring_answers_and_reports_cost", (), "task 5 · T3"),
     Path("budget_used_up", f"{P}::test_total_budget_used_up_before_any_call",

@@ -606,6 +606,8 @@ def _check_gap_entity(cat: Catalog, needs: dict):
         raise CompileError("gap_entity", f"A '{kind}' gap names no entity.", kind=kind)
     if kind in ("no_such_column", "value_not_present"):
         ok = cat.resolves(entity)
+    elif kind == "cross_record_condition":   # D1 (fix round): the table whose other records the part needs
+        ok = entity in cat.entities
     else:  # no_such_table, source_outside_system: the name must NOT be something the schema holds
         ok = not cat.resolves(entity)
     if not ok:

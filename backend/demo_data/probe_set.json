@@ -1,5 +1,5 @@
 {
- "$comment": "Probe set (architecture eval, chat 18.10, 23:00). Not the held-out set, not the demo set. Questions and expectations by the chat; SQL and hand plans by Code, against demo.db, without the model. A probe with no plan is a gap in the plan language found in stage 1. NEVER copy these questions into a prompt as examples. Run with tools/real_eval.py --set demo_data/probe_set.json.",
+ "$comment": "Probe set (architecture eval, chat 18.10, 23:00). Not the held-out set, not the demo set. Questions and expectations by the chat; SQL and hand plans by Code, against demo.db, without the model. A probe with no plan is a gap in the plan language found in stage 1. NEVER copy these questions into a prompt as examples. H11 and H12 added in the fix round (D7). Run with tools/real_eval.py --set demo_data/probe_set.json.",
  "data_as_of": "2026-10-09",
  "exchanges": [
   {
@@ -99,18 +99,88 @@
    "rewritten": "What is the total value of the open orders of the suppliers that were late in weeks 1 to 13?",
    "expect": {
     "status": [
-     "answered",
-     "needs_clarification"
-    ]
+     "answered"
+    ],
+    "gap": "cross_record_condition"
    },
    "sql": [
     {
-     "query": "SELECT c.supplier_id FROM commitments c JOIN purchase_orders o ON o.po_id = c.po_id WHERE o.status = 'open' AND c.supplier_id IN (SELECT supplier_id FROM commitments WHERE week BETWEEN 1 AND 13 AND delivered_at > due_date) GROUP BY c.supplier_id",
+     "query": "SELECT DISTINCT supplier_id FROM commitments WHERE week BETWEEN 1 AND 13 AND delivered_at > due_date",
      "compare": "total"
     }
    ],
-   "plan": [],
-   "watch": "האם השכתוב שומר את שני הנתונים, שבועות 1–13 ו-late_by_delivery? שלב 1: אין תוכנית. 'their' הוא semi-join, כלומר תנאי על שורות אחרות, ו-28 מזהים חורגים מ-IN (עד 20). פער שפה."
+   "plan": [
+    {
+     "disposition": "retrieve",
+     "readings": [
+      {
+       "label": "late_by_delivery",
+       "plan": {
+        "SELECT": [
+         {
+          "expr": {
+           "col": "commitments.supplier_id"
+          },
+          "as": "supplier_id"
+         },
+         {
+          "expr": {
+           "func": "COUNT",
+           "arg": "*"
+          },
+          "as": "late_lines"
+         }
+        ],
+        "FROM": "commitments",
+        "WHERE": {
+         "AND": [
+          {
+           "BETWEEN": {
+            "col": "commitments.week",
+            "from": {
+             "value": 1
+            },
+            "to": {
+             "value": 13
+            }
+           }
+          },
+          {
+           "EQ": [
+            {
+             "metric": "late_by_delivery"
+            },
+            {
+             "value": true
+            }
+           ]
+          }
+         ]
+        },
+        "GROUP_BY": [
+         "supplier_id"
+        ],
+        "ORDER_BY": [
+         {
+          "by": "late_lines",
+          "dir": "DESC"
+         }
+        ]
+       }
+      }
+     ],
+     "unresolved": [
+      {
+       "asked": "What is the total value of their open orders?",
+       "needs": {
+        "kind": "cross_record_condition",
+        "entity": "suppliers"
+       }
+      }
+     ]
+    }
+   ],
+   "watch": "D1 (סבב תיקונים): 28 ספקים, כולם הוצגו, אבל 28 > 20. השכתוב אומר את התנאי. התוכנית מוצאת אותם (קריאה) ומחזירה פער cross_record_condition על הערך של ההזמנות הפתוחות שלהם: 'first find them, then ask about them by name'. לפני D1: request_not_completed."
   },
   {
    "id": "H2",
@@ -296,7 +366,8 @@
     ],
     "metric": [
      "late_by_delivery"
-    ]
+    ],
+    "gap": "cross_record_condition"
    },
    "sql": [
     {
@@ -362,59 +433,20 @@
          }
         ]
        }
-      },
+      }
+     ],
+     "unresolved": [
       {
-       "label": "open_value",
-       "plan": {
-        "SELECT": [
-         {
-          "expr": {
-           "col": "commitments.supplier_id"
-          },
-          "as": "supplier_id"
-         },
-         {
-          "expr": {
-           "func": "SUM",
-           "arg": {
-            "col": "commitments.line_value"
-           }
-          },
-          "as": "open_value"
-         }
-        ],
-        "FROM": "commitments",
-        "JOIN": [
-         {
-          "rel": "commitment_order",
-          "type": "INNER"
-         }
-        ],
-        "WHERE": {
-         "EQ": [
-          {
-           "col": "purchase_orders.status"
-          },
-          {
-           "value": "open"
-          }
-         ]
-        },
-        "GROUP_BY": [
-         "supplier_id"
-        ],
-        "ORDER_BY": [
-         {
-          "by": "open_value",
-          "dir": "DESC"
-         }
-        ]
+       "asked": "what is the value of their open orders",
+       "needs": {
+        "kind": "cross_record_condition",
+        "entity": "suppliers"
        }
       }
      ]
     }
    ],
-   "watch": "שלב 1: ניתן לביטוי רק כשתי קריאות נפרדות. השנייה היא כל 39 הספקים, 30 מוצגים, ו-6 מתוך 28 הספקים המאחרים נחתכים (S-008, S-010, S-011, S-017, S-024, S-027). 'their' הוא semi-join: פער שפה."
+   "watch": "D1: קריאה אחת (המאחרים בספטמבר) ופער cross_record_condition על 'their open orders'. לפני D1: קריאה שלישית על כל 39 הספקים, ו-S-031 ו-S-035, שלא איחרו, הוצגו."
   },
   {
    "id": "H5",
@@ -950,7 +982,7 @@
      ]
     }
    ],
-   "watch": "S-001 382901.05, S-008 134566.3, S-019 370298.45. התוכנית לפי תנאי (Israel) נכונה רק במקרה: לישראל יש בדיוק 3 ספקים, וכולם איחרו. לפי מזהים: IN של שלושה."
+   "watch": "D1: קריאה אחת שהוצגה כולה (all 3 shown, עד 20), ולכן השכתוב רשאי לנקוב ב-S-001, S-008, S-019. כך היה גם לפני D1."
   },
   {
    "id": "H9",
@@ -1023,6 +1055,196 @@
     }
    ],
    "watch": "data_as_of 2026-10-09 (יום שישי). שבוע קלנדרי 28.9–4.10: 55 שורות. שבעת הימים שלפני: 53. Examined חייב להראות את התאריכים."
+  },
+  {
+   "id": "H11",
+   "user": "PL-02",
+   "question": "Which of my lines were delivered late in September?",
+   "expect": {
+    "status": [
+     "answered"
+    ],
+    "period": {
+     "col": "delivered_at",
+     "from": "2026-09-01",
+     "to": "2026-09-30"
+    },
+    "metric": [
+     "late_by_delivery"
+    ]
+   },
+   "sql": [
+    {
+     "query": "SELECT commitment_id FROM commitments WHERE planner_id = 'PL-02' AND delivered_at BETWEEN '2026-09-01' AND '2026-09-30' AND delivered_at > due_date",
+     "compare": "total"
+    }
+   ],
+   "plan": [
+    {
+     "disposition": "retrieve",
+     "readings": [
+      {
+       "label": "my_late_lines",
+       "plan": {
+        "SELECT": [
+         {
+          "expr": {
+           "col": "commitments.commitment_id"
+          },
+          "as": "commitment_id"
+         },
+         {
+          "expr": {
+           "col": "commitments.supplier_id"
+          },
+          "as": "supplier_id"
+         },
+         {
+          "expr": {
+           "col": "commitments.delivered_at"
+          },
+          "as": "delivered_at"
+         }
+        ],
+        "FROM": "commitments",
+        "WHERE": {
+         "AND": [
+          {
+           "EQ": [
+            {
+             "col": "commitments.planner_id"
+            },
+            {
+             "me": true
+            }
+           ]
+          },
+          {
+           "BETWEEN": {
+            "col": "commitments.delivered_at",
+            "from": {
+             "value": "2026-09-01"
+            },
+            "to": {
+             "value": "2026-09-30"
+            }
+           }
+          },
+          {
+           "EQ": [
+            {
+             "metric": "late_by_delivery"
+            },
+            {
+             "value": true
+            }
+           ]
+          }
+         ]
+        },
+        "ORDER_BY": [
+         {
+          "by": "delivered_at",
+          "dir": "ASC"
+         }
+        ]
+       }
+      }
+     ]
+    }
+   ],
+   "watch": "D7: ‏'my' הוא {\"me\": true}, והקוד ממלא את PL-02. Examined: ‏'planner = you'."
+  },
+  {
+   "id": "H12",
+   "user": "AP-01",
+   "question": "Which of my lines were delivered late in September?",
+   "expect": {
+    "status": [
+     "answered"
+    ]
+   },
+   "sql": [
+    {
+     "query": "SELECT commitment_id FROM commitments WHERE planner_id = 'AP-01' AND delivered_at BETWEEN '2026-09-01' AND '2026-09-30' AND delivered_at > due_date",
+     "compare": "total"
+    }
+   ],
+   "plan": [
+    {
+     "disposition": "retrieve",
+     "readings": [
+      {
+       "label": "my_late_lines",
+       "plan": {
+        "SELECT": [
+         {
+          "expr": {
+           "col": "commitments.commitment_id"
+          },
+          "as": "commitment_id"
+         },
+         {
+          "expr": {
+           "col": "commitments.supplier_id"
+          },
+          "as": "supplier_id"
+         },
+         {
+          "expr": {
+           "col": "commitments.delivered_at"
+          },
+          "as": "delivered_at"
+         }
+        ],
+        "FROM": "commitments",
+        "WHERE": {
+         "AND": [
+          {
+           "EQ": [
+            {
+             "col": "commitments.planner_id"
+            },
+            {
+             "me": true
+            }
+           ]
+          },
+          {
+           "BETWEEN": {
+            "col": "commitments.delivered_at",
+            "from": {
+             "value": "2026-09-01"
+            },
+            "to": {
+             "value": "2026-09-30"
+            }
+           }
+          },
+          {
+           "EQ": [
+            {
+             "metric": "late_by_delivery"
+            },
+            {
+             "value": true
+            }
+           ]
+          }
+         ]
+        },
+        "ORDER_BY": [
+         {
+          "by": "delivered_at",
+          "dir": "ASC"
+         }
+        ]
+       }
+      }
+     ]
+    }
+   ],
+   "watch": "D7: ל-AP-01 אין שורות בתור מתכנן. 'No records matched' כממצא, לא שגיאה."
   }
  ]
 }

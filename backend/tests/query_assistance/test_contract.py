@@ -323,7 +323,8 @@ def test_an_invalid_assembly_is_a_bug_not_a_response():
 def test_every_gap_template_opens_with_what_was_asked():
     """Task 10a (chat 23:35): "On {asked} ..." read wrongly whenever asked was not a noun phrase ("On who
     approved them"). Every template now opens "{asked}: ", whatever grammatical form asked takes."""
-    assert all(t.startswith("{asked}: ") for t in k.TEMPLATES.values()), k.TEMPLATES
+    # D1 (fix round): the cross-record sentence quotes what was asked, as the chat worded it
+    assert all(t.startswith(("{asked}: ", "“{asked}” ")) for t in k.TEMPLATES.values()), k.TEMPLATES
 
 
 def test_the_rate_notice_carries_a_whole_number_of_seconds_and_nothing_else():

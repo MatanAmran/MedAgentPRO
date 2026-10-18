@@ -145,12 +145,31 @@ class Exchange:
                reach the rewriting call or count as a source of identifiers (NFR 21)
     presented  identifiers from identifier columns only (synthesis.Draft.presented_identifiers),
                in the order shown
+    readings   D2 (fix round): what each reading examined and how many of its rows were shown, from the
+               plan, the catalog and the counts only (NFR 21): the condition a later "them" refers to
+    cut        D1: identifiers shown by a reading whose rows were cut (shown < total); a rewrite may not
+               name them, since they are not the whole result
     """
     posed: str
     understood: str | None = None      # the rewritten question, where there was one
     answer: str | None = None
     presented: list[str] = field(default_factory=list)
     presented_total: int = 0           # set where the history cut the list (R7c)
+    readings: list[ReadingNote] = field(default_factory=list)
+    cut: list[str] = field(default_factory=list)
+
+
+@dataclass(frozen=True)
+class ReadingNote:
+    label: str
+    examined: str
+    shown: int
+    total: int
+
+    def render(self) -> str:
+        count = ("no rows" if self.total == 0 else f"all {self.total} shown" if self.shown >= self.total
+                 else f"{self.shown} of {self.total} shown")
+        return f"[{self.label}] examined: {self.examined} · {count}"
 
 
 @dataclass
@@ -164,6 +183,8 @@ def _render_exchange(i: int, ex: Exchange, with_answer: bool) -> str:
     lines = [f"Q{i} (posed): {ex.posed}"]
     if ex.understood:
         lines.append(f"Q{i} (understood as): {ex.understood}")
+    for r in ex.readings:   # D2: kept when the answer is dropped, so "them" still has its condition
+        lines.append(f"Q{i} reading {r.render()}")
     if with_answer and ex.answer:
         lines.append(f"A{i}: {ex.answer}")
     if with_answer and ex.presented:
@@ -191,9 +212,10 @@ def _fit_last(i: int, ex: Exchange, budget: int) -> Exchange:
 
 def build_history(exchanges: list[Exchange], budget: int = HISTORY_BUDGET_TOKENS,
                   summary: str | None = None) -> History:
-    """Layer 1: everything. Layer 2: answers of older exchanges are dropped and their
-    questions kept, done in code. Layer 3: the oldest exchanges go to a model summary,
-    which the caller supplies and which is never a source of identifiers (NFR 27)."""
+    """Layer 1: everything. Layer 2: answers of older exchanges are dropped, one at a time and the
+    oldest first, until the rest fits (D2, fix round); questions and their readings' examined lines are
+    kept, done in code. Layer 3: the oldest exchanges go to a model summary, which the caller supplies and
+    which is never a source of identifiers (NFR 27)."""
     if not exchanges:
         return History("", 1)
     last = len(exchanges)
@@ -202,19 +224,21 @@ def build_history(exchanges: list[Exchange], budget: int = HISTORY_BUDGET_TOKENS
     if _tokens(full) <= budget:
         return History(full, 1)
 
-    def reduced(start: int) -> str:
-        parts = [_render_exchange(i, ex, i == last) for i, ex in enumerate(exchanges, 1) if i >= start]
+    def reduced(start: int, answers_from: int) -> str:
+        parts = [_render_exchange(i, ex, i == last or i >= answers_from)
+                 for i, ex in enumerate(exchanges, 1) if i >= start]
         return "\n".join(parts)
 
-    text = reduced(1)
-    if _tokens(text) <= budget:
-        return History(text, 2)
+    for answers_from in range(2, last + 1):
+        text = reduced(1, answers_from)
+        if _tokens(text) <= budget:
+            return History(text, 2)
 
     start = 1
-    while start < last and _tokens(reduced(start)) > budget:
+    while start < last and _tokens(reduced(start, last)) > budget:
         start += 1
     head = ("Summary of earlier exchanges, not a source of identifiers: " + summary + "\n") if summary else ""
-    return History(head + reduced(start), 3, exchanges[:start - 1])
+    return History(head + reduced(start, last), 3, exchanges[:start - 1])
 
 
 def compiler_conversation(exchanges: list[Exchange], posed: str, rewritten: str | None) -> Conversation:
@@ -299,11 +323,30 @@ class RewriteError(OutputRejected):
     """A content failure of the rewriting output. Its message names the rule only."""
 
 
-def check_rewrite(output: dict, posed: str) -> str:
-    """Returns the question to plan. Schema validation runs before this."""
+# D1 (fix round, chat 18.10): a rewrite names at most this many identifiers the person did not type
+MAX_ADDED_IDENTIFIERS = 20
+_TOKEN = re.compile(r"[^\s,;:.!?()\[\]\"']+")
+
+
+def check_rewrite(output: dict, posed: str, history: list[Exchange] | None = None) -> str:
+    """Returns the question to plan. Schema validation runs before this.
+    D1, by shape only: an identifier is a whole token the history presented. The rewrite may not add one
+    shown by a reading whose rows were cut (Exchange.cut), nor more than MAX_ADDED_IDENTIFIERS in all;
+    there it states the condition that produced them. The message gives counts only, never a value."""
     q = output["question"].strip()
     if not q:
         raise RewriteError("empty question")
     if not output["carried_from_history"] and _norm(q) != _norm(posed):
         raise RewriteError("claims to carry nothing from history but changes the question")
+    known = {v for ex in history or [] for v in ex.presented}
+    cut = {v for ex in history or [] for v in ex.cut}
+    typed = set(_TOKEN.findall(posed))
+    added = [t for t in dict.fromkeys(_TOKEN.findall(q)) if t in known and t not in typed]
+    if any(t in cut for t in added):
+        raise RewriteError(f"names {sum(t in cut for t in added)} identifier(s) shown by an earlier reading whose "
+                           "rows were cut, so they are not the whole result; state the condition that produced "
+                           "them instead")
+    if len(added) > MAX_ADDED_IDENTIFIERS:
+        raise RewriteError(f"names {len(added)} identifiers the latest question does not hold, more than "
+                           f"{MAX_ADDED_IDENTIFIERS}; state the condition that produced them instead")
     return q

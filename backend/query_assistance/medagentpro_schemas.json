@@ -743,6 +743,7 @@
                   "no_such_table",
                   "value_not_present",
                   "source_outside_system",
+                  "cross_record_condition",
                   "unspecified"
                 ]
               },
@@ -1005,6 +1006,7 @@
         "no_such_table": "{asked}: there is no data. There is no {entity} table.",
         "value_not_present": "{asked}: does not appear in {entity}.",
         "source_outside_system": "{asked}: not held by the system.",
+        "cross_record_condition": "“{asked}” depends on other records of {entity}, which cannot be combined in one question yet. Ask it in two steps: first find them, then ask about them by name.",
         "unspecified": "{asked}: no data could be located."
       },
       "schema": {
@@ -1287,6 +1289,7 @@
                   "no_such_table",
                   "value_not_present",
                   "source_outside_system",
+                  "cross_record_condition",
                   "unspecified"
                 ]
               },
