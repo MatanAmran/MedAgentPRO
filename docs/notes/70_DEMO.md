@@ -74,7 +74,7 @@ cd backend; python -m tools.preflight
 
 **מגבלת הקצב במודל האמיתי:** לכל היותר `MODEL_MAX_EXCHANGES_PER_MINUTE` שאלות (10) בכל 60 שניות, מכל המשתמשים יחד. היא קיימת כדי לעצור לולאה, והכסף מוגן בנפרד בתקציב ובתקרה לשאלה. בקצב של מציג היא לא מופעלת. **אם היא מופעלת, רואים:** "Too many questions in the last minute. The question was not answered. Try again in N seconds." — ‏N הוא מספר השניות עד שהחלון מתפנה. השאלה לא נשלחה למודל ולא עלתה כסף. מחכים N שניות ושואלים שוב (ריצת 12 השאלות, 18.10).
 
-**הפרומפטים מוקפאים עד הדמו (18.10, 15:05).** הם עברו שתי ריצות מלאות ברצף על 12 שאלות הדמו ועל 31 שאלות מחוץ לתסריט, בלי חוסמים (`intent_analysis_demo@8`, ‏`synthesis@10`, ‏`synthesis_redraft@7`, ‏`support_scoring@5`). שינוי בפרומפט מכאן — רק אחרי ריצה מלאה של שני הסטים (`python -m tools.real_eval`), ובאישור אביתר.
+**הפרומפטים מוקפאים עד הדמו (19.10, אחרי סבב התיקונים).** ריצה ממוקדת של 34 חילופים (12 שאלות הדמו, 10 בדיקות ו-12 שאלות מחוץ לתסריט) בלי חוסם: ‏`question_rewriting@3`, ‏`intent_analysis_demo@9`, ‏`synthesis@11`, ‏`synthesis_redraft@8`, ‏`support_scoring@6`. ההקפאה הקודמת הייתה ב-18.10, 15:05. שינוי בפרומפט מכאן — רק אחרי ריצה על המודל האמיתי, ובאישור אביתר, והתקציב לא מאפשר אותה לפני הדמו.
 
 **שאלה שלא ניתנת לפירוש** (למשל שאלת המשך כמו "And in weeks 14 to 26?" בתחילת שיחה): שום דבר לא נשלף, ותשובה קבועה מהקוד: "The question could not be interpreted on its own. Ask it in full, naming what it concerns, such as the period, supplier or part." זו לא תקלה. שואלים את השאלה במלואה, או באותה שיחה אחרי השאלה שהיא ממשיכה. **במצב המתוסרט זה לא יופיע:** אין שאלה כזו בסט (18.10, 11:35).
 
@@ -116,6 +116,31 @@ cd backend; python -m tools.preflight
   - **מה לומר:** "the system takes identifiers only from what the person wrote or was shown, never from the model's rewrite".
 - **טקסט ברשומה שמנסה להורות למערכת** (מבחן 33, ‏NFR 21): ההגנה מבנית. טקסט מרשומה לא מגיע לשלבים שמחליטים מה לשלוף, ונבדק ב-`backend\tests\security`. בדמו מתוסרט "המודל לא ציית" היה מתוסרט, ולא היה מוכיח כלום.
 - **מקור שלא ניתן להגיע אליו** (מבחן 23, ‏FR 15): לא מודגם. הבדיקות מכסות אותו.
+
+## המודל האמיתי בדמו (אחרי סבב התיקונים, 19.10)
+
+**תקציב.**
+- נשארו **בערך USD 0.99**. 12 שאלות הדמו עולות ביחד **בערך USD 0.55** (הריצה של 19.10: ‏0.478).
+- ה-gateway שומר **USD 0.25 לכל שאלה** לפני שהיא נשלחת, ומשחרר אחר כך את מה שלא נוצל. לכן אחרי שאלות הדמו נשאר מקום ל**בערך 5 עד 8 שאלות מהקהל** בלבד. כשהתקציב נגמר, התשובה היא ההודעה הקבועה "The demo budget for the model is used up…", לא תקלה.
+- **אין יותר בדיקות על המודל האמיתי לפני הדמו.** החזרות נעשות על המודל המתוסרט (`python -m main`, בלי `--real`), שעולה כלום.
+
+**המפתח פג ב-22.10.** ביום הדמו:
+1. מפתח חדש ב-Console, ב-`backend\.env` (אביתר כותב אותו. Code לא קורא את הקובץ).
+2. `python -m tools.preflight --real`: כל השורות ✅, ובשורת התקציב מספר השאלות שנשארו.
+3. **שאלת חימום אחת** על המודל האמיתי (למשל שאלה 1), כדי לוודא שהמפתח והחיוב עובדים. היא עולה בערך USD 0.05.
+
+**מה חדש להראות** (מסבב התיקונים):
+- **הפער של שורות אחרות.** ‏"Which suppliers were late in September, and what is the value of their open orders?" מחזיר את הספקים שאיחרו, ומשפט קבוע: ‏"“…their open orders” depends on other records of suppliers, which cannot be combined in one question yet. Ask it in two steps…". **מה לומר:** "it says what it cannot combine, instead of answering about every supplier".
+- **"my" כמתכנן.** בתור `PL-02`: ‏"Which of my lines were delivered late in September?". ‏Examined אומר **"planner = you"**: הקוד ממלא את המשתמש, והמודל לא כותב אותו. בתור `AP-01` אותה שאלה מחזירה "No records matched", וזה ממצא ולא שגיאה.
+- **הספירה בתשובה.** ‏"28 suppliers had lines delivered after the requested date in weeks 1 to 13, among them…": המספר 28 הוא ספירה מהשאילתה, שהקוד ממלא, לא מספר שהמודל כתב. כל משפט אומר גם את התנאי (התקופה, המדד).
+- **הפניות שקטות יותר.** בלי צ׳יפים: קו תחתון מנוקד, ואדום רק בריחוף או בפוקוס, יחד עם השורה שלו.
+- **רשת התגיות לרשימה ארוכה** ("Which parts are below their reorder point?"), עם סינון מעל 12 תגיות, וקיפול תשובה שיש בה יותר מ-8 הפניות.
+- **הלוח "How this was answered"** (`--panel`): כל קריאה למודל, טוקנים, עלות, ומה דחה ניסיון.
+
+**ממצאים קלים שכדאי להכיר** (מהריצה של 19.10):
+- **"open" נקרא כ"לא סופק"** (`delivery date not recorded`), ולא כ-order status = open. ‏Examined אומר את זה במפורש, ולכן הספירה שונה במעט מ-SQL שבודק את סטטוס ההזמנה. **מה לומר:** "Examined shows exactly which reading it took".
+- **שאלות של "never" או "nothing"** ("Which suppliers delivered nothing late…?") עלולות לחזור כפער של שורות אחרות, במקום תשובה.
+- **22 מזהים או יותר בשאלה אחת** נגמרים בהודעת המגבלה: ‏"The question names more values or conditions than one plan may hold (at most 20 values in a list, 6 conditions in a group). Ask it in smaller parts."
 
 ## מה המציג צריך לדעת
 
