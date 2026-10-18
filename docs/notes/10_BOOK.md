@@ -367,3 +367,20 @@
 ## 7. מה שחסר
 
 **בספר עצמו, כלום.** נשאר רק מה שתלוי במנחה, ב-`00_STATUS.md`.
+
+---
+
+## 8. לעדכן בספר — סבב התיקונים לדמו (צ׳אט 18.10, 23:25; נרשם ב-Code 19.10). **אביתר עורך**
+
+**הנוסחים בקוד, כדי שהספר והקוד יגידו אותו דבר:**
+- **משפט הפעולה (D8).** בקוד: ‏"This assistant answers questions from the records. It does not take actions, such as sending messages or changing records."
+  - **בספר הוא לא ב-4.9, אלא ב-FR 14** ("…the system shall retrieve nothing and state that it does not change records") **ובתוצאה הצפויה של המבחן שלה** ("What returns states that the assistant does not change records"). ב-4.9 אין משפט על פעולות. לעדכן את שני המקומות: "does not take actions, such as sending messages or changing records".
+- **סוג פער חדש, `cross_record_condition` (D1), ב-3.1.6 וב-FR 11.**
+  - חלק בשאלה שצריך תנאי על רשומות אחרות של אותה ישות ("their open orders" אחרי "suppliers late in September") לא מתבטא בקריאה אחת. הוא מוחזר כפער, עם משפט קבוע: ‏"“{asked}” depends on other records of {entity}, which cannot be combined in one question yet. Ask it in two steps: first find them, then ask about them by name."
+  - ב-3.1.6 לציין שזו מגבלה של המבנה המוגדר (אין תת-שאילתה), ושהיא מוחזרת כפער ולא כתשובה חלקית.
+- **ערך המשתמש הנוכחי (D7), ב-3.1.6 וב-FR 11.** ‏"my", ‏"mine" ו-"I" הם אופרנד בתוכנית שהקוד ממלא בזהות השואל. המודל לא כותב אותו. מותר רק מול עמודה שמחזיקה משתמש. Examined אומר "planner = you". שאלה כזו ממשתמש שאין לו רשומות כאלה מחזירה "No records matched", כממצא.
+- **NFR 17 — נבדק, בלי שינוי.** אף משפט בספר לא אומר שמתכנן רואה רק את הרשומות שלו. ‏NFR 17 מנסח את המנגנון בלבד ("applied as a condition when a retrieval query is constructed"). המבחן שלו מגדיר "a user entitled to only a subset of the records", וזה בדיוק קטלוג הבדיקה (`tests/fixtures/restricted_schema.json`). בדמו הנתונים פתוחים לשני התפקידים (D6), ואין בזה סתירה לספר.
+- **מגבלה (8.1 Problems, או פסקת השער ב-4.9):** **השער בודק תמיכה, לא רלוונטיות.** הוא לא רואה את השאלה. משפט נכון שלא עונה עליה, כמו ערכים של ספקים שלא איחרו בתשובה ל-"their open orders", עובר אותו. בסבב התיקונים זה צומצם בשני מקומות: כל משפט אומר את התנאי של הקריאה שלו (D4), ופער `cross_record_condition` במקום קריאה על כל הרשומות (D1). המגבלה עצמה נשארת.
+- **עבודה עתידית (פרק 8):** **תשובות בעלות שם והרכבת תוכניות.** תוצאה של קריאה מקבלת שם, ותוכנית מאוחרת יכולה להשתמש בה כתנאי (CTE), כך ש-"their" נענה בלי לרשום מזהים.
+  - **השוואה לשוק:** ‏Snowflake Cortex Analyst (כבר [46] בספר, לשיחה מרובת סבבים), ‏Hex (SQL משורשר בין תאים), ‏Databricks Genie, ‏ThoughtSpot Spotter.
+  - **שלושת האחרונים אינם מקורות בספר היום.** אם נכנסים, צריך מקור מאומת לכל אחד, ו-Code לא כותב מקור שלא נבדק.

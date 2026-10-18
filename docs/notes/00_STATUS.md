@@ -210,6 +210,15 @@
 
 **התוכנית בספר, פרק 7.** 13 שבועות יחסיים, הפיתוח מסתיים בשבוע 10, שבוע 13 שמור כמרווח.
 
+### משימות שלב ב׳ מסבב התיקונים לדמו (צ׳אט 18.10, 23:25)
+
+1. **תשובות בעלות שם והרכבת תוכניות** (CTE, כמו ה-SQL המשורשר של Hex): קריאה שנקראה בשם משמשת תנאי בתוכנית הבאה. זה פותר את `cross_record_condition` (D1) ואת "their" אחרי רשימה חתוכה. **המשימה הבאה.**
+2. **בדיקת כיסוי השאלה:** האם התשובה עונה על מה שנשאל. השער היום בודק תמיכה בלבד (H4, ‏H5).
+3. **פיצול ה-intent לקריאות קטנות**, כך שכל אחת תתאים למגבלות ה-structured output של הספק (היום ה-intent נשלח בלי `response_format`).
+4. **יחידות מעוצבות בקוד** (מטבע, ימים, כמויות) במקום כלל 14 של הסינתזה.
+5. **mypy חוסם** ב-CI.
+6. **פעולות ה-CI:** גרסאות ראשיות `@v7` והחזרת ה-runners לתמונה עדכנית (נדחה לפני הדמו, 14.10).
+
 ### מה הספר מתחייב אליו ועוד לא קיים
 
 workflow ב-GitHub Actions · בדיקות Playwright, **על שלושת המנועים, ובמקלדת בלבד (מבחנים 38 ו-40)** · **מדידת LCP בסביבת החברה (מבחן 39)** · **מדידת ניגודיות (מבחן 40)** · **הגבלת מספר החקירות הרצות בצי העובדים, וחישוב הערך מקצב הטוקנים (NFR 25, מבחן 41)** · DeepEval · קבוצת מקרים עם תוצאה ידועה · נתוני בדיקה סינתטיים במבנה נתוני החברה · **חוזה `AggregatedEvidenceBundle`** · מדידת טוקנים לחקירה ולתשובה · **הממשקים באיור 6: `ModelGateway` עם `LiteLLMGateway` ו-`ScriptedModelGateway`, ו-`CircuitBreaker` עם `call`/`get_state`/`record_failure`/`record_success`**.
@@ -4716,6 +4725,63 @@ exchange cost: attempt=EX-bc247dc6774a usd=0.061608 remaining=1.714846
 - **זה מתנגש עם F5** (12.10, "presented identifiers include the identifier-column values of the rows shown") ועם כלל 4 של השכתוב ("the second one"). הבדיקה `test_follow_up_can_name_an_identifier_shown_only_in_the_table` נכשלת, כי הטבלה שם חתוכה (LIMIT 5).
 - **מה נבנה:** השומר בדיוק כפי שאושר. הבדיקה של F5 מסומנת `xfail(strict=True)` עם המזהה D1-POS, כך שתיקון יחייב להסיר את הסימון.
 - **אפשרות שמחכה להכרעה:** להתיר מזהה **אחד** מקריאה חתוכה. הפניה לפי מיקום מצביעת על שורה שהאדם ראה, לא על "התוצאה כולה". הבעיה של D1 היא רשימה, ולא שורה אחת. בצורה בלבד: שכתוב שמוסיף בדיוק מזהה אחד מקריאה חתוכה עובר.
+
+### **סבב תיקונים — נבנה (19.10, ענף `fix/demo-round`).** ‏D1–D11 בקוד, בלי ריצה בתשלום. **עצירה לפני הריצה הממוקדת**
+
+**Commits:**
+- `a6d64f7`: קבוצה 4 (D3, ‏D8, ‏D9, ‏D10, ‏U-1 עד U-5).
+- `263d6e0`: קבוצה 3 (D6, ‏D7).
+- `8976d3b`: קבוצה 1 (D1, ‏D2).
+- `99fba37`: קבוצה 2 (D4, ‏D5).
+
+**גרסאות הפרומפטים:** ‏`question_rewriting@3`, ‏`intent_analysis_demo@9`, ‏`synthesis@11`, ‏`synthesis_redraft@8`, ‏`support_scoring@6`. ‏`query_assistance/templates/intent_analysis.md` (הפרומפט של הספר, לא בשימוש) לא שונה.
+
+**איפה הקוד שונה מההנחיה, או חורג ממנה:**
+- **D1-POS** (למעלה, טרם הוכרע): השומר כפי שאושר, ו-F5 ב-`xfail(strict=True)`.
+- **H1b:** ‏intent עם `retrieve` חייב קריאה אחת לפחות (`minItems` בסכמה). לכן התוכנית בסט הבדיקה **מוצאת** את 28 הספקים (קריאה) ומחזירה פער על "their open orders". זה מה שמשפט הפער אומר ("first find them, then ask about them by name"). הסכמה לא שונתה.
+- **D3:** ההודעה ניתנת רק כשכל ניסיונות ה-intent נכשלו על מגבלת גודל: `maxItems` בכל מקום, או `oneOf` שהנתיב שלו נגמר ב-`IN` או ב-`OR`. ‏H1b לפני D1 (`type@…/IN`, ניסיון לתת-שאילתה) לא היה מקבל אותה, כי זו לא מגבלת גודל.
+- **D9:** הודעת "The model did not respond" ל-`timeout`, ‏`connection` ו-`server_error` (5xx ו-529). ‏429 שאינו כסף (`rate_limited`) נשאר עם ההודעה הכללית, כי המודל כן ענה. נספר בכל מקרה כתקלה (P9).
+- **D7:** הכלל נכנס רק לפרומפט ה-intent של הדמו. סימון `user_column` הוא שדה חדש בקטלוג, ובפרומפט הוא מופיע כ-"a user; for the person asking, compare with {"me": true}" (`prompts._column_note`).
+- **U-5:** פורש כשורת "How the agent worked" אחרי התשובה. היום היא נעלמת כשאין קריאות. עכשיו היא מראה "Planned: referred to an investigation", או "Planned: nothing to retrieve" בפעולה ובבירור. ציר הזמן בזמן ההמתנה לא שונה.
+- **D8 בספר:** המשפט נמצא ב-FR 14 ובמבחן שלה, לא ב-4.9 (נרשם ב-`10_BOOK.md`, סעיף 8).
+- **D5:** ‏`{label.total}` הוא טקסט רגיל ב-`answer_segments`, כי אין לו שורה להצביע עליה.
+- **התשובות המתוסרטות** (`demo_data/scripted_exchanges.json`, הדמו בלי מפתח) **לא שוכתבו לסגנון D4 ו-D5.** הן עוברות את כל הבדיקות, אבל לא אומרות את התנאי ולא את `{label.total}`. בדמו על המודל המתוסרט, התשובות נראות כמו לפני הסבב.
+
+**עלות לכל חילוף:** הפרומפטים ארוכים יותר (שורת הספירה, כללים ודוגמאות), ולכן ה-worst case של R7a עלה ב-USD 0.01 עד 0.03. בהרצה המזויפת: Q3 ‏0.151 (היה 0.140), ‏Q5 ‏0.145 (היה 0.134). עם תקרות ה-intent וה-gate על 3000, כמו ב-`.env` של הדמו: ‏Q3 בערך 0.171. **תקרת ברירת המחדל לכל חילוף (0.25) עדיין מכסה כל שאלה (L05).** התקרה של ההרצה המזויפת עברה מ-0.137 ל-0.148, כדי שעדיין תעצור רק את Q3.
+
+**שינויים ב-golden:**
+- **D10:** ‏`"entity": "suppliers"` נוסף ב-8 קבצים.
+- **D8:** ה-notice של "Update the promised date…" השתנה (AP-01 ו-PL-02).
+- **D6 — הקבצים שבהם "limited to the records you hold" נעלם, והתשובה של PL-02 זהה עכשיו לזו של AP-01** (9 קבצים, כולם `PL-02`):
+  - which_suppliers_were_late_in_weeks_1_to_13
+  - and_in_weeks_14_to_26
+  - which_purchase_orders_were_delivered_late_in_september
+  - which_suppliers_missed_a_commitment_in_weeks_1_to_13
+  - which_open_lines_are_past_due…
+  - what_delay_reasons_were_recorded_for_s_038…
+  - what_did_s_040_supply
+  - what_did_s_099_supply
+  - which_supplier_delivered_the_most_lines_on_time…
+- **פרומפטים:** ‏`prompt__intent__APPROVER` ו-`…PLANNER` (‏v9: כלל 16, כלל 9b ושתי דוגמאות, והערת `user_column` בסכמה). ‏`prompt__synthesis` ו-`prompt__support_scoring`. **`render_schema` השתנה רק בהערה של `planner_id`** (D7).
+
+**בדיקות:**
+- pytest ‏**1049** ‏(+1 xfail D1-POS). ‏path_map ‏152.
+- vitest ‏122.
+- Playwright על Edge: מתוסרט 24, נתיב אמיתי 6.
+- ruff ו-bandit נקיים.
+- `--plans`: דמו 12/12, ‏offscript ‏31/31, ‏probe ‏13/13 (H1b ו-H4 עם הפער, H11 ו-H12 ל-"my").
+
+**שאלות offscript שהסבב נוגע בהן (8):** ‏A3, ‏D2, ‏D4, ‏F1b, ‏F1c, ‏F2, ‏G1, ‏G2. ‏`real_eval --only` מוסיף את מה שהן ממשיכות: F1a לפני F1b ו-F1c, ו-A1 לפני F2. **ארבע שלא נגעו בהן, עם רשימות ארוכות או דירוג:** ‏B1 (138 שורות), ‏B2 (229, "last month"), ‏B5 (30), ‏C3 (חמשת הראשונים). ביחד 14 חילופי offscript.
+
+**הערכת עלות לריצה הממוקדת** (מהריצות הקודמות: הדמו 0.483 ל-12, ה-probe 0.5625 ל-11, ה-offscript 1.077 ל-31, ועוד כ-10% לפרומפטים הארוכים):
+- 12 שאלות הדמו: כ-**USD 0.53**.
+- 13 בדיקות: כ-**USD 0.70**.
+- 14 שאלות offscript: כ-**USD 0.60**.
+- **סך הכול כ-USD 1.8** (טווח 1.6 עד 2.1). ‏**נשארו USD 2.587.** המלצה: `--max-usd 2.2` לכל הריצות יחד.
+- **פקודות** (דוחות מחוץ לרפו):
+  - `python -m tools.real_eval --real --confirm --set demo --out <dir>/demo --max-usd 0.7`
+  - `--set demo_data/probe_set.json --out <dir>/probe --max-usd 0.85`
+  - `--only A3,D2,D4,F1b,F1c,F2,G1,G2,B1,B2,B5,C3 --out <dir>/offscript --max-usd 0.75`
 
 ## מה שנסגר בסבב האחרון
 
