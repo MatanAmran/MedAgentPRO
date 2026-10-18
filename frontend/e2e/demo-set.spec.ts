@@ -113,7 +113,13 @@ for (const role of ROLES) {
         asked = 0;
         if (e.follows) await ask(e.follows);
       }
+      if (e.user !== "AP-01" && !e.follows) {
+        // chat 19.10: the chip says whom it is scripted for, and asking it does not switch the user
+        const chip = page.getByTestId("examples").getByRole("button", { name: e.question, exact: true });
+        await expect(chip.getByTestId("example-user")).toHaveText(`as ${e.user}`);
+      }
       await ask(e.question);
+      await expect(page.getByTestId("user-picker")).toContainText(role.user);
       previous = e.question;
       const last = page.getByTestId("exchange").last();
       await matchesGolden(last, golden(e.question, role.file));
