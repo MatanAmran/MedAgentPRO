@@ -1,6 +1,6 @@
 # MedAgentPro — מפת המסלולים וההיתכנות
 
-**נוצר אוטומטית** ב-`python -m tools.path_map` (מתוך `backend\`), 18.10.2026 13:19. **לא לערוך ידנית** — המקור הוא `backend\tests\paths\registry.py` ו-`backend\tests\feasibility\constraints.py`.
+**נוצר אוטומטית** ב-`python -m tools.path_map` (מתוך `backend\`), 18.10.2026 14:27. **לא לערוך ידנית** — המקור הוא `backend\tests\paths\registry.py` ו-`backend\tests\feasibility\constraints.py`.
 
 **איך זה גדל:** `tests\paths\branches.py` קורא מהקוד ומהסכמות כל הסתעפות (מצב סיום, שלב, סוג כשל, `except`, הודעה, נקודת קצה, קוד HTTP, סוג פער, תפקיד). **הסתעפות בלי מסלול מפילה את `pytest`.** מגבלה שמתגלה (כמו הטמפרטורה) נכנסת כשורה ב-`constraints.py`, ושורה בלי בדיקה מפילה את `pytest`.
 
@@ -124,7 +124,7 @@
 | ✅ | T08 | technical | No enum in a schema sent to the provider holds two values that differ only in case. | Anthropic docs: enum casing is not guaranteed |
 | ✅ | T09 | technical | The intent schema is not sent as structured output while it exceeds the limits. | Review of 12.10 (P2): unpacked it exceeds 24 / 16 |
 | ✅ | T10 | technical | LiteLLM is pinned to the version the checks were made against, and uses its local map. | H1, 12.10 · requirements.txt |
-| ✅ | T11 | technical | The worst path after intent (synthesis, gate, redraft, gate) fits the per-exchange cap at the model's prices, for the largest material the pipeline can retrieve. | R7a |
+| ⚠️ | T11 | technical | The worst path after intent (synthesis, gate, redraft, gate) fits the per-exchange cap at the model's prices, for the largest material the pipeline can retrieve. | R7a |
 | ✅ | T12 | technical | The total budget covers at least 10 exchanges each spending its whole cap. | Task 5 budget (USD 10 total) |
 | ✅ | T13 | technical | Every metric and every table compiles to SQL the installed SQLite runs. | compiler.py · sqlite3 |
 | ✅ | T14 | technical | LiteLLM's own retries are off; the only retries are counted ones. | Task 5 'no hidden retries' |
@@ -135,7 +135,7 @@
 | ✅ | L02 | logical | Every table a role is shown in the intent prompt is one it may read, and every table it may read is shown. | NFR 17 · prompts.visible_tables |
 | ✅ | L03 | logical | Every metric in schema.json compiles for every role, with entitlement applied. | NFR 17 · 40_CHAT §7 |
 | ✅ | L04 | logical | Every example in the intent prompt passes the same checks as real output. | 40_CHAT §15 · tests/demo_data/test_demo_prompt.py |
-| ✅ | L05 | logical | On the real-model path (budget, LiteLLM gateway, fake provider), every demo question fits the default per-exchange cap (USD 0.25) at Sonnet 5.5's prices; the largest needs about 0.14. So with intent analysis's own cap (MODEL_MAX_OUTPUT_TOKENS_INTENT=3000). | Task 9 · R7a · tools/fake_real_server.py |
+| ✅ | L05 | logical | On the real-model path (budget, LiteLLM gateway, fake provider), every demo question fits the default per-exchange cap (USD 0.25) at Sonnet 5.5's prices; the largest needs about 0.14. So with intent analysis's own cap (MODEL_MAX_OUTPUT_TOKENS_INTENT=3000), and with the gate's (MODEL_MAX_OUTPUT_TOKENS_GATE=4000, chat 18.10, 13:50). | Task 9 · R7a · tools/fake_real_server.py |
 | ✅ | V01 | live | The provider accepts the three reduced schemas (no 400). **נצפה:** R9, 14.10: rewriting (question 2), synthesis and the gate (both) accepted, no 400 (00_STATUS, R9) | R2 · R9 |
 | ✅ | V02 | live | The provider accepts a request with no temperature and the configured max_tokens. **נצפה:** R9, 14.10: all 7 calls sent no temperature (provider default) and max_tokens=2000, per the model call line (00_STATUS, R9) | R1 · R9 |
 | ✅ | V03 | live | The cost recorded for one exchange matches Usage in the Console. **נצפה:** R9, 14.10: the tokens are the provider's own usage report on each response; priced at the card they give USD 0.0943, and the credit balance fell 3.82 -> 3.72, consistent at cent precision. Usage and the key's Last used showed nothing yet (reporting lag) | R9 |

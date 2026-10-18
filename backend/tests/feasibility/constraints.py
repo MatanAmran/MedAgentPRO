@@ -99,7 +99,8 @@ CONSTRAINTS: list[Constraint] = [
     Constraint("L05", "logical",
                "On the real-model path (budget, LiteLLM gateway, fake provider), every demo question fits the "
                "default per-exchange cap (USD 0.25) at Sonnet 5.5's prices; the largest needs about 0.14. So "
-               "with intent analysis's own cap (MODEL_MAX_OUTPUT_TOKENS_INTENT=3000).",
+               "with intent analysis's own cap (MODEL_MAX_OUTPUT_TOKENS_INTENT=3000), and with the gate's "
+               "(MODEL_MAX_OUTPUT_TOKENS_GATE=4000, chat 18.10, 13:50).",
                "Task 9 · R7a · tools/fake_real_server.py"),
     # --- live: only the real model can confirm (R9) -------------------------------------------
     Constraint("V01", "live", "The provider accepts the three reduced schemas (no 400).", "R2 · R9",

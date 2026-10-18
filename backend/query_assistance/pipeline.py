@@ -214,6 +214,10 @@ def _gate(deps: Deps, rec: _Record, ordinal: int, d: Draft) -> gate.GateResult:
                 lambda out: gate.evaluate(out, sentences, aliases), _GATE_V.schema, _GATE_V)
 
 
+# The calls _path_inputs prices, in its order, so each is reserved at its own output cap
+PATH_PROMPTS = ("synthesis", "support_scoring", "synthesis_redraft", "support_scoring")
+
+
 def _path_inputs(question: str, rewritten: str | None, materials: list) -> list[int]:
     """R7a: the input of every call left on the path, synthesis to the second gate, before any of it
     is made. The answer is taken at its largest, from the synthesis schema's bounds."""
@@ -440,7 +444,7 @@ def run(question: str, history: list[prompts.Exchange], user: dict, deps: Deps,
 
         # R7a: stop before the first synthesis call if the whole path cannot fit
         if hasattr(deps.gateway, "ensure_path"):
-            deps.gateway.ensure_path(_path_inputs(question, rewritten, materials))
+            deps.gateway.ensure_path(_path_inputs(question, rewritten, materials), PATH_PROMPTS)
 
         # synthesis, the gate, and the single regeneration (NFR 19, decisions 3 to 5).
         # Synthesis receives both forms of the question (4.9, review F3)

@@ -52,9 +52,9 @@ from typing import Any, Callable
 from api.state import DEMO_USERS
 from demo_data import seed
 from model_client.client import ModelGateway
-from query_assistance import contract, pipeline
+from query_assistance import contract, pipeline, prompts
 from query_assistance.call_trace import CallTrace
-from query_assistance.compiler import Catalog
+from query_assistance.compiler import Catalog, CompileError, compile_intent, execute
 from shared.circuit_breaker import log as operational_log
 
 SET_FILE = seed.HERE / "offscript_set.json"
@@ -116,14 +116,19 @@ def load_set(path: Path = SET_FILE, catalog: Catalog | None = None) -> list[dict
 
 def demo_set(path: Path = seed.HERE / "scripted_exchanges.json") -> list[dict]:
     """The 12 demo questions in this tool's form: Q01..Q12, a follow-up after the question it follows,
-    the status from the scripted expectation. No SQL: their counts are the golden tests' business."""
+    the status from the scripted expectation, and the scripted intent as its plan (rule 1). No SQL: their
+    counts are the golden tests' business."""
     out: list[dict] = []
     ids: dict[str, str] = {}
     for n, e in enumerate(json.loads(Path(path).read_text(encoding="utf-8"))["exchanges"], 1):
         exp = e["expect"]
-        status = "action_declined" if "action_declined" in exp.get("shows", []) else exp["outcome"]
-        item = {"id": f"Q{n:02d}", "user": "AP-01", "question": e["question"], "expect": {"status": [status]},
-                "watch": exp.get("note")}
+        status = ["action_declined" if "action_declined" in exp.get("shows", []) else exp["outcome"]]
+        if exp.get("scripted_gate") and status != ["answered"]:
+            status.append("answered")   # the scripted gate decides; the real one may support the answer
+        item = {"id": f"Q{n:02d}", "user": "AP-01", "question": e["question"], "expect": {"status": status},
+                "watch": exp.get("note"), "plan": [e["intent"]] if e.get("intent") else []}
+        if (e.get("rewrite") or {}).get("question"):
+            item["rewritten"] = e["rewrite"]["question"]
         if exp.get("follows"):
             item["after"] = ids[exp["follows"]]
         ids[e["question"]] = item["id"]
@@ -362,6 +367,104 @@ def run_set(items: list[dict], deps: pipeline.Deps, gateway_for: Callable[[str],
 
 
 # --------------------------------------------------------------------------
+# rule 1: a hand-written plan for every question, with no model (chat, 18.10, 13:40)
+# --------------------------------------------------------------------------
+
+@dataclass
+class PlanResult:
+    id: str
+    alternative: int
+    status: str
+    error: str | None = None
+    counts_ok: bool | None = None
+    counts: list[dict] = field(default_factory=list)
+    forbidden_ok: bool | None = None
+    examined: dict = field(default_factory=dict)
+
+    @property
+    def passed(self) -> bool:
+        """Every check holds, the hints included: a plan written by hand states the question exactly."""
+        held = [self.counts_ok, self.forbidden_ok, *self.examined.values()]
+        return self.error is None and False not in held
+
+
+def _conversation(item: dict, by_id: dict[str, dict]) -> list[prompts.Exchange]:
+    """The questions earlier in the item's conversation, oldest first, as the compiler counts them."""
+    earlier: list[prompts.Exchange] = []
+    at = item.get("after")
+    while at:
+        earlier.insert(0, prompts.Exchange(by_id[at]["question"], None))
+        at = by_id[at].get("after")
+    return earlier
+
+
+def plan_response(item: dict, intent: dict, earlier: list[prompts.Exchange], cat: Catalog,
+                  conn: sqlite3.Connection) -> dict:
+    """The response the contract would present for this plan: compiled for the item's user, run on the
+    store, rendered by contract.py. No model, no synthesis: the readings carry no answer. A follow-up's
+    "rewritten" is the rewrite expected, which the compiler counts as rewriting would hand it."""
+    user = {"user_id": item["user"], "role": DEMO_USERS[item["user"]]}
+    conv = prompts.compiler_conversation(earlier, item["question"], item.get("rewritten"))
+    compiled = compile_intent(intent, conv, user, cat)
+    if compiled.disposition == "refer_to_investigation":
+        return contract.referred()
+    if compiled.disposition == "out_of_scope_action":
+        return contract.declined_action()
+    if compiled.disposition == "needs_clarification":
+        return contract.needs_clarification()
+    plans = {r["label"]: r["plan"] for r in intent["readings"]}
+    views = [contract.reading_view(r.label, plans[r.label], execute(r, conn), cat, user["role"])
+             for r in compiled.readings]
+    return contract.answered(views, compiled.unresolved, catalog=cat)
+
+
+def check_plans(items: list[dict], cat: Catalog, conn: sqlite3.Connection) -> list[PlanResult]:
+    """Every plan of every item through the schema, the compiler, the store and the checks of a real run."""
+    by_id = {it["id"]: it for it in items}
+    out = []
+    for it in items:
+        if not it.get("plan"):
+            out.append(PlanResult(it["id"], 0, "", error="no plan"))
+            continue
+        for n, intent in enumerate(it["plan"], 1):
+            try:
+                resp = plan_response(it, intent, _conversation(it, by_id), cat, conn)
+            except CompileError as e:
+                out.append(PlanResult(it["id"], n, "", error=f"CompileError {e.code}: {e}"))
+                continue
+            r = PlanResult(it["id"], n, status_of(resp))
+            # no_supported_assertion is the gate's to reach; a plan reaches answered at most
+            reachable = set(it["expect"]["status"]) | ({"answered"} if "no_supported_assertion" in
+                                                       it["expect"]["status"] else set())
+            if r.status not in reachable:
+                r.error = f"status {r.status}"
+            r.counts_ok, r.counts = check_counts(it, resp, conn)
+            r.forbidden_ok, _ = check_forbidden(it, resp, conn)
+            r.examined = {**check_examined(it, resp, cat), **check_parts(it, resp)}
+            out.append(r)
+    return out
+
+
+def without_plan(items: list[dict], results: list[PlanResult]) -> list[str]:
+    """The items no plan passes for: a gap in the plan language, fixed before a real run (rule 1)."""
+    passing = {r.id for r in results if r.passed}
+    return [it["id"] for it in items if it["id"] not in passing]
+
+
+def plans_table(results: list[PlanResult]) -> str:
+    cols = ["#", "plan", "status", "pass", "counts", "period", "metric", "gap", "forbid", "error"]
+    rows = ["| " + " | ".join(cols) + " |", "|" + "---|" * len(cols)]
+    for r in results:
+        gap = [v for v in (r.examined.get("gap"), r.examined.get("not_held")) if v is not None]
+        forbid = [v for v in (r.forbidden_ok, r.examined.get("forbid")) if v is not None]
+        rows.append(f"| {r.id} | {r.alternative} | {r.status} | {OK if r.passed else FAIL} | {_mark(r.counts_ok)} | "
+                    f"{_hint(r.examined.get('period'))} | {_hint(r.examined.get('metric'))} | "
+                    f"{_hint(all(gap) if gap else None)} | {_mark(all(forbid) if forbid else None)} | "
+                    f"{_cell(r.error)} |")
+    return "\n".join(rows)
+
+
+# --------------------------------------------------------------------------
 # the report
 # --------------------------------------------------------------------------
 
@@ -506,6 +609,8 @@ def main(argv: list[str] | None = None, *, build: Callable[..., tuple] | None = 
     ap.add_argument("--max-usd", type=float, default=DEFAULT_MAX_USD, help="the run's own cap")
     ap.add_argument("--out", type=Path, help="where the report goes; outside the repository")
     ap.add_argument("--db", type=Path, default=seed.DEFAULT_OUT)
+    ap.add_argument("--plans", action="store_true",
+                    help="rule 1: run each question's hand-written plan, with no model, and stop")
     args = ap.parse_args(argv)
     reconfigure = getattr(sys.stdout, "reconfigure", None)
     if reconfigure is not None:   # ✅ and ❌ on a Windows console (as tools/preflight.py)
@@ -520,6 +625,18 @@ def main(argv: list[str] | None = None, *, build: Callable[..., tuple] | None = 
     except SetError as e:
         print(e)
         return 2
+    if args.plans:
+        conn = sqlite3.connect(f"file:{Path(args.db).as_posix()}?mode=ro", uri=True)
+        try:
+            results = check_plans(items, catalog, conn)
+        finally:
+            conn.close()
+        print(plans_table(results))
+        missing = without_plan(items, results)
+        print(f"\n{len(items) - len(missing)} of {len(items)} questions have a plan that passes"
+              + (f"; none for {', '.join(missing)}: a gap in the plan language, fix before a real run" if missing
+                 else ""))
+        return 1 if missing else 0
     if args.real and not args.confirm:
         print(f"{len(items)} exchanges on the real model, the run capped at {args.max_usd:.2f} USD, "
               f"report to {out_dir}. Nothing was sent. Add --confirm to run")

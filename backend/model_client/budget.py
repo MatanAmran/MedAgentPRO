@@ -30,7 +30,7 @@ from contextvars import ContextVar
 from dataclasses import dataclass, field, replace
 from datetime import date
 from pathlib import Path
-from typing import Callable, Iterator, Mapping, TypedDict, cast
+from typing import Callable, Iterator, Mapping, Sequence, TypedDict, cast
 
 from shared.circuit_breaker import CircuitBreaker, CircuitOpen, MemoryStore
 
@@ -50,9 +50,12 @@ SPEND_FILE = BACKEND / ".model_spend.json"
 
 REQUIRED = ("ANTHROPIC_API_KEY", "MODEL_ID", "MODEL_PRICE_IN", "MODEL_PRICE_OUT", "MODEL_BUDGET_USD",
             "MODEL_MAX_USD_PER_EXCHANGE", "MODEL_MAX_OUTPUT_TOKENS", "MODEL_MAX_EXCHANGES_PER_MINUTE")
-OPTIONAL = ("MODEL_PRICE_CACHE_READ", "MODEL_PRICE_CACHE_WRITE", "MODEL_TEMPERATURE", "MODEL_MAX_OUTPUT_TOKENS_INTENT")
+OPTIONAL = ("MODEL_PRICE_CACHE_READ", "MODEL_PRICE_CACHE_WRITE", "MODEL_TEMPERATURE", "MODEL_MAX_OUTPUT_TOKENS_INTENT",
+            "MODEL_MAX_OUTPUT_TOKENS_GATE")
 # The stage MODEL_MAX_OUTPUT_TOKENS_INTENT applies to, by the prompt identity's name
 INTENT_PROMPTS = ("intent_analysis", "intent_analysis_demo")
+# The stage MODEL_MAX_OUTPUT_TOKENS_GATE applies to: the support gate, first and second
+GATE_PROMPTS = ("support_scoring",)
 
 
 class BudgetConfigError(Exception):
@@ -75,6 +78,9 @@ class BudgetConfig:
     # Intent analysis alone, where set (task 10a, chat 23:35): it thinks the longest (question 3 used 90%
     # of 2000, 74% of it thinking). A higher cap only gives room; the effort is not changed
     max_output_tokens_intent: int | None = None
+    # The gate alone, where set (chat, 18.10, 13:50): a long answer over two readings makes many claims, and
+    # D4 of the held-out set stopped at 2000 (723 of them thinking). The answer's length is not limited
+    max_output_tokens_gate: int | None = None
 
     @classmethod
     def from_env(cls, env: Mapping[str, str] | None = None, env_file: Path = ENV_FILE,
@@ -115,13 +121,17 @@ class BudgetConfig:
                    number("MODEL_PRICE_CACHE_READ", required=False),
                    number("MODEL_PRICE_CACHE_WRITE", required=False),
                    str(env.get("ANTHROPIC_API_KEY") or "").strip(), temperature,
-                   number("MODEL_MAX_OUTPUT_TOKENS_INTENT", int, required=False))
+                   number("MODEL_MAX_OUTPUT_TOKENS_INTENT", int, required=False),
+                   number("MODEL_MAX_OUTPUT_TOKENS_GATE", int, required=False))
 
     def output_cap(self, prompt_identity: str = "") -> int:
-        """The max_tokens a call of this prompt is sent: the intent cap for intent analysis where set,
-        else the general one."""
-        if self.max_output_tokens_intent and prompt_identity.split("@")[0] in INTENT_PROMPTS:
+        """The max_tokens a call of this prompt is sent: the intent cap for intent analysis and the gate
+        cap for the gate, each where set, else the general one."""
+        name = prompt_identity.split("@")[0]
+        if self.max_output_tokens_intent and name in INTENT_PROMPTS:
             return self.max_output_tokens_intent
+        if self.max_output_tokens_gate and name in GATE_PROMPTS:
+            return self.max_output_tokens_gate
         return self.max_output_tokens
 
     def cost(self, input_tokens: int, output_tokens: int, cache_read: int = 0, cache_write: int = 0) -> float:
@@ -298,8 +308,8 @@ class BudgetedGateway(ModelGateway):
         finally:
             self._current.reset(token)
 
-    def worst_case(self, input_tokens: int) -> float:
-        return self.config.cost(input_tokens, self.config.max_output_tokens)
+    def worst_case(self, input_tokens: int, prompt_identity: str = "") -> float:
+        return self.config.cost(input_tokens, self.config.output_cap(prompt_identity))
 
     def _refuse_if_over(self, amount: float, ex: ExchangeSpend | None):
         """Under the lock. The total cap first: it is the one that ends every exchange."""
@@ -309,12 +319,15 @@ class BudgetedGateway(ModelGateway):
         if ex is not None and ex.spent + ex.reserved + amount > cfg.max_usd_per_exchange:
             raise BudgetExceeded("this exchange would cross its own cap", scope="exchange")
 
-    def ensure_path(self, input_tokens: list[int]):
+    def ensure_path(self, input_tokens: list[int], prompt_names: Sequence[str] = ()):
         """Review R7a: before the first synthesis call, the worst case of the whole remaining path
         (synthesis, gate, redraft, second gate, no feedback attempts) must fit. Nothing is reserved:
-        each call still reserves its own worst case when it is made."""
+        each call still reserves its own worst case when it is made. prompt_names, one per input, price
+        each call at its own output cap (the gate's, chat 13:50); without them, at the general one."""
+        names = list(prompt_names) or [""] * len(input_tokens)
         with self._lock:
-            self._refuse_if_over(sum(self.worst_case(n) for n in input_tokens), self._current.get())
+            self._refuse_if_over(sum(self.worst_case(n, p) for n, p in zip(input_tokens, names, strict=True)),
+                                 self._current.get())
 
     def invoke(self, prompt: str, config: ModelConfig) -> ModelResponse:
         cfg = self.config
@@ -411,6 +424,7 @@ def check_against_provider_map(cfg: BudgetConfig, model_info: Callable[[str], di
             raise BudgetConfigError(f"{var} in backend/.env is lower than LiteLLM's price for this model")
     limit = info.get("max_output_tokens")
     for var, cap in (("MODEL_MAX_OUTPUT_TOKENS", cfg.max_output_tokens),
-                     ("MODEL_MAX_OUTPUT_TOKENS_INTENT", cfg.max_output_tokens_intent)):
+                     ("MODEL_MAX_OUTPUT_TOKENS_INTENT", cfg.max_output_tokens_intent),
+                     ("MODEL_MAX_OUTPUT_TOKENS_GATE", cfg.max_output_tokens_gate)):
         if limit and cap and cap > limit:
             raise BudgetConfigError(f"{var} in backend/.env is above this model's own output limit")

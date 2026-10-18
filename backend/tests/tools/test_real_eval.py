@@ -296,3 +296,64 @@ def test_the_demo_set_passes_on_the_scripted_model(db_path, conn):
     deps, gateway_for = main.build_deps("scripted", db_path)
     run = ev.run_set(ev.demo_set(), deps, gateway_for, conn)
     assert [r.status_ok for r in run.results] == [True] * 12, ev.summary_table(run)
+
+
+# --------------------------------------------------------------------------
+# rule 1: a hand-written plan for every question, with no model (chat, 18.10, 13:40)
+# --------------------------------------------------------------------------
+
+@pytest.mark.parametrize("which", ["offscript", "demo"])
+def test_every_question_of_both_sets_has_a_plan_that_passes(conn, which):
+    """43 questions: a question no plan passes for is a gap in the plan language, fixed before a real run."""
+    items = ev.load_set(ev.SET_FILE, CATALOG) if which == "offscript" else ev.demo_set()
+    results = ev.check_plans(items, CATALOG, conn)
+    assert ev.without_plan(items, results) == [], ev.plans_table(results)
+    assert len(items) == {"offscript": 31, "demo": 12}[which]
+
+
+def test_c4_has_a_plan_for_each_average(conn):
+    results = ev.check_plans(ev.select(ev.load_set(), ["C4"]), CATALOG, conn)
+    assert [(r.alternative, r.passed) for r in results] == [(1, True), (2, True)]
+    assert [next(c["expected"] for c in r.counts if c["matched"]) for r in results] == [8.25, 3.65]
+
+
+def test_a_plan_with_the_wrong_year_fails_the_check(conn):
+    item = json.loads(json.dumps(ev.select(ev.load_set(), ["B1"])[0]))
+    text = json.dumps(item["plan"]).replace("2026-11", "2025-11")
+    item["plan"] = json.loads(text)
+    r = ev.check_plans([item], CATALOG, conn)[0]
+    assert not r.passed and r.counts_ok is False and r.examined["forbid"] is False
+
+
+def test_a_plan_the_compiler_refuses_fails_the_check(conn):
+    item = json.loads(json.dumps(ev.select(ev.load_set(), ["C4"])[0]))
+    item["plan"] = [json.loads(json.dumps(item["plan"][0]).replace('"days_late"', '"late_by_delivery"'))]
+    r = ev.check_plans([item], CATALOG, conn)[0]
+    assert not r.passed and r.error.startswith("CompileError type_mismatch")
+
+
+def test_a_question_with_no_plan_is_named(conn):
+    item = dict(ev.select(ev.load_set(), ["A4"])[0], plan=[])
+    results = ev.check_plans([item], CATALOG, conn)
+    assert ev.without_plan([item], results) == ["A4"] and results[0].error == "no plan"
+
+
+def test_a_follow_up_plan_counts_its_expected_rewrite(conn):
+    """Q02 declares "late" ambiguous: a span of the rewrite, not of "And in weeks 14 to 26?"."""
+    q02 = ev.select(ev.demo_set(), ["Q02"])
+    assert q02[1]["rewritten"] == "Which suppliers were late in weeks 14 to 26?"
+    assert all(r.passed for r in ev.check_plans(q02, CATALOG, conn))
+    bare = [q02[0], {k: v for k, v in q02[1].items() if k != "rewritten"}]
+    assert "span_not_in_question" in ev.check_plans(bare, CATALOG, conn)[1].error
+
+
+def test_the_plans_command_says_how_many_pass(db_path, capsys):
+    assert ev.main(["--plans", "--db", str(db_path)]) == 0
+    assert "31 of 31 questions have a plan that passes" in capsys.readouterr().out
+    assert ev.main(["--plans", "--set", "demo", "--db", str(db_path)]) == 0
+    assert "12 of 12" in capsys.readouterr().out
+
+
+def test_q11_on_the_real_model_may_be_answered():
+    """Its no_supported_assertion is the scripted gate's (scripted_gate): the real one may support it."""
+    assert ev.select(ev.demo_set(), ["Q11"])[0]["expect"]["status"] == ["no_supported_assertion", "answered"]
