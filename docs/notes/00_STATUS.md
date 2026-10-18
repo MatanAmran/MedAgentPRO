@@ -4785,6 +4785,52 @@ exchange cost: attempt=EX-bc247dc6774a usd=0.061608 remaining=1.714846
   - `--set demo_data/probe_set.json --out <dir>/probe --max-usd 0.85`
   - `--only A3,D2,D4,F1b,F1c,F2,G1,G2,B1,B2,B5,C3 --out <dir>/offscript --max-usd 0.75`
 
+### **ריצה ממוקדת אחרי סבב התיקונים (19.10, באישור אביתר; `abd0cdb`).** ‏34 חילופים, **USD 1.594**, נשארו **USD 0.993**. **אין חוסם, ולכן הפרומפטים מוקפאים לדמו**
+
+- **הקאפים של הריצה הוגדלו ב-0.25 באישור אביתר.** ‏`real_eval` מתחיל חילוף רק אם מה שהוצא, ועוד ההזמנה המלאה של חילוף (0.25), נכנס בקאפ של הריצה. עם הקאפים המקוריים הסט של הדמו נעצר לפני Q12. בפועל: הדמו 0.7 (11 חילופים) ועוד Q12 לבד ב-0.25, ה-probe ‏0.95, ה-offscript ‏0.9.
+- **הגרסאות שרצו:** ‏`question_rewriting@3`, ‏`intent_analysis_demo@9`, ‏`synthesis@11`, ‏`support_scoring@6` (‏`synthesis_redraft@8` לא נקרא). המודל `claude-sonnet-5-5`. הדוחות ב-scratchpad של Code, מחוץ לרפו.
+- **D4:** **אף משפט לא נמנע (withheld) ואף טיוטה לא נכתבה מחדש** ב-34 החילופים. כל משפט ראשון אומר את התנאי של הקריאה שלו.
+- **D5:** ‏`{label.total}` נכתב ב-30 מתוך 39 הקריאות שענו. הוא לא נכתב רק ברשימות קצרות מדורגות ובספירה בודדת (H8a, ‏H8b, ‏F1a עד F1c, ‏F2, ‏C3), שם הסכום לא מוסיף.
+
+| # | outcome | Understood as | Examined (עיקר) | ספירה מול SQL | check | עלות | סיווג |
+|---|---|---|---|---|---|---|---|
+| Q01 | answered, 2 קריאות | — | wk 1–13 · late_by_delivery (28/28) | — | — | ‏0.046 | תקין |
+| Q02 | answered | "…late in weeks 14 to 26?" | wk 14–26 · 30 of 35 | — | — | ‏0.059 | תקין |
+| Q03 | answered, 3 קריאות | — | Sep · by PO · 30 of 67 / 30 of 33 / 30 of 42 | — | — | ‏0.070 | תקין |
+| Q04 | answered | — | missed_promise · 25/25 | — | — | ‏0.040 | תקין |
+| Q05 | answered + פער | — | not delivered, due < 2026-10-09 · 30 of 100 | — | — | ‏0.047 | תקין |
+| Q06 | answered | — | S-038 · late · delay reason recorded · 5/5 | — | `SynthesisOutputError` בניסיון 1, תוקן במשוב | ‏0.065 | תקין |
+| Q07 | referred | — | — | — | — | ‏0.010 | תקין |
+| Q08, Q09 | answered (No records matched / S-099 not held) | — | — | — | — | ‏0.016 / 0.015 | תקין |
+| Q10 | answered | — | below reorder point · 30 of 31 | — | — | ‏0.040 | תקין ("31 parts…, among them…") |
+| Q11 | answered (מותר: no_supported_assertion או answered) | — | on time · 30 of 38 | — | — | ‏0.059 | תקין |
+| Q12 | action_declined | — | — | — | — | ‏0.010 | תקין (נוסח D8) |
+| H1a | answered | — | wk 1–13 | 28 ✅ | — | ‏0.047 | תקין |
+| H1b | answered + **פער cross_record_condition** | "…open orders of the suppliers that were late in weeks 1 to 13, both those…" | שתי קריאות המאחרים | 28 ✅ | — | ‏0.079 | **תקין: הפער במקום not completed** |
+| H2 | answered | — | Sep · late · 30 of 81 | 81 ✅ | — | ‏0.065 | תקין ("81 purchase order lines…") |
+| H3 | answered + פער | — | **wk 1–13 · delivery date recorded · כל 38 הספקים** | ❌ (10) | — | ‏0.052 | **קל — רגרסיה** (למטה) |
+| H4 | answered + **פער** | — | late Sep (28) ו-late_by_promise (18). **בלי קריאה על כל הספקים** | 28 ✅ | — | ‏0.058 | **תקין: החוסם נסגר** |
+| H7 | request_not_completed, **הודעת PLAN_LIMIT** | — | — | ❌ | `maxItems@…/OR`, ‏`oneOf@…/OR/0` | ‏0.049 | קל (D3 כפי שתוכנן) |
+| H8a, H8b | answered | H8b: ‏"…of S-001, S-008 and S-019?" | Israel / 3 מזהים, open | 3 ✅ | — | ‏0.044 / 0.047 | תקין (D1-POS לא נדרש: הקריאה שלמה) |
+| H11 | answered (PL-02) | — | **planner = you** · Sep · 3 קריאות | 5 ✅ | — | ‏0.055 | תקין ("5 of your purchase order lines…") |
+| H12 | answered (AP-01), No records matched | — | planner = you | 0 ✅ | — | ‏0.021 | תקין |
+| A1, A3 | answered | — | wk 1–13 | ✅ | — | ‏0.047 / 0.041 | תקין ("their" בתוך רשומה לא הפך לפער) |
+| B1 | answered | — | **not delivered** · due Nov 2026 · 30 of 140 | ❌ (138) | — | ‏0.044 | קל ("open" = לא סופק) |
+| C3 | answered, 2 קריאות | — | 2026 · late | 5 ✅ | — | ‏0.049 | תקין |
+| D2 | answered + פער no_such_column (carrier) | — | S-001 · late | ✅ | — | ‏0.067 | תקין |
+| D4 | answered | — | S-036 · late · עם סיבות | ✅ | — | ‏0.076 | תקין ("their" לא הפך לפער) |
+| F1a–F1c | answered | F1b: Germany wk 14–26; ‏F1c: Netherlands wk 14–26 | כמו בשכתוב | ✅ | — | ‏0.043 / 0.052 / 0.049 | תקין ("S-035 had 1 lines": ניסוח יחיד/רבים, כלל 14) |
+| F2 | answered | "Did S-014 deliver late during weeks 1 through 13?" | S-014 · wk 1–13 | ✅ | — | ‏0.048 | תקין |
+| G1 | answered (PL-02) | — | planner = 'PL-03' · **not delivered** · 30 of 98 | ❌ (111) | — | ‏0.042 | קל ("open" = לא סופק). השורות של PL-03 מוצגות, כפי שנקבע ב-D6 |
+| G2 | answered (PL-02) | — | receipts Sep | 256 ✅ | — | ‏0.043 | תקין |
+
+**הקלים, בפירוט:**
+- **H3, רגרסיה מכלל 9b.** המודל סימן את "delivered nothing late" כ-`cross_record_condition`. לפני הסבב הוא ענה נכון דרך `HAVING MAX(days_late) ≤ 0`. בנוסף הוא החזיר קריאה על כל 38 הספקים שסיפקו משהו, וזה מה שכלל 9b אוסר. הקריאה מתוארת לפי התנאי שלה ("38 suppliers had purchase order lines with a delivery date recorded"), והפער מסביר, ולכן זה לא מטעה. **זו לא שאלת דמו.** לשלב ב׳: דוגמה או ניסוח לכלל 9b ש"שום דבר מ-X" מתבטא ב-`HAVING` (שלב ב׳, יחד עם תשובות בעלות שם).
+- **H7:** ‏D3 עובד: ההודעה אומרת מה המגבלה. המודל עדיין לא מוצא `OR` של שני `IN`.
+- **B1 ו-G1:** ‏"open" פורש כ"לא סופק" (`delivered_at IS NULL`), לא כ-`purchase_orders.status = 'open'`. ‏Examined אומר את זה. זו העמימות שנרשמה ב-H4 בשלב 1, ולא דבר שהסבב הזה הכניס. אפשר להצהיר מטריקה `open` ב-`schema.json` (שלב ב׳, או לפני הדמו אם אביתר רוצה).
+
+**הפרומפטים מוקפאים לדמו** (לפי ההנחיה: אין חוסם). מה שנשאר פתוח לדמו: ריצה חוזרת על התשובות המתוסרטות (הן לא בסגנון D4 ו-D5), ומיזוג `fix/demo-round` ל-`master`.
+
 ## מה שנסגר בסבב האחרון
 
 - **הקוד עבר לריפו** — `MedAgentPro\backend` (`query_assistance`, `model_client`, `persistence`, `shared`, `tests`). **`03_Code` נשאר כמקור ומעודכן.** `python -m pytest -q` מתוך `backend`
