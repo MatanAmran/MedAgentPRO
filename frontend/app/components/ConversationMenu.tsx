@@ -13,12 +13,14 @@ export function ConversationMenu({
   onPin,
   onArchive,
   disabled,
+  tabbable = true,
 }: {
   conversation: ConversationSummary;
   onRename: () => void;
   onPin: (pinned: boolean) => void;
   onArchive: () => void;
   disabled: boolean;
+  tabbable?: boolean; // only the list's current conversation is a tab stop (roving, Chrome.Sidebar)
 }) {
   const [open, setOpen] = useState(false);
   const id = useId();
@@ -78,6 +80,7 @@ export function ConversationMenu({
         aria-expanded={open}
         aria-controls={open ? `${id}-menu` : undefined}
         disabled={disabled}
+        tabIndex={tabbable || open ? 0 : -1}
         onClick={() => setOpen(!open)}
         onKeyDown={(e) => {
           if (!open && e.key === "ArrowDown") {

@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useId, useMemo, useRef, useState } from "react";
 import { formatUsd } from "@/lib/present";
 import type { ConversationSummary, DemoUserId } from "@/lib/types";
 import { UserPicker } from "./UserPicker";
@@ -109,12 +109,31 @@ export function Sidebar({
   onSelect: (id: string) => void;
   onNew: () => void;
   locked: boolean;
-  renderOptions?: (c: ConversationSummary) => React.ReactNode;
+  renderOptions?: (c: ConversationSummary, tabbable: boolean) => React.ReactNode;
   renaming?: string | null;
   renderRename?: (c: ConversationSummary) => React.ReactNode;
 }) {
   const [search, setSearch] = useState("");
+  const [focusId, setFocusId] = useState<string | null>(null);
   const groups = useMemo(() => groupConversations(conversations, search), [conversations, search]);
+  const nav = useRef<HTMLElement | null>(null);
+  const hint = useId();
+
+  // One tab stop for the whole list, however long it grows (Test 40 on every engine; CI, 18.10): the
+  // conversation last focused, else the current one, else the first. Arrows, Home and End move between
+  // conversations; Tab goes on to that conversation's options, then out of the list.
+  const ordered = [...groups.pinned, ...groups.today, ...groups.earlier].map((c) => c.conversation_id);
+  const roving = [focusId, current, ordered[0]].find((id) => id && ordered.includes(id)) ?? null;
+
+  function move(from: string, key: string): boolean {
+    const at = ordered.indexOf(from);
+    const to = { ArrowDown: at + 1, ArrowUp: at - 1, Home: 0, End: ordered.length - 1 }[key];
+    if (to === undefined) return false;
+    const id = ordered[Math.max(0, Math.min(ordered.length - 1, to))];
+    setFocusId(id);
+    nav.current?.querySelector<HTMLButtonElement>(`[data-conv-id="${id}"]`)?.focus();
+    return true;
+  }
 
   const item = (c: ConversationSummary) => {
     const selected = c.conversation_id === current;
@@ -135,6 +154,13 @@ export function Sidebar({
           disabled={locked}
           onClick={() => onSelect(c.conversation_id)}
           aria-current={selected ? "page" : undefined}
+          aria-describedby={hint}
+          tabIndex={c.conversation_id === roving ? 0 : -1}
+          data-conv-id={c.conversation_id}
+          onFocus={() => setFocusId(c.conversation_id)}
+          onKeyDown={(e) => {
+            if (move(c.conversation_id, e.key)) e.preventDefault();
+          }}
           className="flex min-w-0 flex-1 flex-col gap-1 text-left disabled:opacity-60"
         >
           <span className={`text-sm leading-snug ${selected ? "font-bold text-ink" : "font-semibold text-ink-2"}`}>
@@ -143,7 +169,7 @@ export function Sidebar({
           <span className={`text-xs ${selected ? "font-semibold text-brand-dark" : "text-ink-4"}`}>{conversationMeta(c)}</span>
         </button>
         )}
-        {renaming !== c.conversation_id && renderOptions?.(c)}
+        {renaming !== c.conversation_id && renderOptions?.(c, c.conversation_id === roving)}
       </li>
     );
   };
@@ -158,6 +184,7 @@ export function Sidebar({
 
   return (
     <nav
+      ref={nav}
       aria-label="Conversations"
       className="flex w-80 shrink-0 flex-col gap-4 overflow-y-auto border-r border-line bg-gradient-to-b from-white to-sheet px-4 py-5"
     >
@@ -186,6 +213,9 @@ export function Sidebar({
           className="min-w-0 flex-1 bg-transparent text-ink outline-none placeholder:text-ink-4"
         />
       </label>
+      <p id={hint} className="sr-only">
+        Use the arrow keys to move between conversations.
+      </p>
       <div className="flex flex-col gap-4" data-testid="conversations">
         {group("Pinned", groups.pinned)}
         {group("Today", groups.today)}

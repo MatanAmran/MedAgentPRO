@@ -351,3 +351,54 @@ describe("provenance in the answer", () => {
     expect(screen.getByTestId("answer").textContent).toBe(reasons.answer);
   });
 });
+
+// --------------------------------------------------------------------------
+// one tab stop per list and per answer (CI, 18.10: Test 40 on Firefox and WebKit, where the shared server's
+// conversation list had grown past the keyboard test's reach)
+// --------------------------------------------------------------------------
+
+describe("roving focus", () => {
+  const many: ConversationSummary[] = Array.from({ length: 30 }, (_, i) => ({
+    conversation_id: `CV-${i}`, created_at: "2026-10-18T10:00:00", title: `Question ${i}`, exchanges: 1,
+  }));
+  const tabStops = (root: Element) =>
+    [...root.querySelectorAll<HTMLElement>("button, input, [tabindex]")].filter((e) => e.tabIndex >= 0 && !e.hasAttribute("disabled"));
+
+  it("makes the conversation list one tab stop, however long, and moves with the arrows", () => {
+    render(
+      <Sidebar conversations={many} current="CV-3" onSelect={() => {}} onNew={() => {}} locked={false}
+               renderOptions={(c, tabbable) => (
+                 <ConversationMenu conversation={c} tabbable={tabbable} onRename={() => {}} onPin={() => {}}
+                                   onArchive={() => {}} disabled={false} />
+               )} />,
+    );
+    const list = screen.getByTestId("conversations");
+    const stops = tabStops(list);
+    expect(stops.map((e) => e.getAttribute("data-conv-id") ?? e.getAttribute("aria-label"))).toEqual([
+      "CV-3", "Options for Question 3",
+    ]);
+    const current = stops[0];
+    current.focus();
+    fireEvent.keyDown(current, { key: "ArrowDown" });
+    expect(document.activeElement?.getAttribute("data-conv-id")).toBe("CV-4");
+    fireEvent.keyDown(document.activeElement!, { key: "End" });
+    expect(document.activeElement?.getAttribute("data-conv-id")).toBe("CV-29");
+    fireEvent.keyDown(document.activeElement!, { key: "Home" });
+    expect(document.activeElement?.getAttribute("data-conv-id")).toBe("CV-0");
+    expect(tabStops(list).map((e) => e.getAttribute("data-conv-id")).filter(Boolean)).toEqual(["CV-0"]);
+  });
+
+  it("makes the values of an answer one tab stop, and moves between them with the arrows", () => {
+    render(<ReadingCard reading={late.readings[0]} index={1} />);
+    const answer = screen.getByTestId("answer");
+    const refs = [...answer.querySelectorAll<HTMLButtonElement>("button.ref")];
+    expect(refs.filter((b) => b.tabIndex === 0)).toEqual([refs[0]]);
+    refs[0].focus();
+    fireEvent.keyDown(refs[0], { key: "ArrowRight" });
+    expect(document.activeElement).toBe(refs[1]);
+    expect(document.querySelector(`[data-row="${refs[1].getAttribute("data-ref-row")}"]`)?.getAttribute("data-hot")).toBe("true");
+    fireEvent.keyDown(refs[1], { key: "End" });
+    expect(document.activeElement).toBe(refs[refs.length - 1]);
+    expect(refs.filter((b) => b.tabIndex === 0)).toEqual([refs[refs.length - 1]]);
+  });
+});

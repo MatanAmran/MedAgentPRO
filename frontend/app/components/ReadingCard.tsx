@@ -110,29 +110,52 @@ const tool = "min-h-9 rounded-[10px] border border-line bg-white px-3 text-[13px
 function Answer({ reading, hot, onHot, rowId }: { reading: Reading; hot: number | null;
                                                   onHot: (row: number | null, focus: boolean) => void;
                                                   rowId: (n: number) => string }) {
+  // One tab stop per answer (Test 40 on every engine; CI, 18.10): the value last focused, else the first.
+  // Arrows, Home and End move between the values of this answer
+  const [active, setActive] = useState(0);
   const segments = reading.answer_segments;
   if (!segments?.length) return <>{reading.answer}</>;
+  const refs = segments.filter((s) => s.ref);
+  // the position of each value among the answer's values, for the arrows; -1 for plain text
+  const place = segments.map((s, i) => (s.ref ? segments.slice(0, i).filter((x) => x.ref).length : -1));
+
+  function move(e: React.KeyboardEvent<HTMLButtonElement>, at: number) {
+    const to = { ArrowRight: at + 1, ArrowDown: at + 1, ArrowLeft: at - 1, ArrowUp: at - 1, Home: 0,
+                 End: refs.length - 1 }[e.key];
+    if (to === undefined) return;
+    e.preventDefault();
+    const next = Math.max(0, Math.min(refs.length - 1, to));
+    const all = e.currentTarget.parentElement?.querySelectorAll<HTMLButtonElement>("button.ref");
+    all?.[next]?.focus();
+  }
+
   return (
     <>
-      {segments.map((s, i) =>
-        s.ref ? (
+      {segments.map((s, i) => {
+        if (!s.ref) return <span key={i}>{s.text}</span>;
+        const at = place[i];
+        const row = s.ref.row;
+        return (
           <button
             key={i}
             type="button"
-            className={`ref ${hot === s.ref.row ? "ref-hot" : ""}`}
-            aria-describedby={rowId(s.ref.row)}
-            data-ref-row={s.ref.row}
-            onMouseEnter={() => onHot(s.ref!.row, false)}
+            className={`ref ${hot === row ? "ref-hot" : ""}`}
+            aria-describedby={rowId(row)}
+            data-ref-row={row}
+            tabIndex={at === Math.min(active, refs.length - 1) ? 0 : -1}
+            onMouseEnter={() => onHot(row, false)}
             onMouseLeave={() => onHot(null, false)}
-            onFocus={() => onHot(s.ref!.row, true)}
+            onFocus={() => {
+              setActive(at);
+              onHot(row, true);
+            }}
             onBlur={() => onHot(null, false)}
+            onKeyDown={(e) => move(e, at)}
           >
             {s.text}
           </button>
-        ) : (
-          <span key={i}>{s.text}</span>
-        ),
-      )}
+        );
+      })}
     </>
   );
 }

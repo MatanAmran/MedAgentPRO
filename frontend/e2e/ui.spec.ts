@@ -147,3 +147,16 @@ test("phase C: pointing at or focusing a value in the answer marks its row", asy
   // the joined answer is what the screen shows
   await expect(card.getByTestId("answer")).toHaveText(/^S-\d{3} had /);
 });
+
+test("the conversation list and each answer stay one tab stop, however many conversations the server holds", async ({ page }) => {
+  await page.getByRole("button", NEW_CONVERSATION).click();
+  await askExample(page, LATE);
+  await expect(page.getByTestId("exchange")).toHaveCount(1, { timeout: 20_000 });
+  expect(await page.getByTestId("conversation-item").count()).toBeGreaterThan(1);
+  const stops = (sel: string) =>
+    page.locator(sel).evaluateAll((els) => els.filter((e) => (e as HTMLElement).tabIndex >= 0 && !e.hasAttribute("disabled")).length);
+  expect(await stops('[data-testid="conversations"] button')).toBe(2); // the current conversation and its options
+  for (const answer of await page.getByTestId("answer").all()) {
+    expect(await answer.locator("button.ref").evaluateAll((els) => els.filter((e) => (e as HTMLElement).tabIndex === 0).length)).toBe(1);
+  }
+});

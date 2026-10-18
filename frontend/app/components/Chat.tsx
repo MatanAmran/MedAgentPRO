@@ -210,9 +210,10 @@ export function Chat() {
               }}
             />
           )}
-          renderOptions={(c) => (
+          renderOptions={(c, tabbable) => (
             <ConversationMenu
               conversation={c}
+              tabbable={tabbable}
               disabled={locked}
               onRename={() => setRenaming(c.conversation_id)}
               onPin={(pinned) => change(c.conversation_id, { pinned })}
