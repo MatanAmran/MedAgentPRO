@@ -2804,6 +2804,104 @@ error message: The compiled grammar is too large, which would cause performance 
 
 **הבא:** שאלה 3 שוב מול המודל האמיתי, **באישור אביתר.** לפני כן אביתר מוסיף ל-`.env`: ‏`MODEL_MAX_OUTPUT_TOKENS_INTENT=3000`. ‏preflight `--real` יראה את הערך.
 
+### משימה 10א — **סקירה בצ׳אט (18.10, 03:50).** ‏`36ca62b` מאושר. שאלה 3 באישור אביתר
+
+**נבדק בקוד:**
+- **`calls.py`:** ‏`_innermost` רץ רק על `oneOf`/‏`anyOf` שיש להם `context`.
+  - `check` ומשוב בנויים מנתיב ו-keyword בלבד. ‏`validator_value` הוא ערך מהסכמה, לא מהמודל.
+  - הבדיקות עם מפתח וערך מומצאים במקום.
+- **`budget.py`:** ‏`output_cap` לפי שם הפרומפט. ההזמנה מתמחרת לפיו, וקריאת הכוונה נשלחת עם התקרה הזו, כי `ask` לא קובע `max_tokens`.
+  - התוספת ב-`real_gateway` (סירוב לעלות כשתקרה גבוהה ממגבלת המודל) נכונה.
+- **`prompts.py` ו-`seed.py`:** תאריך הייחוס בא ממקור אחד (`data_as_of`), ופרומפט בלי קטלוג מתאים נכשל.
+  - **ההבחנה בין `data_as_of` לבין MAX של כל התאריכים נכונה.** ‏`promised_date` ו-`due_date` עתידיים, ו"התאריך המאוחר ביותר" היה נותן דצמבר.
+- **תבניות הפער:** הטקסט לא בספר. ‏Playwright בודק רק את מספר הפערים, לא את הנוסח.
+- **הממצא על `rejection_reason` — מסכים עם המסקנה.** **הכרעה למשימה 10:** הלוח מציג את `check` בלבד, ולעולם לא את `rejection_reason`, ‏`superseded_reason` או `failure`.
+
+**הערות:**
+1. **Playwright ו-stress לא רצו בסבב הזה.** לפני push — להריץ אותם (12 ‏+ 3, ‏stress), כי נוסח הפער משתנה במסך.
+2. **כלל 9a נוקב ב-`delivered_at`.** זה קרוב לשאלה 3, אבל זו עמודה כללית, ודוגמת החודש בכוונה לא מהסט. **סיכון של התאמה למבחן:** בריצת 12 השאלות לבדוק במיוחד שאלות עם תקופה שלא על `delivered_at`.
+3. **סעיף 5 של 23:35 (נוסח V04)** — ב-commit ההערות הבא.
+
+**שאלה 3 — מאושרת מבחינת הצ׳אט, באישור אביתר:**
+- **קודם:** אביתר מוסיף ל-`backend\.env` את `MODEL_MAX_OUTPUT_TOKENS_INTENT=3000`, ו-preflight `--real` מציג אותו.
+- **מה צריך לראות:**
+  - "Examined" עם ספטמבר 2026.
+  - בלי פער.
+  - מספרי שורות קטנים בהרבה מ-357 ו-256: לפי סעיף 1, ‏67 לפי מועד האספקה ו-33 לפי מועד ההתחייבות.
+- **לדווח:**
+  - מספר הקריאות.
+  - ניסיונות משוב, כולל `check` אם היה.
+  - הטוקנים: קלט, פלט וחשיבה, ואחוז מתקרת הכוונה.
+  - העלות והזמן.
+- **אחרי זה, ורק באישור:** ריצת 12 השאלות (03:25).
+
+### משימה 10א — **שאלה 3 לא נשלחה (18.10): ‏preflight לא רואה את `MODEL_MAX_OUTPUT_TOKENS_INTENT`.** השרת נעצר. עלות 0
+
+- **השרת:** ‏`python -m main --real` עלה (תהליך 5168). בלוג אין שורות עם `Authorization`, ‏`x-api-key` או `sk-ant`.
+- **preflight `--real`:** הכול ✅, חוץ מהמסך (❌, צפוי, כי השאלות נשלחות דרך ה-API) ו-⚠️ 7 חילופים בעלות התקרה המלאה. **אבל השורה החדשה הראתה:**
+  ```
+  ✅ output cap per call: 2000 tokens; intent analysis: the same
+  ```
+  כלומר מבחינת הקוד המשתנה לא מוגדר, או מוגדר ריק.
+- **לפי 03:50 התנאי הוא שה-preflight יציג את הערך, ולכן שאלה 3 לא נשלחה.** בלוג השרת אין אף `POST`. השרת נעצר, ופורט 8000 פנוי.
+- **`.env` לא נפתח** (R9). סיבות אפשריות, לבדיקה של אביתר: הקובץ לא נשמר; שם המשתנה שונה (למשל רווח או אות אחרת); השורה בהערה (`#`); או שהשורה נוספה לקובץ `.env` אחר, לא ל-`backend\.env`.
+- **הבא:** אחרי התיקון — preflight שוב, וכשהוא מציג "intent analysis: 3000 tokens", שאלה 3.
+- **ניסיון שני (18.10), אחרי שאביתר דיווח שתיקן:** השרת עלה (תהליך 28496), ו-preflight הציג שוב "intent analysis: the same". שאלה 3 לא נשלחה, והשרת נעצר. **זמן השינוי של `backend\.env` על הדיסק הוא 14.10, 15:14 (395 בתים), ולכן הקובץ לא נשמר מאז.** הוא לא נפתח; נבדקו רק השם, הגודל והזמן. אין קובץ `.env` אחר בריפו, חוץ מ-`frontend\.env.local` הריק. כנראה העריכה לא נשמרה, או שנשמרה לקובץ מחוץ לריפו.
+
+### משימה 10א — **שאלה 3 שוב מול המודל האמיתי (18.10), באישור אביתר.** ‏**ספטמבר מסונן, בלי פער, בלי ניסיון משוב.** השרת נעצר. לסקירה בצ׳אט
+
+**לפני השאלה:** ‏`backend\.env` נשמר ב-04:03. ‏preflight `--real` הציג `✅ output cap per call: 2000 tokens; intent analysis: 3000 tokens`. השאר כמו קודם: המסך ❌ (צפוי, השאלה נשלחת דרך ה-API), ו-⚠️ 7 חילופים בעלות התקרה המלאה. השרת: תהליך 25784, בלי `--reload`. **שורות עם `Authorization`, ‏`x-api-key` או `sk-ant` בלוג: ‏0.**
+
+**הבקשה:** שיחה חדשה `CV-54f0bcff7576`, ‏AP-01, ‏`request_id=t10a-q3-v5-1792285493`, פעם אחת, בלי retry. ‏"Which purchase orders were delivered late in September?"
+
+**התוצאה:** ‏`answered`, ‏`recorded: true`, ‏`EX-bc247dc6774a`. ‏`gaps: []`, בלי withheld ובלי notice ברמת התשובה. ‏`ambiguous_terms: ["late"]`, ולכן שתי קריאות:
+
+| קריאה | Examined | שורות |
+|---|---|---|
+| `late_by_delivery` | "purchase order lines where delivery date between '2026-09-01' and '2026-09-30' and delivered after the requested date" | **30 מתוך 81**, ממוינות לפי מועד אספקה, מהמוקדם |
+| `missed_promise` | "purchase order lines where delivery date between '2026-09-01' and '2026-09-30' and delivered after the date the supplier committed to" | **30 מתוך 52**, אותו מיון |
+
+- **מה שהתבקש לראות — התקיים:**
+  - "Examined" עם ספטמבר 2026, בשתי הקריאות.
+  - בלי פער.
+  - מספרי השורות קטנים בהרבה מ-357 ו-256.
+- **המספרים 81 ו-52, ולא 67 ו-33 — נבדק מול המסד, ושניהם נכונים:**
+  - **81** הן שורות הזמנה של `late_by_delivery` בספטמבר. ‏**67** הוא אותו דבר מקובץ לפי הזמנה (`GROUP BY po_id`). המודל לא קיבץ, ולכן קיבלנו שורות ולא הזמנות.
+  - **52** הן שורות של `missed_promise`. ‏**33** בסעיף 1 היה `late_by_promise` מקובץ לפי הזמנה (36 שורות). ‏`missed_promise` מקובץ נותן 42. **המודל בחר ב-`missed_promise` כחלופה השנייה של "late"**, כמו בריצה של 14.10. ההשוואה ל-33 הייתה למטריקה אחרת.
+- **שלוש הערות, לא בעיה של הסינון:**
+  1. **השאלה היא "Which purchase orders", אבל התשובה בנויה משורות.** הזמנה עם כמה שורות מופיעה כמה פעמים (‏81 שורות מול 67 הזמנות).
+  2. **מוצגות 30 השורות הראשונות לפי תאריך,** כלומר רק תחילת ספטמבר. "Showing 30 of 81" מופיע, כמו שתוכנן.
+  3. **הטקסט מזכיר 6 שורות בכל קריאה,** למשל: "PO-88986 with P-14995 was delivered on 2026-09-01. PO-88773 with P-11258, PO-88839 with P-11110 and PO-89229 with P-11665 were each delivered on 2026-09-02. …". הוא מתאר תאריכים ולא כמה זמן האיחור, אבל כל ערך מתאים לשורה שלו, ו-"each" מופיע רק בתאריכים זהים.
+
+**השורות מהלוג:**
+```
+model call: exchange=EX-bc247dc6774a request=t10a-q3-v5-1792285493 conversation=CV-54f0bcff7576 stage=intent_analysis prompt_identity=intent_analysis_demo@5 model=claude-sonnet-5-5 attempt_number=1 feedback_attempt=False status=accepted finish_reason=stop input_tokens=3578 output_tokens=1042 output_chars=1064 reasoning_tokens=462 claims=- temperature=provider default max_tokens=3000 duration_ms=7312.5 check=-
+model call: exchange=EX-bc247dc6774a request=t10a-q3-v5-1792285493 conversation=CV-54f0bcff7576 stage=synthesis prompt_identity=synthesis@7 model=claude-sonnet-5-5 attempt_number=1 feedback_attempt=False status=accepted finish_reason=stop input_tokens=7194 output_tokens=546 output_chars=1162 reasoning_tokens=0 claims=- temperature=provider default max_tokens=2000 duration_ms=19257.9 check=-
+model call: exchange=EX-bc247dc6774a request=t10a-q3-v5-1792285493 conversation=CV-54f0bcff7576 stage=support_gate prompt_identity=support_scoring@4 model=claude-sonnet-5-5 attempt_number=1 feedback_attempt=False status=accepted finish_reason=stop input_tokens=7102 output_tokens=998 output_chars=1309 reasoning_tokens=392 claims=6 temperature=provider default max_tokens=2000 duration_ms=8129.8 check=-
+exchange cost: attempt=EX-bc247dc6774a usd=0.061608 remaining=1.714846
+```
+
+**הקריאות:** שלוש, כולן בניסיון הראשון. **אין ניסיון משוב, ולכן אין `check`.**
+
+| שלב | קלט | פלט | חשיבה | ‏% מהתקרה | זמן |
+|---|---|---|---|---|---|
+| intent (`@5`) | 3,578 | 1,042 | 462 | **35% מ-3,000** (52% מ-2,000) | 7.3 שנ׳ |
+| synthesis | 7,194 | 546 | 0 | 27% מ-2,000 | 19.3 שנ׳ |
+| gate | 7,102 | 998 | 392 | 50% מ-2,000 | 8.1 שנ׳ |
+
+- **שלב הכוונה מול 14.10:** ‏1,042 טוקני פלט בניסיון אחד, במקום 1,638 ‏+ 1,794 בשני ניסיונות. החשיבה ירדה מ-1,092 ו-1,332 ל-462.
+- **השער:** ‏`claims=6` על 6 משפטים.
+
+**העלות: ‏0.061608$** (17,874 בקלט, ‏2,586 בפלט). החישוב מתאים בדיוק: ‏17,874 × 2 ‏+ 2,586 × 10, למיליון. **מול 0.079180$ ב-14.10.** נשארו 1.714846$.
+**הזמן: ‏35.0 שניות מקצה לקצה** (מול 42.5). הסינתזה לקחה 19.3 שניות, כמעט פי ארבעה מ-14.10 (5.3), על קלט גדול ב-40% ובלי חשיבה. לא ידוע למה.
+
+**השרת נעצר.** פורט 8000 פנוי.
+
+**להכרעה בצ׳אט:**
+1. **"Which purchase orders" נענה בשורות ולא בהזמנות.** האם זה מספיק לדמו? או כלל או דוגמה בפרומפט: "Which X" ← לקבץ לפי המזהה של X? זה שינוי פרומפט נוסף, וגם סיכון של התאמה למבחן.
+2. **ההשוואה בסעיף 1 (33) הייתה ל-`late_by_promise`, והמודל בוחר ב-`missed_promise`.** שתיהן חלופות סבירות ל-"late"? זו שאלה על הקטלוג, לא על הקוד.
+3. **ריצת 12 השאלות (03:25)** — ממתינה לאישור אביתר. לפי 03:50 הערה 2, לבדוק במיוחד שאלות עם תקופה שלא על `delivered_at`.
+
 ## מה שנסגר בסבב האחרון
 
 - **הקוד עבר לריפו** — `MedAgentPro\backend` (`query_assistance`, `model_client`, `persistence`, `shared`, `tests`). **`03_Code` נשאר כמקור ומעודכן.** `python -m pytest -q` מתוך `backend`
