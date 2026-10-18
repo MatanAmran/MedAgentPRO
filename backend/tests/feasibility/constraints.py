@@ -110,6 +110,7 @@ CONSTRAINTS: list[Constraint] = [
                         "cent precision. Usage and the key's Last used showed nothing yet (reporting lag)"),
     Constraint("V04", "live", "Real outputs pass the checks often enough: the feedback attempt rate is measured.",
                "R4 · R9", result="partial",
-               observed="R9, 14.10: 0/7, feedback success not yet observed. All 7 calls passed at the first "
-                        "attempt; the sample is small, so no claim on a rate (chat, 18:20)"),
+               observed="R9, 14.10: 0/7 calls needed feedback. Task 10a, question 3 (14.10): 1/1 feedback attempt "
+                        "passed the checks; its output dropped the date filter and declared a false gap. On intent v5 "
+                        "(18.10) the same question needed none. No claim on a rate (chat, 23:35)"),
 ]

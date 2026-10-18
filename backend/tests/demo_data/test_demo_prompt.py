@@ -34,7 +34,7 @@ def db(tmp_path_factory):
 
 
 def test_prompt_metadata():
-    assert PROMPT.output_schema == "intent_analysis" and PROMPT.identity == "intent_analysis_demo@5"
+    assert PROMPT.output_schema == "intent_analysis" and PROMPT.identity == "intent_analysis_demo@6"
     assert "—" not in PROMPT.body and "–" not in PROMPT.body
 
 
@@ -119,3 +119,29 @@ def test_a_month_example_filters_the_date_column_with_full_dates_and_writes_no_l
     assert all("LIMIT" not in r["plan"] for _, o in examples() for r in o.get("readings", []))
     assert all(i.get("dir") in ("ASC", "DESC") for _, o in examples() for r in o.get("readings", [])
                for i in r["plan"].get("ORDER_BY", []))
+
+
+# --------------------------------------------------------------------------
+# version 6 (task 10a, chat 04:20): "which X" is one row per X
+# --------------------------------------------------------------------------
+
+def test_the_which_rule_is_in_the_prompt():
+    rule = "When the question asks which <entities>, return one row per entity: select and group by its identifier."
+    assert rule in PROMPT.body
+
+
+def _identifier_aliases(plan) -> set[str]:
+    return {i["as"] for i in plan["SELECT"] if "col" in i["expr"] and (c.Catalog.column(CAT, i["expr"]["col"]) or {})
+            .get("identifier")}
+
+
+@pytest.mark.parametrize("question, output", [(q, o) for q, o in examples() if q.startswith("Which ")])
+def test_every_which_example_returns_one_row_per_entity(question, output):
+    """Grouped by an identifier it selects, or read from a table whose own identifier it selects."""
+    for r in output["readings"]:
+        plan = r["plan"]
+        ids = _identifier_aliases(plan)
+        own = {f'{plan["FROM"]}.{col}' for col, spec in CAT.entities[plan["FROM"]]["columns"].items()
+               if spec.get("identifier") and not spec.get("references")}
+        selected = {i["expr"].get("col") for i in plan["SELECT"]}
+        assert ids & set(plan.get("GROUP_BY", [])) or own & selected, (question, r["label"])

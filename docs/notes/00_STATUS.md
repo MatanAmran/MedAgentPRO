@@ -2902,6 +2902,73 @@ exchange cost: attempt=EX-bc247dc6774a usd=0.061608 remaining=1.714846
 2. **ההשוואה בסעיף 1 (33) הייתה ל-`late_by_promise`, והמודל בוחר ב-`missed_promise`.** שתיהן חלופות סבירות ל-"late"? זו שאלה על הקטלוג, לא על הקוד.
 3. **ריצת 12 השאלות (03:25)** — ממתינה לאישור אביתר. לפי 03:50 הערה 2, לבדוק במיוחד שאלות עם תקופה שלא על `delivered_at`.
 
+### משימה 10א — **סקירה בצ׳אט (18.10, 04:20).** שאלה 3 עברה. הכרעות לפני ריצת 12 השאלות
+
+**התוצאה מאושרת.** ספטמבר מסונן בשתי הקריאות, בלי פער, ובלי ניסיון משוב. ‏0.0616$, ‏35 שניות. הכוונה ב-35% מהתקרה, והחשיבה ירדה מ-1,092/‏1,332 ל-462. **הבעיה מ-14.10 נפתרה.**
+
+**הכרעות:**
+1. **`missed_promise` היא הבחירה הנכונה, וההשוואה ל-33 בסעיף 1 הייתה שגויה (של הצ׳אט).** לפי הקטלוג:
+   - `late_by_promise` = הספק **התחייב** למועד אחרי המועד המבוקש. זה לא "delivered late".
+   - `missed_promise` = **סופק** אחרי מועד ההתחייבות.
+   - לשאלה "delivered late", ‏`late_by_delivery` ו-`missed_promise` הן שתי החלופות הנכונות. **אין שינוי בקטלוג.**
+2. **"Which purchase orders" נענה בשורות — לתקן בכלל כללי, לא בדוגמה:**
+   - בפרומפט (`intent_analysis_demo@6`): "When the question asks which <entities>, return one row per entity: select and group by its identifier."
+   - **זו סמנטיקה כללית של "which X", לא התאמה לשאלה 3.** גם התוכנית המתוסרטת של שאלה 3 מקבצת לפי `po_id`.
+   - בדיקה: הכלל בגולדן, והדוגמאות עוברות סכמה ומהדר.
+   - **בלי ריצה נפרדת של שאלה 3** — היא נבדקת בריצת 12 השאלות.
+3. **19.3 שניות לסינתזה** — לא לחקור עכשיו. לרשום את הזמן של כל שלב בריצת 12 השאלות. אם זה חוזר, זה נוגע לדמו (NFR 28, החיווי שהשאלה בטיפול).
+4. **ריצת 12 השאלות — מוגדרת, באישור אביתר:**
+   - **כל שאלה פעם אחת, בתפקיד שלה לפי סדר הדמו ב-`70_DEMO.md`. לא שני התפקידים.** כ-0.06–0.08$ לשאלה, כלומר כ-0.75–1.0$. נשארו 1.7148$.
+   - **בלי retry**, ושאלה שנכשלת לא נשלחת שוב.
+   - **לכל שאלה, בטבלה:**
+     - הסטטוס.
+     - "Examined" (תקופה, ישות, מטריקה) מול מה שנשאל.
+     - פערים, ואם יש — האם הם נכונים.
+     - האם "which X" קובץ.
+     - ניסיונות משוב ו-`check`.
+     - הטוקנים ואחוז מהתקרה בכל שלב.
+     - הזמן בכל שלב.
+     - העלות.
+   - **להשוות לתסריט** של אותה שאלה: מה זהה, ומה שונה ונכון, ומה שונה ושגוי.
+   - **לפי 03:50 הערה 2:** לסמן במיוחד שאלות עם תקופה שלא על `delivered_at`.
+   - **תקרה:** אם ההוצאה בריצה עוברת 1.2$, לעצור ולדווח.
+5. **הסדר:** כלל "which X" ← commit, כולל נוסח V04 ← Playwright ו-stress ← דיווח ← ריצת 12 השאלות, באישור אביתר.
+
+### משימה 10א — **סעיף 2 של 04:20 (כלל "which X", ‏`@6`) ונוסח V04 בוצעו; Playwright ו-stress עברו (18.10).** בלי מודל. **עצירה לפני ריצת 12 השאלות**
+
+**1. הכלל, `intent_analysis_demo@6`.** כלל 15:
+> "When the question asks which <entities>, return one row per entity: select and group by its identifier. GROUP_BY needs an aggregate in SELECT, such as COUNT. Where FROM is the entity's own table, its rows are already one per entity: select the identifier, with no GROUP_BY."
+
+- **המשפט הראשון הוא הנוסח של הצ׳אט, מילה במילה.**
+- **שני המשפטים שאחריו הם תוספת שלי. הסיבה:** המהדר דוחה `GROUP_BY` בלי צבירה ב-SELECT ("GROUP_BY without an aggregate in SELECT", ‏`compiler.py:439`). לכן מודל שמקיים את המשפט הראשון כלשונו, למשל בשאלה 10 ("Which parts are below their reorder point?", ‏FROM parts), יקבל `CompileError` וניסיון משוב.
+  - **המשפט השני** אומר שקיבוץ דורש צבירה.
+  - **המשפט השלישי** אומר שכאשר ה-FROM הוא הטבלה של הישות עצמה, השורות כבר אחת לכל ישות.
+  - **לסקירה בצ׳אט:** האם הנוסח מקובל.
+- **דוגמת החודש:** השאלה שונתה מ-"Which lines did S-014 deliver in March?" ל-**"What did S-014 deliver in March?"**. התוכנית לא השתנתה. הסיבה: בנוסח הקודם, "which lines" לפי הכלל דורש את `commitment_id`, והדוגמה לא בוחרת אותו.
+- **אין דוגמה חדשה,** כמו שהוכרע: כלל, לא דוגמה. הדוגמה הראשונה ("Which suppliers were late…") כבר מקבצת לפי `supplier_id` עם COUNT.
+- **בדיקות** (`test_demo_prompt.py`):
+  - הכלל נמצא בפרומפט.
+  - כל דוגמה שמתחילה ב-"Which" מחזירה שורה אחת לכל ישות: היא מקובצת לפי מזהה שהיא בוחרת, או קוראת מטבלה שהיא בוחרת את המזהה שלה.
+  - הדוגמאות עוברות סכמה, מהדר והרצה (כמו קודם).
+  - ה-golden של פרומפט הכוונה עודכן, בשני התפקידים.
+- **צפוי בריצת 12 השאלות:** שאלה 5 ("Which open lines are past due…") מתוסרטת עם `supplier_id`, ‏`po_id` ו-`due_date`, **בלי `commitment_id`**. לפי הכלל, המודל עשוי להוסיף את `commitment_id`. **זה הבדל נכון, לא שגיאה.** התסריט לא שונה.
+
+**2. V04** (`constraints.py`), ◐ partial. הנוסח שנכנס:
+> "R9, 14.10: 0/7 calls needed feedback. Task 10a, question 3 (14.10): 1/1 feedback attempt passed the checks; its output dropped the date filter and declared a false gap. On intent v5 (18.10) the same question needed none. No claim on a rate (chat, 23:35)"
+
+**3. בדיקות:**
+- **pytest:**
+  - `pytest -q` — ‏**822 עברו**, 1 דולגה.
+  - `tools.path_map` — ‏138 עברו.
+  - `-m stress` — ‏8 עברו (34 שנ׳).
+- **Playwright:**
+  - `npx playwright test` — ‏**12 עברו** (2.0 דק׳, Edge).
+  - `-c playwright.real.config.ts` — ‏**3 עברו**, כולל עצירה בתקרה של שאלה 3 עם הפרומפט הארוך יותר.
+- **ruff** נקי.
+- **תקלה שלי, תוקנה:** הרצה ראשונה של `npx playwright test` רצה בטעות מתוך `backend\`. היא לא מצאה בדיקות, אבל השאירה תיקייה ריקה `backend\test-results\`, שנמחקה. `npx` הוריד את `playwright@1.64.1` למטמון של npm בלבד; הריפו לא השתנה.
+
+**הבא:** ריצת 12 השאלות לפי 04:20 סעיף 4, **רק באישור נפרד של אביתר.**
+
 ## מה שנסגר בסבב האחרון
 
 - **הקוד עבר לריפו** — `MedAgentPro\backend` (`query_assistance`, `model_client`, `persistence`, `shared`, `tests`). **`03_Code` נשאר כמקור ומעודכן.** `python -m pytest -q` מתוך `backend`

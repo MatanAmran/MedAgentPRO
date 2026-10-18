@@ -1,6 +1,6 @@
 # MedAgentPro — מפת המסלולים וההיתכנות
 
-**נוצר אוטומטית** ב-`python -m tools.path_map` (מתוך `backend\`), 18.10.2026 03:34. **לא לערוך ידנית** — המקור הוא `backend\tests\paths\registry.py` ו-`backend\tests\feasibility\constraints.py`.
+**נוצר אוטומטית** ב-`python -m tools.path_map` (מתוך `backend\`), 18.10.2026 04:14. **לא לערוך ידנית** — המקור הוא `backend\tests\paths\registry.py` ו-`backend\tests\feasibility\constraints.py`.
 
 **איך זה גדל:** `tests\paths\branches.py` קורא מהקוד ומהסכמות כל הסתעפות (מצב סיום, שלב, סוג כשל, `except`, הודעה, נקודת קצה, קוד HTTP, סוג פער, תפקיד). **הסתעפות בלי מסלול מפילה את `pytest`.** מגבלה שמתגלה (כמו הטמפרטורה) נכנסת כשורה ב-`constraints.py`, ושורה בלי בדיקה מפילה את `pytest`.
 
@@ -132,7 +132,7 @@
 | ✅ | V01 | live | The provider accepts the three reduced schemas (no 400). **נצפה:** R9, 14.10: rewriting (question 2), synthesis and the gate (both) accepted, no 400 (00_STATUS, R9) | R2 · R9 |
 | ✅ | V02 | live | The provider accepts a request with no temperature and the configured max_tokens. **נצפה:** R9, 14.10: all 7 calls sent no temperature (provider default) and max_tokens=2000, per the model call line (00_STATUS, R9) | R1 · R9 |
 | ✅ | V03 | live | The cost recorded for one exchange matches Usage in the Console. **נצפה:** R9, 14.10: the tokens are the provider's own usage report on each response; priced at the card they give USD 0.0943, and the credit balance fell 3.82 -> 3.72, consistent at cent precision. Usage and the key's Last used showed nothing yet (reporting lag) | R9 |
-| ◐ | V04 | live | Real outputs pass the checks often enough: the feedback attempt rate is measured. **נצפה:** R9, 14.10: 0/7, feedback success not yet observed. All 7 calls passed at the first attempt; the sample is small, so no claim on a rate (chat, 18:20) | R4 · R9 |
+| ◐ | V04 | live | Real outputs pass the checks often enough: the feedback attempt rate is measured. **נצפה:** R9, 14.10: 0/7 calls needed feedback. Task 10a, question 3 (14.10): 1/1 feedback attempt passed the checks; its output dropped the date filter and declared a false gap. On intent v5 (18.10) the same question needed none. No claim on a rate (chat, 23:35) | R4 · R9 |
 
 ✅ עובר · ❌ נכשל · ⚠️ פער ידוע (xfail) · ⏭️ דולג (חסרה הטבלה של LiteLLM בסביבה) · ⏳ רק מול המודל האמיתי, בבדיקת העשן (R9), עוד לא נבדק · ◐ נצפה בבדיקת העשן, אבל לא כל מה שנטען (למשל: אין עדיין שיעור)
 
