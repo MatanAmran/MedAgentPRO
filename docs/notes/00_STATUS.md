@@ -4020,6 +4020,51 @@ exchange cost: attempt=EX-bc247dc6774a usd=0.061608 remaining=1.714846
 - **לפי כלל 4 ("גמור"):** הריצה של `61b17f1` הייתה הראשונה עם אפס חוסמים. אם הצ׳אט ישפוט גם את זו כאפס חוסמים — **"גמור", ומקפיאים את הפרומפטים.** הקל של F1a ייכנס ל-`70_DEMO.md` או יתוקן, לפי ההחלטה.
 - **לתכנון (מ-14:45):** היתרה 3.5613$ — מתחת ל-3.75$ שהחזרה על הדמו דורשת. ‏preflight `--real` עם השרת יציג ⚠️ (פחות מ-15 חילופים במקרה הגרוע: ‏14). **החלטה של אביתר.**
 
+### **סקירה בצ׳אט (18.10, 15:05): ‏"גמור" לפי כלל 4.** הפרומפטים מוקפאים עד הדמו
+
+- **השיפוט:** אפס חוסמים גם בריצה של `661df40`. זו הריצה השנייה ברצף, אחרי `61b17f1`. ‏43 מתוך 43, כל הספירות ✅, ‏G1 בלי דליפה, ו-D4 נענה ב-1659 מתוך 3000.
+- **⇒ "גמור".** **מקפיאים את הפרומפטים** (`intent_analysis_demo@8`, ‏`synthesis@10`, ‏`synthesis_redraft@7`, ‏`support_scoring@5`) עד הדמו.
+  - **שינוי בפרומפט מכאן — רק אחרי ריצה מלאה של שני הסטים, ובאישור אביתר.**
+- **F1a ("1 lines") — קל, לא מתקנים.** הערך נכון, ותיקון היה מפר את ההקפאה. ‏**`70_DEMO.md`:** משפט קצר — לפעמים מופיעה יחידה ברבים אחרי 1, בגלל ההפניות. ‏**אחרי הדמו:** פורמט יחידות בקוד, כשהערך ידוע.
+- **התקציב לחזרה על הדמו — החלטה של אביתר.** נשארו 3.5613$, כלומר 14 חילופים במקרה הגרוע.
+  - **המלצת הצ׳אט: לקבל את האזהרה של preflight.** 14 ≥ 12 שאלות הדמו. ‏`70_DEMO.md`: "⚠️ 14 חילופים — מספיק לסט".
+  - **החלופה:** הטענה, ואז הסך המצטבר יעבור את כלל ה-10$.
+- **⚠️ מפתח ה-API `medagentpro-demo` פג ב-22.10.2026.** אם הדמו אחרי זה — מפתח חדש, ו-preflight.
+
+**הבא:**
+1. **commit של ההערות** ← push ו-PR של `offscript/eval` מול `master` (באישור אביתר). אביתר ממזג.
+2. **משימה 10 — הלוח "How this was answered"** (מוגדרת ב-`00_STATUS.md`). **מציג את `check` בלבד, לעולם לא את `rejection_reason`** (03:50). ענף חדש.
+3. **החזרה על הדמו** לפי `70_DEMO.md`.
+4. **ההסבר לאביתר איך להריץ את הדמו בעצמו.**
+5. **לספר (אביתר מתקן; הצ׳אט מכין נוסח):** ‏NFR 6 (ממוצע, מינימום ומקסימום, גם על מדד מוגדר) · ‏FR 14 ו-4.9 (שאלה שלא ניתנת לפירוש) · ‏3.1.4 (הטענה על LiteLLM והפלט המובנה) · ‏limitation ו-future work (פלט מובנה בלי תלות בספק).
+
+### **אביתר (18.10, 15:10): סוגרים הכול חוץ מהחזרה על הדמו ומההסבר.** משימה 10, ונוסחים לספר
+
+**1. push ו-PR של `offscript/eval`** — לפי 15:05. אביתר ממזג.
+
+**2. משימה 10 — הלוח "How this was answered".** ההגדרה בסעיף "משימה 10 — לוח… (14.10, 15:30)". **עדכונים להגדרה, מאז:**
+- **ענף חדש מ-`master`, אחרי המיזוג של `offscript/eval`.** **תוכנית קצרה לפני קוד** (כמו שההגדרה דורשת), ודיווח.
+- **העמודה "דחייה" מציגה את `check` בלבד** (למשל `SchemaBreach:pattern@readings/0/label`). **לעולם לא** `rejection_reason`, ‏`superseded_reason` או `failure` (03:50). בדיקה שמוודאת את זה.
+- **עמודות נוספות שכבר קיימות ב-`CallTrace`:** ‏`reasoning_tokens` (T15), ו-`max_tokens` שנשלח (כולל תקרות הכוונה והשער).
+- **העלות לכל קריאה** — מ-`BudgetedGateway` (לא קיימת עדיין ב-`CallTrace`, לפי R9).
+- **בחילוף שלא הגיע למודל:** ‏"No model call" (שאלות 7, ‏12, ובקשת בירור עם קריאת כוונה אחת). **ושאלה שנדחתה בקצב:** "Not sent: rate limit".
+- **`70_DEMO.md`:** המגבלה היא כבר 10 לדקה (לא 6, כמו שנכתב ב-14.10).
+- **הפרומפטים מוקפאים.** הלוח הוא UI ו-API בלבד, בלי שינוי בפרומפט או בצינור.
+- **בדיקות:** כמו בהגדרה (אין טקסט, ערך מרשומה או מפתח; סגור כברירת מחדל; מקלדת; axe; ‏Playwright בשני המצבים), ובנוסף `--plans` נשאר 43 מתוך 43.
+- **אין צורך בריצה אמיתית לפני מיזוג.** הספק המזויף מכסה את הנתיב. הלוח ייראה בחזרה על הדמו.
+
+**3. נוסחים לספר — לאביתר** (הצ׳אט לא נוגע בספר). נבדק מול `Book Phase A - גרסה עדכנית ל-15.10.docx`:
+- **NFR 6 — המשפט האחרון:**
+  - **היום:** "A count or a sum over records shall be computed without a model call and carried in the same way."
+  - **← החדש:** "A count, sum, average, minimum or maximum over records, or over a value defined from them, shall be computed without a model call and carried in the same way."
+- **FR 14 — משפט שלישי, בסוף:** "Where a question cannot be interpreted from its own words and the conversation, the system shall retrieve nothing and ask for the question to be stated in full."
+- **4.9 — בסוף פסקת השער,** אחרי "…that the assistant does not change records.": "A question that cannot be interpreted from its own words and the conversation retrieves nothing and receives a request to state it in full."
+- **מבחן 22:**
+  - **צעד רביעי:** "Begin a new conversation with a follow-up question that names nothing it refers to, and read what is returned."
+  - **בסוף התוצאה:** "The fourth retrieves nothing. What returns asks for the question to be stated in full."
+- **3.1.4 — כבר עודכן בגרסה של 15.10** ("Enforcement of a structured output schema differs between providers… validated against its schema in code…"). **מה שנשאר: משפט על העתיד, אחרי "…whichever provider serves the call.":** "Where a provider cannot enforce a schema of this size in a single call, the plan can be built in smaller calls, each held to a narrower schema; this remains to be evaluated in phase B."
+- **בסוף: רענון תוכן העניינים.**
+
 ## מה שנסגר בסבב האחרון
 
 - **הקוד עבר לריפו** — `MedAgentPro\backend` (`query_assistance`, `model_client`, `persistence`, `shared`, `tests`). **`03_Code` נשאר כמקור ומעודכן.** `python -m pytest -q` מתוך `backend`
