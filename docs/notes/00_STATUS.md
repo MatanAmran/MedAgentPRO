@@ -4129,6 +4129,59 @@ exchange cost: attempt=EX-bc247dc6774a usd=0.061608 remaining=1.714846
 
 **הבא:** אישור התוכנית, והכרעה על "No model call". אחר כך קוד, בסדר הזה: backend ← API ← מסך ← בדיקות ← `70_DEMO.md`.
 
+### **משימה 10 — בוצעה (18.10, ענף `task10/panel`).** התוכנית אושרה עם חמישה שינויים (הודבקו מהצ׳אט), וכולם בוצעו. בלי שינוי בפרומפט, ב-`pipeline.py` או בחוזה
+
+**backend:**
+- **`ModelResponse.cost_usd`:** ‏`BudgetedGateway` ממלא אותו באותו סכום שהוא רושם בספר ההוצאה. המודל המתוסרט של הדמו ממלא 0. ‏`None` = לא ידוע — לעולם לא 0.
+- **`CallTrace.cost_usd`.** ‏`claims` של השער כבר היה שם.
+- **`contract.is_rate_limited(notice)` ו-`contract.is_budget_refused(notice)`** (שינוי 1). ‏`tools/real_eval.py` משתמש ב-`is_rate_limited` במקום ה-regex שלו.
+
+**API:**
+- **`api/trace.py`** בונה את `trace`:
+  - `calls` לפי רשימה לבנה (`FIELDS`, כולל `claims` — שינוי 5).
+  - `total` (טוקנים, ו-`usd` מ-`Outcome.cost` כשיש).
+  - `unpriced_usd`.
+  - `not_sent`: ‏`rate_limit` או `budget` (שינוי 2), רק כשאין אף קריאה.
+  - `note`: ‏`plan_decided` או `no_records`, **לפי ה-outcome ולא לפי מספר שאלה**.
+- **`--panel`** ב-`main` וב-`tools/fake_real_server`. ‏`/api/health` מחזיר `panel`. `--panel` עם `--reload` — השרת מסרב.
+- **האיסוף:** ‏`on_call=calls.append` — append בלבד, שלא יכול לזרוק לתוך `pipeline.run` (שינוי 3). רק כשהלוח דלוק.
+- **`trace` נשמר גם בפריט של השיחה,** כך שהוא נשאר אחרי רענון.
+- **ממצא אגב:** סירוב תקציב (גם הכולל וגם תקרת החילוף) לא משאיר שורת קריאה, כי `BudgetExceeded` נזרק לפני השליחה ולא נרשם כ-`Call`. לכן `not_sent: budget` נכון שם. **סירוב תקציב באמצע** (R7a, אחרי הכוונה) משאיר את שורת הכוונה, וההודעה בתשובה מסבירה.
+
+**מסך:** ‏`HowAnswered.tsx`:
+- כפתור עם `aria-expanded`/`aria-controls`, סגור כברירת מחדל.
+- טבלה: שלב · מודל · ניסיון (עם feedback) · טוקנים (חשיבה) · תקרת פלט · טענות · עלות · זמן · סיום · ‏"Rejected by" (`check`).
+- שורת סך, "reserved for calls whose cost is unknown", והערה ("No answer was drafted: …").
+- בלי קריאות: "Not sent: rate limit" / "Not sent: budget" / "No model call".
+- **מתוסרט:** "scripted", ‏$0.0000, טוקנים עם ≈. ‏**"—" לעלות לא ידועה** (שינוי 4).
+- **נבדק בעין בדפדפן** (שאלה 1, מתוסרט): שלוש שורות, "3" טענות בשער. בלי שגיאות בקונסול.
+
+**בדיקות:**
+- **backend:** `tests/api/test_panel.py`, ‏20:
+  - כבוי כברירת מחדל.
+  - רשימה לבנה.
+  - טענות השער.
+  - **אין שאלה, ערכי שורות, תשובה, מזהה ספק או מפתח מזויף ב-`trace`.**
+  - **דחייה של השער עם טקסט של המודל:** ב-`trace` רק `GateOutputError`, והטקסט נמצא רק ב-`rejection_reason` של רשומת הביקורת.
+  - מתוסרט 0 מול לא ידוע `None`.
+  - בנתיב האמיתי סכום השורות = עלות החילוף, ו-`max_tokens` = התקרות (כוונה 3000, שער 2500, כללי 2000).
+  - `unpriced` אחרי timeout.
+  - הערה לפי outcome (כולל בירור).
+  - `not_sent` לקצב ולשני סוגי התקציב.
+  - קריאת ההודעות חזרה.
+- **frontend (vitest):** `HowAnswered.test.tsx`, ‏10 (75 בסך הכול).
+- **Playwright:** ‏`e2e/panel.spec.ts` רץ **בשני המצבים** (גם `--panel` דלוק בשני השרתים של הבדיקות; הלוח סגור, ולכן לא נוגע במבחנים האחרים): סגור כברירת מחדל · Enter פותח, Space סוגר · שורות ומודל/עלות לפי המצב · **axe מלא על הלוח הפתוח** · שאלה 7 עם שורת Planning אחת וההערה.
+  - **מתוסרט: 14 מתוך 14** (כל ה-e2e). **הנתיב האמיתי: 5 מתוך 5.**
+- **`pytest -q` ‏983.** ‏stress 8. ‏`--plans` 31/31 ו-12/12. ‏ruff ו-bandit נקיים. ‏mypy ללא שינוי (27). ‏tsc ו-eslint נקיים.
+
+**מסמכים:**
+- **`70_DEMO.md`:** איך מדליקים, מה רואים, המקרים המיוחדים, משפט למציג, ושאלות חופשיות.
+- **`10_BOOK.md`:** חמשת השינויים של 15:03 — NFR 6, ‏FR 14, ‏4.9, מבחן 22 (חמישה צעדים), ‏3.1.4. **נבדקו מול הטקסט של ה-docx,** קריאה בלבד. המספרים לא השתנו.
+
+**לא נעשה:** ריצה אמיתית. הלוח ייראה בחזרה על הדמו.
+
+**הבא:** push ו-PR של `task10/panel` מול `master`, באישור אביתר.
+
 ## מה שנסגר בסבב האחרון
 
 - **הקוד עבר לריפו** — `MedAgentPro\backend` (`query_assistance`, `model_client`, `persistence`, `shared`, `tests`). **`03_Code` נשאר כמקור ומעודכן.** `python -m pytest -q` מתוך `backend`

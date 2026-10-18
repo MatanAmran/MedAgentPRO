@@ -9,10 +9,10 @@ import { python, screen, shared } from "./playwright.config";
 export default defineConfig({
   ...shared,
   testDir: "e2e",
-  testMatch: "real.spec.ts",
+  testMatch: ["real.spec.ts", "panel.spec.ts"],
   webServer: [
     {
-      command: `${python} -m demo_data.seed && ${python} -m tools.fake_real_server`,
+      command: `${python} -m demo_data.seed && ${python} -m tools.fake_real_server --panel`,
       cwd: join(__dirname, "..", "backend"),
       url: "http://127.0.0.1:8000/api/health",
       reuseExistingServer: false,

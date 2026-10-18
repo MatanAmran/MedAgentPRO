@@ -65,7 +65,7 @@ def result(r) -> dict:
 
 def test_health_says_scripted_and_no_authentication(client):
     h = client.get("/api/health").json()
-    assert h == {"mode": "scripted", "model": "scripted-demo", "authentication": "none (demo)"}
+    assert h == {"mode": "scripted", "model": "scripted-demo", "authentication": "none (demo)", "panel": False}
 
 
 @pytest.mark.parametrize("headers", [{}, {"X-Demo-User": "XX-99"}])

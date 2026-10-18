@@ -381,6 +381,21 @@ EXCHANGE_CAP = ("This question needs more of the model than one answer may use. 
                 "answered. Ask about fewer records.")   # R7b: the per-exchange cap, not the total budget
 
 
+_RATE_NOTICE = re.compile("^" + r"(\d+)".join(re.escape(p) for p in RATE_LIMITED.split("{seconds}")) + "$")
+
+
+def is_rate_limited(notice: str | None) -> int | None:
+    """The seconds a rate refusal's notice names, or None for any other notice (task 10). The notice is text
+    this module wrote, so reading it back is reading code's own words, never a model's."""
+    m = _RATE_NOTICE.match(notice or "")
+    return int(m.group(1)) if m else None
+
+
+def is_budget_refused(notice: str | None) -> bool:
+    """Whether a notice is one of the budget's: the demo budget used up or the per-exchange cap (task 10)."""
+    return notice in (BUDGET_USED_UP, EXCHANGE_CAP)
+
+
 def rate_limited_notice(seconds: int) -> str:
     if isinstance(seconds, bool) or not isinstance(seconds, int) or seconds < 1:
         raise ContractError("the wait is a whole number of seconds")

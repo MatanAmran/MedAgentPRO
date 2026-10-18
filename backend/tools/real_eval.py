@@ -65,7 +65,6 @@ MAX_RATE_WAITS = 5
 STATUSES = {"answered", "referred_to_investigation", "action_declined", "needs_clarification",
             "no_supported_assertion", "request_not_completed", "source_unreachable"}
 COMPARES = {"total", "rows", "value"}
-_RATE = re.compile("^" + r"(\d+)".join(re.escape(p) for p in contract.RATE_LIMITED.split("{seconds}")) + "$")
 OK, FAIL, HINT, NONE = "✅", "❌", "⚠️", "—"
 
 
@@ -337,11 +336,11 @@ def run_set(items: list[dict], deps: pipeline.Deps, gateway_for: Callable[[str],
                                    on_stage=lambda name, marks=marks: marks.append((name, clock())),
                                    context={"request_id": f"eval-{it['id']}", "conversation_id": f"eval-{it['id']}"},
                                    on_call=calls.append)
-            m = _RATE.match(outcome.response.get("notice") or "")
-            if not m or len(res.rate_waits) >= MAX_RATE_WAITS:
+            wait = contract.is_rate_limited(outcome.response.get("notice"))
+            if wait is None or len(res.rate_waits) >= MAX_RATE_WAITS:
                 break
-            res.rate_waits.append(int(m.group(1)))
-            sleep(int(m.group(1)) + 1)
+            res.rate_waits.append(wait)
+            sleep(wait + 1)
             gateway = gateway_for(it["question"])
             started = clock()
         ended = clock()

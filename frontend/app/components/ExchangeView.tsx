@@ -2,6 +2,7 @@
 
 import { formatUsd, readingsSentence } from "@/lib/present";
 import type { ExchangeItem, Rating, Stage } from "@/lib/types";
+import { HowAnswered } from "./HowAnswered";
 import { ReadingCard } from "./ReadingCard";
 
 export const STAGE_TEXT: Record<Stage, string> = {
@@ -144,6 +145,7 @@ export function ExchangeView({
           left
         </p>
       )}
+      {item.trace && <HowAnswered trace={item.trace} />}
     </div>
   );
 }
