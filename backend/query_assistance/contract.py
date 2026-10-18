@@ -82,10 +82,15 @@ def headers(plan: dict, cat: Catalog) -> dict[str, str]:
     return {i["as"]: _operand(i["expr"], cat) for i in plan["SELECT"]}
 
 
+def _negated(name: str, cat: Catalog) -> str:
+    """A boolean metric asked not to hold reads as schema.json words it (chat, 18.10, 05:00): "not" put
+    before the description gave "not the supplier committed to ..." for three of the five."""
+    return cat.metrics[name]["description_negated"].rstrip(".")
+
+
 def _metric_phrase(name: str, cat: Catalog, negate: bool = False) -> str:
-    desc = cat.metrics[name]["description"].rstrip(".")
-    desc = desc[0].lower() + desc[1:]
-    return f"{'not ' if negate else ''}{desc}"
+    desc = _negated(name, cat) if negate else cat.metrics[name]["description"].rstrip(".")
+    return desc[0].lower() + desc[1:]
 
 
 def _predicate(node: dict, cat: Catalog) -> str:
@@ -199,18 +204,16 @@ def _metric_tests(node: Any) -> list[bool]:
 def reading_title(plan: dict, cat: Catalog) -> str | None:
     """Task 7, Q2 [demo extension]: the business description of the one metric the plan names, from
     schema.json. None where the plan names none or several; answered() then numbers the reading.
-    A metric the plan asks not to hold is titled as Examined reads it, "Not ..." (question 11 on the
-    real model, chat 18.10, 04:45); one tested both ways gets no title."""
+    A metric the plan asks not to hold is titled as Examined reads it, by its description_negated
+    (question 11 on the real model, chat 18.10, 04:45 and 05:00); one tested both ways gets no title."""
     named = _metrics_named(plan)
     if len(named) != 1:
         return None
-    phrase = cat.metrics[named.pop()]["description"].rstrip(".")
+    name = named.pop()
     tests = set(_metric_tests([plan.get("WHERE"), plan.get("HAVING")]))
     if len(tests) > 1:
         return None
-    if tests == {True}:
-        return "Not " + phrase[0].lower() + phrase[1:]
-    return phrase
+    return _negated(name, cat) if tests == {True} else cat.metrics[name]["description"].rstrip(".")
 
 
 def reading_view(label: str, plan: dict, result: RetrievalResult, cat: Catalog, role: str,

@@ -1,10 +1,10 @@
 # MedAgentPro — מפת המסלולים וההיתכנות
 
-**נוצר אוטומטית** ב-`python -m tools.path_map` (מתוך `backend\`), 18.10.2026 04:48. **לא לערוך ידנית** — המקור הוא `backend\tests\paths\registry.py` ו-`backend\tests\feasibility\constraints.py`.
+**נוצר אוטומטית** ב-`python -m tools.path_map` (מתוך `backend\`), 18.10.2026 05:17. **לא לערוך ידנית** — המקור הוא `backend\tests\paths\registry.py` ו-`backend\tests\feasibility\constraints.py`.
 
 **איך זה גדל:** `tests\paths\branches.py` קורא מהקוד ומהסכמות כל הסתעפות (מצב סיום, שלב, סוג כשל, `except`, הודעה, נקודת קצה, קוד HTTP, סוג פער, תפקיד). **הסתעפות בלי מסלול מפילה את `pytest`.** מגבלה שמתגלה (כמו הטמפרטורה) נכנסת כשורה ב-`constraints.py`, ושורה בלי בדיקה מפילה את `pytest`.
 
-**תוצאות:** 67 עוברים · 0 נכשלים · 0 פער ידוע · 0 דולגו
+**תוצאות:** 70 עוברים · 0 נכשלים · 0 פער ידוע · 0 דולגו
 
 ## מסלולים
 
@@ -29,7 +29,10 @@
 | ✅ | `intent_not_json` | — | R4 format |  |
 | ✅ | `synthesis_fixed_by_feedback` | — | R4 · F7, F11 |  |
 | ✅ | `synthesis_rejected_twice` | — | R4 |  |
-| ✅ | `synthesis_format_failure_not_retried` | — | R4 · P3 |  |
+| ✅ | `synthesis_no_reference_fixed_by_feedback` | — | R4 · chat 18.10 05:10 (1) | a breach of the schema sent to the provider is a content failure: the provider did not enforce it (T17) |
+| ✅ | `synthesis_no_reference_twice` | — | R4 · chat 18.10 05:10 (1) |  |
+| ✅ | `synthesis_not_json_not_retried` | — | R4 format |  |
+| ✅ | `gate_provider_breach_fixed_by_feedback` | — | R4 · chat 18.10 05:10 (1) |  |
 | ✅ | `gate_skips_then_covers` | — | decision 12 (R4 of task 4) |  |
 | ✅ | `gate_skips_twice` | — | decision 12 |  |
 | ✅ | `refusal_not_retried` | — | R4 · P10 |  |
@@ -124,6 +127,7 @@
 | ✅ | T14 | technical | LiteLLM's own retries are off; the only retries are counted ones. | Task 5 'no hidden retries' |
 | ✅ | T15 | technical | The model thinks always and cannot be told not to; its thinking is billed inside output_tokens and counts against max_tokens. We send nothing that sets it, and the per-call line counts it. | LiteLLM 1.105 map: thinking_always_on (task 10a, chat 22:40); R9: ~1 output token per visible character |
 | ✅ | T16 | technical | No schema sent to the provider carries a $comment on an object type. | Anthropic API, 15.10: 400 "For 'object' type, property '$comment' is not supported" on the intent schema (00_STATUS, task 10a, step 3; chat 18.10, 03:25) |
+| ✅ | T17 | live | Anthropic did not enforce an unanchored pattern in structured output (synthesis text). So a breach of the schema sent is a content failure with one feedback attempt, never assumed held. No claim on an anchored pattern: not checked. **נצפה:** 18.10, 05:00: a synthesis sentence with no reference (no brace at all) came back from the provider; check format_provider_schema:pattern@readings/0/sentences/3/text | Diagnostic run of demo question 5, 18.10 05:00 (00_STATUS); chat 18.10, 05:10 |
 | ✅ | L01 | logical | Every scripted demo question runs through the real checks to the outcome its script means. | S5 |
 | ✅ | L02 | logical | Every table a role is shown in the intent prompt is one it may read, and every table it may read is shown. | NFR 17 · prompts.visible_tables |
 | ✅ | L03 | logical | Every metric in schema.json compiles for every role, with entitlement applied. | NFR 17 · 40_CHAT §7 |

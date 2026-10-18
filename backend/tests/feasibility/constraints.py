@@ -79,6 +79,13 @@ CONSTRAINTS: list[Constraint] = [
                "No schema sent to the provider carries a $comment on an object type.",
                "Anthropic API, 15.10: 400 \"For 'object' type, property '$comment' is not supported\" on the intent "
                "schema (00_STATUS, task 10a, step 3; chat 18.10, 03:25)"),
+    Constraint("T17", "live",
+               "Anthropic did not enforce an unanchored pattern in structured output (synthesis text). So a breach "
+               "of the schema sent is a content failure with one feedback attempt, never assumed held. No claim "
+               "on an anchored pattern: not checked.",
+               "Diagnostic run of demo question 5, 18.10 05:00 (00_STATUS); chat 18.10, 05:10", result="confirmed",
+               observed="18.10, 05:00: a synthesis sentence with no reference (no brace at all) came back from the "
+                        "provider; check format_provider_schema:pattern@readings/0/sentences/3/text"),
     # --- logical: the design on the demo data ------------------------------------------------------
     Constraint("L01", "logical",
                "Every scripted demo question runs through the real checks to the outcome its script means.",

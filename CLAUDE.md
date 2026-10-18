@@ -128,7 +128,7 @@ Evyatar pays for the model himself, with a total budget of **USD 10**. The code 
   - client errors (4xx, `UnsupportedParamsError`), a refusal, empty content: system fault, `request_not_completed`, no retry, **not counted by the model breaker** (it counts timeout, connection failure, 429, 5xx/529 only).
   - `finish_reason == "length"`: no retry; recorded as truncated. `ModelResponse` must carry the finish reason.
   - timeout: an explicit request timeout in code (LiteLLM's default is 6000 s); no retry; the reservation stays charged (unknown whether billed).
-  - format failure after R2 and R3: no retry.
+  - format failure after R3 (unparseable JSON): no retry. A breach of the schema sent is a content failure (18.10, 05:10).
   - content failure (`check`, `CompileError`, `GateOutputError`, `RewriteError`): **one more attempt whose prompt carries the specific rejection message** ("Your previous output was rejected: …"), as a new template version `[proposal, not in the book; Table 15 names "Model call attempts" only]`. The message holds model-written text and names only, never a record value (NFR 21): test it.
   - **A schema breach (task 10a, chat 01:15, done 18.10):** where `oneOf`/`anyOf` fails, the feedback and the `check` point at the closest alternative (`jsonschema` `best_match`), path and keyword only, never a value or `message`. The `check` is `SchemaBreach:<keyword>@<path>`. No prompt version changed for this (the feedback is not in the template), but what the model is told did.
   - record per call whether it was a feedback attempt and whether it succeeded; `dry_run` and the smoke test report the rate. If feedback attempts rarely succeed, set attempts to 1.
@@ -144,7 +144,7 @@ Evyatar pays for the model himself, with a total budget of **USD 10**. The code 
 
 **Settled on Code's proposals (Claude chat, 12.10 evening; details in `docs/notes/00_STATUS.md`, "R7 ו-P1–P10 — הוכרע"):**
 - **Structured outputs only for rewriting, synthesis and the gate.** Intent analysis sends no `response_format`: LiteLLM 1.105 inlines every `$ref` and the intent schema then exceeds Anthropic's limits (24 optional properties, 16 `anyOf`). No reducer of our own: LiteLLM's `filter_anthropic_output_schema` applies anyway. Pin `litellm==1.105.0` and snapshot-test the reduced schema of each of the three stages.
-- **Format vs content (replaces P3).** Unparseable JSON or a breach of what the provider enforced: format failure, no retry. A breach of the full schema checked in code: content failure, one feedback attempt. In intent analysis every `schema_violation` is a content failure.
+- **Format vs content (replaces P3; revised 18.10, 05:10).** Format failure, no retry: unparseable JSON only (truncation, a refusal and a provider 400 on the schema are failures of their own, also not retried). **Any schema breach, of the schema sent to the provider or of the full schema checked in code, is a content failure with one feedback attempt** (path and keyword only): what the provider holds to is not assumed (T17: Anthropic did not enforce an unanchored `pattern`, demo question 5). A breach of the schema sent keeps its own `check`, `format_provider_schema:<keyword>@<path>`, so the record shows the provider did not hold.
 - **R7.** `ROW_LIMIT = 30` (provisional). Before synthesis, reserve the whole path (synthesis, gate, redraft, second gate, no feedback attempts); if it exceeds the per-exchange cap, stop before the first synthesis call, with its own fixed notice (R7b). Presented identifiers in history trimmed in display order (R7c).
 - **P1 plus:** `real_gateway()` also refuses to start if a `.env` price is lower than LiteLLM's price for the model.
 - **P9:** 429 (non-monetary), 5xx and 529: no retry, `request_not_completed`, counted by the breaker.
@@ -217,7 +217,7 @@ On Evyatar's machine an Application Control policy blocks `.exe` files in the ve
 # Backend (from backend\, venv active)
 python -m pip install -r requirements.txt
 python -m demo_data.seed          # builds demo_data\demo.db
-python -m pytest -q               # the default run; 857 after the 04:45 fixes (18.10)
+python -m pytest -q               # the default run; 869 after the 05:10 fixes (18.10)
 python -m tools.path_map          # runs tests/paths and tests/feasibility, writes docs/notes/60_PATHS.md
 python -m query_assistance.dry_run   # prices two scripted exchanges at the .env prices, no model call, no key
 python -m query_assistance.dry_run --model claude-sonnet-5-5   # the same, prices from LiteLLM's local map, no .env

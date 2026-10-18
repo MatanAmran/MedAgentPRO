@@ -90,7 +90,8 @@ def test_checked_covers_each_clause():
     assert "with purchase orders with suppliers where held" in text
     assert "(supplier in ('S-001', 'S-002') or ordered quantity > 100)" in text
     assert "delivery date not recorded" in text
-    assert "not the supplier committed to a date after the requested date" in text
+    assert "the supplier committed to a date on or before the requested date" in text
+    assert "not the supplier" not in text
     assert "grouped by part" in text
     assert "computed the total line value" in text and "kept where total line value ≥ 1000" in text
 
@@ -274,10 +275,18 @@ def test_the_title_never_contradicts_what_was_examined(metric, op, value, swap):
     title = k.reading_title(plan, CAT)
     examined = k.render_checked(plan, CAT, "APPROVER")
     negated = (value is False) != (op == "NE")
-    phrase = CAT.metrics[metric]["description"].rstrip(".")
-    phrase = phrase[0].lower() + phrase[1:]
-    assert (f"not {phrase}" in examined) == negated and phrase in examined
-    assert title == ("Not " + phrase if negated else phrase[0].upper() + phrase[1:])
+    said = CAT.metrics[metric]["description_negated" if negated else "description"].rstrip(".")
+    other = CAT.metrics[metric]["description" if negated else "description_negated"].rstrip(".")
+    lower = lambda t: t[0].lower() + t[1:]   # noqa: E731
+    assert lower(said) in examined and lower(other) not in examined
+    assert title == said
+
+
+@pytest.mark.parametrize("metric", BOOLEAN_METRICS)
+def test_every_boolean_metric_words_its_negation(metric):
+    """Chat, 18.10, 05:00: "not" before the description gave "not the supplier committed to ..."."""
+    neg = CAT.metrics[metric].get("description_negated")
+    assert neg and not neg.lower().startswith("not") and neg != CAT.metrics[metric]["description"]
 
 
 def test_a_metric_tested_both_ways_gets_no_title():

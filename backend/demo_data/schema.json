@@ -288,7 +288,8 @@
           }
         ]
       },
-      "description": "Delivered after the requested date."
+      "description": "Delivered after the requested date.",
+      "description_negated": "Delivered on or before the requested date."
     },
     "late_by_promise": {
       "label": "committed late",
@@ -305,7 +306,8 @@
           }
         ]
       },
-      "description": "The supplier committed to a date after the requested date."
+      "description": "The supplier committed to a date after the requested date.",
+      "description_negated": "The supplier committed to a date on or before the requested date."
     },
     "missed_promise": {
       "label": "missed commitment",
@@ -322,7 +324,8 @@
           }
         ]
       },
-      "description": "Delivered after the date the supplier committed to."
+      "description": "Delivered after the date the supplier committed to.",
+      "description_negated": "Delivered on or before the date the supplier committed to."
     },
     "days_late": {
       "label": "days late",
@@ -356,7 +359,8 @@
           }
         ]
       },
-      "description": "Less received so far than ordered on the line."
+      "description": "Less received so far than ordered on the line.",
+      "description_negated": "Received so far at least as much as ordered on the line."
     },
     "below_reorder_point": {
       "label": "below reorder point",
@@ -373,7 +377,8 @@
           }
         ]
       },
-      "description": "Stock on hand is below the reorder point."
+      "description": "Stock on hand is below the reorder point.",
+      "description_negated": "Stock on hand is at or above the reorder point."
     }
   }
 }

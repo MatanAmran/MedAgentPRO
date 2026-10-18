@@ -108,10 +108,33 @@ def _synthesis_schema() -> dict:
      "format_provider_schema:additionalProperties@readings/0"),
 ])
 def test_a_provider_schema_breach_names_its_rule_and_place_and_no_value(bad, check):
+    """A content failure since 05:10 (1): one feedback attempt, its feedback path and keyword only."""
     pytest.importorskip("litellm")
-    gw = ScriptedModelGateway([bad])
+    gw = ScriptedModelGateway([bad, bad])
+    with pytest.raises(mc.StageRejected) as e:
+        mc.ask(gw, "m", "synthesis@8", lambda fb: f"prompt {fb}", lambda out: out, output_schema=_synthesis_schema())
+    first, second = e.value.calls
+    assert first.check == check and "S-SECRET-4711" not in first.check and "secret_key" not in first.check
+    assert not first.feedback_attempt and second.feedback_attempt and second.check == check
+    sent = gw.calls[1][0]
+    where, keyword = check.split(":", 1)[1].split("@")[::-1]
+    assert where in sent and f"'{keyword}'" in sent
+    assert "S-SECRET-4711" not in sent and "secret_key" not in sent
+
+
+def test_a_provider_schema_breach_then_a_valid_output_is_accepted():
+    pytest.importorskip("litellm")
+    bad = {"readings": [{"label": "late", "sentences": [{"text": "The records do not hold who approved."}]}]}
+    good = {"readings": [{"label": "late", "sentences": [{"text": "{late.n#1} rows."}]}]}
+    gw = ScriptedModelGateway([bad, good])
+    result, made = mc.ask(gw, "m", "synthesis@8", lambda fb: "prompt", lambda out: out,
+                          output_schema=_synthesis_schema())
+    assert result == good and [c.feedback_attempt for c in made] == [False, True]
+    assert made[0].check == "format_provider_schema:pattern@readings/0/sentences/0/text" and made[1].check is None
+
+
+def test_not_json_is_still_a_format_failure_with_no_further_attempt():
+    gw = ScriptedModelGateway(["not json", {"readings": []}])
     with pytest.raises(mc.StageFailed) as e:
-        mc.ask(gw, "m", "synthesis@7", lambda fb: "prompt", lambda out: out, output_schema=_synthesis_schema())
-    call, = e.value.calls
-    assert call.check == check and "S-SECRET-4711" not in call.check and "secret_key" not in call.check
-    assert len(gw.calls) == 1   # still a format failure: no further attempt (04:50 defers 2b)
+        mc.ask(gw, "m", "synthesis@8", lambda fb: "prompt", lambda out: out, output_schema=_synthesis_schema())
+    assert e.value.kind == "format" and len(gw.calls) == 1

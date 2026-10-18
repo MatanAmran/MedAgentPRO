@@ -264,12 +264,32 @@ def test_stages_send_their_schema_except_intent(db_path, storage):
         assert sent[name] == BUNDLE[key]["schema"]
 
 
-def test_breach_of_what_the_provider_enforced_is_a_format_failure(db_path, storage):
-    """The provider enforced required fields: a gate output without claims means it did not hold."""
-    gw = model(intent_analysis_demo=[INTENT], synthesis=[SYN], support_scoring=[{"verdicts": []}, gate_ok])
+def test_breach_of_the_schema_sent_is_a_content_failure_with_feedback(db_path, storage):
+    """A gate output without claims breaks `required` in the schema sent: the provider did not hold to it,
+    so it is not assumed to (chat, 18.10, 05:10, 1). One feedback attempt, path and keyword only."""
+    gw = model(intent_analysis_demo=[INTENT], synthesis=[SYN], support_scoring=[{}, gate_ok])
     out = run(gw, db_path, storage)
-    assert out.response["outcome"] == "request_not_completed" and len(prompts_of(gw, "support_scoring")) == 1
-    assert "format" in storage.investigations[out.exchange_id]["failure"]
+    assert out.response["outcome"] == "answered"
+    first, second = prompts_of(gw, "support_scoring")
+    assert "breaks the schema rule 'required'" in second and "breaks the schema rule" not in first
+
+
+def test_breach_of_the_schema_sent_twice_ends_the_exchange(db_path, storage):
+    gw = model(intent_analysis_demo=[INTENT], synthesis=[SYN], support_scoring=[{"verdicts": []}, {"verdicts": []}])
+    out = run(gw, db_path, storage)
+    assert out.response["outcome"] == "request_not_completed" and len(prompts_of(gw, "support_scoring")) == 2
+
+
+def test_additional_property_in_the_schema_sent_gets_feedback(db_path, storage):
+    def extra(prompt):
+        o = gate_ok(prompt)
+        o["secret_key"] = "S-SECRET-4711"
+        return o
+    gw = model(intent_analysis_demo=[INTENT], synthesis=[SYN], support_scoring=[extra, gate_ok])
+    out = run(gw, db_path, storage)
+    assert out.response["outcome"] == "answered"
+    second = prompts_of(gw, "support_scoring")[1]
+    assert "'additionalProperties'" in second and "S-SECRET-4711" not in second and "secret_key" not in second
 
 
 def test_breach_of_the_full_schema_only_is_a_content_failure_with_feedback(db_path, storage):

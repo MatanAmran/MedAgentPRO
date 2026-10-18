@@ -5,12 +5,12 @@ No retry without a change in input. A call repeated with the same prompt is a pa
 
   a call that failed          timeout, connection, 429, 5xx, a client error: no further attempt
   a response with a problem   refusal, empty content, truncation: billed, recorded, no further attempt
-  a format failure            text that is not JSON after the fence is removed (R3), or a breach of
-                              what the provider enforced (R2): no further attempt
-  a content failure           a breach of the full schema checked in code, or of a stage's own checks
-                              (OutputRejected, CompileError): one further attempt whose prompt carries
-                              the specific rejection [proposal, not in the book; Table 15 names "Model
-                              call attempts" only]
+  a format failure            text that is not JSON after the fence is removed (R3): no further attempt
+  a content failure           a breach of the schema sent to the provider (R2; it is not assumed to hold
+                              to it, chat 18.10, 05:10) or of the full schema checked in code, or of a
+                              stage's own checks (OutputRejected, CompileError): one further attempt
+                              whose prompt carries the specific rejection [proposal, not in the book;
+                              Table 15 names "Model call attempts" only]
 
 The feedback a further attempt carries is the rejection's `feedback`, built from names, numbers and
 the rule broken, never from a value a record holds (NFR 21, P4). Every call is kept, with whether it
@@ -127,8 +127,8 @@ def _first(validator: Draft202012Validator, out: Any):
 
 @functools.lru_cache(maxsize=None)
 def _provider_validator(schema_json: str) -> Draft202012Validator:
-    """What the provider enforces: the schema as LiteLLM reduces it before sending (R2). A breach of
-    it means the provider did not hold to it, which no feedback fixes."""
+    """The schema as LiteLLM reduces it before sending (R2). A breach of it means the provider did not
+    hold to it (T17); the further attempt's feedback can fix it, as for the full schema."""
     from litellm.llms.anthropic.chat.transformation import AnthropicConfig
     reduced = AnthropicConfig().map_response_format_to_anthropic_output_format(
         {"type": "json_schema", "json_schema": {"name": "output", "schema": json.loads(schema_json)}})["schema"]
@@ -180,20 +180,18 @@ def ask(gateway: ModelGateway, model: str, prompt_identity: str, render: Callabl
         except ValueError as e:
             calls.append(Call(prompt_identity, resp, is_feedback, f"format: not JSON ({e})", "format_not_json", took))
             raise StageFailed("format", "the output is not JSON", calls) from e
-        breach = _first(provider, out) if provider else None
-        if breach is not None:
-            # keyword and path, as for SchemaBreach (chat, 18.10, 04:45, 2a): every object sent is closed
-            # (T06), so the path holds only keys the schema defines and item numbers, never a value
-            inner = _innermost(breach)
-            calls.append(Call(prompt_identity, resp, is_feedback, f"format: {schema_feedback(breach)}",
-                              f"format_provider_schema:{inner.validator}@{_where(inner)}", took))
-            raise StageFailed("format", "the output breaks what the provider enforced", calls)
         try:
-            breach = _first(validator, out) if validator else None
-            if breach is not None:
-                inner = _innermost(breach)
-                raise SchemaBreach(f"schema: {breach.message}", schema_feedback(breach),
-                                   f"SchemaBreach:{inner.validator}@{_where(inner)}")
+            # A breach of the schema sent is a content failure too (chat, 18.10, 05:10, 1): the provider
+            # did not enforce an unanchored pattern (T17), so what it holds to is not assumed. The check
+            # keeps its own name, so the record shows the provider did not hold. Keyword and path only:
+            # every object sent is closed (T06), so the path holds only schema keys and item numbers
+            for name, v in (("format_provider_schema", provider), ("SchemaBreach", validator)):
+                breach = _first(v, out) if v else None
+                if breach is not None:
+                    inner = _innermost(breach)
+                    reason = schema_feedback(breach) if v is provider else breach.message
+                    raise SchemaBreach(f"schema: {reason}", schema_feedback(breach),
+                                       f"{name}:{inner.validator}@{_where(inner)}")
             result = accept(out)
         except content as e:
             calls.append(Call(prompt_identity, resp, is_feedback, str(e), getattr(e, "check", type(e).__name__),
