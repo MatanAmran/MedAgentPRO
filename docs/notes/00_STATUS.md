@@ -4622,6 +4622,80 @@ exchange cost: attempt=EX-bc247dc6774a usd=0.061608 remaining=1.714846
 - העלות המשוערת של ריצה ממוקדת: 12 שאלות הדמו, 11 הבדיקות, ושאלות ה-offscript שנגעו בהן. בערך USD 1.6.
 - אביתר מאשר את הריצה.
 
+### ❓ **סבב תיקונים — תוכנית של Code לכל קבוצה (18.10). ממתינה לאישור, לא נכתב קוד**
+
+**קבוצה 1 (חוסמים):**
+- **D1, שכתוב** (`rewrite.md` v3):
+  - כלל 3 ישתנה: תוצאה קודמת נמסרת דרך התנאי שהפיק אותה (understood as, או שורת ה-examined מ-D2), לא דרך רשימת מזהים, אלא אם האדם הקליד אותם. כלל 4 (מיקום, "the second one") נשאר: הוא מזהה אחד.
+  - דוגמה חדשה: "their open orders" יכתב מחדש כ-"…of the suppliers that were late in weeks 1 to 13".
+  - **השומר** ב-`prompts.check_rewrite`: אם השכתוב מוסיף יותר מ-5 מזהים שאינם בשאלה כפי שנשאלה, הוא `RewriteError` עם משוב, ונספר כניסיון תוכן.
+  - **זיהוי מזהה:** הטוקנים שנבדקים מול עמודות המזהה של הקטלוג (`TOKEN_RE` ו-`Material.id_aliases` כבר קיימים לסינתזה). אין כאן רשימת מילים.
+- **D1, intent** (`demo_data/intent_analysis.md` v9, הפרומפט שבשימוש):
+  - כלל 9b חדש: חלק שצריך תנאי על שורות אחרות של אותה ישות ("their", ‏"those who") ולא מתבטא כקריאה אחת הולך ל-`unresolved`, עם `needs.kind = cross_record_condition` ו-`entity` של הטבלה. אף פעם לא כקריאה נוספת על כל השורות.
+  - דוגמה חדשה (לא משאלות הסטים).
+  - **הסכמה:** ‏`missing.kind` ב-`medagentpro_schemas.json` יקבל ערך חדש. ‏`contract.TEMPLATES` יקבל משפט קבוע: ‏"Answering “{asked}” needs a condition on other records of {entity}, which a single reading cannot express." **‏(ניסוח לאישור.)**
+  - **מפת המסלולים:** סוג פער הוא ענף, אז תתווסף בדיקה ורשומה ב-registry.
+- ❓ **D1 הופך את H8b, שנכון היום, לפער.** היום השכתוב כותב "…of S-001, S-008 and S-019", והתשובה מדויקת. אחרי D1 הוא יכתוב "of the suppliers in Israel that were late in weeks 1 to 13", וה-intent יחזיר `cross_record_condition`. **האם זה מקובל לדמו?** החלופה: להתיר רשימת מזהים עד 5 מזהים שהוצגו, שזה מה שהשומר מתיר בכל מקרה. ההמלצה של Code: לקבל את הפער, כי הוא עקבי ובטוח. לכתוב בכלל שלא מקלידים מזהים, ושהשומר הוא רשת ביטחון בלבד.
+- **D2, היסטוריה** (`prompts.Exchange`, ‏`build_history`, ‏`pipeline`):
+  - **שדה חדש `readings: [(label, examined, shown, total)]`** ב-`Exchange`, ממולא מה-views אחרי החוזה. השורה "Q1 readings: [late_by_delivery] examined: …; 30 of 81 shown" נכנסת להיסטוריה, וקיימת גם בשכבה 2. היא מהקוד ומהקטלוג בלבד (NFR 21).
+  - **שכבה 2:** מורידים תשובות מהישנה ביותר, אחת אחת, עד שהטקסט נכנס בתקציב.
+  - **בדיקות:** הבדיקה המתוסרטת של H10 נכנסת לרפו, עם שכבות 1, 2 ו-3, וה-"them" של A2 נשאר.
+- **D3:** ב-`pipeline`, כש-`_Rejected` מגיע מ-intent וה-`check` של הניסיון האחרון הוא `SchemaBreach:maxItems@…` או `oneOf@…/IN|OR`, התוצאה תהיה `request_not_completed` עם `contract.PLAN_LIMIT`. **ניסוח לאישור:** ‏"The question names more values or conditions than one plan may hold (at most 20 values in a list, 6 conditions in a group). Ask it in smaller parts." ענף חדש: בדיקה ורשומה.
+
+**קבוצה 2 (מטעה אך נכון):**
+- **D4:**
+  - `synthesis.md` v11 ו-`synthesis_redraft.md` v8, כלל 13 מורחב: כל משפט שמתייחס לשורות של קריאה אומר את התנאי שלה (התקופה, הסינון, התחום).
+  - `gate.md` v6, כלל 9 מורחב: משפט כזה בלי התנאי הוא `uncovered`.
+  - ⚠️ **סיכון:** יותר משפטים יוסרו, ותגיע יותר ההודעה "withheld" או no_supported_assertion. הריצה הממוקדת תראה כמה.
+- **D5:**
+  - `render_records` מוסיף לכל קריאה שורה `[label] 81 rows matched, 30 shown`.
+  - **הפניה חדשה `{label.total}`:** ‏`REF_RE` מקבל צורה בלי `#row`, והקוד ממלא אותה מ-`RetrievalResult.total`.
+  - **בשער:** הראיה `label.total` מותרת.
+  - **ב-`answer_segments`:** המקטע הזה הוא טקסט רגיל, כי אין לו שורה להצביע עליה.
+  - **כלל בסינתזה:** תשובה של רשימה היא משפט אחד עם `{label.total}` ועם כמה דוגמאות.
+  - כלל 5 ("Do not count rows") נשאר: הסכום מגיע מהקוד.
+
+**קבוצה 3 (תפקידים):**
+- **D6:**
+  - **`demo_data/schema.json`:** כל `entitlement` של הדמו יהיה `{"PLANNER": {"all": true}, "APPROVER": {"all": true}}`.
+  - **מנגנון ההרשאה לא משתנה.** בדיקות המהדר (מבחן 18) כבר רצות על `query_assistance/schema.json`, שנשאר כמו שהוא.
+  - **הבדיקות שנשענות על ההגבלה בקטלוג של הדמו עוברות ל-`tests/fixtures/restricted_schema.json`:** עותק של קטלוג הדמו עם ההגבלה הישנה. אלה `test_demo_data::test_entitlement_restricts_a_planner_to_own_lines`, ‏`test_contract::test_checked_states_when_entitlement_narrowed_the_query`, ‏property, ‏security, ‏feasibility L03 ומפת המסלולים.
+  - **עדכונים:** G2, ‏H5 ו-H6 בסט הבדיקה, ‏`70_DEMO` (התרחיש של PL-02) וה-golden (שינוי, לא רק תוספות: "limited to the records you hold" נעלם בתשובות של PL-02).
+  - ❓ **G1 ("Which open lines does PL-03 have?" בתור PL-02) מוגדר היום "כל שורה של PL-03 = חוסם (NFR 17)".** לפי ההכרעה התשובה תהיה השורות של PL-03. **צריך להפוך את הציפייה**, ולבדוק את נוסח NFR 17 בספר (כבר ברשימה של 10_BOOK).
+- **D7:**
+  - **אופרנד `{"me": true}`** ב-`operand` של הסכמה. סימון `"user_column": true` ב-`schema.json` על `planner_id` (ב-`commitments`, ב-`purchase_orders` וב-`parts`).
+  - **המהדר:** מקבל אותו רק ב-`EQ` או `NE` מול עמודה מסומנת, אחרת `CompileError`, ומחליף אותו בפרמטר `user_id`. ‏Examined: ‏"planner = you".
+  - **כלל intent** ל-my, ‏mine, ‏I.
+  - **AP-01:** ‏`planner_id = 'AP-01'` מחזיר "No records matched", וזה ממצא.
+  - **בדיקות:** מהדר (מסומנת ולא מסומנת, `NE`, ניסיון להקליד את ה-id), Examined, ושתי שאלות חדשות בסט הבדיקה: H11 בתור PL-02 ו-H12 בתור AP-01.
+
+**קבוצה 4 (קוד ומסך):**
+- **D8:** ‏`contract.ACTION_DECLINED` יקבל את הנוסח החדש. זה משנה את ה-golden ואת ההשוואות במסך.
+- **D9:** הודעה קבועה `contract.MODEL_UNAVAILABLE` ל-`StageFailed`, כשה-`kind` הוא timeout, ‏connection, ‏5xx או 529 (הסיווג של R4/P9 קיים). ההתנהגות לא משתנה.
+- **D10:** ‏`reading_entity` יורחב: `GROUP_BY` של כינוי יחיד, שהעמודה שלו היא מפתח הטבלה או מפנה (`references`) למפתח, נותן את ה-label של הטבלה הזו ("28 suppliers").
+- **D11:**
+  - **U-1** במסך: להסתיר את ה-notice שהוא בדיוק `Showing <shown> of <total>.` כשה-pill מציג את זה. זה טקסט קבוע שלנו.
+  - **U-2:** שיחות בארכיון מעומעמות, עם סמל.
+  - **U-3:** הפאנל ב-1280 px.
+  - **U-4:** ‏`BudgetedGateway` מצמיד את `max_tokens` לחריגה, ו-`Call` רושם אותו.
+  - **U-5:** ‏`stagesToShow` יכלול את התכנון גם בהפניה, בפעולה ובבירור.
+
+**ספר ושלב ב׳:**
+- `10_BOOK.md`: הסעיפים שבהנחיה.
+- המשימות של שלב ב׳ יירשמו כאן, ב-"שלב ב׳".
+
+**סדר הבנייה:** 4 (בלי פרומפטים) ← 3 ← 1 ← 2, ואחר כך כל הבדיקות ו-`--plans` לשלושת הסטים.
+
+**הערכת עלות** (לסוף הסבב, לאישור אביתר):
+- **שאלות offscript שהסבב נוגע בהן ישירות:**
+  - D1: ‏A3, ‏D4 (בדיקה ש-"their" בתוך רשומה אחת לא מסומן כפער) ו-F2.
+  - D2: ‏F1b, ‏F1c.
+  - D6: ‏G1, ‏G2.
+  - D1 או D3: ‏D2.
+- **אבל D4 ו-D5 משנים סינתזה ושער, ולכן נוגעים בכל תשובה.**
+- **ממוקדת:** ‏12 ‏+ 13 ‏+ 8, בערך **USD 1.6**.
+- **כל ה-offscript (31):** בערך **USD 2.6**. **נשארו USD 2.59 בתקציב.**
+
 ## מה שנסגר בסבב האחרון
 
 - **הקוד עבר לריפו** — `MedAgentPro\backend` (`query_assistance`, `model_client`, `persistence`, `shared`, `tests`). **`03_Code` נשאר כמקור ומעודכן.** `python -m pytest -q` מתוך `backend`
