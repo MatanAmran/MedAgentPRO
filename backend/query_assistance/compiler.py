@@ -133,6 +133,9 @@ class Catalog:
         self.metrics = schema.get("metrics", {})
         # The date the data runs to (YYYY-MM-DD), where the store declares one: the demo's reference date
         self.data_as_of: str | None = schema.get("data_as_of")
+        # What the screen says the store is about (chat 19.10, C) [demo extension]: name, description,
+        # placeholder, can_ask. Text for the interface only; no stage reads it
+        self.domain: dict = {k: v for k, v in schema.get("domain", {}).items() if not k.startswith("$")}
         self.relations = relations["relations"]
         for table, ent in self.entities.items():
             for col, spec in ent["columns"].items():
@@ -145,7 +148,8 @@ class Catalog:
                                      f"an identifier column, and so must {table}.{col}")
 
     @classmethod
-    def load(cls, schema_path=HERE / "schema.json", relations_path=HERE / "relations.json"):
+    def load(cls, schema_path: str | Path, relations_path: str | Path) -> Catalog:
+        """The catalog of one store. No default: a catalog is the store's, never the code's (chat 19.10, C)."""
         return cls(json.loads(Path(schema_path).read_text(encoding="utf-8")),
                    json.loads(Path(relations_path).read_text(encoding="utf-8")))
 

@@ -149,12 +149,39 @@ describe("scripted examples (task 8, A4)", () => {
   });
 
   it("says what can be asked on the real model, as text only (long list, item 6)", async () => {
-    vi.mocked(api.health).mockResolvedValueOnce({ mode: "real", model: "m", authentication: "none (demo)" } as never);
+    vi.mocked(api.health).mockResolvedValueOnce({
+      mode: "real",
+      model: "m",
+      authentication: "none (demo)",
+      domain: { can_ask: "Ask about suppliers, purchase orders, parts, stock on hand and the forecast." },
+    } as never);
     vi.mocked(api.examples).mockResolvedValueOnce([]);
     render(<Chat />);
     const text = await screen.findByTestId("can-ask");
     for (const w of ["suppliers", "purchase orders", "parts", "stock on hand", "forecast"]) expect(text.textContent).toContain(w);
+    expect(text.textContent).toContain("Answers come from those records only.");
     expect(text.querySelectorAll("button, a")).toHaveLength(0);
+  });
+
+  it("takes the domain words from the server: the header tag and the question box's hint (chat 19.10, C)", async () => {
+    vi.mocked(api.health).mockResolvedValueOnce({
+      mode: "scripted",
+      model: "scripted",
+      authentication: "none (demo)",
+      domain: { name: "Clinical trials", placeholder: "Ask about sites or visits", description: "Trials (demo)" },
+    } as never);
+    render(<Chat />);
+    expect((await screen.findByTestId("domain")).textContent).toBe("Clinical trials");
+    expect(screen.getByLabelText("Question").getAttribute("placeholder")).toBe("Ask about sites or visits");
+  });
+
+  it("says nothing of what may be asked on the real model when the catalog does not say", async () => {
+    vi.mocked(api.health).mockResolvedValueOnce({ mode: "real", model: "m", authentication: "none (demo)" } as never);
+    vi.mocked(api.examples).mockResolvedValueOnce([]);
+    render(<Chat />);
+    await screen.findByTestId("mode");
+    expect(screen.queryByTestId("can-ask")).toBeNull();
+    expect(screen.queryByTestId("domain")).toBeNull();
   });
 
   it("says nothing of the kind on the scripted model, which offers its examples", async () => {

@@ -13,12 +13,14 @@ export function Header({
   mode,
   budget,
   locked,
+  domain,
 }: {
   user: DemoUserId;
   onUser: (u: DemoUserId) => void;
   mode: string | null;
   budget: number | null;
   locked: boolean;
+  domain?: string; // from the catalog (chat 19.10, C); no tag until the server says
 }) {
   return (
     <>
@@ -45,7 +47,11 @@ export function Header({
             </span>
           )}
         </div>
-        <span className="rounded-xl border border-line bg-canvas px-3.5 py-1.5 text-sm font-bold text-ink">Supply chain</span>
+        {domain && (
+          <span className="rounded-xl border border-line bg-canvas px-3.5 py-1.5 text-sm font-bold text-ink" data-testid="domain">
+            {domain}
+          </span>
+        )}
         <div className="flex-1" />
         {mode === "real" && budget !== null && (
           <span className="flex items-center gap-2 rounded-[10px] border border-line bg-white px-3 py-1.5 text-[13px] text-ink-3" data-testid="budget">
