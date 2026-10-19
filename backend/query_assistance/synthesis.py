@@ -394,20 +394,21 @@ def _call(gateway: ModelGateway, render_with: Any, prompt: prompts.Prompt, model
 
 def draft(gateway: ModelGateway, question: str, materials: list[Material], model: str,
           attempts: int = MODEL_CALL_ATTEMPTS, rejected: list[str] | None = None,
-          rewritten: str | None = None) -> Draft:
+          rewritten: str | None = None, prompt: prompts.Prompt | None = None) -> Draft:
     """question is the question as posed. The prompt carries both forms where it was rewritten
     (4.9). A digit outside a reference may come from the question as posed, never from the
     rewrite, which is model text (NFR 6, NFR 27), or from the plan's literals."""
-    pr = prompts.load("synthesis.md")
+    pr = prompt or prompts.load("synthesis.md")
     return _call(gateway, lambda fb: render(question, materials, pr, rejected, rewritten, fb), pr, model,
                  materials, question, attempts)
 
 
 def redraft(gateway: ModelGateway, question: str, materials: list[Material], kept: dict[str, list[str]],
-            model: str, attempts: int = MODEL_CALL_ATTEMPTS, rewritten: str | None = None) -> Draft:
+            model: str, attempts: int = MODEL_CALL_ATTEMPTS, rewritten: str | None = None,
+            prompt: prompts.Prompt | None = None) -> Draft:
     """NFR 19: regenerated at most once, from the assertions the gate kept. The caller runs
     the gate on the result once more and does not redraft again (Test 17)."""
-    pr = prompts.load("synthesis_redraft.md")
+    pr = prompt or prompts.load("synthesis_redraft.md")
     keep = [m for m in materials if m.label in kept]
     return _call(gateway, lambda fb: render_redraft(question, keep, kept, pr, rewritten, fb), pr, model,
                  keep, question, attempts)
