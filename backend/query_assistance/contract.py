@@ -253,7 +253,7 @@ def reading_entity(plan: dict, cat: Catalog) -> str | None:
     if plan.get("GROUP_BY"):
         if len(plan["GROUP_BY"]) != 1:
             return None
-        expr = next((i["expr"] for i in plan["SELECT"] if i["as"] == plan["GROUP_BY"][0]), {})
+        expr: dict = next((i["expr"] for i in plan["SELECT"] if i["as"] == plan["GROUP_BY"][0]), {})
         spec = cat.column(expr["col"]) if "col" in expr else None
         if not spec or not spec.get("identifier"):
             return None

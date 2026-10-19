@@ -78,7 +78,8 @@ class _Meter(ModelGateway):
     """Passes calls to the scripted model and keeps what each would cost."""
 
     def __init__(self, inner: ModelGateway, cfg: BudgetConfig):
-        self.inner, self.cfg, self.rows = inner, cfg, []
+        self.inner, self.cfg = inner, cfg
+        self.rows: list[tuple[str, int, int, int, float, float]] = []
         self.path_worst: float | None = None
 
     def ensure_path(self, input_tokens: list[int], prompt_names: Sequence[str] = ()):
@@ -91,7 +92,7 @@ class _Meter(ModelGateway):
     def invoke(self, prompt: str, config: ModelConfig) -> ModelResponse:
         resp = self.inner.invoke(prompt, config)
         typical_in, high_in = len(prompt) // 4 + 1, estimate_input_tokens(prompt)
-        out = len(resp.text) // 4 + 1
+        out = len(resp.text or "") // 4 + 1
         self.rows.append((config.prompt_identity, typical_in, high_in, out, self.cfg.cost(typical_in, out),
                           self.cfg.cost(high_in, self.cfg.output_cap(config.prompt_identity))))
         return resp

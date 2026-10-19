@@ -131,9 +131,11 @@ def _provider_validator(schema_json: str) -> Draft202012Validator:
     """The schema as LiteLLM reduces it before sending (R2). A breach of it means the provider did not
     hold to it (T17); the further attempt's feedback can fix it, as for the full schema."""
     from litellm.llms.anthropic.chat.transformation import AnthropicConfig
-    reduced = AnthropicConfig().map_response_format_to_anthropic_output_format(
-        {"type": "json_schema", "json_schema": {"name": "output", "schema": json.loads(schema_json)}})["schema"]
-    return Draft202012Validator(reduced)
+    out = AnthropicConfig().map_response_format_to_anthropic_output_format(
+        {"type": "json_schema", "json_schema": {"name": "output", "schema": json.loads(schema_json)}})
+    if out is None:   # LiteLLM maps a json_schema format always; None would be a change in it
+        raise RuntimeError("LiteLLM returned no output format for a json_schema response_format")
+    return Draft202012Validator(out["schema"])
 
 
 def provider_schema(schema: dict) -> dict:
