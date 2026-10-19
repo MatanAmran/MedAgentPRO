@@ -4,7 +4,8 @@
 # No secret of any kind: no API key, no model call at any step (book 6.1). The first step fails if
 # ANTHROPIC_API_KEY exists in the environment, and tests/ci/test_no_key.py checks the same from pytest.
 # Blocking: the tests with coverage at 92% (fail_under in pyproject.toml), ruff, bandit, pip-audit on the
-# installed environment. mypy reports without blocking until after the demo.
+# installed environment, and mypy (blocking since Phase B, 19.10, at zero errors). The real gateway refuses
+# to build where CI is set (model_client/budget.py, tests/ci/test_no_key.py).
 #
 # Runners are pinned to ubuntu-24.04: ubuntu-latest moves to 26 on 19.10, which changes what
 # `playwright install --with-deps` installs (WebKit most of all), and that is before the demo. Revisit
@@ -57,8 +58,7 @@ jobs:
       - run: python -m bandit -c pyproject.toml -r . -q
       - name: pip-audit (the installed environment; -r builds a second one and takes minutes)
         run: python -m pip_audit
-      - name: mypy (reports, does not block until after the demo)
-        continue-on-error: true
+      - name: mypy (blocking since Phase B, 19.10)
         run: python -m mypy
 
   # On every pull request (to master; main stays the default branch), and on the schedule and by hand where

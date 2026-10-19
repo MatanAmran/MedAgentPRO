@@ -26,7 +26,7 @@ describe("the user picker", () => {
     const { button } = open();
     expect(button.getAttribute("aria-haspopup")).toBe("listbox");
     expect(button.getAttribute("aria-expanded")).toBe("false");
-    expect(button.textContent).toContain("Approver · sees all orders");
+    expect(button.textContent).toContain("Approver · sees all records");
     expect(screen.queryByRole("listbox")).toBeNull();
   });
 
@@ -66,7 +66,7 @@ describe("the user picker", () => {
     expect(options[0].getAttribute("aria-selected")).toBe("true");
     expect(screen.getAllByRole("group").map((g) => g.getAttribute("aria-label"))).toEqual([
       "Approver",
-      "Planners, own orders only",
+      "Planners",
     ]);
   });
 });

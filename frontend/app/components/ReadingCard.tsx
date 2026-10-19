@@ -276,7 +276,23 @@ function Answer({ reading, hot, onHot, rowId }: { reading: Reading; hot: number 
   );
 }
 
-export function ReadingCard({ reading, index = 1 }: { reading: Reading; index?: number }) {
+export function ReadingCard({
+  reading: given,
+  index = 1,
+  onShowAll,
+}: {
+  reading: Reading;
+  index?: number;
+  // Phase B task 5: every record of a cut reading, from the server; no model. The answer is unchanged
+  onShowAll?: () => Promise<Reading>;
+}) {
+  const [full, setFull] = useState<Reading | null>(null);
+  const [fetching, setFetching] = useState(false);
+  const [fetchError, setFetchError] = useState<string | null>(null);
+  const reading: Reading = full
+    ? { ...given, rows: full.rows, row_count: full.row_count, total: full.total, notice: full.notice }
+    : given;
+  const cut = (given.total ?? 0) > (given.rows?.length ?? 0) && (given.rows?.length ?? 0) > 0;
   const [asTable, setAsTable] = useState(false);
   const [unfolded, setUnfolded] = useState(false);
   const [copied, setCopied] = useState(false);
@@ -294,6 +310,20 @@ export function ReadingCard({ reading, index = 1 }: { reading: Reading; index?: 
   function point(row: number | null, focus: boolean) {
     setHot(row);
     if (focus && row !== null && row > FOLD_AFTER) setUnfolded(true);   // a focused value shows its row
+  }
+
+  async function showAll() {
+    if (!onShowAll) return;
+    setFetching(true);
+    setFetchError(null);
+    try {
+      setFull(await onShowAll());
+      setUnfolded(true);
+    } catch {
+      setFetchError("The records could not be fetched.");
+    } finally {
+      setFetching(false);
+    }
   }
 
   async function copy() {
@@ -365,8 +395,24 @@ export function ReadingCard({ reading, index = 1 }: { reading: Reading; index?: 
           )}
         </div>
       )}
-      {(folds || grouped) && (
+      {(folds || grouped || (cut && onShowAll && !full)) && (
         <div className="flex flex-wrap gap-2 px-5 pb-3.5 pt-1.5">
+          {cut && onShowAll && !full && (
+            <button
+              type="button"
+              className="min-h-10 rounded-[10px] border border-blush-3 px-3.5 text-sm font-bold text-brand-dark hover:bg-blush disabled:opacity-50"
+              onClick={showAll}
+              disabled={fetching}
+              data-testid="show-all-records"
+            >
+              {fetching ? "Fetching the records…" : `Show all ${given.total} records`}
+            </button>
+          )}
+          {fetchError && (
+            <span role="alert" className="self-center text-sm text-brand-deep">
+              {fetchError}
+            </span>
+          )}
           {folds && (
             <button
               type="button"

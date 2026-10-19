@@ -17,8 +17,8 @@ Also printed: what R7a reserves for the whole path before the first synthesis ca
 per exchange, and how many exchanges a budget covers, typically and at the worst case.
 
 Run from backend/:
-  python -m query_assistance.dry_run                                 prices and caps from backend/.env
-  python -m query_assistance.dry_run --model claude-sonnet-5-5       map prices, no .env
+  python -m tools.dry_run                                 prices and caps from backend/.env
+  python -m tools.dry_run --model claude-sonnet-5-5       map prices, no .env
       [--budget 3.5] [--cap 0.25] [--max-output 2000]                 what to report against
 """
 
@@ -35,10 +35,9 @@ from demo_data import seed
 from model_client.budget import BudgetConfig, BudgetConfigError, estimate_input_tokens, map_prices
 from model_client.client import ModelConfig, ModelGateway, ModelResponse, ScriptedModelGateway
 from persistence.audit_repository import AuditRepository, MemoryStorage
+from query_assistance import pipeline, prompts
+from query_assistance.compiler import Catalog
 from shared.circuit_breaker import CircuitBreaker, MemoryStore
-
-from . import pipeline, prompts
-from .compiler import Catalog
 
 Q = "Which suppliers delivered late in weeks 1 to 13?"
 LATE = {"label": "late", "plan": {
@@ -78,7 +77,8 @@ class _Meter(ModelGateway):
     """Passes calls to the scripted model and keeps what each would cost."""
 
     def __init__(self, inner: ModelGateway, cfg: BudgetConfig):
-        self.inner, self.cfg, self.rows = inner, cfg, []
+        self.inner, self.cfg = inner, cfg
+        self.rows: list[tuple[str, int, int, int, float, float]] = []
         self.path_worst: float | None = None
 
     def ensure_path(self, input_tokens: list[int], prompt_names: Sequence[str] = ()):
@@ -91,7 +91,7 @@ class _Meter(ModelGateway):
     def invoke(self, prompt: str, config: ModelConfig) -> ModelResponse:
         resp = self.inner.invoke(prompt, config)
         typical_in, high_in = len(prompt) // 4 + 1, estimate_input_tokens(prompt)
-        out = len(resp.text) // 4 + 1
+        out = len(resp.text or "") // 4 + 1
         self.rows.append((config.prompt_identity, typical_in, high_in, out, self.cfg.cost(typical_in, out),
                           self.cfg.cost(high_in, self.cfg.output_cap(config.prompt_identity))))
         return resp
@@ -128,7 +128,7 @@ def _print(title: str, rows: list[tuple], cfg: BudgetConfig):
 def _config(env, argv) -> BudgetConfig:
     """With --model, prices from the local map and the reporting values from the command line; .env is
     not read. Without it, everything from .env, as before. No key either way."""
-    ap = argparse.ArgumentParser(prog="python -m query_assistance.dry_run")
+    ap = argparse.ArgumentParser(prog="python -m tools.dry_run")
     ap.add_argument("--model", help="price this model from LiteLLM's local map, without backend/.env")
     ap.add_argument("--budget", type=float, default=3.5, help="total to report against, USD (with --model)")
     ap.add_argument("--cap", type=float, default=0.25, help="cap per exchange to report against, USD (with --model)")
