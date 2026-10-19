@@ -30,8 +30,11 @@ MedAgentPro is an LLM-driven root-cause-analysis system for supply-chain cases, 
 
 ## Project notes
 
+**`SHARED_STATUS.md`** at the repository root (not in git: `.git/info/exclude`, so the same on every branch; never commit it, never `git clean -x`) is how the chat and Code talk since 20.10: the chat's instructions, Code's reports and questions, the work queue, known gaps. Read it at the start of every task and again before every write; write only in Code's section, by targeted edits.
+
 `docs/notes/` holds the project notes, in Hebrew. **This is the working copy since 12.10**; the originals in `project filles\04_Project_Notes\` are kept as they were. Read before starting work:
-- `00_STATUS.md` — what is open, what blocks what, what was closed
+- `00_STATUS.md` — the stable picture: the map, the decisions, Phase B, what blocks what (split 20.10)
+- `05_LOG.md` — the detailed history from 12.10, copied whole from 00_STATUS on 20.10. A section cited as "00_STATUS, ..." from before 20.10 is there, under the same heading
 - `40_CHAT.md` — the chat pipeline: stages, schemas, decisions and why
 - `30_ARCHITECTURE.md` — the six layers and technical decisions
 
