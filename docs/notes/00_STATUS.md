@@ -5138,6 +5138,18 @@ exchange cost: attempt=EX-bc247dc6774a usd=0.061608 remaining=1.714846
 5. **לא נבנה: בדיקת e2e עם הספק המזויף,** שהייתה בתוכנית. הצד של המסך מכוסה ב-vitest, והצד של השרת דרך ה-API ב-`test_paths`. השרת לא מריץ את @10, ולכן מקרה כזה מגיע למסך בדמו רק דרך תסריט שכתבנו.
 6. **לא בספר:** ‏`MATCHES`, ‏`name_ambiguous`, ‏`name_not_matched` ו-`candidates` הם הצעה או `[demo extension]`. ההערה ב-3.1.6 מחכה לסבב מול המודל.
 
+#### **‏value-match: סקירה בצ׳אט (20.10). מאושר.** ארבע ההחלטות (מזהה במקום שם בהיסטוריה, סירוב ל-`searchable` בלי מזהה, 409, משפחת `result`) מאושרות
+
+- ✅ **בדיקת e2e עם הספק המזויף** (`playwright.real.config.ts`, ב-`e2e/real.spec.ts`):
+  - **שם חלקי:** ‏"Strain relief" מתאים לשמונה חלקים. הכרטיס מציג חמישה מועמדים ו-"and 3 more", בלי תשובה.
+  - **שם מלא:** ‏"Strain relief K77" מחזיר תשובה, ו-Examined אומר "part description 'Strain relief K77' matched Strain relief K77", בלי סוגריים, כי ההתאמה מדויקת.
+  - **השאלות מגיעות מקובץ חדש,** `backend/tools/fake_extra_exchanges.json`. רק הספק המזויף קורא אותו, כך שהוא לא נכנס לדוגמאות הדמו ולא למודל המתוסרט, ו-`scripted_exchanges.json` לא השתנה.
+- ⚠️ **מגבלה ידועה, NFR 27. התיקון בסבב הבא, לא עכשיו.**
+  - ב-`_resolve`, ‏`allowed` מוסיף כל מזהה שנפתר משם ל-`presented` של **כל** ההידור מחדש, ולא רק לצומת ש-`with_names` החליף.
+  - לכן `EQ` שהמודל כתב בעצמו על אותו מזהה, באותה תוכנית, עובר את בדיקת המקור, אף שהמזהה לא מופיע בשאלה.
+  - הפגיעה מוגבלת: זה רק מזהה שהקוד עצמו מצא ממונח שבשאלה, ורק בהידור הזה.
+  - **התיקון:** היתר לפי הצומת. ‏`with_names` מסמן את ה-`EQ` שהוא כותב, ו-`_check_provenance` פוטר רק אותו.
+
 ## מה שנסגר בסבב האחרון
 
 - **הקוד עבר לריפו** — `MedAgentPro\backend` (`query_assistance`, `model_client`, `persistence`, `shared`, `tests`). **`03_Code` נשאר כמקור ומעודכן.** `python -m pytest -q` מתוך `backend`
