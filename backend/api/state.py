@@ -97,7 +97,7 @@ class AppState:
         self._conversations: dict[str, Conversation] = {}
         self._request_ids: set[str] = set()
         # task 5: exchange id -> (conversation, plans as run), for "Show all records". Server-side only
-        self._plans: dict[str, tuple[Conversation, dict[str, dict]]] = {}
+        self._plans: dict[str, tuple[Conversation, dict[str, dict], dict[str, list[dict]]]] = {}
 
     # --- users and conversations -------------------------------------------
 
@@ -192,23 +192,24 @@ class AppState:
                     item["trace"] = trace
                 conv.items.append(item)
                 if outcome.plans:
-                    self._plans[outcome.exchange_id] = (conv, outcome.plans)
+                    self._plans[outcome.exchange_id] = (conv, outcome.plans, outcome.matched)
             conv.busy = False
             self._freed.notify_all()
 
-    def plan_of(self, exchange_id: str, label: str, user: dict) -> tuple[dict, dict]:
-        """Task 5: a reading's plan as its exchange ran it, and the item it was shown in. Only the
+    def plan_of(self, exchange_id: str, label: str, user: dict) -> tuple[dict, dict, list[dict] | None]:
+        """Task 5: a reading's plan as its exchange ran it, the item it was shown in, and how its names
+        were resolved (chat 20.10). Only the
         conversation's own user (S3): LookupError where there is no such reading, PermissionError where
         the exchange is another user's."""
         with self._lock:
             held = self._plans.get(exchange_id)
             if held is None or label not in held[1]:
                 raise LookupError(exchange_id)
-            conv, plans = held
+            conv, plans, matched = held
             if conv.owner != user["user_id"]:
                 raise PermissionError(exchange_id)
             item = next(i for i in conv.items if i["exchange_id"] == exchange_id)
-            return plans[label], item
+            return plans[label], item, matched.get(label)
 
     def rated(self, exchange_id: str, user: dict, rating: str):
         """Task 7, Q5: the item shows the rating last given, so the screen shows it after a reload.

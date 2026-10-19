@@ -1,6 +1,7 @@
 {
   "$comment": "DEMO ONLY. A synthetic supply-chain store for demonstrating the query assistance pipeline. Not the company inventory, which has not been received. Columns that exist but are sparsely filled (notes, bin_location, promised_date, delay_reason) are deliberate: they let the demo show record-level gaps. data_as_of is the last day the data records (orders, deliveries, receipts): seed.py builds up to it, and the intent prompt resolves a month without a year against it (task 10a, chat 01:15). It is not the latest date in the store: due and promised dates run past it.",
   "data_as_of": "2026-10-09",
+  "max_candidates": 5,
   "domain": {
     "$comment": "What the screen says the store is about (chat 19.10, C, demo extension): the tag in the header, the page description, the question box's hint and, on the real model, what may be asked. The code holds none of these words.",
     "name": "Supply chain",
@@ -19,7 +20,8 @@
         },
         "name": {
           "label": "supplier name",
-          "type": "text"
+          "type": "text",
+          "searchable": true
         },
         "region": {
           "label": "region",
@@ -54,7 +56,8 @@
         },
         "description": {
           "label": "part description",
-          "type": "text"
+          "type": "text",
+          "searchable": true
         },
         "category": {
           "label": "part category",

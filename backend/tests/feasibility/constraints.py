@@ -104,6 +104,11 @@ CONSTRAINTS: list[Constraint] = [
                "silently not cached. Each prompt's stable prefix is above it, counted at four characters a "
                "token (an undercount for English).",
                "claude-api skill, prompt caching minimums, cached 2026-10-06 (Phase B task 7, chat 19.10)"),
+    Constraint("T21", "technical",
+               "SQLite folds case for ASCII letters only, both in COLLATE NOCASE and in LIKE. A name the user "
+               "writes (MATCHES) in another case than the store holds it is found only where the letters that "
+               "differ are ASCII: 'émile' does not find 'Émile Parts'; 'Émile' does.",
+               "SQLite documentation, datatype3 (collating sequences) and lang_expr (LIKE); chat 20.10, V3"),
     # --- logical: the design on the demo data ------------------------------------------------------
     Constraint("L01", "logical",
                "Every scripted demo question runs through the real checks to the outcome its script means.",

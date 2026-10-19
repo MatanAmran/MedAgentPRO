@@ -22,6 +22,7 @@ import asyncio
 import itertools
 import json
 import re
+import shutil
 import sqlite3
 import threading
 import uuid
@@ -852,6 +853,39 @@ def test_server_show_all_not_recorded(db_path, monkeypatch):
     monkeypatch.setattr(s.state.deps.audit, "write_event", down)
     r = s.client.get(f"/api/exchanges/{eid}/readings/{reading['label']}/records", headers=AP)
     assert r.status_code == 503 and "rows" not in r.json()
+
+
+def _named(term):
+    return {"disposition": "retrieve", "readings": [{"label": "named", "plan": {
+        "SELECT": [{"expr": {"col": "commitments.po_id"}, "as": "po_id"}], "FROM": "commitments",
+        "JOIN": [{"rel": "commitment_supplier", "type": "INNER"}],
+        "WHERE": {"MATCHES": {"col": "suppliers.name", "term": term}}}}]}
+
+
+def test_server_name_ambiguous(db_path, tmp_path):
+    """Chat 20.10: two suppliers named alike. Nothing is retrieved; the candidates reach the screen and
+    nothing else; the plan kept still holds MATCHES, so Show all records refuses it."""
+    path = tmp_path / "two.db"
+    shutil.copy(db_path, path)
+    with sqlite3.connect(path) as conn:
+        conn.execute("INSERT INTO suppliers (supplier_id, name, region, country) VALUES ('S-903', 'Apex Polymers', "
+                     "'AMER', 'XX')")
+    q = "What did Apex supply?"
+    s = Server(path, {q: Script(intent_analysis_demo=[_named("Apex")])})
+    res = check_stream(s.ask(s.conversation(), q))
+    reading = res["response"]["readings"][0]
+    assert res["response"]["outcome"] == "answered" and reading["result"] == "name_ambiguous"
+    assert reading["candidates"][0]["values"] == ["Apex Polymers (S-001)", "Apex Polymers (S-903)"]
+    assert "candidates" not in s.storage.get_investigation(res["exchange_id"])["response"]["readings"][0]
+    r = s.client.get(f"/api/exchanges/{res['exchange_id']}/readings/named/records", headers=AP)
+    assert r.status_code == 409
+
+
+def test_server_name_not_matched(db_path):
+    q = "What did Zephyr supply?"
+    s = Server(db_path, {q: Script(intent_analysis_demo=[_named("Zephyr")])})
+    reading = check_stream(s.ask(s.conversation(), q))["response"]["readings"][0]
+    assert reading["result"] == "name_not_matched" and reading["notice"] == "No supplier name matches 'Zephyr'."
 
 
 def test_server_show_all_unreachable(db_path, monkeypatch):

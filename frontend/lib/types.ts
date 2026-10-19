@@ -17,7 +17,9 @@ export interface Reading {
   title: string; // [demo extension] Q2: built in code, never model text
   checked: string; // "Examined: ...", on every reading
   row_count: number;
-  result?: "rows_returned" | "empty_no_match" | "empty_unknown_entity";
+  result?: "rows_returned" | "empty_no_match" | "empty_unknown_entity" | "name_ambiguous" | "name_not_matched";
+  // [demo extension] chat 20.10, V5: a name that matched several records, for the screen only
+  candidates?: { term: string; column: string; values: string[]; more: number }[];
   columns?: string[];
   headers?: Record<string, string>; // [demo extension] the name each column is shown by, from the catalog
   identifiers?: string[]; // [demo extension] Q3: columns that select an identifier

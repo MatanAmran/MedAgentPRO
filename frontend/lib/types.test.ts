@@ -22,6 +22,7 @@ const READING_KEYS = [
   "checked",
   "row_count",
   "result",
+  "candidates",
   "columns",
   "headers",
   "identifiers",

@@ -590,6 +590,34 @@
                 "type": "object",
                 "additionalProperties": false,
                 "required": [
+                  "MATCHES"
+                ],
+                "properties": {
+                  "MATCHES": {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "required": [
+                      "col",
+                      "term"
+                    ],
+                    "properties": {
+                      "col": {
+                        "$ref": "#/$defs/qualified"
+                      },
+                      "term": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 100
+                      }
+                    },
+                    "$comment": "[proposal, not in the book; chat 20.10, V7] A name the user wrote, passed as written. Only on a column schema.json marks searchable, only as a positive condition under AND from the root of WHERE (V1); term is a span of the question. Resolved in code against the entity's identifier, within the user's entitlement (81_VALUE_MATCH). An object, not a tuple."
+                  }
+                }
+              },
+              {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
                   "IS_NULL"
                 ],
                 "properties": {
@@ -1124,9 +1152,43 @@
                   "enum": [
                     "rows_returned",
                     "empty_no_match",
-                    "empty_unknown_entity"
+                    "empty_unknown_entity",
+                    "name_ambiguous",
+                    "name_not_matched"
                   ],
-                  "$comment": "[demo extension] The retrieval outcome classification, in code (Test 35)."
+                  "$comment": "[demo extension] The retrieval outcome classification, in code (Test 35). name_ambiguous and name_not_matched: chat 20.10, a name the user wrote matched several entities or none [proposal, not in the book]."
+                },
+                "candidates": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "required": [
+                      "term",
+                      "column",
+                      "values",
+                      "more"
+                    ],
+                    "properties": {
+                      "term": {
+                        "type": "string"
+                      },
+                      "column": {
+                        "type": "string"
+                      },
+                      "values": {
+                        "type": "array",
+                        "items": {
+                          "type": "string"
+                        }
+                      },
+                      "more": {
+                        "type": "integer",
+                        "minimum": 0
+                      }
+                    }
+                  },
+                  "$comment": "[demo extension] Chat 20.10, V5: on name_ambiguous only, for each name that matched several entities, up to max_candidates of them as 'name (identifier)' and how many more, counted within the user's entitlement. For the screen only: never in a prompt, the history, the presented identifiers or the exchange record."
                 },
                 "columns": {
                   "type": "array",
@@ -1389,6 +1451,18 @@
         "when": "The plan returned rows.",
         "known": "In code.",
         "response": "Proceed to synthesis and then to the gate. This is the only outcome the gate applies to."
+      },
+      {
+        "name": "name_ambiguous",
+        "when": "A name the plan matches (MATCHES) is held by several entities the user may see, counted by the entity's own identifier.",
+        "known": "In code, before retrieval: three stages (equal ignoring case, starts with, contains), within the user's entitlement. No model call.",
+        "response": "Nothing is retrieved. A fixed request to ask again with the full name; the candidates are shown on the screen only. [proposal, not in the book; chat 20.10]"
+      },
+      {
+        "name": "name_not_matched",
+        "when": "A name the plan matches (MATCHES) is held by no entity the user may see.",
+        "known": "In code, the same stages.",
+        "response": "Nothing is retrieved. A valid answer: no record carries that name. [proposal, not in the book; chat 20.10]"
       }
     ],
     "unreachable": {

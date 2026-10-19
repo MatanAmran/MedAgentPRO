@@ -384,6 +384,20 @@ export function ReadingCard({
             .join(" ")}
         </p>
       )}
+      {reading.candidates?.map((c) => (
+        // chat 20.10, V5: the records a name matched, as text only; asking again is the user's to do
+        <div key={c.term} className="px-5 pb-2 text-[13px] text-ink-3" data-testid="reading-candidates">
+          <p>
+            {c.column} matching &ldquo;{c.term}&rdquo;:
+          </p>
+          <ul className="list-disc pl-5">
+            {c.values.map((v) => (
+              <li key={v}>{v}</li>
+            ))}
+            {c.more > 0 && <li>and {c.more} more</li>}
+          </ul>
+        </div>
+      ))}
       {hasRows && (
         <div className="px-5 pb-1 pt-2">
           {tags ? (

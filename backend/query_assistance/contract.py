@@ -113,10 +113,30 @@ def _metric_phrase(name: str, cat: Catalog, negate: bool = False) -> str:
     return desc[0].lower() + desc[1:]
 
 
-def _predicate(node: dict, cat: Catalog) -> str:
+MATCHED_BY = {1: "", 2: " (by prefix)", 3: " (by contains)"}   # chat 20.10, C
+
+
+def matched_phrases(matched: list[dict] | None, cat: Catalog, by_identifier: bool = False) -> dict:
+    """Chat 20.10, C: a name resolved to one entity reads as one line in Examined, "supplier name 'Apex'
+    matched Apex Polymers (by prefix)", keyed by the EQ the plan now holds on the entity's identifier.
+    by_identifier names the entity by its identifier instead: the line every model and the history
+    receive, since a name is free text held in a record and what they get is built from the plan and
+    the catalog only (NFR 21, render_records). The name is for the screen."""
+    out = {}
+    for m in matched or []:
+        if m["count"] != 1:
+            continue
+        ident, name = m["candidates"][0]
+        shown = ident if by_identifier else name
+        out[(m["id_column"], ident)] = (f"{_column(m['column'], cat)} '{m['term']}' matched {shown}"
+                                        f"{MATCHED_BY[m['stage']]}")
+    return out
+
+
+def _predicate(node: dict, cat: Catalog, phrases: dict | None = None) -> str:
     (op, arg), = node.items()
     if op in ("AND", "OR"):
-        parts = [_predicate(p, cat) for p in arg]
+        parts = [_predicate(p, cat, phrases) for p in arg]
         joined = f" {op.lower()} ".join(parts)
         return f"({joined})" if op == "OR" else joined
     if op in CMP:
@@ -125,6 +145,8 @@ def _predicate(node: dict, cat: Catalog) -> str:
         for m, v in ((a, b), (b, a)):
             if "metric" in m and "value" in v and isinstance(v["value"], bool) and op in ("EQ", "NE"):
                 return _metric_phrase(m["metric"], cat, negate=(v["value"] is False) != (op == "NE"))
+            if phrases and op == "EQ" and "col" in m and "value" in v and (m["col"], v["value"]) in phrases:
+                return phrases[(m["col"], v["value"])]
         return f"{_operand(a, cat)} {CMP[op]} {_operand(b, cat)}"
     if op == "IN":
         vals = ", ".join(_operand(v, cat) for v in arg["values"])
@@ -135,6 +157,8 @@ def _predicate(node: dict, cat: Catalog) -> str:
         return f"{_column(arg['col'], cat)} not recorded"
     if op == "IS_NOT_NULL":
         return f"{_column(arg['col'], cat)} recorded"
+    if op == "MATCHES":   # a name not resolved to one entity (chat 20.10)
+        return f"{_column(arg['col'], cat)} matches '{arg['term']}'"
     raise AssertionError(op)
 
 
@@ -151,7 +175,8 @@ def _restricted(plan: dict, cat: Catalog, role: str) -> bool:
     return False
 
 
-def render_checked(plan: dict, cat: Catalog, role: str) -> str:
+def render_checked(plan: dict, cat: Catalog, role: str, matched: list[dict] | None = None,
+                   by_identifier: bool = False) -> str:
     """Fixed mapping from clause to phrase. No model writes it (exchange_response assembly rules)."""
     named = headers(plan, cat)
     parts = [f"Examined: {_table(plan['FROM'], cat)}"]
@@ -163,7 +188,7 @@ def render_checked(plan: dict, cat: Catalog, role: str) -> str:
         other_name = _table(other, cat)
         parts[0] += f" with {other_name}" if j["type"] == "INNER" else f" with {other_name} where held"
     if "WHERE" in plan:
-        parts[0] += f" where {_predicate(plan['WHERE'], cat)}"
+        parts[0] += f" where {_predicate(plan['WHERE'], cat, matched_phrases(matched, cat, by_identifier))}"
     if plan.get("GROUP_BY"):
         parts.append("grouped by " + ", ".join(named.get(g, g) for g in plan["GROUP_BY"]))
     aggs = [_func(i["expr"], cat, examined=True) for i in plan["SELECT"] if "func" in i["expr"]]
@@ -176,10 +201,11 @@ def render_checked(plan: dict, cat: Catalog, role: str) -> str:
     return " · ".join(parts)
 
 
-def examined_line(plan: dict, cat: Catalog, role: str) -> str:
+def examined_line(plan: dict, cat: Catalog, role: str, matched: list[dict] | None = None,
+                  by_identifier: bool = False) -> str:
     """What a reading examined, without the "Examined: " the screen shows: the line synthesis and the
     gate get above the reading's rows (chat, 18.10, 09:40). The same text, from the same code."""
-    return render_checked(plan, cat, role).removeprefix("Examined: ")
+    return render_checked(plan, cat, role, matched, by_identifier).removeprefix("Examined: ")
 
 
 def render_order(plan: dict, cat: Catalog | None = None) -> str | None:
@@ -275,10 +301,10 @@ def reading_entity(plan: dict, cat: Catalog) -> str | None:
 
 def reading_view(label: str, plan: dict, result: RetrievalResult, cat: Catalog, role: str,
                  answer: str | None = None, evidence: list[str] | None = None,
-                 answer_segments: list[dict] | None = None) -> dict:
+                 answer_segments: list[dict] | None = None, matched: list[dict] | None = None) -> dict:
     view: dict[str, Any] = {
         "label": label,
-        "checked": render_checked(plan, cat, role),
+        "checked": render_checked(plan, cat, role, matched),
         "result": result.outcome,
         "columns": [i["as"] for i in plan["SELECT"]],
         "headers": headers(plan, cat),   # task 7 review, item 2 [demo extension]
@@ -300,6 +326,17 @@ def reading_view(label: str, plan: dict, result: RetrievalResult, cat: Catalog, 
                             for m in result.missing]
         view["notice"] = " ".join(f"{m['value']} does not appear in {m['checked_in'].split('.')[0]}."
                                   for m in view["not_held"])
+    elif result.outcome == "name_not_matched":   # chat 20.10, V2: a finding, not a failure
+        view["notice"] = " ".join(f"No {_column(m['column'], cat)} matches '{m['term']}'."
+                                  for m in matched or [] if m["count"] == 0)
+    elif result.outcome == "name_ambiguous":
+        several = [m for m in matched or [] if m["count"] > 1]
+        view["notice"] = " ".join(f"'{m['term']}' matches several {_column(m['column'], cat)}s." for m in several) \
+            + " Ask again with the full name."
+        # V5: for the screen only. Never in a prompt, the history, the presented identifiers or the record
+        view["candidates"] = [{"term": m["term"], "column": _column(m["column"], cat),
+                               "values": [f"{name} ({ident})" for ident, name in m["candidates"]],
+                               "more": m["count"] - len(m["candidates"])} for m in several]
     elif result.truncated:
         view["notice"] = f"Showing {len(result.rows)} of {result.total}."
     if answer:
@@ -314,6 +351,16 @@ def reading_view(label: str, plan: dict, result: RetrievalResult, cat: Catalog, 
     if entity:
         view["entity"] = entity
     return view
+
+
+def for_record(response: dict) -> dict:
+    """The response as the exchange record holds it: without the candidates of a name (chat 20.10, V4,
+    K2), which are company data shown on the screen only."""
+    if not any("candidates" in r for r in response.get("readings", [])):
+        return response
+    out = dict(response)
+    out["readings"] = [{k: v for k, v in r.items() if k != "candidates"} for r in response["readings"]]
+    return out
 
 
 def _entity(entity: str, cat: Catalog | None) -> str:

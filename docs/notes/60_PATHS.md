@@ -1,24 +1,24 @@
 # MedAgentPro — מפת המסלולים וההיתכנות
 
-**נוצר אוטומטית** ב-`python -m tools.path_map` (מתוך `backend\`), 19.10.2026 22:51. **לא לערוך ידנית** — המקור הוא `backend\tests\paths\registry.py` ו-`backend\tests\feasibility\constraints.py`.
+**נוצר אוטומטית** ב-`python -m tools.path_map` (מתוך `backend\`), 20.10.2026 00:31. **לא לערוך ידנית** — המקור הוא `backend\tests\paths\registry.py` ו-`backend\tests\feasibility\constraints.py`.
 
 **איך זה גדל:** `tests\paths\branches.py` קורא מהקוד ומהסכמות כל הסתעפות (מצב סיום, שלב, סוג כשל, `except`, הודעה, נקודת קצה, קוד HTTP, סוג פער, תפקיד). **הסתעפות בלי מסלול מפילה את `pytest`.** מגבלה שמתגלה (כמו הטמפרטורה) נכנסת כשורה ב-`constraints.py`, ושורה בלי בדיקה מפילה את `pytest`.
 
-**תוצאות:** 80 עוברים · 0 נכשלים · 0 פער ידוע · 0 דולגו
+**תוצאות:** 82 עוברים · 0 נכשלים · 0 פער ידוע · 0 דולגו
 
 ## מסלולים
 
 | | מסלול | מכסה | דרישה / הכרעה | הערה |
 |---|---|---|---|---|
-| ✅ | `answered_all_supported` | `outcome:answered`, `disposition:retrieve`, `verdict:supported`, `stage:intent_analysis`, `stage:compilation`, `stage:retrieval`, `stage:synthesis`, `stage:support_gate`, `stage:output_contract`, `role:APPROVER` | 4.9 · Test 21 · NFR 3, NFR 5 |  |
+| ✅ | `answered_all_supported` | `outcome:answered`, `result:rows_returned`, `disposition:retrieve`, `verdict:supported`, `stage:intent_analysis`, `stage:compilation`, `stage:retrieval`, `stage:synthesis`, `stage:support_gate`, `stage:output_contract`, `role:APPROVER` | 4.9 · Test 21 · NFR 3, NFR 5 |  |
 | ✅ | `answered_two_readings` | `outcome:answered` | FR 11 · FR 16 · Test 32, 34 · task 7 Q2, Q4 |  |
 | ✅ | `ambiguous_term_only_in_rewrite_not_named` | — | task 7 Q4 · FR 25 | a term the compiler accepts from the rewrite is not shown: only spans of the question as posed |
 | ✅ | `planner_reads_every_row` | `role:PLANNER` | D6 (fix round) · NFR 17 | the demo opens all data to both roles; the mechanism is tested on tests/fixtures/restricted_schema.json |
 | ✅ | `referred` | `outcome:referred_to_investigation`, `disposition:refer_to_investigation` | FR 14 · Test 22 |  |
 | ✅ | `action_declined` | `disposition:out_of_scope_action`, `notice:ACTION_DECLINED` | task 8 A1 · FR 14 (extension) | a request to change records: nothing retrieved, a fixed sentence, outcome answered |
 | ✅ | `needs_clarification` | `disposition:needs_clarification`, `notice:NEEDS_CLARIFICATION` | chat 18.10 11:35 (extension of FR 14) | a question that cannot be interpreted, such as a follow-up opening a conversation: nothing retrieved, a fixed request to ask it in full, outcome answered, recorded |
-| ✅ | `empty_result_no_synthesis` | — | Test 35 |  |
-| ✅ | `identifier_not_held` | — | Test 35 · 40_CHAT §6 |  |
+| ✅ | `empty_result_no_synthesis` | `result:empty_no_match` | Test 35 |  |
+| ✅ | `identifier_not_held` | `result:empty_unknown_entity` | Test 35 · 40_CHAT §6 |  |
 | ✅ | `redraft_from_kept` | `verdict:uncovered`, `stage:regeneration`, `notice:WITHHELD` | NFR 19 · decision 4, 6 |  |
 | ✅ | `contradicted_like_unsupported` | `verdict:contradicted` | decision 3 |  |
 | ✅ | `gate_removes_other_metric_wording` | — | chat 18.10 09:40 · NFR 19 | a sentence worded as another metric than its examined line is contradicted; the rest is kept |
@@ -88,12 +88,16 @@
 | ✅ | `server_listing_and_health` | `endpoint:GET /api/conversations`, `endpoint:GET /api/health` | S3 |  |
 | ✅ | `server_examples` | `endpoint:GET /api/examples` | task 8 A4 | the scripted questions for the empty screen; none on the real model |
 | ✅ | `server_show_all_records` | `endpoint:GET /api/exchanges/{exchange_id}/readings/{label}/records`, `stage:show_all_records` | Phase B task 5 · NFR 17 · NFR 21 | [demo extension] the plan the server kept, compiled again for the asker, up to 1000 rows; no model; each viewing a records_viewed entry (label, user, row count, no record content) |
+| ✅ | `server_name_ambiguous` | `result:name_ambiguous`, `http:409` | chat 20.10, V2 · V4 · V5 · A · B · 81_VALUE_MATCH | [proposal] a name held by two suppliers: nothing retrieved, the candidates on the screen only, never in the record; Show all records refuses the reading (409) |
+| ✅ | `server_name_not_matched` | `result:name_not_matched` | chat 20.10, V2 · V4 · 81_VALUE_MATCH | [proposal] a name no supplier holds: a finding, nothing retrieved |
 | ✅ | `server_show_all_not_recorded` | `http:503` | Phase B task 5 · R1 | the viewing could not be recorded: 503, nothing shown |
 | ✅ | `server_show_all_unreachable` | `http:503` | Phase B task 5 · FR 15 | the source could not be reached: 503, nothing recorded |
 
 ## הסתעפויות בקוד, ומי מכסה כל אחת
 
 **outcome** — `answered` (answered_all_supported, answered_two_readings) · `no_supported_assertion` (fresh_draft_then_nothing) · `referred_to_investigation` (referred) · `request_not_completed` (intent_rejected_twice) · `source_unreachable` (source_missing)
+
+**result** — `empty_no_match` (empty_result_no_synthesis) · `empty_unknown_entity` (identifier_not_held) · `name_ambiguous` (server_name_ambiguous) · `name_not_matched` (server_name_not_matched) · `rows_returned` (answered_all_supported)
 
 **disposition** — `needs_clarification` (needs_clarification) · `out_of_scope_action` (action_declined) · `refer_to_investigation` (referred) · `retrieve` (answered_all_supported)
 
@@ -113,7 +117,7 @@
 
 **endpoint** — `GET /api/conversations` (server_archived_listing, server_listing_and_health) · `GET /api/conversations/{conversation_id}` (server_each_ending_then_goes_on) · `GET /api/examples` (server_examples) · `GET /api/exchanges/{exchange_id}/readings/{label}/records` (server_show_all_records) · `GET /api/health` (server_listing_and_health) · `PATCH /api/conversations/{conversation_id}` (server_conversation_update) · `POST /api/conversations` (server_each_ending_then_goes_on) · `POST /api/conversations/{conversation_id}/exchanges` (server_each_ending_then_goes_on) · `POST /api/exchanges/{exchange_id}/rating` (server_rating)
 
-**http** — `200` (server_each_ending_then_goes_on) · `201` (server_each_ending_then_goes_on) · `401` (server_refusals) · `403` (server_refusals) · `404` (server_refusals) · `409` (server_refusals) · `422` (server_refusals) · `503` (server_show_all_not_recorded, server_show_all_unreachable)
+**http** — `200` (server_each_ending_then_goes_on) · `201` (server_each_ending_then_goes_on) · `401` (server_refusals) · `403` (server_refusals) · `404` (server_refusals) · `409` (server_refusals, server_name_ambiguous) · `422` (server_refusals) · `503` (server_show_all_not_recorded, server_show_all_unreachable)
 
 **role** — `APPROVER` (answered_all_supported) · `PLANNER` (planner_reads_every_row)
 
@@ -141,6 +145,7 @@
 | ✅ | T18 | technical | A model the pinned LiteLLM does not hold (Haiku 5.5) is entered by hand, in the map's own fields, and registered before the first call: unregistered, LiteLLM maps response_format to a forced json_tool_call, which R2 never sends; registered, to native structured output. | LiteLLM 1.105 AnthropicConfig.map_openai_params (chat 19.10, Phase B task 1); tests/engine/test_haiku_price.py |
 | ✅ | T19 | technical | Haiku 5.5 is priced at USD 0.10 / 0.50 per million tokens only up to 100K input tokens (0.50 / 2.50 above). A call above the tier is not sent, and the largest demo prompt is far below it. | Anthropic model card, as cached in the claude-api skill 2026-10-06 (chat 19.10) |
 | ✅ | T20 | technical | Anthropic caches a prefix of 512 tokens or more on Sonnet 5.5 and Haiku 5.5; a shorter one is silently not cached. Each prompt's stable prefix is above it, counted at four characters a token (an undercount for English). | claude-api skill, prompt caching minimums, cached 2026-10-06 (Phase B task 7, chat 19.10) |
+| ✅ | T21 | technical | SQLite folds case for ASCII letters only, both in COLLATE NOCASE and in LIKE. A name the user writes (MATCHES) in another case than the store holds it is found only where the letters that differ are ASCII: 'émile' does not find 'Émile Parts'; 'Émile' does. | SQLite documentation, datatype3 (collating sequences) and lang_expr (LIKE); chat 20.10, V3 |
 | ✅ | L01 | logical | Every scripted demo question runs through the real checks to the outcome its script means. | S5 |
 | ✅ | L02 | logical | Every table a role is shown in the intent prompt is one it may read, and every table it may read is shown. | NFR 17 · prompts.visible_tables |
 | ✅ | L03 | logical | Every metric in schema.json compiles for every role, with entitlement applied. | NFR 17 · 40_CHAT §7 |

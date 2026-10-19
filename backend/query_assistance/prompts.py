@@ -121,7 +121,7 @@ def visible_tables(cat: Catalog, role: str) -> list[str]:
     return [t for t, e in cat.entities.items() if role in (e.get("entitlement") or {})]
 
 
-def _column_note(spec: dict) -> str:
+def _column_note(spec: dict, searchable: bool = False) -> str:
     """What the model needs to know about a column beyond its type. Where a text column takes
     a closed set of values, the set is shown, so a filter is not written as 'Open' for 'open'."""
     notes = []
@@ -129,17 +129,21 @@ def _column_note(spec: dict) -> str:
         notes.append("identifier")
     if spec.get("values"):
         notes.append("one of: " + ", ".join(spec["values"]))
+    if searchable and spec.get("searchable"):   # chat 20.10: only for a prompt that teaches MATCHES
+        notes.append("searchable")
     if spec.get("user_column"):   # D7 (fix round): the only place the model may say "the person asking"
         notes.append('a user; for the person asking, compare with {"me": true}')
     return ("  -- " + "; ".join(notes)) if notes else ""
 
 
-def render_schema(cat: Catalog, role: str) -> str:
+def render_schema(cat: Catalog, role: str, searchable: bool = False) -> str:
+    """searchable marks the columns a name may be matched on (chat 20.10). Only a prompt that teaches
+    MATCHES asks for it, so the schema the demo's prompt (@9) receives is unchanged byte for byte."""
     tables = visible_tables(cat, role)
     out = []
     for t in tables:
         cols = cat.entities[t]["columns"]
-        lines = [f"  {c} {SQL_TYPES[s['type']]}" + _column_note(s) for c, s in cols.items()]
+        lines = [f"  {c} {SQL_TYPES[s['type']]}" + _column_note(s, searchable) for c, s in cols.items()]
         out.append(f"CREATE TABLE {t} (\n" + ",\n".join(lines) + "\n);")
     for name, r in cat.relations.items():
         if r["from"] in tables and r["to"] in tables:
@@ -300,7 +304,9 @@ def render_intent(cat: Catalog, role: str, posed: str, rewritten: str | None = N
     pr = prompt
     if "{{reference_date}}" in pr.body and not cat.data_as_of:
         raise ValueError(f"{pr.name}: the catalog holds no data_as_of for {{{{reference_date}}}}")
-    return fill(pr, schema=render_schema(cat, role), question_block=question_block(posed, rewritten),
+    # our template's own text, not model text: a prompt that teaches MATCHES gets the searchable marks
+    return fill(pr, schema=render_schema(cat, role, "MATCHES" in pr.body),
+                question_block=question_block(posed, rewritten),
                 feedback=feedback_block(feedback), reference_date=cat.data_as_of or "", row_limit=str(ROW_LIMIT))
 
 

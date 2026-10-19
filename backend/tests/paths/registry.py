@@ -34,7 +34,8 @@ def _a(pid, covers, refs, note=""):
 
 PATHS: list[Path] = [
     # --- one exchange: answers ------------------------------------------------
-    _a("answered_all_supported", ["outcome:answered", "disposition:retrieve", "verdict:supported",
+    _a("answered_all_supported", ["outcome:answered", "result:rows_returned", "disposition:retrieve",
+                                  "verdict:supported",
                                   "stage:intent_analysis", "stage:compilation", "stage:retrieval",
                                   "stage:synthesis", "stage:support_gate", "stage:output_contract", "role:APPROVER"],
        "4.9 · Test 21 · NFR 3, NFR 5"),
@@ -51,8 +52,8 @@ PATHS: list[Path] = [
        "chat 18.10 11:35 (extension of FR 14)",
        "a question that cannot be interpreted, such as a follow-up opening a conversation: nothing retrieved, "
        "a fixed request to ask it in full, outcome answered, recorded"),
-    _a("empty_result_no_synthesis", [], "Test 35"),
-    _a("identifier_not_held", [], "Test 35 · 40_CHAT §6"),
+    _a("empty_result_no_synthesis", ["result:empty_no_match"], "Test 35"),
+    _a("identifier_not_held", ["result:empty_unknown_entity"], "Test 35 · 40_CHAT §6"),
     _a("redraft_from_kept", ["verdict:uncovered", "stage:regeneration", "notice:WITHHELD"], "NFR 19 · decision 4, 6"),
     _a("contradicted_like_unsupported", ["verdict:contradicted"], "decision 3"),
     _a("gate_removes_other_metric_wording", [], "chat 18.10 09:40 · NFR 19",
@@ -176,6 +177,12 @@ PATHS: list[Path] = [
          "Phase B task 5 · NFR 17 · NFR 21",
          "[demo extension] the plan the server kept, compiled again for the asker, up to 1000 rows; no model; "
          "each viewing a records_viewed entry (label, user, row count, no record content)"),
+    Path("server_name_ambiguous", f"{P}::test_server_name_ambiguous", ("result:name_ambiguous", "http:409"),
+         "chat 20.10, V2 · V4 · V5 · A · B · 81_VALUE_MATCH",
+         "[proposal] a name held by two suppliers: nothing retrieved, the candidates on the screen only, never "
+         "in the record; Show all records refuses the reading (409)"),
+    Path("server_name_not_matched", f"{P}::test_server_name_not_matched", ("result:name_not_matched",),
+         "chat 20.10, V2 · V4 · 81_VALUE_MATCH", "[proposal] a name no supplier holds: a finding, nothing retrieved"),
     Path("server_show_all_not_recorded", f"{P}::test_server_show_all_not_recorded", ("http:503",),
          "Phase B task 5 · R1", "the viewing could not be recorded: 503, nothing shown"),
     Path("server_show_all_unreachable", f"{P}::test_server_show_all_unreachable",
