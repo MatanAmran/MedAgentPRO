@@ -50,6 +50,10 @@ ROW_LIMIT = 30
 NUMERIC = {"integer", "real"}
 AVG_DECIMALS = 2   # an average is rounded to this many decimals, in the query
 DATE_RE = re.compile(r"^\d{4}-\d{2}-\d{2}$")
+# A name the user wrote (MATCHES, chat 20.10) [proposal, not in the book]: the "contains" stage runs only
+# for a term this long or longer (V3), and the catalog says how many candidates are shown (V8)
+MATCH_CONTAINS_MIN = 3
+MAX_CANDIDATES_DEFAULT = 5
 CMP_SQL = {"EQ": "=", "NE": "<>", "GT": ">", "GTE": ">=", "LT": "<", "LTE": "<="}
 
 
@@ -85,6 +89,36 @@ class Probe:
 
 
 @dataclass
+class NameProbe:
+    """A name the user wrote, matched against a searchable column (MATCHES, chat 20.10, 81_VALUE_MATCH).
+
+    column     the searchable column the plan named
+    term       the name as the user wrote it, a span of the question
+    id_column  the entity's own identifier: candidates are counted and named by it (B), never by the name
+    stages     (stage, values_sql, values_params, count_sql, count_params): 1 equal ignoring case,
+               2 starts with, 3 contains. Each with the user's entitlement (NFR 17, V6), the term a parameter
+    """
+    column: str
+    term: str
+    path: str
+    id_column: str
+    stages: list[tuple[int, str, list, str, list]] = field(default_factory=list)
+
+
+@dataclass
+class NameMatch:
+    """How a name was resolved: the first stage that found anything, how many entities, and up to
+    max_candidates of them as (identifier, name). The values are for the screen only (V5)."""
+    stage: int | None
+    count: int
+    candidates: list[tuple[Any, Any]] = field(default_factory=list)
+
+
+class UnresolvedName(Exception):
+    """A reading still holding MATCHES is never run (chat 20.10, A): the name must be resolved first."""
+
+
+@dataclass
 class Conversation:
     """What a plan may draw identifiers from (NFR 27).
 
@@ -111,6 +145,7 @@ class CompiledReading:
     limit: int
     limit_injected: bool
     probes: list[Probe] = field(default_factory=list)
+    names: list[NameProbe] = field(default_factory=list)   # MATCHES not yet resolved: never run (chat 20.10, A)
 
 
 @dataclass
@@ -145,8 +180,16 @@ class Catalog:
         # placeholder, can_ask. Text for the interface only; no stage reads it
         self.domain: dict = {k: v for k, v in schema.get("domain", {}).items() if not k.startswith("$")}
         self.relations = relations["relations"]
+        # How many candidates a name with several matches shows (chat 20.10, V8)
+        self.max_candidates: int = schema.get("max_candidates", MAX_CANDIDATES_DEFAULT)
         for table, ent in self.entities.items():
             for col, spec in ent["columns"].items():
+                if spec.get("searchable"):
+                    # B (chat 20.10): matches are counted by the entity's own identifier. A searchable
+                    # column in a table with none is an open question (00_STATUS), so it is refused here
+                    if spec.get("type") != "text" or len(self._own_ids(table)) != 1:
+                        raise ValueError(f"schema.json: {table}.{col} is searchable, so it must be text and "
+                                         f"{table} must hold exactly one identifier of its own")
                 ref = spec.get("references")
                 if ref is None:
                     continue
@@ -165,6 +208,14 @@ class Catalog:
         table, _, col = qualified.partition(".")
         ent = self.entities.get(table)
         return ent["columns"].get(col) if ent else None
+
+    def _own_ids(self, table: str) -> list[str]:
+        return [c for c, s in self.entities[table]["columns"].items()
+                if s.get("identifier") and not s.get("references")]
+
+    def entity_id(self, table: str) -> str:
+        """The identifier a table holds of its own (suppliers.supplier_id), qualified."""
+        return f"{table}.{self._own_ids(table)[0]}"
 
     def resolves(self, name: str) -> bool:
         """A table name or table.column held in schema.json."""
@@ -251,6 +302,7 @@ class _ReadingCompiler:
         self.aliases: dict[str, Expr] = {}
         self.identities: list[tuple[str, Any]] = []   # probed when the result is empty
         self.named_ids: list[tuple[str, Any]] = []    # every identifier literal, for NFR 27
+        self.names: list[tuple[str, str, str]] = []   # MATCHES: (column, term, path), chat 20.10
 
     def fail(self, code: str, reason: str, **detail: Any) -> NoReturn:
         raise CompileError(code, reason, label=self.label, **detail)
@@ -378,11 +430,12 @@ class _ReadingCompiler:
             for v in values:
                 self.named_ids.append((side.column, v))
 
-    def predicate(self, node: dict, top: bool = True) -> tuple[str, list]:
+    def predicate(self, node: dict, top: bool = True, path: str = "WHERE") -> tuple[str, list]:
         (op, arg), = node.items()
         if op in ("AND", "OR"):
             # An identifier under AND still restricts the result. Under OR it does not.
-            parts = [self.predicate(p, top=top and op == "AND") for p in arg]
+            parts = [self.predicate(p, top=top and op == "AND", path=f"{path}/{op}/{i}")
+                     for i, p in enumerate(arg)]
             sql = f" {op} ".join(f"({s})" for s, _ in parts)
             return sql, [p for _, ps in parts for p in ps]
         if op in CMP_SQL:
@@ -421,6 +474,19 @@ class _ReadingCompiler:
             self._check_literal(c, hi, "BETWEEN")
             self._note_named(c, [lo, hi])
             return f"{c.sql} BETWEEN ? AND ?", [lo, hi]
+        if op == "MATCHES":   # a name the user wrote (chat 20.10) [proposal, not in the book]
+            c = self.col(arg["col"])
+            if not self._spec(arg["col"]).get("searchable"):
+                self.fail("match_not_searchable",
+                          f"MATCHES at {path} is on '{arg['col']}', which schema.json does not mark searchable. "
+                          f"A name may be matched only on a searchable column.", path=path, col=arg["col"])
+            if not top:   # V1: a positive condition every record must meet, never under OR
+                self.fail("match_not_top_level",
+                          f"MATCHES at {path} is not under AND from the root of WHERE. A name may be matched "
+                          f"only as a condition every record meets, never under OR.", path=path)
+            self.names.append((arg["col"], arg["term"], path))
+            # never run as written: execute refuses a reading whose names are not resolved (A)
+            return f"{c.sql} = ?", [arg["term"]]
         if op in ("IS_NULL", "IS_NOT_NULL"):
             c = self.col(arg["col"])
             if arg["col"].split(".")[0] != self.plan["FROM"]:
@@ -550,7 +616,35 @@ class _ReadingCompiler:
         # (tests/security, tests/property)
         count_sql = f"SELECT COUNT(*) FROM ({body})"  # nosec B608
         return CompiledReading(self.label, sql, params + [limit], count_sql, list(params),
-                               limit, limit_injected, self._probes())
+                               limit, limit_injected, self._probes(), self._name_probes())
+
+    def _name_probes(self) -> list[NameProbe]:
+        """For each MATCHES, the three stages, each counting and naming entities by the table's own
+        identifier (B), within what the user may see (NFR 17, V6). The term is always a parameter."""
+        out = []
+        for column, term, path in self.names:
+            table, _, col = column.partition(".")
+            id_column = self.cat.entity_id(table)
+            qt, qc, qi = _q(table), f"{_q(table)}.{_q(col)}", f"{_q(table)}.{_q(id_column.split('.')[1])}"
+            ent = self.entitlement(table)
+            like = term.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
+            conds = [(1, f"{qc} = ? COLLATE NOCASE", term),
+                     (2, f"{qc} LIKE ? ESCAPE '\\'", like + "%")]
+            if len(term) >= MATCH_CONTAINS_MIN:   # V3
+                conds.append((3, f"{qc} LIKE ? ESCAPE '\\'", "%" + like + "%"))
+            stages = []
+            for stage, cond, value in conds:
+                where, params = [cond], [value]
+                if ent:
+                    where.append(ent[0])
+                    params += ent[1]
+                w = " AND ".join(f"({s})" for s in where)
+                # bandit B608: identifiers from the catalog, quoted; every value is a bound parameter
+                values_sql = f"SELECT DISTINCT {qi}, {qc} FROM {qt} WHERE {w} ORDER BY {qi} LIMIT ?"  # nosec B608
+                count_sql = f"SELECT COUNT(DISTINCT {qi}) FROM {qt} WHERE {w}"  # nosec B608
+                stages.append((stage, values_sql, params + [self.cat.max_candidates], count_sql, list(params)))
+            out.append(NameProbe(column, term, path, id_column, stages))
+        return out
 
     def _probe_target(self, column: str) -> tuple[str, tuple[str, list] | None]:
         """Where an identifier's existence is checked, and the entitlement condition there.
@@ -658,6 +752,9 @@ def compile_intent(intent: dict, question: "str | Conversation", user: dict, cat
         _check_gap_entity(cat, u["needs"])
 
     readings = intent["readings"]
+    for r in readings:   # a name the user wrote is a span of the question (chat 20.10)
+        for node in _matches(r["plan"].get("WHERE")):
+            _check_span(node["term"], conv, "MATCHES term")
     for a in intent.get("ambiguous", []):
         _check_span(a["term"], conv, "ambiguous.term")
         for alt in a["alternatives"]:
@@ -702,6 +799,18 @@ def _comparisons(node: dict, path: str):
     elif op == "BETWEEN":
         for end in ("from", "to"):
             yield arg["col"], arg[end], f"{path}/BETWEEN/{end}/value"
+
+
+def _matches(node: dict | None):
+    """Every MATCHES in a WHERE tree, wherever it stands (the compiler rejects it outside AND)."""
+    if not node:
+        return
+    (op, arg), = node.items()
+    if op in ("AND", "OR"):
+        for p in arg:
+            yield from _matches(p)
+    elif op == "MATCHES":
+        yield arg
 
 
 def _where_comparisons(intent: dict):
@@ -759,6 +868,46 @@ def with_identifiers(intent: dict, found: dict[tuple[str, Any], Any]) -> dict:
     return out
 
 
+def resolve_names(compiled: CompiledIntent, conn: sqlite3.Connection) -> dict[tuple[str, str, str], NameMatch]:
+    """Chat 20.10: each name a reading matches, resolved in code. The stages run in order and stop at the
+    first that finds anything; the count and the candidates are entities, by their own identifier (B).
+    Keyed by (label, column, term). No model; nothing here reaches a prompt (V5)."""
+    out: dict[tuple[str, str, str], NameMatch] = {}
+    for r in compiled.readings:
+        for n in r.names:
+            key = (r.label, n.column, n.term)
+            if key in out:
+                continue
+            out[key] = NameMatch(None, 0)
+            for stage, values_sql, values_params, count_sql, count_params in n.stages:
+                count = conn.execute(count_sql, count_params).fetchone()[0]
+                if count:
+                    found = [tuple(row) for row in conn.execute(values_sql, values_params)]
+                    out[key] = NameMatch(stage, count, found)
+                    break
+    return out
+
+
+def with_names(intent: dict, single: dict[tuple[str, str, str], tuple[str, Any]]) -> dict:
+    """The intent with each MATCHES that found one entity written as EQ on that entity's identifier
+    (B), never on the name, so two entities sharing a name are never merged. Returns a copy."""
+    out = copy.deepcopy(intent)
+
+    def walk(node: dict, label: str) -> dict:
+        (op, arg), = node.items()
+        if op in ("AND", "OR"):
+            return {op: [walk(p, label) for p in arg]}
+        if op == "MATCHES" and (label, arg["col"], arg["term"]) in single:
+            id_column, value = single[(label, arg["col"], arg["term"])]
+            return {"EQ": [{"col": id_column}, {"value": value}]}
+        return node
+
+    for r in out.get("readings", []):
+        if r["plan"].get("WHERE"):
+            r["plan"]["WHERE"] = walk(r["plan"]["WHERE"], r["label"])
+    return out
+
+
 # Phase B task 5 ("Show all records", chat 19.10): the most rows a reading shows when asked for all of them
 SHOW_ALL_LIMIT = 1000
 
@@ -774,6 +923,8 @@ def compile_all(label: str, plan: dict, user: dict, cat: Catalog, limit: int = S
 
 def execute(reading: CompiledReading, conn: sqlite3.Connection) -> RetrievalResult:
     """Runs one reading. No model call. Empty is a finding, not a failure (Test 35)."""
+    if reading.names:   # chat 20.10, A: a name not resolved is never run as written
+        raise UnresolvedName(f"{reading.label}: " + ", ".join(f"{n.column} at {n.path}" for n in reading.names))
     conn.row_factory = sqlite3.Row
     rows = [dict(r) for r in conn.execute(reading.sql, reading.params)]
     total = conn.execute(reading.count_sql, reading.count_params).fetchone()[0]

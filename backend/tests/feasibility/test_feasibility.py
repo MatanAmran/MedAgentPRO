@@ -195,6 +195,12 @@ def test_T19_the_largest_prompt_is_below_the_price_tier(db_path):
     assert max(largest, intent) < tier / 2, (largest, intent)
 
 
+def test_T21_case_is_folded_for_ascii_letters_only():
+    conn = sqlite3.connect(":memory:")
+    assert conn.execute("SELECT 'APEX' = 'apex' COLLATE NOCASE, 'APEX' LIKE 'ap%'").fetchone() == (1, 1)
+    assert conn.execute("SELECT 'Émile' = 'émile' COLLATE NOCASE, 'Émile' LIKE 'ém%'").fetchone() == (0, 0)
+
+
 @pytest.mark.parametrize("name", ["intent", "rewrite.md", "synthesis.md", "synthesis_redraft.md", "gate.md"])
 def test_T20_every_stable_prefix_is_long_enough_to_cache(name):
     if name == "intent":

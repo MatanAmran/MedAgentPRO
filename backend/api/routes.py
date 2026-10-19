@@ -267,16 +267,19 @@ def router(state: AppState) -> APIRouter:
         compiled again with the asking user's entitlement (NFR 17). No model. The rows go to the screen
         only: not into the conversation's history, not to any model (NFR 21)."""
         try:
-            plan, item = state.plan_of(exchange_id, label, user)
+            plan, item, matched = state.plan_of(exchange_id, label, user)
         except LookupError:
             raise HTTPException(404, "no such reading") from None
         except PermissionError:
             raise HTTPException(403, "this exchange belongs to another user") from None
         shown = next((r.get("rows", []) for r in item["response"]["readings"] if r["label"] == label), [])
         try:
-            return pipeline.show_all(exchange_id, label, plan, user, state.deps, shown)
+            return pipeline.show_all(exchange_id, label, plan, user, state.deps, shown, matched)
         except CompileError:
             raise HTTPException(403, "these records are not readable for this user") from None
+        except pipeline.NotShowable:   # chat 20.10, A: a name not resolved to one entity
+            raise HTTPException(409, "These records cannot be shown: a name in the question matched "
+                                     "no single record.") from None
         except pipeline.SourceUnavailable:
             operational_log.error("show all records: source unreachable: exchange=%s user=%s",
                                   exchange_id, user.get("user_id"))

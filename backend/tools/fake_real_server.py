@@ -50,6 +50,10 @@ _BY_FORMAT = {"question_rewriting": "question_rewriting@1", "synthesis": "synthe
               "synthesis_redraft": "synthesis_redraft@1", "support_scoring": "support_scoring@1"}
 
 
+# Exchanges for the end-to-end tests only, beside the demo's scripts (chat 20.10: a name the user wrote)
+EXTRA_SCRIPTS = Path(__file__).with_name("fake_extra_exchanges.json")
+
+
 class FakeProvider:
     """LiteLLM's completion(), answering from the scripts. One exchange at a time, as the end-to-end
     tests run: the question is read from the prompt's own markers (the gate's prompt holds none, by
@@ -59,7 +63,7 @@ class FakeProvider:
     _MARKERS = ("Question as posed: ", "Latest question: ", "Question: ")
 
     def __init__(self):
-        self.scripts = load_scripts()
+        self.scripts = {**load_scripts(), **load_scripts(EXTRA_SCRIPTS)}
         self._lock = threading.Lock()
         self._gateway: ScriptedDemoGateway | None = None
         self._question: str | None = None

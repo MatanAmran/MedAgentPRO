@@ -7,6 +7,7 @@ without anyone listing it, and test_registry.py fails until a path covers it.
 
 A tag is "family:name". Families:
   outcome      exchange_response.outcome enum
+  result       exchange_response reading result enum (chat 20.10: name_ambiguous, name_not_matched)
   disposition  intent_analysis.disposition enum
   verdict      support_scoring claim verdict enum
   gap          intent_analysis missing.kind enum
@@ -61,6 +62,10 @@ def _first_str_arg(node: ast.Call) -> str | None:
 
 def outcomes() -> set[str]:
     return set(BUNDLE["exchange_response"]["schema"]["properties"]["outcome"]["enum"])
+
+
+def results() -> set[str]:
+    return set(BUNDLE["exchange_response"]["schema"]["properties"]["readings"]["items"]["properties"]["result"]["enum"])
 
 
 def dispositions() -> set[str]:
@@ -180,7 +185,7 @@ def roles() -> set[str]:
 
 
 FAMILIES = {
-    "outcome": outcomes, "disposition": dispositions, "verdict": verdicts, "gap": gap_kinds,
+    "outcome": outcomes, "result": results, "disposition": dispositions, "verdict": verdicts, "gap": gap_kinds,
     "stage": stages, "handler": handlers, "failure": failures, "budget": budget_scopes,
     "notice": notices, "endpoint": endpoints, "http": http_codes, "role": roles,
 }

@@ -30,7 +30,7 @@ import sqlite3
 import uuid
 from concurrent.futures import ThreadPoolExecutor
 from contextlib import ExitStack
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Callable
@@ -54,13 +54,16 @@ from .compiler import (
     CompileError,
     Conversation,
     RetrievalResult,
+    UnresolvedName,
     _norm,
     compile_all,
     compile_intent,
     execute,
     intent_validator,
     resolve_identifiers,
+    resolve_names,
     with_identifiers,
+    with_names,
 )
 from .synthesis import Draft
 
@@ -112,6 +115,9 @@ class Outcome:
     # Phase B task 5: each reading's plan as run, kept by the server for "Show all records". Never in
     # exchange_response, never sent to a model
     plans: dict[str, dict] = field(default_factory=dict)
+    # chat 20.10: how each name a reading matched was resolved, by label. Kept by the server for Examined
+    # in "Show all records"; never in a prompt, the history or the record as it is (V4, V5)
+    matched: dict[str, list[dict]] = field(default_factory=dict)
 
 
 class _Rejected(Exception):
@@ -291,6 +297,8 @@ def _retrieve(readings: list[CompiledReading], connect: Callable[[], sqlite3.Con
             raise _Unreachable(repr(e)) from e
         try:
             return execute(r, conn)
+        except UnresolvedName as e:   # chat 20.10, A: our fault, never run as written
+            return _SystemFault(f"unresolved name: {e}")
         except sqlite3.Error as e:
             if _cannot_reach(e):
                 raise _Unreachable(repr(e)) from e
@@ -325,12 +333,16 @@ def _retrieve(readings: list[CompiledReading], connect: Callable[[], sqlite3.Con
 
 
 def _resolve(compiled: CompiledIntent, conv: Conversation, user: dict, cat: Catalog, validator,
-             connect: Callable[[], sqlite3.Connection], breaker: CircuitBreaker) -> tuple[CompiledIntent, list]:
+             connect: Callable[[], sqlite3.Connection],
+             breaker: CircuitBreaker) -> tuple[CompiledIntent, list, dict[str, list[dict]]]:
     """A1 (chat 19.10): an identifier written in another case than the store holds it, held in one
     form only, is compiled again in the stored form, so the query and Examined use it. No model.
+    Chat 20.10: each name a reading matches (MATCHES) is resolved too; one entity becomes EQ on its
+    identifier, in the same compilation as A1. The identifiers found so are allowed by NFR 27 in that
+    compilation only: code found them from a term of the question.
     Reaching the source is as for retrieval: an unreachable source ends the exchange (FR 15)."""
-    if not any(r.probes for r in compiled.readings):
-        return compiled, []
+    if not any(r.probes or r.names for r in compiled.readings):
+        return compiled, [], {}
 
     def op():
         try:
@@ -338,7 +350,7 @@ def _resolve(compiled: CompiledIntent, conv: Conversation, user: dict, cat: Cata
         except Exception as e:
             raise _Unreachable(repr(e)) from e
         try:
-            return resolve_identifiers(compiled, conn)
+            return resolve_identifiers(compiled, conn), resolve_names(compiled, conn)
         except sqlite3.Error as e:
             if _cannot_reach(e):
                 raise _Unreachable(repr(e)) from e
@@ -352,10 +364,33 @@ def _resolve(compiled: CompiledIntent, conv: Conversation, user: dict, cat: Cata
         raise _Unreachable(f"circuit open for {e}") from e
     if isinstance(found, _SystemFault):
         raise found
-    if not found:
-        return compiled, []
-    again = compile_intent(with_identifiers(compiled.intent, found), conv, user, cat, validator)
-    return again, [{"column": c, "as_written": v, "as_held": h} for (c, v), h in found.items()]
+    found, named = found
+    id_columns = {(r.label, n.column, n.term): n.id_column for r in compiled.readings for n in r.names}
+    names: dict[str, list[dict]] = {}
+    single: dict[tuple[str, str, str], tuple[str, Any]] = {}
+    for (label, column, term), m in named.items():
+        id_column = id_columns[(label, column, term)]
+        names.setdefault(label, []).append({"column": column, "term": term, "id_column": id_column,
+                                            "stage": m.stage, "count": m.count, "candidates": m.candidates})
+        if m.count == 1:
+            single[(label, column, term)] = (id_column, m.candidates[0][0])
+    resolved = [{"column": c, "as_written": v, "as_held": h} for (c, v), h in found.items()]
+    if not found and not single:
+        return compiled, resolved, names
+    allowed = replace(conv, presented=set(conv.presented) | {v for _, v in single.values()})
+    again = compile_intent(with_names(with_identifiers(compiled.intent, found), single), allowed, user, cat,
+                           validator)
+    return again, resolved, names
+
+
+def _name_outcome(matched: list[dict]) -> str | None:
+    """Chat 20.10, V2: a reading with a name that matched nothing is not retrieved and says so; else one
+    with a name that matched several entities asks which; else it runs."""
+    if any(m["count"] == 0 for m in matched):
+        return "name_not_matched"
+    if any(m["count"] > 1 for m in matched):
+        return "name_ambiguous"
+    return None
 
 
 class SourceUnavailable(Exception):
@@ -366,7 +401,12 @@ class NotRecorded(Exception):
     """Show all records (task 5): the records_viewed event could not be written, so nothing is shown."""
 
 
-def show_all(exchange_id: str, label: str, plan: dict, user: dict, deps: Deps, shown: list[dict]) -> dict:
+class NotShowable(Exception):
+    """Show all records: the plan still holds a name not resolved to one entity (chat 20.10, A)."""
+
+
+def show_all(exchange_id: str, label: str, plan: dict, user: dict, deps: Deps, shown: list[dict],
+             matched: list[dict] | None = None) -> dict:
     """Phase B task 5: every record of a reading that was cut, up to SHOW_ALL_LIMIT, as reading_view
     presents it, with no answer. No model call, nothing added to the conversation's history (NFR 21): the
     rows go to the screen only. The rows the exchange showed come first, in their order, so a reference in
@@ -375,11 +415,13 @@ def show_all(exchange_id: str, label: str, plan: dict, user: dict, deps: Deps, s
     the row count, never record content. Records that cannot be recorded as viewed are not shown (as R1)."""
     cat = deps.catalog
     reading = compile_all(label, plan, user, cat)
+    if reading.names:   # chat 20.10, A: nothing to show; execute would refuse it too
+        raise NotShowable(label)
     try:
         ((res, _, _),) = _retrieve([reading], deps.connect, deps.source_breaker)
     except (_Unreachable, _SystemFault) as e:
         raise SourceUnavailable(str(e)) from e
-    view = contract.reading_view(label, plan, res, cat, user["role"])
+    view = contract.reading_view(label, plan, res, cat, user["role"], matched=matched)
     rest = list(view["rows"])
     for row in shown:
         if row in rest:
@@ -440,6 +482,7 @@ def run(question: str, history: list[prompts.Exchange], user: dict, deps: Deps,
         raise ValueError("Deps.intent_prompt is required: the intent prompt that goes with the catalog")
     stage = on_stage or (lambda name: None)
     ran: dict[str, dict] = {}   # the plans retrieved, for Outcome.plans (task 5)
+    named: dict[str, list[dict]] = {}   # how each name was resolved, by label (chat 20.10)
     eid = "EX-" + uuid.uuid4().hex[:12]
     rec = _Record(eid, user, context, on_call)
     cat, role = deps.catalog, user["role"]
@@ -463,7 +506,8 @@ def run(question: str, history: list[prompts.Exchange], user: dict, deps: Deps,
         rec.step(CONTRACT)
         spent = cost()
         doc = {"kind": "exchange", "user_id": user.get("user_id"), "role": role, "posed": question,
-               "understood_as": understood, "outcome": response["outcome"], "response": response,
+               "understood_as": understood, "outcome": response["outcome"],
+               "response": contract.for_record(response),   # chat 20.10, V4: no candidate is recorded
                "sources": [{"label": r["label"], "checked": r["checked"], "evidence": r["evidence"]}
                            for r in response["readings"] if r.get("answer")],
                "rating": None}
@@ -480,7 +524,10 @@ def run(question: str, history: list[prompts.Exchange], user: dict, deps: Deps,
                            eid, recorded=False, cost=spent)
         ex = prompts.Exchange(question, understood, presented=list(presented or []))
         if response["readings"]:   # D2, D1 (fix round): the condition of each reading, and what was cut
-            ex.readings = [prompts.ReadingNote(r["label"], r["checked"].removeprefix("Examined: "),
+            # chat 20.10: a name resolved to one entity is named in the history by its identifier (NFR 21)
+            ex.readings = [prompts.ReadingNote(r["label"], contract.examined_line(plans[r["label"]], cat, role,
+                                                                                named.get(r["label"]), True)
+                                               if r["label"] in named else r["checked"].removeprefix("Examined: "),
                                                r.get("row_count", 0), r.get("total", r.get("row_count", 0)))
                            for r in response["readings"]]
             ex.cut = _shown_identifiers([r for r in response["readings"]
@@ -488,7 +535,7 @@ def run(question: str, history: list[prompts.Exchange], user: dict, deps: Deps,
         if answer is not None and answer.sentences:
             ex.answer = "\n".join(f"[{label}] {answer.answer(label, cat, for_history=True)}"
                                   for label in answer.sentences)
-        return Outcome(response, ex, eid, recorded=True, cost=spent, plans=dict(ran))
+        return Outcome(response, ex, eid, recorded=True, cost=spent, plans=dict(ran), matched=dict(named))
 
     try:
         # task 5: the rate across users, and this exchange's own cap, before any model call
@@ -528,8 +575,17 @@ def run(question: str, history: list[prompts.Exchange], user: dict, deps: Deps,
         # retrieval
         stage("retrieval")
         try:
-            compiled, resolved = _resolve(compiled, conv, user, cat, validator, deps.connect, deps.source_breaker)
-            retrieved = _retrieve(compiled.readings, deps.connect, deps.source_breaker)
+            compiled, resolved, names = _resolve(compiled, conv, user, cat, validator, deps.connect,
+                                                 deps.source_breaker)
+            named.update(names)
+            # chat 20.10, V2: a reading whose name matched no entity, or several, is not retrieved
+            stopped = {label: o for label, m in names.items() if (o := _name_outcome(m))}
+            ran_now = _retrieve([r for r in compiled.readings if r.label not in stopped], deps.connect,
+                                deps.source_breaker)
+            by_label = {res.label: (res, s, f) for res, s, f in ran_now}
+            now = _now()
+            retrieved = [by_label.get(r.label) or (RetrievalResult(r.label, stopped[r.label], [], 0, False), now, now)
+                         for r in compiled.readings]
         except _SystemFault as e:   # review F1: our fault, not the source's
             operational_log.error("retrieval fault: attempt=%s user=%s source=%s error=%s",
                                   eid, user.get("user_id"), deps.source, e)
@@ -543,7 +599,11 @@ def run(question: str, history: list[prompts.Exchange], user: dict, deps: Deps,
                            prompts.Exchange(question, understood), eid, recorded=False, cost=cost())
         rec.step(RETRIEVAL, [{"label": res.label, "result": res.outcome, "row_count": len(res.rows),
                               "total": res.total, "started": s, "finished": f} for res, s, f in retrieved]
-                 + ([{"resolved": resolved}] if resolved else []))
+                 + ([{"resolved": resolved}] if resolved else [])
+                 # chat 20.10, V4: the term, the stage that matched and how many; never the candidates
+                 + ([{"matched": [{"label": label, "column": m["column"], "term": m["term"], "stage": m["stage"],
+                                   "count": m["count"]} for label, ms in names.items() for m in ms]}]
+                    if names else []))
 
         intent = compiled.intent   # values as compiled: declared forms (A2), identifiers as held (A1)
         plans = {r["label"]: r["plan"] for r in intent["readings"]}
@@ -551,7 +611,8 @@ def run(question: str, history: list[prompts.Exchange], user: dict, deps: Deps,
         terms = ambiguous_terms(intent, question)
         results = {res.label: res for res, _, _ in retrieved}
         materials = [synthesis.material(label, plans[label], res.rows, res.truncated, cat,
-                                        contract.examined_line(plans[label], cat, role), res.total)
+                                        contract.examined_line(plans[label], cat, role, names.get(label), True),
+                                        res.total)
                      for label, res in results.items()]
         gaps = compiled.unresolved
 
@@ -561,9 +622,9 @@ def run(question: str, history: list[prompts.Exchange], user: dict, deps: Deps,
                 if d is not None and label in d.sentences:
                     evidence = list(dict.fromkeys(e for s in d.sentences[label] for e in s.evidence))
                     out.append(contract.reading_view(label, plans[label], res, cat, role, d.answer(label), evidence,
-                                                     d.segments(label, cat)))   # UI refresh C
+                                                     d.segments(label, cat), names.get(label)))   # UI refresh C
                 else:
-                    out.append(contract.reading_view(label, plans[label], res, cat, role))
+                    out.append(contract.reading_view(label, plans[label], res, cat, role, matched=names.get(label)))
             return out
 
         if not any(m.rows for m in materials):   # an empty result is a finding (Test 35), no model call

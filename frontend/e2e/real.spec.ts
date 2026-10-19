@@ -42,3 +42,28 @@ test("says what can be asked on an empty screen, as text only (long list, item 6
   await expect(text).toContainText("forecast");
   await expect(text.locator("button, a")).toHaveCount(0);
 });
+
+test("a name with several matches lists them; the full name answers and Examined says what matched (chat 20.10)", async ({
+  page,
+}) => {
+  await ask(page, "What is on hand for Strain relief?");
+  const several = page.getByTestId("exchange").last();
+  await expect(several).toHaveAttribute("data-outcome", "answered", { timeout: 20_000 });
+  await expect(several.getByTestId("reading-notice")).toHaveText(
+    "'Strain relief' matches several part descriptions. Ask again with the full name.",
+  );
+  const candidates = several.getByTestId("reading-candidates");
+  await expect(candidates.getByRole("listitem")).toHaveCount(6);
+  await expect(candidates.getByRole("listitem").first()).toHaveText(/^Strain relief \w+ \(P-\d+\)$/);
+  await expect(candidates.getByRole("listitem").last()).toHaveText("and 3 more");
+  await expect(several.getByTestId("answer")).toHaveCount(0);
+
+  await ask(page, "What is on hand for Strain relief K77?");
+  const one = page.getByTestId("exchange").last();
+  await expect(one.getByTestId("answer")).toContainText("P-10037", { timeout: 20_000 });
+  await expect(one.getByTestId("examined")).toContainText(
+    "part description 'Strain relief K77' matched Strain relief K77",
+  );
+  await expect(one.getByTestId("examined")).not.toContainText("(by");
+  await expect(one.getByTestId("reading-candidates")).toHaveCount(0);
+});
