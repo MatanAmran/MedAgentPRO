@@ -4904,6 +4904,113 @@ exchange cost: attempt=EX-bc247dc6774a usd=0.061608 remaining=1.714846
 - **"as PL-02" על הכפתור של שאלה 14** (`frontend/app/components/Examples.tsx`), מ-`expect.user`: מוצג רק לדוגמה שהמשתמש שלה שונה מזה שהמסך פותח בו (`DEMO_USERS[0]`, ‏AP-01). **הלחיצה שואלת בתור המשתמש הנוכחי ואינה מחליפה אותו.** שם הכפתור נשאר השאלה (‏`aria-label`), ו-"as PL-02" הוא התיאור שלו (‏`aria-describedby`), כך שבדיקות ה-e2e שמוצאות כפתור לפי השאלה לא השתנו. בדיקות: vitest (התג, התיאור, והשאלה נשלחת בתור AP-01 והבורר לא זז), ו-e2e של סט הדמו (התג על הכפתור, והבורר נשאר על התפקיד אחרי כל שאלה).
 - **`70_DEMO.md`:** סדר ההפעלה (seed, השרת, המסך, Datasette), ש-Datasette מחזיק את `demo.db` פתוח, ושכפתור 14 לא מחליף משתמש.
 
+### **שלב ב׳, סבב 19.10 (צ׳אט, אחרי 80_GENERALITY): A–D ו-4–8.** בלי אף קריאה בתשלום. ענף ו-PR לכל פריט
+
+| פריט | ענף | מה נבנה |
+|---|---|---|
+| A | `phaseb/value-checks` | **A1:** מזהה באותיות אחרות (`s-001`) נפתר לצורה המוחזקת אם יש בדיוק אחת, דרך החיפוש עם ההרשאה (`resolve_identifiers`, ‏`pipeline._resolve`). השליפה ו-Examined מציגים `S-001`. כמה צורות: רק התאמה מדויקת. אף צורה: "does not appear", כמו היום. **A2:** ערך מול עמודה עם `values` מיושר לצורה המוצהרת (`'Open'` → `'open'`). ערך אחר נדחה עם הנתיב, ומשם ניסיון משוב (`normalise_values`). ב-`10_BOOK` סעיף 9: הבהרה אפשרית ל-NFR 6 ולמבחן 35, בלי לגעת בספר |
+| B | `phaseb/userpicker` | הבורר לפי D6: ‏"sees all records" לשני התפקידים, ‏"Sees every record; “my” means the lines they plan", ‏"PLANNERS · “MY” MEANS THEIR OWN LINES", ותחתית: "Every user sees every record; switching user changes whose lines “my” means." |
+| C | `phaseb/generality-code` | ‏`NEEDS_CLARIFICATION` נבנה מתוויות המזהים בקטלוג (בדמו: "supplier or part", כמו קודם). בלוק `domain` ב-`schema.json`, דרך `/api/health` עם תוויות הישויות שהמשתמש רואה: התגית, ה-placeholder, טקסט המסך הריק ותיאור הדף. ‏`Catalog.load()` דורש נתיבים, והקטלוג הזמני עבר ל-`tests/fixtures/placeholder_*.json`. ‏`dry_run` עבר ל-`tools/`. תבנית intent אחת: `pipeline.run` ו-`render_intent` מסרבים בלעדיה, ו-`templates/intent_analysis.md` (v6) הוסר |
+| D | `phaseb/value-match-note` | ‏`81_VALUE_MATCH.md`: ‏`MATCHES` על עמודות `searchable`. הפתרון בקוד (שווה, מתחיל ב-, מכיל), עם ההרשאה בתוך החיפוש. כמה התאמות: בירור שהקוד בונה, למשתמש בלבד. ועוד כינויים (שם בטוח ו-`physical`) לשמות בסגנון BIRD |
+| 4 | `phaseb/record-replay` | ‏`model_client/replay.py`: הקלטה וניגון. מפתח = sha256 של שם הפרומפט והגרסה, המודל, ההודעות והסכמה. ניגון בלי gateway מאחוריו, ו-`ReplayMiss` כשאין רשומה. ‏`eval_cache/` ב-gitignore. **commit שני:** מחיר ידני ל-Haiku 5.5 (`MANUAL_MODELS`). LiteLLM נשאר 1.105. ‏T18, ‏T19, ועדכון R1 ב-`CLAUDE.md` |
+| 5 | `phaseb/show-all` | ‏`GET /api/exchanges/{id}/readings/{label}/records`: התוכנית שהשרת שמר מהודרת מחדש למשתמש ששואל, עם ההרשאה, בלי ה-LIMIT של התוכנית ועם 1000. רק לבעלים. אין מודל, ושום דבר לא נכנס להיסטוריה (NFR 21). כפתור "Show all N records" על המסך `[demo extension]` |
+| 6 | `phaseb/mypy-ci` | ‏mypy מ-30 שגיאות ל-0, בלי ignore. ‏`native_parser = false`. השלב ב-CI חוסם, ו-`real_gateway()` מסרב כש-`CI` מוגדר |
+| 7 | `phaseb/prompt-caching` | ‏`prompts.Rendered.cache_prefix`: מה שלפני ה-placeholder המשתנה הראשון. ‏`cache_control: ephemeral` על הבלוק הזה, **רק עם `MODEL_PROMPT_CACHE=1`** (T1 נשאר: כבוי כברירת מחדל). ההזמנה מתמחרת קלט במחיר כתיבה למטמון. ‏T20 |
+| 8 | `phaseb/demo-windows` | ‏`70_DEMO`: ארבעה חלונות, הבדיקה הרביעית |
+
+- **בדיקות, כל הענפים ממוזגים יחד מקומית** (ענף בדיקה שלא נדחף): ‏pytest ‏1178 (ועוד 1 skipped), ‏mypy 0, ‏vitest ‏132, ‏Playwright ‏25 ו-6 עם הספק המזויף, ‏`--plans` ‏14/14 ו-31/31. **14 שאלות הדמו:** אף תשובת golden לא השתנתה, רק `openapi.json`. בטקסט שרואים בדמו השתנו רק שני דברים, ושניהם התבקשו: הבורר (B) והכפתור "Show all records" (5).
+- **סדר מיזוג מומלץ, כדי שהקונפליקטים יהיו קטנים:** ‏tasks, ‏value-mapping, ‏value-checks, ‏userpicker, ‏generality-code, ‏value-match-note, ‏record-replay, ‏show-all, ‏mypy-ci, ‏prompt-caching, ‏demo-windows. **אחרי כל מיזוג, Code ממזג את master לענף הבא ופותר שם** (בלי force push). הקונפליקטים הידועים:
+  - ‏record-replay אחרי C: ‏`test_haiku_price.py` מייבא `query_assistance.dry_run` → `tools.dry_run`.
+  - ‏show-all אחרי A: שתי פונקציות חדשות זו ליד זו ב-`pipeline.py`, ו-import ב-`routes.py`.
+  - ‏mypy-ci ו-prompt-caching אחרי record-replay: ‏`BudgetedGateway.invoke` (בדיקת שכבת המחיר, `max_tokens`, ‏`worst_cost`) ו-`real_gateway()`.
+  - ‏`60_PATHS.md` נוצר מחדש בכל ענף.
+- **מעבר לספר:** A1 ו-A2 (הבהרות ל-NFR 6 ולמבחן 35, ב-`10_BOOK` סעיף 9). ‏Show all records, ‏`domain` ב-`/api/health`, הקלטה וניגון, מחיר ידני, ומטמון הפרומפטים: כולם `[demo extension]` או תשתית. אף אחד מהם לא דרישה בספר.
+- ❓ **לצ׳אט:**
+  1. ‏`81_VALUE_MATCH` מחכה להכרעה: שינוי בסכמה 1, גרסת פרומפט, סבב Haiku והערה ב-3.1.6.
+  2. **Show all records לא נרשם ברשומת הביקורת.** זה רק תצוגה. האם צריך אירוע `write_event`?
+  3. **בלי הרשמה, LiteLLM 1.105 שולח ל-Haiku 5.5 tool call כפוי ולא structured output** (T18). ההרשמה מתקנת. האם לשדרג את LiteLLM במקום, אחרי הדמו?
+
+### **הוכרע בצ׳אט (19.10), סקירת הסבב: מאושר.** עדיין אין אף קריאה למודל אמיתי
+
+- **מיזוג:** אביתר ממזג ב-GitHub בסדר שלמעלה (tasks, value-mapping, value-checks, userpicker, generality-code, value-match-note, record-replay, show-all, mypy-ci, prompt-caching, demo-windows). ‏`phaseb/generality` נסגר בלי מיזוג, כי הוא כלול ב-value-mapping. אחרי כל מיזוג Code ממזג את master לענף הבא ופותר את הקונפליקטים שם, בלי force push.
+- ✅ **1. ‏`81_VALUE_MATCH`: מאושר כמו שתוכנן.** נבנה אחרי הדמו, ב-PR אחד: ‏`MATCHES`, ‏`searchable`, ‏`intent_analysis_demo@10`, ובדיקות בלי מודל שרשומות בהערה. סבב ה-Haiku רץ רק באישור מפורש של אביתר באותו סשן. ההערה ב-3.1.6 נכתבת רק אחרי שהסבב עובר.
+- ✅ **2. Show all records נרשם בביקורת. נבנה על `phaseb/show-all`** (‏`f0567e2`): כל צפייה היא רשומה משלה בשרשרת של ה-exchange: שלב 11 `show_all_records`, ‏`event_type: records_viewed`, ‏`actor_id`, ‏`role`, ו-`evidence_reviewed: [{label, row_count}]`. אין בה תוכן מהרשומות. היא לא מעדכנת את מסמך ה-exchange, כך שצפייה אחת לא דורסת קודמת. **מעבר להחלטה, החלטת מימוש שלי:** אם אי אפשר לרשום את הצפייה, הרשומות לא מוצגות (503, כמו R1: "an answer that cannot be recorded is not presented"). המסך כבר מציג על זה "The records could not be fetched.". בדיקות: צפייה נרשמת פעם אחת לכל צפייה, אף ערך משורה לא מופיע ברשומה, והשרשרת מאומתת. 403 ו-404 לא רושמים כלום. אם הכתיבה נכשלת: 503 בלי שורות. במפת הנתיבים נוספו `stage:show_all_records` ו-`server_show_all_not_recorded`. ‏pytest ‏1124 (ועוד 1 skipped) על הענף, ‏ruff ו-bandit נקיים.
+- ✅ **3. LiteLLM:** משדרגים אחרי הדמו, ב-PR משלו, עם הסוויטה המלאה לפני השדרוג ואחריו. עד אז ההרשמה הידנית נשארת. כל קריאת smoke ל-Haiku צריכה אישור.
+- **הסבב הבא מוכרע בצ׳אט.**
+
+### **הכנת המיזוג של סבב 19.10 (הנחיית הצ׳אט, 19.10 16:30).** בלי קריאה למודל אמיתי, בלי push, ובלי מחיקת ענף ב-GitHub בלי אישור של אביתר
+
+0. **ניקיון:** ‏master נקי: ‏`git status` ו-`git diff --ignore-cr-at-eol` ריקים, ולא היה שינוי לבטל. כאן: השם "אביתר" מתוקן, הסעיף הזה נוסף, ו-`01_HANDOFF.md` מפנה למצב של 19.10. ה-handoff המלא לצ׳אט נמצא בפרויקט, לא בריפו.
+1. ‏`git config rerere.enabled true`.
+2. **ענף מקומי `phaseb/integration` מ-master.** הענפים ממוזגים אליו עם `--no-ff`, בסדר הזה: tasks, value-mapping, value-checks, userpicker, generality-code, value-match-note, record-replay, show-all, mypy-ci, prompt-caching, demo-windows, ו-round-notes אחרון. ‏`phaseb/generality` לא נכנס. איך פותרים את הקונפליקטים:
+   - **show-all:** ב-`routes.py` שני ה-imports נשארים. ב-`pipeline.py` נשארים `_resolve` וגם `SourceUnavailable`, ‏`NotRecorded` ו-`show_all`, ו-`ran.update(plans)` בא אחרי הנרמול, כך ש"הצג הכול" מריץ את התוכנית המנורמלת. בדיקה: ‏`s-001` שנפתר ל-`S-001`. ‏`60_PATHS.md` נבנה מחדש ב-`tools.path_map`.
+   - **mypy-ci,** ‏`BudgetedGateway`: ‏`max_tokens = min(config.max_tokens or cap, cap)`, ואז `replace`, הערכת הקלט, ובדיקת המדרגה (`price_tier`, ‏`BudgetExceeded` עם `scope="model"`). ‏`worst = cfg.cost(...)`.
+   - **prompt-caching:** כמו ב-mypy-ci, אבל `worst = cfg.worst_cost(...)`. ב-`real_gateway()`: ‏`cache_prompts`, ‏`SpendLedger` ו-`register_manual_models()`, והבלוק של `MANUAL_MODELS` נשאר כולו. ‏T18, ‏T19 ו-T20 נשארים.
+3. **בדיקת הפתרונות:** ‏grep, ובדיקת מוטציה על בדיקת המדרגה ועל `worst_cost`. אם אף בדיקה לא נכשלת, מוסיפים בדיקה.
+4. **כל הבדיקות על `phaseb/integration`.** הבסיס להשוואה: ‏pytest 1178, ‏mypy 0, ‏vitest 132, ‏Playwright 31.
+5. **עצירה ודיווח.** ‏`phaseb/integration` נשאר מקומי.
+6. **אחרי אישור הצ׳אט, ענף אחרי ענף:** קישור PR מול `master`. אחרי שאביתר ממזג: מיזוג master לענף הבא (rerere), בדיקה, ו-push באישור. אחרי value-mapping: ‏`phaseb/generality` נסגר ונמחק, באישור, כש-`git log master..MedAgentPRO/phaseb/generality` ריק. כל ענף שמוזג נמחק ב-`git branch -d`.
+
+#### **שלב 5, דיווח (19.10): ‏`phaseb/integration` נבנה, וכל הבדיקות עליו עוברות.** מקומי, לא נדחף. הסקירה בצ׳אט: הפתרונות נכונים
+
+**הבדיקות על `ed81991`:**
+
+| בדיקה | תוצאה | בסעיף הסבב |
+|---|---|---|
+| pytest | 1186 עוברות, 1 skipped | 1178 |
+| `-m stress` | 8 | |
+| mypy | 0 (13 קבצים) | 0 |
+| ruff, ‏bandit | נקיים (‏bandit מחזיר 0) | |
+| vitest | 132 | 132 |
+| tsc, ‏eslint | נקיים | |
+| Playwright | 25 מתוסרט, ועוד 6 עם הספק המזויף (`playwright.real.config.ts`): 31 | 31 |
+| `tools.path_map` | 162 | |
+| `tools.preflight` (בלי `--real`) | ready, 14 דוגמאות, שאלה מתוסרטת עד הסוף | |
+
+- **ההפרש בין 1186 ל-1178 הוא הבדיקות שנוספו:** 4 של `records_viewed` (שלוש ב-`test_show_all.py` ואחת ב-`test_paths.py`), ‏s-001 (1), המדרגה כשהמטמון דלוק (פרמטר נוסף, 1), ו-`worst_cost` (2).
+- **התשובות המוזהבות של הדמו לא השתנו.** הקובץ היחיד תחת `tests/golden` שהשתנה מול master הוא `openapi.json`, בגלל ה-endpoint של show-all.
+
+**בדיקת המוטציה (לפני `f8eb477`):**
+- **המדרגה:** הבדיקה `if tier ...` הוחלפה ב-`if False and ...`. נכשלה `test_a_prompt_above_the_price_tier_is_not_sent` (מ-record-replay), ושאר ה-1182 עברו. ב-`f8eb477` נוסף לבדיקה פרמטר, כך שהיא רצה גם כשהמטמון דלוק.
+- **‏`worst_cost`:** החלפה ב-`cfg.cost(...)` בתוך `BudgetedGateway`. **אף בדיקה לא נכשלה (1183 עברו).** הבדיקות ב-`test_prompt_cache.py` בודקות את `BudgetConfig.worst_cost` עצמו, ולא את השימוש שלו בשער. לכן נוספה ב-`f8eb477` הבדיקה `test_the_reservation_prices_input_as_a_cache_write_when_the_cache_is_on`:
+  - Haiku, ‏80K טוקנים בקלט ו-2000 בפלט: ‏0.009$ כשהמטמון כבוי, ו-0.017$ כשהוא דלוק. התקרה הכוללת 0.012$.
+  - כשהמטמון כבוי הקריאה נשלחת. כשהוא דלוק היא נדחית לפני שליחה.
+  - עם המוטציה הבדיקה עכשיו נכשלת.
+- **מוטציה נוספת, על הנרמול:** כש-`intent = compiled.intent` מוסר, ‏`test_show_all_runs_the_plan_as_resolved` נכשלת.
+
+**הפתרונות.** כל פתרון נראה ב-`git show --remerge-diff <hash>`, שמציג רק מה ששונה ממה שהמיזוג האוטומטי היה כותב. בקצרה:
+- **show-all, ‏`160251f`:**
+  - `routes.py`: שני ה-imports, ‏`compiler.CompileError` ואחריו `prompts.visible_tables`.
+  - `pipeline.py`: ‏`_resolve`, ואחריו `SourceUnavailable`, ‏`NotRecorded` ו-`show_all`. ‏`ran.update(plans)` בשורה 550, אחרי `intent = compiled.intent` בשורה 548. את זה המיזוג האוטומטי עשה נכון.
+  - `test_value_checks.py`: נוספה הבדיקה של s-001.
+  - `60_PATHS.md` נבנה מחדש.
+- **mypy-ci, ‏`ceb0f21`:** ב-`budget.py` בלבד. ‏`max_tokens = min(config.max_tokens or cap, cap)`, ואז `call = replace(config, max_tokens=max_tokens)`, ‏`estimated`, ‏`tier = price_tier(cfg.model_id)` ובדיקת המדרגה (`BudgetExceeded`, ‏`scope="model"`), ולבסוף `worst = cfg.cost(estimated, max_tokens)`.
+- **prompt-caching, ‏`b6f2602`:**
+  - `budget.py`: אותו בלוק, עם `worst = cfg.worst_cost(estimated, max_tokens)`. ב-`real_gateway()`: ‏`cache_prompts=cfg.prompt_cache`, ואז `SpendLedger`, ‏`register_manual_models()` ו-`BudgetedGateway(inner, cfg, ledger)`. בלוק `MANUAL_MODELS`, ‏`PRICE_TIER_INPUT_TOKENS`, ‏`price_tier` ו-`register_manual_models` נשאר כולו.
+  - `constraints.py`: ‏T18, ‏T19 ו-T20. ‏`test_feasibility.py`: שלוש הבדיקות.
+  - `60_PATHS.md` נבנה מחדש.
+- **grep:** ‏`price_tier(cfg.model_id)` בשורה 362, ‏`cfg.worst_cost(estimated, max_tokens)` בשורה 366, ו-`register_manual_models()` בשורה 417, בתוך `real_gateway`.
+
+#### **מיפוי: מה ב-integration לא בא מענף, ולאיזה ענף הוא ייכנס בשלב 6** (אחרי מיזוג master לאותו ענף)
+
+| מה | ייכנס ל- | למה |
+|---|---|---|
+| ‏`b6c608d`, ‏`test_haiku_price.py`: ‏`from tools import dry_run` | **record-replay** | קונפליקט סמנטי בין record-replay ל-C. הוא מופיע רק כשמשהו מ-C נמצא ב-master |
+| התוספת בתוך `160251f`: ‏`test_show_all_runs_the_plan_as_resolved` ב-`test_value_checks.py` | **show-all** | בודקת את A1 ואת show-all יחד, ולכן נכנסת לענף השני מהשניים |
+| ‏`ed81991`, רווחים סביב הבדיקה הזו | **show-all** | באותו commit של הבדיקה |
+| ‏`f8eb477`, ‏`test_haiku_price.py`: המדרגה כשהמטמון דלוק, והשמירה לפי `worst_cost` | **prompt-caching** | בודקת את record-replay ואת prompt-caching יחד |
+| ‏`033150a`, ‏`60_PATHS.md` | **אף ענף, ונבנה מחדש** | ‏`tools.path_map` רץ בכל ענף אחרי מיזוג master, ובפעם האחרונה ב-round-notes, כדי שהקובץ ב-master יתאים לקוד הסופי |
+
+**ב-`ceb0f21` וב-`319cd49` אין תוכן שלא בא מענף.** הקבצים שמופיעים בהם הם השינויים של הענפים עצמם, כפי שהם נראים מול ההורה הראשון:
+- ב-`ceb0f21` (קבצי compiler, ‏contract, ‏pipeline, ‏`test_budget` ו-dry_run): אותם 13 קבצים ואותן 90/47 שורות כמו ב-`git diff master...phaseb/mypy-ci`.
+- ב-`319cd49` (‏`CLAUDE.md` ו-`test_review_task5`): אותם 10 קבצים כמו ב-record-replay.
+- ‏`git show --remerge-diff` על שניהם: ‏`319cd49` ריק. ‏`ceb0f21` מכיל רק את `budget.py` (הפתרון שלמעלה).
+- **dry_run:** ‏mypy-ci שינה את `query_assistance/dry_run.py`, ו-C העביר אותו ל-`tools/dry_run.py`. ‏git זיהה את השינוי בשם והחיל את התיקון של mypy על `tools/dry_run.py`. **לכן תיקוני mypy שייכים ל-mypy-ci כמו שהם.** אין צורך להוסיף שם כלום.
+
+**המיפוי זהה לזה של הצ׳אט,** חוץ משתי תוספות: ‏`ed81991` ל-show-all, ו-`033150a` נבנה מחדש ולא עובר לשום ענף.
+
+**השער לשלב 6:** אחרי המיזוג האחרון ב-GitHub, ‏`git diff phaseb/integration MedAgentPRO/master` ריק, חוץ מחותמת הזמן ב-`60_PATHS.md`. אם הוא לא ריק, עוצרים ומדווחים. ‏integration יקבל גם את ה-commit הזה של round-notes, כדי ש-00_STATUS לא ייראה כהבדל.
+
 ## מה שנסגר בסבב האחרון
 
 - **הקוד עבר לריפו** — `MedAgentPro\backend` (`query_assistance`, `model_client`, `persistence`, `shared`, `tests`). **`03_Code` נשאר כמקור ומעודכן.** `python -m pytest -q` מתוך `backend`
