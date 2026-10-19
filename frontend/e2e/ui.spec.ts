@@ -272,3 +272,18 @@ test("long list 1-4: a long answer folds, its values read as text, its parts as 
     await card.screenshot({ path: info.outputPath("grayscale", "10-long-list.png") });
   }
 });
+
+test("Phase B task 5: Show all records fills a cut reading from the server, and passes axe", async ({ page }) => {
+  await page.getByRole("button", NEW_CONVERSATION).click();
+  await askExample(page, LATE);
+  await expect(page.getByTestId("exchange")).toHaveCount(1, { timeout: 20_000 });
+  const first = page.getByTestId("reading").first();
+  await expect(first.getByTestId("reading-count")).toContainText("10 shown");
+  const all = first.getByTestId("show-all-records");
+  await expect(all).toHaveText(/Show all \d+ records/);
+  await all.click();
+  await expect(all).toHaveCount(0);
+  await expect(first.getByTestId("reading-count")).not.toContainText("shown");
+  await expect(first.locator("tbody tr")).toHaveCount(28);
+  await axeClean(page, "a reading shown whole");
+});

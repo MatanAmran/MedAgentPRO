@@ -53,6 +53,7 @@ from .compiler import (
     CompileError,
     RetrievalResult,
     _norm,
+    compile_all,
     compile_intent,
     execute,
     intent_validator,
@@ -103,6 +104,9 @@ class Outcome:
     exchange_id: str
     recorded: bool
     cost: dict | None = None             # exchange_usd, remaining_usd. Outside exchange_response (T3)
+    # Phase B task 5: each reading's plan as run, kept by the server for "Show all records". Never in
+    # exchange_response, never sent to a model
+    plans: dict[str, dict] = field(default_factory=dict)
 
 
 class _Rejected(Exception):
@@ -315,6 +319,30 @@ def _retrieve(readings: list[CompiledReading], connect: Callable[[], sqlite3.Con
     return out
 
 
+class SourceUnavailable(Exception):
+    """Show all records (task 5): the source could not be reached, or the query failed there."""
+
+
+def show_all(label: str, plan: dict, user: dict, deps: Deps, shown: list[dict]) -> dict:
+    """Phase B task 5: every record of a reading that was cut, up to SHOW_ALL_LIMIT, as reading_view
+    presents it, with no answer. No model call, nothing recorded, nothing added to the conversation's
+    history (NFR 21): the rows go to the screen only. The rows the exchange showed come first, in their
+    order, so a reference in the answer still points at its row; the rest follow in the query's order."""
+    cat = deps.catalog
+    reading = compile_all(label, plan, user, cat)
+    try:
+        ((res, _, _),) = _retrieve([reading], deps.connect, deps.source_breaker)
+    except (_Unreachable, _SystemFault) as e:
+        raise SourceUnavailable(str(e)) from e
+    view = contract.reading_view(label, plan, res, cat, user["role"])
+    rest = list(view["rows"])
+    for row in shown:
+        if row in rest:
+            rest.remove(row)
+    view["rows"] = [r for r in shown if r in view["rows"]] + rest
+    return view
+
+
 def ambiguous_terms(intent: dict, question: str) -> list[str]:
     """Task 7, Q4 [demo extension]: the terms declared ambiguous, for the interface to name. The
     compiler accepts a span of the rewritten question as well (_check_span), and the rewrite is model
@@ -357,6 +385,7 @@ def run(question: str, history: list[prompts.Exchange], user: dict, deps: Deps,
     request and conversation ids, which only the operational log line carries (R9). on_call receives
     the trace of each model call as it is recorded, the same metadata as that line."""
     stage = on_stage or (lambda name: None)
+    ran: dict[str, dict] = {}   # the plans retrieved, for Outcome.plans (task 5)
     eid = "EX-" + uuid.uuid4().hex[:12]
     rec = _Record(eid, user, context, on_call)
     cat, role = deps.catalog, user["role"]
@@ -405,7 +434,7 @@ def run(question: str, history: list[prompts.Exchange], user: dict, deps: Deps,
         if answer is not None and answer.sentences:
             ex.answer = "\n".join(f"[{label}] {answer.answer(label, cat, for_history=True)}"
                                   for label in answer.sentences)
-        return Outcome(response, ex, eid, recorded=True, cost=spent)
+        return Outcome(response, ex, eid, recorded=True, cost=spent, plans=dict(ran))
 
     try:
         # task 5: the rate across users, and this exchange's own cap, before any model call
@@ -461,6 +490,7 @@ def run(question: str, history: list[prompts.Exchange], user: dict, deps: Deps,
                               "total": res.total, "started": s, "finished": f} for res, s, f in retrieved])
 
         plans = {r["label"]: r["plan"] for r in intent["readings"]}
+        ran.update(plans)
         terms = ambiguous_terms(intent, question)
         results = {res.label: res for res, _, _ in retrieved}
         materials = [synthesis.material(label, plans[label], res.rows, res.truncated, cat,

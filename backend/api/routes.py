@@ -32,6 +32,7 @@ from starlette.background import BackgroundTask
 
 from demo_data.scripted import load_scripts
 from query_assistance import pipeline
+from query_assistance.compiler import CompileError
 from shared.circuit_breaker import log as operational_log
 
 from . import trace as panel_trace
@@ -251,6 +252,28 @@ def router(state: AppState) -> APIRouter:
             if claim.take() and held:
                 state.finish(conv, body.question, None)
             raise
+
+    @r.get("/exchanges/{exchange_id}/readings/{label}/records")
+    def all_records(exchange_id: str, label: str, user: dict = Depends(demo_user)):
+        """Phase B task 5 [demo extension]: every record of a reading that was cut, up to SHOW_ALL_LIMIT.
+        The plan is the one the server kept when the exchange ran, never one the client sends; it is
+        compiled again with the asking user's entitlement (NFR 17). No model. The rows go to the screen
+        only: not into the conversation's history, not to any model (NFR 21)."""
+        try:
+            plan, item = state.plan_of(exchange_id, label, user)
+        except LookupError:
+            raise HTTPException(404, "no such reading") from None
+        except PermissionError:
+            raise HTTPException(403, "this exchange belongs to another user") from None
+        shown = next((r.get("rows", []) for r in item["response"]["readings"] if r["label"] == label), [])
+        try:
+            return pipeline.show_all(label, plan, user, state.deps, shown)
+        except CompileError:
+            raise HTTPException(403, "these records are not readable for this user") from None
+        except pipeline.SourceUnavailable:
+            operational_log.error("show all records: source unreachable: exchange=%s user=%s",
+                                  exchange_id, user.get("user_id"))
+            raise HTTPException(503, "The company database could not be reached.") from None
 
     @r.post("/exchanges/{exchange_id}/rating")
     def rate(exchange_id: str, body: RatingBody, user: dict = Depends(demo_user)):

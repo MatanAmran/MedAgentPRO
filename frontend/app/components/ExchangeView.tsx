@@ -1,7 +1,7 @@
 "use client";
 
 import { agentSteps, formatUsd, readingsSentence } from "@/lib/present";
-import type { ExchangeItem, Rating, Stage } from "@/lib/types";
+import type { ExchangeItem, Rating, Reading, Stage } from "@/lib/types";
 import { HowAnswered } from "./HowAnswered";
 import { ReadingCard } from "./ReadingCard";
 import { StageTimeline } from "./StageTimeline";
@@ -103,10 +103,12 @@ export function ExchangeView({
   item,
   onRate,
   rating,
+  onShowAll,
 }: {
   item: ExchangeItem;
   onRate: (r: Rating) => void;
   rating: { busy: boolean; error: string | null };
+  onShowAll?: (label: string) => Promise<Reading>; // Phase B task 5
 }) {
   const r = item.response;
   const sentence = readingsSentence(r);
@@ -124,7 +126,12 @@ export function ExchangeView({
       <AgentRow item={item} />
       {sentence && <h2 className="text-[22px] font-extrabold tracking-tight text-ink">{sentence}</h2>}
       {r.readings.map((reading, i) => (
-        <ReadingCard key={reading.label} reading={reading} index={i + 1} />
+        <ReadingCard
+          key={reading.label}
+          reading={reading}
+          index={i + 1}
+          onShowAll={onShowAll && item.recorded ? () => onShowAll(reading.label) : undefined}
+        />
       ))}
       {r.gaps.map((g, i) => (
         <p key={i} className="rounded-r-xl border-l-4 border-brand-deep bg-white py-2.5 pl-3.5 pr-3 text-ink" data-testid="gap">

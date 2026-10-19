@@ -252,6 +252,7 @@ export function Chat() {
                   key={item.exchange_id}
                   item={item}
                   onRate={(r) => rate(item.exchange_id, r)}
+                  onShowAll={(label) => api.records(user, item.exchange_id, label)}
                   rating={ratings[item.exchange_id] ?? { busy: false, error: null }}
                 />
               ))}
