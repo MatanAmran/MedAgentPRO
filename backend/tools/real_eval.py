@@ -4,7 +4,9 @@ MedAgentPro - runs a question set through the pipeline in process and reports, f
 
     python -m tools.real_eval                                   the held-out set on the scripted model
     python -m tools.real_eval --real --confirm --out DIR        the same on the real model, paid
-        [--set PATH | --set demo] [--only A1,F2] [--max-usd 2]      demo: the 12 demo questions
+        [--set PATH | --set demo | --set stage] [--only A1,F2] [--max-usd 2]
+                                                            demo: the demo questions; stage: the set by
+                                                            pipeline stage (task 14, 82_STAGE_SET.md)
 
 Every exchange goes through pipeline.run with the dependencies the server builds (main.build_deps), so
 the budget, the rate across users, the per-exchange cap and the audit record all hold. On top of them:
@@ -54,10 +56,12 @@ from demo_data import seed
 from model_client.client import ModelGateway
 from query_assistance import contract, pipeline, prompts
 from query_assistance.call_trace import CallTrace
-from query_assistance.compiler import Catalog, CompileError, compile_intent, execute
+from query_assistance.compiler import Catalog, CompileError, RetrievalResult, compile_intent, execute, intent_validator
+from shared.circuit_breaker import CircuitBreaker, MemoryStore
 from shared.circuit_breaker import log as operational_log
 
 SET_FILE = seed.HERE / "offscript_set.json"
+STAGE_SET_FILE = seed.HERE / "stage_set.json"
 REPO = Path(__file__).resolve().parents[2]
 DEFAULT_MAX_USD = 2.0
 MAX_RATE_WAITS = 5
@@ -65,6 +69,13 @@ MAX_RATE_WAITS = 5
 STATUSES = {"answered", "referred_to_investigation", "action_declined", "needs_clarification",
             "no_supported_assertion", "request_not_completed", "source_unreachable"}
 COMPARES = {"total", "rows", "value"}
+# Task 14 (chat 20.10, 82_STAGE_SET.md): the rows of the research doc's section 8 the stage set covers
+CATEGORIES = ("semantic_layer", "value_mapping", "classification_ambiguity", "query_building", "validation_repair",
+              "entitlement", "follow_ups", "multi_part", "transparency", "answer_verification", "row_limit",
+              "why_questions")
+RESULTS = {"rows_returned", "empty_no_match", "empty_unknown_entity", "name_ambiguous", "name_not_matched"}
+DISPOSITIONS = {"retrieve", "refer_to_investigation", "out_of_scope_action", "needs_clarification"}
+GAP_WHERE = {"plan", "model"}
 OK, FAIL, HINT, NONE = "✅", "❌", "⚠️", "—"
 
 
@@ -79,7 +90,42 @@ class SetError(Exception):
 def load_set(path: Path = SET_FILE, catalog: Catalog | None = None) -> list[dict]:
     """The exchanges in order, checked: unique ids, an exchange followed comes earlier and belongs to
     the same user, known users, statuses, comparisons, metrics and gap kinds."""
-    items = json.loads(Path(path).read_text(encoding="utf-8"))["exchanges"]
+    return check_items(json.loads(Path(path).read_text(encoding="utf-8"))["exchanges"], catalog)
+
+
+def load_stage_set(path: Path = STAGE_SET_FILE, catalog: Catalog | None = None) -> list[dict]:
+    """Task 14: the set by pipeline stage. An entry with "ref" ("offscript:A1", "demo:Q08") takes that
+    question, its plan and its expectations from its own set, never a copy (chat 20.10, decision 3); the
+    entry adds its id, its category and any expectation of its own. A followed question is followed here
+    too, so the question it follows must be in this set as well."""
+    raw = json.loads(Path(path).read_text(encoding="utf-8"))["exchanges"]
+    sources = {"offscript": {it["id"]: it for it in load_set(SET_FILE, catalog)},
+               "demo": {it["id"]: it for it in demo_set()}}
+    here: dict[str, str] = {}   # "offscript:A1" -> this set's id
+    items = []
+    for e in raw:
+        it = dict(e)
+        if "ref" in e:
+            source, _, ref_id = e["ref"].partition(":")
+            src = sources.get(source, {}).get(ref_id)
+            if src is None:
+                raise SetError(f"{e.get('id', '?')}: no question {e['ref']}")
+            it = {**src, **{k: v for k, v in e.items() if k != "expect"},
+                  "expect": {**src["expect"], **e.get("expect", {})}}
+            if src.get("after"):
+                follows = here.get(f"{source}:{src['after']}")
+                if follows is None:
+                    raise SetError(f"{e['id']}: {e['ref']} follows {source}:{src['after']}, which this set does not "
+                                   f"hold before it")
+                it["after"] = follows
+            here[e["ref"]] = e["id"]
+        items.append(it)
+    return check_items(items, catalog, staged=True)
+
+
+def check_items(items: list[dict], catalog: Catalog | None = None, staged: bool = False) -> list[dict]:
+    """See load_set. staged: the stage set's own fields as well (category, the expectation of each stage,
+    expected_gap)."""
     seen: dict[str, dict] = {}
     for it in items:
         where = it.get("id", "?")
@@ -109,6 +155,16 @@ def load_set(path: Path = SET_FILE, catalog: Catalog | None = None) -> list[dict
                     raise SetError(f"{where}: no metric {m}")
         if exp.get("gap") and exp["gap"] not in contract.TEMPLATES:
             raise SetError(f"{where}: no gap kind {exp['gap']}")
+        if staged:
+            if it.get("category") not in CATEGORIES:
+                raise SetError(f"{where}: category {it.get('category')!r} is not a row of the stage set")
+            if exp.get("disposition") is not None and exp["disposition"] not in DISPOSITIONS:
+                raise SetError(f"{where}: no disposition {exp['disposition']}")
+            if set(exp.get("result") or []) - RESULTS:
+                raise SetError(f"{where}: expect.result {sorted(set(exp['result']) - RESULTS)}")
+            gap = it.get("expected_gap")
+            if gap is not None and (not gap.get("id") or gap.get("where") not in GAP_WHERE):
+                raise SetError(f"{where}: expected_gap needs an id and where in {sorted(GAP_WHERE)}")
         seen[it["id"]] = it
     return items
 
@@ -380,11 +436,12 @@ class PlanResult:
     counts: list[dict] = field(default_factory=list)
     forbidden_ok: bool | None = None
     examined: dict = field(default_factory=dict)
+    stages: dict = field(default_factory=dict)   # task 14: disposition, readings, compile, result; None where unset
 
     @property
     def passed(self) -> bool:
         """Every check holds, the hints included: a plan written by hand states the question exactly."""
-        held = [self.counts_ok, self.forbidden_ok, *self.examined.values()]
+        held = [self.counts_ok, self.forbidden_ok, *self.examined.values(), *self.stages.values()]
         return self.error is None and False not in held
 
 
@@ -398,24 +455,59 @@ def _conversation(item: dict, by_id: dict[str, dict]) -> list[prompts.Exchange]:
     return earlier
 
 
+class _Shared:
+    """The plan check's one connection, lent to pipeline._resolve, which closes what it opens."""
+
+    def __init__(self, conn: sqlite3.Connection):
+        self.conn = conn
+
+    def execute(self, *args):
+        return self.conn.execute(*args)
+
+    def close(self):
+        pass
+
+
 def plan_response(item: dict, intent: dict, earlier: list[prompts.Exchange], cat: Catalog,
                   conn: sqlite3.Connection) -> dict:
-    """The response the contract would present for this plan: compiled for the item's user, run on the
-    store, rendered by contract.py. No model, no synthesis: the readings carry no answer. A follow-up's
-    "rewritten" is the rewrite expected, which the compiler counts as rewriting would hand it."""
+    """The response the contract would present for this plan: compiled for the item's user, resolved as
+    the pipeline resolves it (A1, and names: chat 20.10), run on the store, rendered by contract.py. No
+    model, no synthesis: the readings carry no answer. A follow-up's "rewritten" is the rewrite expected,
+    which the compiler counts as rewriting would hand it."""
     user = {"user_id": item["user"], "role": DEMO_USERS[item["user"]]}
     conv = prompts.compiler_conversation(earlier, item["question"], item.get("rewritten"))
-    compiled = compile_intent(intent, conv, user, cat)
+    validator = intent_validator()
+    compiled = compile_intent(intent, conv, user, cat, validator)
     if compiled.disposition == "refer_to_investigation":
         return contract.referred()
     if compiled.disposition == "out_of_scope_action":
         return contract.declined_action()
     if compiled.disposition == "needs_clarification":
         return contract.needs_clarification(catalog=cat)
-    plans = {r["label"]: r["plan"] for r in intent["readings"]}
-    views = [contract.reading_view(r.label, plans[r.label], execute(r, conn), cat, user["role"])
-             for r in compiled.readings]
+    compiled, _, names = pipeline._resolve(compiled, conv, user, cat, validator, lambda: _Shared(conn),
+                                           CircuitBreaker("plan_check", MemoryStore()))
+    plans = {r["label"]: r["plan"] for r in compiled.intent["readings"]}
+    views = []
+    for r in compiled.readings:
+        stopped = pipeline._name_outcome(names.get(r.label, []))
+        res = RetrievalResult(r.label, stopped, [], 0, False) if stopped else execute(r, conn)
+        views.append(contract.reading_view(r.label, plans[r.label], res, cat, user["role"], matched=names.get(r.label)))
     return contract.answered(views, compiled.unresolved, catalog=cat)
+
+
+def check_stages(item: dict, intent: dict, response: dict) -> dict[str, bool | None]:
+    """Task 14: each stage the item states an expectation for. None where it states none."""
+    exp = item["expect"]
+    out: dict[str, bool | None] = {"disposition": None, "readings": None, "compile": None, "result": None}
+    if exp.get("disposition") is not None:
+        out["disposition"] = intent.get("disposition") == exp["disposition"]
+    if exp.get("readings") is not None:
+        out["readings"] = len(response.get("readings", [])) == exp["readings"]
+    if exp.get("compile") is not None:
+        out["compile"] = exp["compile"] == "ok"
+    if exp.get("result") is not None:
+        out["result"] = [r.get("result") for r in response.get("readings", [])] == exp["result"]
+    return out
 
 
 def check_plans(items: list[dict], cat: Catalog, conn: sqlite3.Connection) -> list[PlanResult]:
@@ -430,9 +522,13 @@ def check_plans(items: list[dict], cat: Catalog, conn: sqlite3.Connection) -> li
             try:
                 resp = plan_response(it, intent, _conversation(it, by_id), cat, conn)
             except CompileError as e:
-                out.append(PlanResult(it["id"], n, "", error=f"CompileError {e.code}: {e}"))
+                if it["expect"].get("compile") == e.code:   # task 14: the rejection this plan is written to meet
+                    out.append(PlanResult(it["id"], n, f"compile:{e.code}", stages={"compile": True}))
+                else:
+                    out.append(PlanResult(it["id"], n, "", error=f"CompileError {e.code}: {e}"))
                 continue
             r = PlanResult(it["id"], n, status_of(resp))
+            r.stages = check_stages(it, intent, resp)
             # no_supported_assertion is the gate's to reach; a plan reaches answered at most
             reachable = set(it["expect"]["status"]) | ({"answered"} if "no_supported_assertion" in
                                                        it["expect"]["status"] else set())
@@ -446,13 +542,37 @@ def check_plans(items: list[dict], cat: Catalog, conn: sqlite3.Connection) -> li
 
 
 def without_plan(items: list[dict], results: list[PlanResult]) -> list[str]:
-    """The items no plan passes for: a gap in the plan language, fixed before a real run (rule 1)."""
+    """The items no plan passes for: a gap in the plan language, fixed before a real run (rule 1). An item
+    whose expected_gap is in the plan is not counted: the set holds it to measure the gap (task 14)."""
     passing = {r.id for r in results if r.passed}
-    return [it["id"] for it in items if it["id"] not in passing]
+    return [it["id"] for it in items if it["id"] not in passing
+            and (it.get("expected_gap") or {}).get("where") != "plan"]
+
+
+def category_table(items: list[dict], results: list[PlanResult]) -> str:
+    """Task 14: by category, how many questions, how many have a plan that passes, how many hold a known
+    gap (expected_gap: in the plan, or only on the model's side), and which fail unexpectedly. A known gap
+    in the plan whose plan passes is named too: the gap may be closed, and the set should say so."""
+    passing = {r.id for r in results if r.passed}
+    cols = ["category", "questions", "pass", "known gap (plan)", "known gap (model)", "unexpected", "gap closed?"]
+    rows = ["| " + " | ".join(cols) + " |", "|" + "---|" * len(cols)]
+    for cat in CATEGORIES:
+        mine = [it for it in items if it.get("category") == cat]
+        if not mine:
+            continue
+        where = {it["id"]: (it.get("expected_gap") or {}).get("where") for it in mine}
+        plan_gap = [i for i, w in where.items() if w == "plan"]
+        rows.append("| " + " | ".join([
+            cat, str(len(mine)), str(sum(it["id"] in passing for it in mine)),
+            ", ".join(plan_gap) or NONE,
+            ", ".join(i for i, w in where.items() if w == "model") or NONE,
+            ", ".join(it["id"] for it in mine if it["id"] not in passing and where[it["id"]] != "plan") or NONE,
+            ", ".join(i for i in plan_gap if i in passing) or NONE]) + " |")
+    return "\n".join(rows)
 
 
 def plans_table(results: list[PlanResult]) -> str:
-    cols = ["#", "plan", "status", "pass", "counts", "period", "metric", "gap", "forbid", "error"]
+    cols = ["#", "plan", "status", "pass", "counts", "period", "metric", "gap", "forbid", "stages", "error"]
     rows = ["| " + " | ".join(cols) + " |", "|" + "---|" * len(cols)]
     for r in results:
         gap = [v for v in (r.examined.get("gap"), r.examined.get("not_held")) if v is not None]
@@ -460,13 +580,22 @@ def plans_table(results: list[PlanResult]) -> str:
         rows.append(f"| {r.id} | {r.alternative} | {r.status} | {OK if r.passed else FAIL} | {_mark(r.counts_ok)} | "
                     f"{_hint(r.examined.get('period'))} | {_hint(r.examined.get('metric'))} | "
                     f"{_hint(all(gap) if gap else None)} | {_mark(all(forbid) if forbid else None)} | "
-                    f"{_cell(r.error)} |")
+                    f"{_stages(r.stages)} | {_cell(r.error)} |")
     return "\n".join(rows)
 
 
 # --------------------------------------------------------------------------
 # the report
 # --------------------------------------------------------------------------
+
+def _stages(stages: dict) -> str:
+    """Task 14: the stages a plan was checked at; a failed one is named."""
+    held = {k: v for k, v in stages.items() if v is not None}
+    if not held:
+        return NONE
+    failed = [k for k, v in held.items() if v is False]
+    return f"{FAIL} {', '.join(failed)}" if failed else OK
+
 
 def _mark(v: bool | None) -> str:
     return NONE if v is None else OK if v else FAIL
@@ -618,7 +747,8 @@ def main(argv: list[str] | None = None, *, build: Callable[..., tuple] | None = 
     mode = "real" if args.real else "scripted"
     try:
         catalog = Catalog.load(seed.HERE / "schema.json", seed.HERE / "relations.json")
-        loaded = demo_set() if args.set == "demo" else load_set(Path(args.set), catalog)
+        loaded = (demo_set() if args.set == "demo" else load_stage_set(STAGE_SET_FILE, catalog)
+                  if args.set == "stage" else load_set(Path(args.set), catalog))
         items = select(loaded, args.only.split(",") if args.only else None)
         stamp = datetime.now().strftime("%Y%m%d-%H%M%S")
         out_dir = outside_repo(args.out or Path(tempfile.gettempdir()) / "medagentpro-eval" / f"{stamp}-{mode}")
@@ -632,8 +762,13 @@ def main(argv: list[str] | None = None, *, build: Callable[..., tuple] | None = 
         finally:
             conn.close()
         print(plans_table(results))
+        if any(it.get("category") for it in items):
+            print("\n" + category_table(items, results))
         missing = without_plan(items, results)
-        print(f"\n{len(items) - len(missing)} of {len(items)} questions have a plan that passes"
+        passing = {r.id for r in results if r.passed}
+        known = [it["id"] for it in items if it["id"] not in passing and it["id"] not in missing]
+        print(f"\n{sum(it['id'] in passing for it in items)} of {len(items)} questions have a plan that passes"
+              + (f"; known gaps in the plan language (expected_gap): {', '.join(known)}" if known else "")
               + (f"; none for {', '.join(missing)}: a gap in the plan language, fix before a real run" if missing
                  else ""))
         return 1 if missing else 0

@@ -1,0 +1,1173 @@
+{
+  "$comment": "Task 14 (chat 20.10, docs/notes/82_STAGE_SET.md): questions by pipeline stage, after the rows of the research doc's section 8. The set measures where the system stands, it does not prove success: a question known to fail today carries expected_gap. An entry with ref takes the question, its plan and its expectations from the demo set or the held-out set, never a copy. Run with python -m tools.real_eval --plans --set stage. NEVER copy these questions into a prompt as examples.",
+  "$fields": {
+    "category": "the row of 82_STAGE_SET.md the question measures (tools/real_eval.py CATEGORIES)",
+    "ref": "offscript:<id> or demo:<id>: the question is that one, with its plan and expectations; this entry adds its id, category and expectations of its own",
+    "expect.disposition": "the disposition the plan carries",
+    "expect.readings": "how many readings the response holds",
+    "expect.compile": "ok, or the CompileError code the plan is written to meet (the rejection a feedback attempt starts from)",
+    "expect.result": "each reading's result, in order",
+    "expect.gate": "what the gate should leave. Documentation for a real run: --plans has no model and no gate",
+    "expected_gap": "{id, where, note}: plan, no plan states it rightly today; model, the plan does but the demo's prompt does not lead the model to it",
+    "other fields": "as in offscript_set.json"
+  },
+  "data_as_of": "2026-10-09",
+  "exchanges": [
+    {
+      "id": "SL1",
+      "category": "semantic_layer",
+      "user": "AP-01",
+      "question": "Which lines were late by promise in week 5?",
+      "expect": {
+        "status": [
+          "answered"
+        ],
+        "disposition": "retrieve",
+        "readings": 1,
+        "compile": "ok",
+        "result": [
+          "rows_returned"
+        ],
+        "metric": [
+          "late_by_promise"
+        ]
+      },
+      "sql": [
+        {
+          "query": "SELECT commitment_id FROM commitments WHERE week = 5 AND promised_date > due_date",
+          "compare": "total"
+        }
+      ],
+      "watch": "מדד בוליאני מהקטלוג, לא עמודה",
+      "plan": [
+        {
+          "disposition": "retrieve",
+          "readings": [
+            {
+              "label": "late_by_promise",
+              "plan": {
+                "SELECT": [
+                  {
+                    "expr": {
+                      "col": "commitments.commitment_id"
+                    },
+                    "as": "commitment_id"
+                  }
+                ],
+                "FROM": "commitments",
+                "WHERE": {
+                  "AND": [
+                    {
+                      "EQ": [
+                        {
+                          "col": "commitments.week"
+                        },
+                        {
+                          "value": 5
+                        }
+                      ]
+                    },
+                    {
+                      "EQ": [
+                        {
+                          "metric": "late_by_promise"
+                        },
+                        {
+                          "value": true
+                        }
+                      ]
+                    }
+                  ]
+                }
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "SL2",
+      "category": "semantic_layer",
+      "user": "AP-01",
+      "question": "Which lines in week 5 were not delivered late?",
+      "expect": {
+        "status": [
+          "answered"
+        ],
+        "disposition": "retrieve",
+        "readings": 1,
+        "compile": "ok",
+        "result": [
+          "rows_returned"
+        ]
+      },
+      "sql": [
+        {
+          "query": "SELECT commitment_id FROM commitments WHERE week = 5 AND delivered_at <= due_date",
+          "compare": "total"
+        }
+      ],
+      "watch": "שלילת מדד בוליאני: Examined מנסח לפי description_negated",
+      "plan": [
+        {
+          "disposition": "retrieve",
+          "readings": [
+            {
+              "label": "on_time",
+              "plan": {
+                "SELECT": [
+                  {
+                    "expr": {
+                      "col": "commitments.commitment_id"
+                    },
+                    "as": "commitment_id"
+                  }
+                ],
+                "FROM": "commitments",
+                "WHERE": {
+                  "AND": [
+                    {
+                      "EQ": [
+                        {
+                          "col": "commitments.week"
+                        },
+                        {
+                          "value": 5
+                        }
+                      ]
+                    },
+                    {
+                      "EQ": [
+                        {
+                          "metric": "late_by_delivery"
+                        },
+                        {
+                          "value": false
+                        }
+                      ]
+                    }
+                  ]
+                }
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "SL3",
+      "category": "semantic_layer",
+      "ref": "offscript:C4",
+      "expect": {
+        "disposition": "retrieve"
+      }
+    },
+    {
+      "id": "VM1",
+      "category": "value_mapping",
+      "user": "AP-01",
+      "question": "What did apex deliver in September?",
+      "expect": {
+        "status": [
+          "answered"
+        ],
+        "disposition": "retrieve",
+        "readings": 1,
+        "compile": "ok",
+        "result": [
+          "rows_returned"
+        ]
+      },
+      "expected_gap": {
+        "id": "VM-intent@9",
+        "where": "model",
+        "note": "the demo's intent prompt (@9) does not teach MATCHES; @10 does, for tests only (81_VALUE_MATCH)"
+      },
+      "sql": [
+        {
+          "query": "SELECT commitment_id FROM commitments WHERE supplier_id = 'S-001' AND delivered_at BETWEEN '2026-09-01' AND '2026-09-30'",
+          "compare": "total"
+        }
+      ],
+      "watch": "שם חלקי באותיות קטנות: שלב 2, Apex Polymers. Examined אומר מה התאים",
+      "plan": [
+        {
+          "disposition": "retrieve",
+          "readings": [
+            {
+              "label": "apex_september",
+              "plan": {
+                "SELECT": [
+                  {
+                    "expr": {
+                      "col": "commitments.commitment_id"
+                    },
+                    "as": "commitment_id"
+                  },
+                  {
+                    "expr": {
+                      "col": "commitments.delivered_at"
+                    },
+                    "as": "delivered_at"
+                  }
+                ],
+                "FROM": "commitments",
+                "JOIN": [
+                  {
+                    "rel": "commitment_supplier",
+                    "type": "INNER"
+                  }
+                ],
+                "WHERE": {
+                  "AND": [
+                    {
+                      "MATCHES": {
+                        "col": "suppliers.name",
+                        "term": "apex"
+                      }
+                    },
+                    {
+                      "BETWEEN": {
+                        "col": "commitments.delivered_at",
+                        "from": {
+                          "value": "2026-09-01"
+                        },
+                        "to": {
+                          "value": "2026-09-30"
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "VM2",
+      "category": "value_mapping",
+      "user": "AP-01",
+      "question": "What is on hand for Strain relief?",
+      "expect": {
+        "status": [
+          "answered"
+        ],
+        "disposition": "retrieve",
+        "readings": 1,
+        "compile": "ok",
+        "result": [
+          "name_ambiguous"
+        ]
+      },
+      "expected_gap": {
+        "id": "VM-intent@9",
+        "where": "model",
+        "note": "the demo's intent prompt (@9) does not teach MATCHES; @10 does, for tests only (81_VALUE_MATCH)"
+      },
+      "watch": "שמונה חלקים מתוארים כך: בקשת בירור, חמישה מועמדים ו-and 3 more, שום דבר לא נשלף",
+      "plan": [
+        {
+          "disposition": "retrieve",
+          "readings": [
+            {
+              "label": "on_hand",
+              "plan": {
+                "SELECT": [
+                  {
+                    "expr": {
+                      "col": "parts.part_id"
+                    },
+                    "as": "part_id"
+                  },
+                  {
+                    "expr": {
+                      "col": "parts.on_hand"
+                    },
+                    "as": "on_hand"
+                  }
+                ],
+                "FROM": "parts",
+                "WHERE": {
+                  "MATCHES": {
+                    "col": "parts.description",
+                    "term": "Strain relief"
+                  }
+                }
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "VM3",
+      "category": "value_mapping",
+      "user": "AP-01",
+      "question": "Which purchase orders with S-014 are Open?",
+      "expect": {
+        "status": [
+          "answered"
+        ],
+        "disposition": "retrieve",
+        "readings": 1,
+        "compile": "ok",
+        "result": [
+          "rows_returned"
+        ]
+      },
+      "sql": [
+        {
+          "query": "SELECT po_id FROM purchase_orders WHERE supplier_id = 'S-014' AND status = 'open'",
+          "compare": "total"
+        }
+      ],
+      "watch": "A2: 'Open' מיושר לצורה המוצהרת 'open'",
+      "plan": [
+        {
+          "disposition": "retrieve",
+          "readings": [
+            {
+              "label": "open_orders",
+              "plan": {
+                "SELECT": [
+                  {
+                    "expr": {
+                      "col": "purchase_orders.po_id"
+                    },
+                    "as": "po_id"
+                  }
+                ],
+                "FROM": "purchase_orders",
+                "WHERE": {
+                  "AND": [
+                    {
+                      "EQ": [
+                        {
+                          "col": "purchase_orders.supplier_id"
+                        },
+                        {
+                          "value": "S-014"
+                        }
+                      ]
+                    },
+                    {
+                      "EQ": [
+                        {
+                          "col": "purchase_orders.status"
+                        },
+                        {
+                          "value": "Open"
+                        }
+                      ]
+                    }
+                  ]
+                }
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "VM4",
+      "category": "value_mapping",
+      "user": "AP-01",
+      "question": "What did s-001 supply in week 6?",
+      "expect": {
+        "status": [
+          "answered"
+        ],
+        "disposition": "retrieve",
+        "readings": 1,
+        "compile": "ok",
+        "result": [
+          "rows_returned"
+        ]
+      },
+      "sql": [
+        {
+          "query": "SELECT commitment_id FROM commitments WHERE supplier_id = 'S-001' AND week = 6",
+          "compare": "total"
+        }
+      ],
+      "watch": "A1: s-001 נפתר ל-S-001 כפי שהוא מוחזק",
+      "plan": [
+        {
+          "disposition": "retrieve",
+          "readings": [
+            {
+              "label": "s001_week6",
+              "plan": {
+                "SELECT": [
+                  {
+                    "expr": {
+                      "col": "commitments.commitment_id"
+                    },
+                    "as": "commitment_id"
+                  }
+                ],
+                "FROM": "commitments",
+                "WHERE": {
+                  "AND": [
+                    {
+                      "EQ": [
+                        {
+                          "col": "commitments.supplier_id"
+                        },
+                        {
+                          "value": "s-001"
+                        }
+                      ]
+                    },
+                    {
+                      "EQ": [
+                        {
+                          "col": "commitments.week"
+                        },
+                        {
+                          "value": 6
+                        }
+                      ]
+                    }
+                  ]
+                }
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "CA1",
+      "category": "classification_ambiguity",
+      "ref": "demo:Q01",
+      "expect": {
+        "disposition": "retrieve",
+        "readings": 2
+      }
+    },
+    {
+      "id": "CA2",
+      "category": "classification_ambiguity",
+      "ref": "offscript:F3",
+      "expect": {
+        "disposition": "needs_clarification"
+      }
+    },
+    {
+      "id": "CA3",
+      "category": "classification_ambiguity",
+      "ref": "offscript:E2",
+      "expect": {
+        "disposition": "out_of_scope_action"
+      }
+    },
+    {
+      "id": "QB1",
+      "category": "query_building",
+      "ref": "offscript:C2",
+      "expect": {
+        "disposition": "retrieve"
+      }
+    },
+    {
+      "id": "QB2",
+      "category": "query_building",
+      "user": "AP-01",
+      "question": "Which suppliers had more than five late lines in weeks 1 to 13?",
+      "expect": {
+        "status": [
+          "answered"
+        ],
+        "disposition": "retrieve",
+        "readings": 1,
+        "compile": "ok",
+        "result": [
+          "rows_returned"
+        ],
+        "metric": [
+          "late_by_delivery"
+        ]
+      },
+      "sql": [
+        {
+          "query": "SELECT supplier_id FROM commitments WHERE week BETWEEN 1 AND 13 AND delivered_at > due_date GROUP BY supplier_id HAVING COUNT(*) > 5",
+          "compare": "total"
+        }
+      ],
+      "watch": "GROUP BY עם HAVING על צבירה",
+      "plan": [
+        {
+          "disposition": "retrieve",
+          "readings": [
+            {
+              "label": "late_suppliers",
+              "plan": {
+                "SELECT": [
+                  {
+                    "expr": {
+                      "col": "commitments.supplier_id"
+                    },
+                    "as": "supplier_id"
+                  },
+                  {
+                    "expr": {
+                      "func": "COUNT",
+                      "arg": "*"
+                    },
+                    "as": "late_lines"
+                  }
+                ],
+                "FROM": "commitments",
+                "WHERE": {
+                  "AND": [
+                    {
+                      "BETWEEN": {
+                        "col": "commitments.week",
+                        "from": {
+                          "value": 1
+                        },
+                        "to": {
+                          "value": 13
+                        }
+                      }
+                    },
+                    {
+                      "EQ": [
+                        {
+                          "metric": "late_by_delivery"
+                        },
+                        {
+                          "value": true
+                        }
+                      ]
+                    }
+                  ]
+                },
+                "GROUP_BY": [
+                  "supplier_id"
+                ],
+                "HAVING": [
+                  {
+                    "agg": "late_lines",
+                    "op": "GT",
+                    "value": 5
+                  }
+                ],
+                "ORDER_BY": [
+                  {
+                    "by": "late_lines",
+                    "dir": "DESC"
+                  }
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "QB3",
+      "category": "query_building",
+      "user": "AP-01",
+      "question": "Which suppliers had no late lines in weeks 1 to 13?",
+      "expect": {
+        "status": [
+          "answered"
+        ],
+        "disposition": "retrieve",
+        "gap": "cross_record_condition"
+      },
+      "expected_gap": {
+        "id": "task3-EXISTS",
+        "where": "plan",
+        "note": "a condition on the other records of a supplier (NOT EXISTS): no reading states it, and a plan holds at least one reading, so not even the honest gap alone is a valid plan; the plan here is the gap alone, which schema 1 refuses (task 3)"
+      },
+      "watch": "תנאי בין רשומות: פער כנה, לא רשימה שגויה",
+      "plan": [
+        {
+          "disposition": "retrieve",
+          "readings": [],
+          "unresolved": [
+            {
+              "asked": "Which suppliers had no late lines in weeks 1 to 13?",
+              "needs": {
+                "kind": "cross_record_condition",
+                "entity": "commitments"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "VR1",
+      "category": "validation_repair",
+      "user": "AP-01",
+      "question": "Which lines from S-001 came with a carrier?",
+      "expect": {
+        "status": [
+          "answered"
+        ],
+        "compile": "unknown_column"
+      },
+      "watch": "עמודה שלא קיימת: CompileError, ומשם ניסיון משוב. התשובה הנכונה בסוף היא פער",
+      "plan": [
+        {
+          "disposition": "retrieve",
+          "readings": [
+            {
+              "label": "carrier",
+              "plan": {
+                "SELECT": [
+                  {
+                    "expr": {
+                      "col": "commitments.commitment_id"
+                    },
+                    "as": "commitment_id"
+                  },
+                  {
+                    "expr": {
+                      "col": "commitments.carrier"
+                    },
+                    "as": "carrier"
+                  }
+                ],
+                "FROM": "commitments",
+                "WHERE": {
+                  "EQ": [
+                    {
+                      "col": "commitments.supplier_id"
+                    },
+                    {
+                      "value": "S-001"
+                    }
+                  ]
+                }
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "VR2",
+      "category": "validation_repair",
+      "user": "AP-01",
+      "question": "What did Apex or S-002 supply?",
+      "expect": {
+        "status": [
+          "answered"
+        ],
+        "compile": "match_not_top_level"
+      },
+      "watch": "MATCHES תחת OR (V1): נדחה עם הנתיב",
+      "plan": [
+        {
+          "disposition": "retrieve",
+          "readings": [
+            {
+              "label": "either",
+              "plan": {
+                "SELECT": [
+                  {
+                    "expr": {
+                      "col": "commitments.commitment_id"
+                    },
+                    "as": "commitment_id"
+                  }
+                ],
+                "FROM": "commitments",
+                "JOIN": [
+                  {
+                    "rel": "commitment_supplier",
+                    "type": "INNER"
+                  }
+                ],
+                "WHERE": {
+                  "OR": [
+                    {
+                      "MATCHES": {
+                        "col": "suppliers.name",
+                        "term": "Apex"
+                      }
+                    },
+                    {
+                      "EQ": [
+                        {
+                          "col": "commitments.supplier_id"
+                        },
+                        {
+                          "value": "S-002"
+                        }
+                      ]
+                    }
+                  ]
+                }
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "VR3",
+      "category": "validation_repair",
+      "user": "AP-01",
+      "question": "Which suppliers were late in week 2?",
+      "expect": {
+        "status": [
+          "answered"
+        ],
+        "compile": "ambiguity_collapsed"
+      },
+      "watch": "מונח עמום עם שתי חלופות וקריאה אחת: נדחה, כדי שאף חלופה לא תיעלם בשקט",
+      "plan": [
+        {
+          "disposition": "retrieve",
+          "ambiguous": [
+            {
+              "term": "late",
+              "alternatives": [
+                {
+                  "metric": "late_by_delivery"
+                },
+                {
+                  "metric": "late_by_promise"
+                }
+              ]
+            }
+          ],
+          "readings": [
+            {
+              "label": "late_by_delivery",
+              "plan": {
+                "SELECT": [
+                  {
+                    "expr": {
+                      "col": "commitments.supplier_id"
+                    },
+                    "as": "supplier_id"
+                  }
+                ],
+                "FROM": "commitments",
+                "WHERE": {
+                  "AND": [
+                    {
+                      "EQ": [
+                        {
+                          "col": "commitments.week"
+                        },
+                        {
+                          "value": 2
+                        }
+                      ]
+                    },
+                    {
+                      "EQ": [
+                        {
+                          "metric": "late_by_delivery"
+                        },
+                        {
+                          "value": true
+                        }
+                      ]
+                    }
+                  ]
+                }
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "EN1",
+      "category": "entitlement",
+      "ref": "demo:Q14",
+      "expect": {
+        "disposition": "retrieve"
+      }
+    },
+    {
+      "id": "EN2",
+      "category": "entitlement",
+      "ref": "offscript:G1",
+      "expect": {
+        "disposition": "retrieve"
+      }
+    },
+    {
+      "id": "EN3",
+      "category": "entitlement",
+      "user": "PL-02",
+      "question": "Which lines does my supplier S-001 have?",
+      "expect": {
+        "status": [
+          "answered"
+        ],
+        "compile": "me_not_allowed"
+      },
+      "watch": "המשתמש ששואל מושווה רק לעמודה שמחזיקה משתמש (D7), לא למזהה ספק",
+      "plan": [
+        {
+          "disposition": "retrieve",
+          "readings": [
+            {
+              "label": "mine",
+              "plan": {
+                "SELECT": [
+                  {
+                    "expr": {
+                      "col": "commitments.commitment_id"
+                    },
+                    "as": "commitment_id"
+                  }
+                ],
+                "FROM": "commitments",
+                "WHERE": {
+                  "EQ": [
+                    {
+                      "col": "commitments.supplier_id"
+                    },
+                    {
+                      "me": true
+                    }
+                  ]
+                }
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "TR1",
+      "category": "transparency",
+      "ref": "offscript:A1",
+      "expect": {
+        "disposition": "retrieve"
+      }
+    },
+    {
+      "id": "TR2",
+      "category": "transparency",
+      "ref": "offscript:A2",
+      "expect": {
+        "disposition": "retrieve"
+      }
+    },
+    {
+      "id": "TR3",
+      "category": "transparency",
+      "ref": "offscript:B2",
+      "expect": {
+        "disposition": "retrieve"
+      }
+    },
+    {
+      "id": "FU1",
+      "category": "follow_ups",
+      "ref": "offscript:F1a",
+      "expect": {
+        "disposition": "retrieve"
+      }
+    },
+    {
+      "id": "FU2",
+      "category": "follow_ups",
+      "ref": "offscript:F1b",
+      "expect": {
+        "disposition": "retrieve"
+      }
+    },
+    {
+      "id": "FU3",
+      "category": "follow_ups",
+      "ref": "offscript:F1c",
+      "expect": {
+        "disposition": "retrieve"
+      }
+    },
+    {
+      "id": "FU4",
+      "category": "follow_ups",
+      "ref": "offscript:F2",
+      "expect": {
+        "disposition": "retrieve"
+      }
+    },
+    {
+      "id": "MP1",
+      "category": "multi_part",
+      "ref": "offscript:D2",
+      "expect": {
+        "disposition": "retrieve"
+      }
+    },
+    {
+      "id": "MP2",
+      "category": "multi_part",
+      "ref": "demo:Q05",
+      "expect": {
+        "disposition": "retrieve"
+      }
+    },
+    {
+      "id": "MP3",
+      "category": "multi_part",
+      "user": "AP-01",
+      "question": "Which suppliers delivered late in week 7, and which parts are below their reorder point?",
+      "expect": {
+        "status": [
+          "answered"
+        ],
+        "disposition": "retrieve",
+        "readings": 2,
+        "compile": "ok",
+        "result": [
+          "rows_returned",
+          "rows_returned"
+        ]
+      },
+      "expected_gap": {
+        "id": "H4",
+        "where": "model",
+        "note": "two parts, two readings: the plan holds both, but nothing in code checks that every part is covered (task 4)"
+      },
+      "sql": [
+        {
+          "query": "SELECT DISTINCT supplier_id FROM commitments WHERE week = 7 AND delivered_at > due_date",
+          "compare": "total"
+        },
+        {
+          "query": "SELECT part_id FROM parts WHERE on_hand < reorder_point",
+          "compare": "total"
+        }
+      ],
+      "watch": "שני חלקים בלתי תלויים. הסט בודק ששניהם נשלפים",
+      "plan": [
+        {
+          "disposition": "retrieve",
+          "readings": [
+            {
+              "label": "late_week7",
+              "plan": {
+                "SELECT": [
+                  {
+                    "expr": {
+                      "col": "commitments.supplier_id"
+                    },
+                    "as": "supplier_id"
+                  },
+                  {
+                    "expr": {
+                      "func": "COUNT",
+                      "arg": "*"
+                    },
+                    "as": "late_lines"
+                  }
+                ],
+                "FROM": "commitments",
+                "WHERE": {
+                  "AND": [
+                    {
+                      "EQ": [
+                        {
+                          "col": "commitments.week"
+                        },
+                        {
+                          "value": 7
+                        }
+                      ]
+                    },
+                    {
+                      "EQ": [
+                        {
+                          "metric": "late_by_delivery"
+                        },
+                        {
+                          "value": true
+                        }
+                      ]
+                    }
+                  ]
+                },
+                "GROUP_BY": [
+                  "supplier_id"
+                ]
+              }
+            },
+            {
+              "label": "below_reorder",
+              "plan": {
+                "SELECT": [
+                  {
+                    "expr": {
+                      "col": "parts.part_id"
+                    },
+                    "as": "part_id"
+                  },
+                  {
+                    "expr": {
+                      "col": "parts.on_hand"
+                    },
+                    "as": "on_hand"
+                  }
+                ],
+                "FROM": "parts",
+                "WHERE": {
+                  "EQ": [
+                    {
+                      "metric": "below_reorder_point"
+                    },
+                    {
+                      "value": true
+                    }
+                  ]
+                }
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "AV1",
+      "category": "answer_verification",
+      "ref": "demo:Q10",
+      "expect": {
+        "disposition": "retrieve",
+        "gate": "the judgement 'most urgent part to reorder' is withheld; the counts and the first part stay"
+      }
+    },
+    {
+      "id": "AV2",
+      "category": "answer_verification",
+      "ref": "demo:Q11",
+      "expect": {
+        "disposition": "retrieve",
+        "gate": "a ranking the records tie on is not presented; no assertion survives, a request for input"
+      }
+    },
+    {
+      "id": "AV3",
+      "category": "answer_verification",
+      "ref": "offscript:C1",
+      "expect": {
+        "disposition": "retrieve",
+        "gate": "the count is the reading's total, cited; no digit typed by the model survives"
+      }
+    },
+    {
+      "id": "RL1",
+      "category": "row_limit",
+      "ref": "demo:Q03",
+      "expect": {
+        "disposition": "retrieve"
+      }
+    },
+    {
+      "id": "RL2",
+      "category": "row_limit",
+      "ref": "offscript:C3",
+      "expect": {
+        "disposition": "retrieve"
+      }
+    },
+    {
+      "id": "RL3",
+      "category": "row_limit",
+      "user": "AP-01",
+      "question": "Which lines were delivered in September?",
+      "expect": {
+        "status": [
+          "answered"
+        ],
+        "disposition": "retrieve",
+        "readings": 1,
+        "compile": "ok",
+        "result": [
+          "rows_returned"
+        ]
+      },
+      "sql": [
+        {
+          "query": "SELECT commitment_id FROM commitments WHERE delivered_at BETWEEN '2026-09-01' AND '2026-09-30'",
+          "compare": "total"
+        }
+      ],
+      "watch": "יותר מ-30 שורות: 30 מוצגות, והסך המלא מהשאילתה",
+      "plan": [
+        {
+          "disposition": "retrieve",
+          "readings": [
+            {
+              "label": "september",
+              "plan": {
+                "SELECT": [
+                  {
+                    "expr": {
+                      "col": "commitments.commitment_id"
+                    },
+                    "as": "commitment_id"
+                  },
+                  {
+                    "expr": {
+                      "col": "commitments.delivered_at"
+                    },
+                    "as": "delivered_at"
+                  }
+                ],
+                "FROM": "commitments",
+                "WHERE": {
+                  "BETWEEN": {
+                    "col": "commitments.delivered_at",
+                    "from": {
+                      "value": "2026-09-01"
+                    },
+                    "to": {
+                      "value": "2026-09-30"
+                    }
+                  }
+                },
+                "ORDER_BY": [
+                  {
+                    "by": "delivered_at",
+                    "dir": "ASC"
+                  }
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "WH1",
+      "category": "why_questions",
+      "ref": "demo:Q07",
+      "expect": {
+        "disposition": "refer_to_investigation"
+      }
+    },
+    {
+      "id": "WH2",
+      "category": "why_questions",
+      "ref": "offscript:A4",
+      "expect": {
+        "disposition": "refer_to_investigation"
+      }
+    },
+    {
+      "id": "WH3",
+      "category": "why_questions",
+      "ref": "offscript:E4",
+      "expect": {
+        "disposition": "refer_to_investigation"
+      }
+    }
+  ]
+}
