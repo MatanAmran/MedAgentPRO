@@ -2,16 +2,18 @@
 Tests for compiler.py. Run:  pytest test_compiler.py -q
 
 Each test names the check or book test it covers. The database is an in-memory
-SQLite built from the placeholder schema.json.
+SQLite built from the placeholder catalog in tests/fixtures (placeholder_schema.json).
 """
 
 import sqlite3
+from pathlib import Path
 
 import pytest
 
 from query_assistance import compiler as c
 
-CAT = c.Catalog.load()
+FIXTURES = Path(__file__).parents[1] / "fixtures"
+CAT = c.Catalog.load(FIXTURES / "placeholder_schema.json", FIXTURES / "placeholder_relations.json")
 VALIDATOR = c.intent_validator()
 PLANNER = {"role": "PLANNER", "user_id": "u-17"}
 APPROVER = {"role": "APPROVER", "user_id": "u-90"}
@@ -422,8 +424,8 @@ def test_unreadable_reference_falls_back_to_the_column(db):
     as it was before references were declared."""
     import copy
     import json
-    schema = json.loads((c.HERE / "schema.json").read_text(encoding="utf-8"))
-    rel = json.loads((c.HERE / "relations.json").read_text(encoding="utf-8"))
+    schema = json.loads((FIXTURES / "placeholder_schema.json").read_text(encoding="utf-8"))
+    rel = json.loads((FIXTURES / "placeholder_relations.json").read_text(encoding="utf-8"))
     del schema["entities"]["suppliers"]["entitlement"]["PLANNER"]
     cat = c.Catalog(copy.deepcopy(schema), rel)
     p = plan(WHERE={"EQ": [{"col": "commitments.supplier_id"}, {"value": "S-040"}]})
@@ -435,8 +437,8 @@ def test_unreadable_reference_falls_back_to_the_column(db):
 @pytest.mark.parametrize("bad", ["suppliers.name", "suppliers.nope"])
 def test_reference_must_name_an_identifier(bad):
     import json
-    schema = json.loads((c.HERE / "schema.json").read_text(encoding="utf-8"))
-    rel = json.loads((c.HERE / "relations.json").read_text(encoding="utf-8"))
+    schema = json.loads((FIXTURES / "placeholder_schema.json").read_text(encoding="utf-8"))
+    rel = json.loads((FIXTURES / "placeholder_relations.json").read_text(encoding="utf-8"))
     schema["entities"]["commitments"]["columns"]["supplier_id"]["references"] = bad
     with pytest.raises(ValueError):
         c.Catalog(schema, rel)

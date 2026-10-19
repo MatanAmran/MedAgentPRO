@@ -32,6 +32,7 @@ from starlette.background import BackgroundTask
 
 from demo_data.scripted import load_scripts
 from query_assistance import pipeline
+from query_assistance.prompts import visible_tables
 from shared.circuit_breaker import log as operational_log
 
 from . import trace as panel_trace
@@ -151,8 +152,14 @@ def router(state: AppState) -> APIRouter:
             raise HTTPException(403, "this conversation belongs to another user") from None
 
     @r.get("/health")
-    def health():
-        out = {"mode": state.mode, "model": state.deps.model, "authentication": "none (demo)", "panel": state.panel}
+    def health(x_demo_user: str | None = Header(default=None)):
+        """domain: what the screen says the store is about, from the catalog (chat 19.10, C). entities:
+        the labels of the tables the demo user named in X-Demo-User may read; none without a user."""
+        cat = state.deps.catalog
+        user = state.user(x_demo_user)
+        out = {"mode": state.mode, "model": state.deps.model, "authentication": "none (demo)", "panel": state.panel,
+               "domain": cat.domain,
+               "entities": [cat.entities[t].get("label", t) for t in visible_tables(cat, user["role"])] if user else []}
         if hasattr(state.deps.gateway, "remaining"):
             out["budget_remaining_usd"] = round(state.deps.gateway.remaining(), 6)
         return out

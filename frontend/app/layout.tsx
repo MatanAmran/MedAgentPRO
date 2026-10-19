@@ -18,7 +18,8 @@ const mono = IBM_Plex_Mono({
 
 export const metadata: Metadata = {
   title: "MedAgentPro",
-  description: "Query assistance over supply-chain records (demo)",
+  // generic here; the catalog's own description replaces it once the server answers (chat 19.10, C)
+  description: "Query assistance over records (demo)",
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {

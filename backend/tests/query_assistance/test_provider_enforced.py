@@ -65,7 +65,7 @@ def outputs() -> list[tuple[str, str, dict]]:
         for k, d in enumerate(_listed(e.get("synthesis")) + _listed(e.get("redraft"))):
             out.append(("synthesis", f"script {k}: {q}", d))
     for path, name in ((seed.HERE / "intent_analysis.md", "intent_analysis"),
-                       ("intent_analysis.md", "intent_analysis"), ("rewrite.md", "question_rewriting"),
+                       ("rewrite.md", "question_rewriting"),
                        ("synthesis.md", "synthesis"), ("synthesis_redraft.md", "synthesis"),
                        ("gate.md", "support_scoring")):
         for i, (_, o) in enumerate(examples(p.load(path))):

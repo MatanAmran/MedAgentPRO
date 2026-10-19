@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { api, ApiError, newRequestId } from "@/lib/api";
 import type {
+  Domain,
   ConversationChange,
   ConversationSummary,
   DemoUserId,
@@ -39,6 +40,7 @@ export function Chat() {
   const [user, setUser] = useState<DemoUserId>("AP-01");
   const [mode, setMode] = useState<string | null>(null);
   const [budget, setBudget] = useState<number | null>(null);
+  const [domain, setDomain] = useState<Domain>({});
   const [examples, setExamples] = useState<Example[]>([]);
   const [conversations, setConversations] = useState<ConversationSummary[]>([]);
   const [current, setCurrent] = useState<string | null>(null);
@@ -75,6 +77,9 @@ export function Chat() {
       (h) => {
         setMode(h.mode);
         setBudget(h.budget_remaining_usd ?? null);
+        setDomain(h.domain ?? {});
+        // the page description, from the catalog too (chat 19.10, C): the layout's is a generic one
+        if (h.domain?.description) document.querySelector('meta[name="description"]')?.setAttribute("content", h.domain.description);
       },
       () => setLoadError("The chat server could not be reached."),
     );
@@ -204,7 +209,7 @@ export function Chat() {
 
   return (
     <div className="flex h-screen flex-col overflow-hidden bg-canvas">
-      <Header user={user} onUser={setUser} mode={mode} budget={budget} locked={locked} />
+      <Header user={user} onUser={setUser} mode={mode} budget={budget} locked={locked} domain={domain.name} />
       <div className="flex min-h-0 flex-1">
         <Sidebar
           conversations={conversations}
@@ -275,10 +280,9 @@ export function Chat() {
                 />
               )}
               {/* long list, item 6: on the real model the server lists no examples; say what can be asked */}
-              {items.length === 0 && !pending && mode === "real" && (
+              {items.length === 0 && !pending && mode === "real" && domain.can_ask && (
                 <p className="m-0 max-w-[60ch] text-sm leading-relaxed text-ink-3" data-testid="can-ask">
-                  Ask about suppliers, purchase orders and their lines, goods receipts, parts and their stock on
-                  hand, and the forecast. Answers come from those records only.
+                  {domain.can_ask} Answers come from those records only.
                 </p>
               )}
               {items.length > 0 && !pending && (
@@ -294,7 +298,7 @@ export function Chat() {
           </div>
           <div className="bg-gradient-to-b from-transparent to-canvas to-35% px-7 pb-5 pt-3.5">
             <div className="mx-auto w-full max-w-[924px]">
-              <Composer ref={composer} locked={locked} onSend={send} />
+              <Composer ref={composer} locked={locked} onSend={send} placeholder={domain.placeholder} />
             </div>
           </div>
         </main>
