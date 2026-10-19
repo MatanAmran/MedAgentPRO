@@ -34,7 +34,7 @@ import sqlite3
 from dataclasses import dataclass, field
 from datetime import date
 from pathlib import Path
-from typing import Any
+from typing import Any, NoReturn
 
 from jsonschema import Draft202012Validator
 
@@ -252,7 +252,7 @@ class _ReadingCompiler:
         self.identities: list[tuple[str, Any]] = []   # probed when the result is empty
         self.named_ids: list[tuple[str, Any]] = []    # every identifier literal, for NFR 27
 
-    def fail(self, code, reason, **detail):
+    def fail(self, code: str, reason: str, **detail: Any) -> NoReturn:
         raise CompileError(code, reason, label=self.label, **detail)
 
     # --- scope -----------------------------------------------------------
@@ -353,21 +353,28 @@ class _ReadingCompiler:
     # --- predicates ------------------------------------------------------
 
     def _check_literal(self, side: Expr, lit: Any, op: str):
-        if not _literal_fits(side.type, lit):
+        if side.type is None or not _literal_fits(side.type, lit):
             self.fail("type_mismatch",
                       f"{op} compares {side.column or 'a metric'} ({side.type}) with {lit!r}.",
                       value=lit, against=side.column)
 
+    def _spec(self, qualified: str) -> dict:
+        """The column's spec. Only for a column already resolved (col() fails on an unknown one)."""
+        spec = self.cat.column(qualified)
+        if spec is None:
+            self.fail("unknown_column", f"Column '{qualified}' is not in schema.json.", col=qualified)
+        return spec
+
     def _is_identifier(self, side: Expr) -> bool:
-        return bool(side.column and self.cat.column(side.column).get("identifier"))
+        return bool(side.column and self._spec(side.column).get("identifier"))
 
     def _note_identity(self, side: Expr, values: list):
-        if self._is_identifier(side):
+        if side.column and self._is_identifier(side):
             for v in values:
                 self.identities.append((side.column, v))
 
     def _note_named(self, side: Expr, values: list):
-        if self._is_identifier(side):
+        if side.column and self._is_identifier(side):
             for v in values:
                 self.named_ids.append((side.column, v))
 
@@ -384,7 +391,7 @@ class _ReadingCompiler:
                 self.fail("no_column_in_comparison", f"{op} compares two values and no column.")
             if a.is_me or b.is_me:
                 side = b if a.is_me else a
-                if op not in ("EQ", "NE") or not side.column or not self.cat.column(side.column).get("user_column"):
+                if op not in ("EQ", "NE") or not side.column or not self._spec(side.column).get("user_column"):
                     self.fail("me_not_allowed", f"The current user may be compared only for equality with a "
                                                 f"column that holds a user, not with {side.column or 'a value'}.",
                               against=side.column)
@@ -395,7 +402,7 @@ class _ReadingCompiler:
                 self._note_named(side, [lit])
                 if op == "EQ" and top:
                     self._note_identity(side, [lit])
-            elif not _types_match(a.type, b.type):
+            elif a.type is None or b.type is None or not _types_match(a.type, b.type):
                 self.fail("type_mismatch", f"{op} compares {a.type} with {b.type}.")
             return f"{a.sql} {CMP_SQL[op]} {b.sql}", a.params + b.params
         if op == "IN":   # an object, not a tuple (task 10a, 15.10): {"col", "values"}
@@ -416,7 +423,7 @@ class _ReadingCompiler:
             return f"{c.sql} BETWEEN ? AND ?", [lo, hi]
         if op in ("IS_NULL", "IS_NOT_NULL"):
             c = self.col(arg["col"])
-            if c.column.split(".")[0] != self.plan["FROM"]:
+            if arg["col"].split(".")[0] != self.plan["FROM"]:
                 self.fail("null_test_on_joined",
                           f"{op} on '{c.column}', which is not a column of the FROM table.", col=c.column)
             return f"{c.sql} {'IS NULL' if op == 'IS_NULL' else 'IS NOT NULL'}", []
@@ -500,13 +507,13 @@ class _ReadingCompiler:
         # HAVING
         having_sql, having_params = [], []
         for h in p.get("HAVING", []):
-            e = self.aliases.get(h["agg"])
-            if e is None or not e.is_agg:
+            agg = self.aliases.get(h["agg"])
+            if agg is None or not agg.is_agg:
                 self.fail("having_not_aggregate", f"HAVING names '{h['agg']}', which is not an aggregate alias.",
                           alias=h["agg"])
-            if e.type not in NUMERIC:
-                self.fail("type_mismatch", f"HAVING compares '{h['agg']}' ({e.type}) with a number.")
-            having_sql.append(f"{e.sql} {CMP_SQL[h['op']]} ?")
+            if agg.type not in NUMERIC:
+                self.fail("type_mismatch", f"HAVING compares '{h['agg']}' ({agg.type}) with a number.")
+            having_sql.append(f"{agg.sql} {CMP_SQL[h['op']]} ?")
             having_params.append(h["value"])
 
         # ORDER_BY, then every remaining alias, so that a cut by LIMIT is repeatable
@@ -552,7 +559,7 @@ class _ReadingCompiler:
         is checked where the identifier is held, so a supplier with no lines reads as held
         with nothing matching, not as absent. The reference is used only where the user may
         read its table. Otherwise the column itself is checked, as before."""
-        ref = self.cat.column(column).get("references")
+        ref = self._spec(column).get("references")
         if ref:
             try:
                 return ref, self.entitlement(ref.split(".")[0])

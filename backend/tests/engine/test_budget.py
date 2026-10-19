@@ -264,6 +264,7 @@ def test_a_damaged_spend_file_sends_no_call(tmp_path, monkeypatch):
     sent = []
     monkeypatch.setattr(b.LiteLLMGateway, "invoke", lambda self, *a, **k: sent.append(a))
     monkeypatch.delitem(sys.modules, "pytest")
+    monkeypatch.delenv("CI", raising=False)   # the CI guard would refuse first (Phase B, 19.10)
     monkeypatch.setattr(b, "check_against_provider_map", lambda cfg: None)
     with pytest.raises(b.BudgetConfigError, match="damaged"):
         b.real_gateway(ENV, spend_file=path)

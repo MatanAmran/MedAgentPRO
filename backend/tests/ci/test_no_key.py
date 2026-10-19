@@ -16,3 +16,24 @@ def test_the_workflow_sets_no_secret():
     from pathlib import Path
     workflow = (Path(__file__).resolve().parents[3] / ".github" / "workflows" / "tests.yml").read_text(encoding="utf-8")
     assert "secrets." not in workflow and "ANTHROPIC_API_KEY:" not in workflow
+
+
+def test_the_real_gateway_is_never_built_in_ci(monkeypatch, tmp_path):
+    """Phase B (chat 19.10): with CI set, the real gateway refuses to build even where pytest is not loaded
+    (a script run in CI, outside the tests), and before it reads any value or touches the spend file."""
+    import sys
+
+    from model_client import budget as b
+    monkeypatch.setenv("CI", "true")
+    monkeypatch.delitem(sys.modules, "pytest")
+    with pytest.raises(b.BudgetConfigError, match="never built in CI"):
+        b.real_gateway({}, tmp_path / "spend.json")
+    assert list(tmp_path.iterdir()) == []
+
+
+def test_mypy_blocks_in_the_workflow():
+    """mypy is at zero errors (Phase B, 19.10): the workflow step no longer continues on error."""
+    from pathlib import Path
+    workflow = (Path(__file__).resolve().parents[3] / ".github" / "workflows" / "tests.yml").read_text(encoding="utf-8")
+    step = workflow.split("python -m mypy")[0].rsplit("- name:", 1)[1]
+    assert "continue-on-error" not in step

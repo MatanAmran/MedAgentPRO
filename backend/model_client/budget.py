@@ -334,13 +334,14 @@ class BudgetedGateway(ModelGateway):
         if config.model != cfg.model_id:
             raise BudgetExceeded(f"model {config.model} is not the one priced in backend/.env", scope="model")
         cap = cfg.output_cap(config.prompt_identity)
-        call = replace(config, max_tokens=min(config.max_tokens or cap, cap))
+        max_tokens = min(config.max_tokens or cap, cap)
+        call = replace(config, max_tokens=max_tokens)
         estimated = estimate_input_tokens(prompt)
         tier = price_tier(cfg.model_id)
         if tier is not None and estimated > tier:   # chat 19.10: above it the .env price undercounts
             raise BudgetExceeded(f"the prompt may exceed {tier} input tokens, above which {cfg.model_id} costs "
                                  f"more than backend/.env prices it", scope="model")
-        worst = cfg.cost(estimated, call.max_tokens)
+        worst = cfg.cost(estimated, max_tokens)
         ex = self._current.get()
         with self._lock:
             self._refuse_if_over(worst, ex)
@@ -383,6 +384,8 @@ def real_gateway(env: Mapping[str, str] | None = None, spend_file: Path = SPEND_
     Refuses under pytest (R8): tests never reach a real model (6.1)."""
     if "pytest" in sys.modules:
         raise BudgetConfigError("the real model is never built under pytest (book 6.1, R8)")
+    if os.environ.get("CI"):   # Phase B (19.10): nor in CI, whatever runs there (GitHub sets CI=true)
+        raise BudgetConfigError("the real model is never built in CI (book 6.1)")
     cfg = BudgetConfig.from_env(env)
     check_against_provider_map(cfg)
     inner = LiteLLMGateway(breaker or CircuitBreaker("model_provider", MemoryStore()),

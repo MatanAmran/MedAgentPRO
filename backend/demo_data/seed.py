@@ -29,6 +29,7 @@ import random
 import sqlite3
 from datetime import date, timedelta
 from pathlib import Path
+from typing import Any
 
 HERE = Path(__file__).parent
 SCHEMA = HERE / "schema.json"
@@ -96,7 +97,7 @@ NOTES = [
 # --------------------------------------------------------------------------
 
 # share of lines delivered after the requested date / promised after it / missing the promise
-PROFILES = {
+PROFILES: dict[str, dict[str, Any]] = {
     "reliable":        dict(p_promise_late=0.03, p_miss_promise=0.03, delay=(1, 4)),
     "occasional":      dict(p_promise_late=0.10, p_miss_promise=0.15, delay=(2, 10)),
     "chronic":         dict(p_promise_late=0.35, p_miss_promise=0.45, delay=(5, 25)),
@@ -136,7 +137,7 @@ def build(out: Path = DEFAULT_OUT, seed: int = 20261009) -> dict:
     create_tables(conn, schema)
 
     # suppliers ---------------------------------------------------------
-    suppliers = []
+    suppliers: list[dict[str, Any]] = []
     profiles = _profile_plan(len(SUPPLIER_NAMES), rng)
     for i, (name, prof) in enumerate(zip(SUPPLIER_NAMES, profiles, strict=True), start=1):
         region = rng.choice(list(REGIONS))
@@ -150,7 +151,7 @@ def build(out: Path = DEFAULT_OUT, seed: int = 20261009) -> dict:
     profile_of = {s["supplier_id"]: s["profile"] for s in suppliers}
 
     # parts -------------------------------------------------------------
-    parts = []
+    parts: list[dict[str, Any]] = []
     n = 0
     for cat, kinds in CATEGORIES.items():
         for _ in range(rng.randint(18, 24)):
@@ -199,21 +200,21 @@ def build(out: Path = DEFAULT_OUT, seed: int = 20261009) -> dict:
             lines_here = []
             for p in rng.sample(candidates, k=min(len(candidates), rng.choice([1, 1, 2, 2, 3, 4]))):
                 line_n += 1
-                prof = PROFILES[profile_of[sup["supplier_id"]]]
+                profile = PROFILES[profile_of[sup["supplier_id"]]]
                 qty = rng.choice([10, 20, 25, 50, 100, 200, 250, 500, 1000])
                 price = round(p["price"] * rng.uniform(0.95, 1.05), 2)
                 due = order_day + timedelta(days=rng.randint(14, 70))
                 # promise
                 if rng.random() < 0.08:
                     promised = None                                   # supplier never confirmed a date
-                elif rng.random() < prof["p_promise_late"]:
-                    promised = due + timedelta(days=rng.randint(*prof["delay"]))
+                elif rng.random() < profile["p_promise_late"]:
+                    promised = due + timedelta(days=rng.randint(*profile["delay"]))
                 else:
                     promised = due - timedelta(days=rng.choice([0, 0, 0, 1, 2]))
                 # delivery against the promise (or the due date where no promise was made)
                 anchor = promised or due
-                if rng.random() < prof["p_miss_promise"]:
-                    delivered = anchor + timedelta(days=rng.randint(*prof["delay"]))
+                if rng.random() < profile["p_miss_promise"]:
+                    delivered = anchor + timedelta(days=rng.randint(*profile["delay"]))
                 else:
                     delivered = anchor - timedelta(days=rng.choice([0, 0, 1, 2, 3]))
 
