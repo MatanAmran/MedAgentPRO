@@ -401,3 +401,36 @@ def test_contract_for_record_drops_the_candidates_only():
     response = {"outcome": "answered", "readings": [{"label": "r0", "candidates": [{"term": "x"}], "notice": "n"}]}
     assert contract.for_record(response)["readings"] == [{"label": "r0", "notice": "n"}]
     assert response["readings"][0]["candidates"]   # the response itself is untouched
+
+
+# --------------------------------------------------------------------------
+# NFR 27 per node (chat 20.10, task 4): only the node with_names wrote is exempt
+# --------------------------------------------------------------------------
+
+def test_the_node_code_wrote_from_a_name_passes_nfr_27(db_path):
+    """S-001 is in no part of the question; the EQ with_names wrote from "Apex" holds it, and passes."""
+    ci = compile_("What did Apex supply?", by_name("Apex"))
+    single = {k: ("suppliers.supplier_id", v.candidates[0][0]) for k, v in resolve(db_path, ci).items()}
+    written: set = set()
+    again = c.with_names(ci.intent, single, written)
+    assert written == {("r0", "WHERE")}
+    out = c.compile_intent(again, "What did Apex supply?", APPROVER, CAT, c.intent_validator(), exempt=written)
+    assert out.readings[0].params[0] == "S-001"
+
+
+def test_an_eq_the_model_wrote_on_the_same_identifier_is_checked_as_any_other(db_path):
+    """The model wrote EQ commitments.supplier_id = S-001 beside MATCHES "Apex": the question holds no S-001,
+    so NFR 27 refuses it, though code resolves "Apex" to that very S-001 in the same plan. The first
+    compilation refuses it already (the model's plan as written); the recompile after with_names, checked
+    here directly, refuses it too, since only the node code wrote is exempt."""
+    plan = by_name("Apex", {"EQ": [{"col": "commitments.supplier_id"}, {"value": "S-001"}]})
+    single = {k: ("suppliers.supplier_id", v.candidates[0][0])
+              for k, v in resolve(db_path, compile_("What did Apex supply?", by_name("Apex"))).items()}
+    written: set = set()
+    again = c.with_names(intent(plan), single, written)
+    assert written == {("r0", "WHERE/AND/0")}
+    with pytest.raises(c.CompileError) as e:
+        c.compile_intent(again, "What did Apex supply?", APPROVER, CAT, c.intent_validator(), exempt=written)
+    assert e.value.code == "identifier_not_in_conversation" and e.value.detail["value"] == "S-001"
+    out, _, _ = run(db_path, "What did Apex supply?", plan)
+    assert out.response["outcome"] == "request_not_completed"   # never answered from the model's S-001
