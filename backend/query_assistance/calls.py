@@ -22,7 +22,7 @@ from __future__ import annotations
 import functools
 import json
 import time
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from typing import Any, Callable
 
 from jsonschema import Draft202012Validator
@@ -161,6 +161,7 @@ def ask(gateway: ModelGateway, model: str, prompt_identity: str, render: Callabl
         started: float | None = None
         try:
             prompt = render(feedback)
+            config = replace(config, cache_prefix=getattr(prompt, "cache_prefix", None) or None)   # task 7
             started = time.monotonic()   # the call alone, not the rendering
             resp = gateway.invoke(prompt, config)
         except ModelCallError as e:

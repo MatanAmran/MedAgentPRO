@@ -99,6 +99,11 @@ CONSTRAINTS: list[Constraint] = [
                "Haiku 5.5 is priced at USD 0.10 / 0.50 per million tokens only up to 100K input tokens (0.50 / 2.50 "
                "above). A call above the tier is not sent, and the largest demo prompt is far below it.",
                "Anthropic model card, as cached in the claude-api skill 2026-10-06 (chat 19.10)"),
+    Constraint("T20", "technical",
+               "Anthropic caches a prefix of 512 tokens or more on Sonnet 5.5 and Haiku 5.5; a shorter one is "
+               "silently not cached. Each prompt's stable prefix is above it, counted at four characters a "
+               "token (an undercount for English).",
+               "claude-api skill, prompt caching minimums, cached 2026-10-06 (Phase B task 7, chat 19.10)"),
     # --- logical: the design on the demo data ------------------------------------------------------
     Constraint("L01", "logical",
                "Every scripted demo question runs through the real checks to the outcome its script means.",

@@ -81,6 +81,10 @@ class BudgetConfig:
     # The gate alone, where set (chat, 18.10, 13:50): a long answer over two readings makes many claims, and
     # D4 of the held-out set stopped at 2000 (723 of them thinking). The answer's length is not limited
     max_output_tokens_gate: int | None = None
+    # Phase B task 7: the stable prefix of each prompt marked for Anthropic's cache. Off unless
+    # MODEL_PROMPT_CACHE is set: a cache write costs more than a plain input token and lives about five
+    # minutes, so spread-out questions pay more with it (T1); evaluation rounds, asked back to back, less
+    prompt_cache: bool = False
 
     @classmethod
     def from_env(cls, env: Mapping[str, str] | None = None, env_file: Path = ENV_FILE,
@@ -122,7 +126,8 @@ class BudgetConfig:
                    number("MODEL_PRICE_CACHE_WRITE", required=False),
                    str(env.get("ANTHROPIC_API_KEY") or "").strip(), temperature,
                    number("MODEL_MAX_OUTPUT_TOKENS_INTENT", int, required=False),
-                   number("MODEL_MAX_OUTPUT_TOKENS_GATE", int, required=False))
+                   number("MODEL_MAX_OUTPUT_TOKENS_GATE", int, required=False),
+                   _flag(env, "MODEL_PROMPT_CACHE"))
 
     def output_cap(self, prompt_identity: str = "") -> int:
         """The max_tokens a call of this prompt is sent: the intent cap for intent analysis and the gate
@@ -134,10 +139,27 @@ class BudgetConfig:
             return self.max_output_tokens_gate
         return self.max_output_tokens
 
+    def worst_cost(self, input_tokens: int, output_tokens: int) -> float:
+        """What a call may cost at most, before it is sent. With the prompt cache on, any input token may be
+        a cache write, which costs more than a plain one: priced at the higher of the two (task 7)."""
+        price_in = self.price_in
+        if self.prompt_cache:
+            price_in = max(price_in, self.price_cache_write or 2 * self.price_in)
+        return (input_tokens * price_in + output_tokens * self.price_out) / 1_000_000
+
     def cost(self, input_tokens: int, output_tokens: int, cache_read: int = 0, cache_write: int = 0) -> float:
         cached = self.price_cache_write or 2 * self.price_in
         return (input_tokens * self.price_in + output_tokens * self.price_out
                 + (cache_read + cache_write) * cached) / 1_000_000
+
+
+def _flag(env: Mapping[str, str], name: str) -> bool:
+    raw = str(env.get(name) or "").strip().lower()
+    if raw in ("", "0", "false", "no", "off"):
+        return False
+    if raw in ("1", "true", "yes", "on"):
+        return True
+    raise BudgetConfigError(f"{name} in backend/.env is not 1 or 0")
 
 
 def estimate_input_tokens(prompt: str) -> int:
@@ -309,7 +331,7 @@ class BudgetedGateway(ModelGateway):
             self._current.reset(token)
 
     def worst_case(self, input_tokens: int, prompt_identity: str = "") -> float:
-        return self.config.cost(input_tokens, self.config.output_cap(prompt_identity))
+        return self.config.worst_cost(input_tokens, self.config.output_cap(prompt_identity))
 
     def _refuse_if_over(self, amount: float, ex: ExchangeSpend | None):
         """Under the lock. The total cap first: it is the one that ends every exchange."""
@@ -341,7 +363,7 @@ class BudgetedGateway(ModelGateway):
         if tier is not None and estimated > tier:   # chat 19.10: above it the .env price undercounts
             raise BudgetExceeded(f"the prompt may exceed {tier} input tokens, above which {cfg.model_id} costs "
                                  f"more than backend/.env prices it", scope="model")
-        worst = cfg.cost(estimated, max_tokens)
+        worst = cfg.worst_cost(estimated, max_tokens)
         ex = self._current.get()
         with self._lock:
             self._refuse_if_over(worst, ex)
@@ -389,7 +411,8 @@ def real_gateway(env: Mapping[str, str] | None = None, spend_file: Path = SPEND_
     cfg = BudgetConfig.from_env(env)
     check_against_provider_map(cfg)
     inner = LiteLLMGateway(breaker or CircuitBreaker("model_provider", MemoryStore()),
-                           api_key=cfg.api_key, provider="anthropic", temperature=cfg.temperature)
+                           api_key=cfg.api_key, provider="anthropic", temperature=cfg.temperature,
+                           cache_prompts=cfg.prompt_cache)
     ledger = SpendLedger(spend_file)   # refuses a damaged spend file before anything else changes
     register_manual_models()
     return BudgetedGateway(inner, cfg, ledger)
