@@ -22,7 +22,7 @@ import re
 import socket
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
-from typing import Any, Callable
+from typing import Any, Callable, Iterator
 
 from shared.circuit_breaker import CircuitBreaker, log
 
@@ -138,12 +138,13 @@ def is_money_refusal(e: Exception) -> bool:
     return False
 
 
-def _chain(e: BaseException):
-    seen = set()
-    while e is not None and id(e) not in seen:
-        seen.add(id(e))
-        yield e
-        e = e.__cause__ or e.__context__
+def _chain(e: BaseException) -> Iterator[BaseException]:
+    seen: set[int] = set()
+    cur: BaseException | None = e
+    while cur is not None and id(cur) not in seen:
+        seen.add(id(cur))
+        yield cur
+        cur = cur.__cause__ or cur.__context__
 
 
 def _never_connected(e: BaseException) -> bool:

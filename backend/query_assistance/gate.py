@@ -68,7 +68,9 @@ def evaluate(output: dict, sentences: list[tuple[str, str]], aliases: dict[str, 
                               f"sentence(s) {skipped} have no claim. Every sentence makes at least one")
 
     supported = [True] * len(sentences)
-    kept, removed, by_sentence = [], [], {}
+    kept: list[str] = []
+    removed: list[str] = []
+    by_sentence: dict[int, list[str]] = {}
     for c in output["claims"]:
         if c["verdict"] == "supported":
             kept.append(c["text"])

@@ -1,11 +1,12 @@
 """
 MedAgentPro - query assistance pipeline. Prompt rendering.
 
-Three prompts, one file each under templates/, each with a version recorded in
+The prompts, one file each under templates/, each with a version recorded in
 model_identity (NFR 3):
   rewrite.md          question rewriting, runs only where the conversation has earlier exchanges
-  intent_analysis.md  schema 1, the plan the compiler builds the query from
   gate.md             schema 4, a verdict per assertion of the drafted answer
+The intent prompt (schema 1, the plan the compiler builds the query from) goes with the catalog,
+since its examples name the catalog's tables: demo_data/intent_analysis.md (chat 19.10, C).
 
 Also here: the conversation history given to the rewriting call, reduced in layers
 when it outgrows its budget (Table 15, "History carried into rewriting"), and the
@@ -294,7 +295,9 @@ def render_intent(cat: Catalog, role: str, posed: str, rewritten: str | None = N
     """The reference date resolves a month or period given without a year (task 10a, chat 01:15). It is
     the date the catalog's data runs to, never the system clock, so the same question plans the same
     way on any day. A prompt that names it, over a catalog that holds none, fails here."""
-    pr = prompt or load("intent_analysis.md")
+    if prompt is None:   # one intent prompt per catalog, with its examples (chat 19.10, C): no default
+        raise ValueError("render_intent needs the catalog's intent prompt")
+    pr = prompt
     if "{{reference_date}}" in pr.body and not cat.data_as_of:
         raise ValueError(f"{pr.name}: the catalog holds no data_as_of for {{{{reference_date}}}}")
     return fill(pr, schema=render_schema(cat, role), question_block=question_block(posed, rewritten),

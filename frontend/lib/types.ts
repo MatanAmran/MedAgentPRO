@@ -129,6 +129,16 @@ export interface Health {
   authentication: string;
   budget_remaining_usd?: number;
   panel?: boolean; // task 10
+  domain?: Domain; // chat 19.10, C: what the store is about, from the catalog
+  entities?: string[]; // labels of the tables the named demo user may read
+}
+
+// Chat 19.10, C [demo extension]: the screen's domain words, from the catalog's "domain" block
+export interface Domain {
+  name?: string; // the tag in the header
+  description?: string; // the page description
+  placeholder?: string; // the question box's hint
+  can_ask?: string; // on the real model, what may be asked
 }
 
 export type Stage =

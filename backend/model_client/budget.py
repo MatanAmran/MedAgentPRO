@@ -356,8 +356,14 @@ class BudgetedGateway(ModelGateway):
         if config.model != cfg.model_id:
             raise BudgetExceeded(f"model {config.model} is not the one priced in backend/.env", scope="model")
         cap = cfg.output_cap(config.prompt_identity)
-        call = replace(config, max_tokens=min(config.max_tokens or cap, cap))
-        worst = cfg.worst_cost(estimate_input_tokens(prompt), call.max_tokens)
+        max_tokens = min(config.max_tokens or cap, cap)
+        call = replace(config, max_tokens=max_tokens)
+        estimated = estimate_input_tokens(prompt)
+        tier = price_tier(cfg.model_id)
+        if tier is not None and estimated > tier:   # chat 19.10: above it the .env price undercounts
+            raise BudgetExceeded(f"the prompt may exceed {tier} input tokens, above which {cfg.model_id} costs "
+                                 f"more than backend/.env prices it", scope="model")
+        worst = cfg.worst_cost(estimated, max_tokens)
         ex = self._current.get()
         with self._lock:
             self._refuse_if_over(worst, ex)
@@ -400,22 +406,68 @@ def real_gateway(env: Mapping[str, str] | None = None, spend_file: Path = SPEND_
     Refuses under pytest (R8): tests never reach a real model (6.1)."""
     if "pytest" in sys.modules:
         raise BudgetConfigError("the real model is never built under pytest (book 6.1, R8)")
+    if os.environ.get("CI"):   # Phase B (19.10): nor in CI, whatever runs there (GitHub sets CI=true)
+        raise BudgetConfigError("the real model is never built in CI (book 6.1)")
     cfg = BudgetConfig.from_env(env)
     check_against_provider_map(cfg)
     inner = LiteLLMGateway(breaker or CircuitBreaker("model_provider", MemoryStore()),
                            api_key=cfg.api_key, provider="anthropic", temperature=cfg.temperature,
                            cache_prompts=cfg.prompt_cache)
-    return BudgetedGateway(inner, cfg, SpendLedger(spend_file))
+    ledger = SpendLedger(spend_file)   # refuses a damaged spend file before anything else changes
+    register_manual_models()
+    return BudgetedGateway(inner, cfg, ledger)
+
+
+# Models the pinned LiteLLM (1.105) does not hold, entered by hand in its map's own fields (chat 19.10,
+# Phase B task 1: development rounds on Haiku 5.5). From Anthropic's model card as cached in the claude-api
+# skill, 2026-10-06: USD 0.10 / 0.50 per million tokens for a prompt of 100K tokens or fewer (0.50 / 2.50
+# above), 1M context, 128K output, no sampling parameters, structured outputs, caching from 512 tokens.
+# No cache prices: a cached token is then counted at twice the input price, never less (T1). LiteLLM's
+# own entry wins wherever it has one, so an upgrade that adds the model replaces this one.
+MANUAL_MODELS: dict[str, dict] = {
+    "claude-haiku-5-5": {
+        "litellm_provider": "anthropic", "mode": "chat",
+        "input_cost_per_token": 1e-07, "output_cost_per_token": 5e-07,  # nosec B105  prices, not secrets
+        "max_input_tokens": 1_000_000, "max_output_tokens": 128_000, "max_tokens": 128_000,
+        "supports_sampling_params": False, "supports_native_structured_output": True,
+        "supports_response_schema": True, "supports_forced_tool_use": False,
+        "supports_assistant_prefill": False, "supports_prompt_caching": True, "prompt_cache_min_tokens": 512,
+        "supports_reasoning": True, "supports_function_calling": True, "supports_tool_choice": True,
+        "source": "https://platform.claude.com/docs/en/about-claude/pricing (manual entry, chat 19.10)",
+    },
+}
+# Above this many input tokens the model costs more than its listed price (Haiku 5.5: 5 times): a call
+# over it is not sent, so the budget never undercounts (chat 19.10)
+PRICE_TIER_INPUT_TOKENS: dict[str, int] = {"claude-haiku-5-5": 100_000}
+
+
+def price_tier(model_id: str) -> int | None:
+    return PRICE_TIER_INPUT_TOKENS.get(model_id.split("/", 1)[-1])
+
+
+def register_manual_models() -> list[str]:
+    """Adds each manual entry LiteLLM lacks to its map, so its request mapping (structured output, no
+    tools, no sampling parameters: R1, R2) and its cost figures follow the same fields. Only the real
+    gateway calls it, never a test (it changes LiteLLM's process-wide map). Returns the names added."""
+    import litellm
+    added = [n for n in MANUAL_MODELS if n not in litellm.model_cost]
+    if added:
+        litellm.register_model({n: dict(MANUAL_MODELS[n]) for n in added})   # it keys by the bare name
+    return added
 
 
 def map_entry(name: str) -> dict:
-    """The raw entry of LiteLLM's local map (H1). get_model_info is not used: for an Anthropic model the
-    map does not hold it builds an entry priced at zero, and it does not pass supports_sampling_params
-    on (False on the Claude 5 models in the raw entry). Raises KeyError where the map holds none."""
+    """The raw entry of LiteLLM's local map (H1), else the manual entry (chat 19.10). get_model_info is not
+    used: for an Anthropic model the map does not hold it builds an entry priced at zero, and it does not
+    pass supports_sampling_params on (False on the Claude 5 models in the raw entry). Raises KeyError
+    where neither holds one."""
     import litellm
     for key in (name, name.split("/", 1)[-1]):
         if key in litellm.model_cost:
             return dict(litellm.model_cost[key])
+    for key in (name, name.split("/", 1)[-1]):
+        if key in MANUAL_MODELS:
+            return dict(MANUAL_MODELS[key])
     raise KeyError(name)
 
 

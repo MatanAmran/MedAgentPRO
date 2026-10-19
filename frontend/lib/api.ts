@@ -11,6 +11,7 @@ import type {
   ExchangeItem,
   Health,
   Rating,
+  Reading,
   Stage,
 } from "./types";
 
@@ -70,6 +71,10 @@ export const api = {
       method: "POST",
       body: JSON.stringify({ rating }),
     }),
+
+  // Phase B task 5: every record of a cut reading, re-run on the server from the plan it kept; no model
+  records: (user: DemoUserId, exchangeId: string, label: string) =>
+    call<Reading>(user, `/api/exchanges/${exchangeId}/readings/${encodeURIComponent(label)}/records`),
 
   /** One question. Resolves with the result event; rejects on an error event, a refusal, or a stream
    * that ends without a result. Never retried. */

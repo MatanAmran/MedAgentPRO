@@ -162,7 +162,7 @@ def status_of(response: dict) -> str:
         notice = response.get("notice")
         if notice == contract.ACTION_DECLINED:
             return "action_declined"
-        if notice == contract.NEEDS_CLARIFICATION:
+        if contract.is_needs_clarification(notice):
             return "needs_clarification"
     return response["outcome"]
 
@@ -411,7 +411,7 @@ def plan_response(item: dict, intent: dict, earlier: list[prompts.Exchange], cat
     if compiled.disposition == "out_of_scope_action":
         return contract.declined_action()
     if compiled.disposition == "needs_clarification":
-        return contract.needs_clarification()
+        return contract.needs_clarification(catalog=cat)
     plans = {r["label"]: r["plan"] for r in intent["readings"]}
     views = [contract.reading_view(r.label, plans[r.label], execute(r, conn), cat, user["role"])
              for r in compiled.readings]

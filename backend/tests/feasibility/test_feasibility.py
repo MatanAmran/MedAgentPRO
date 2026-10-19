@@ -176,6 +176,25 @@ def test_T05_largest_prompt_fits_the_context_window(db_path):
     assert worst <= window, f"worst prompt ~{worst} tokens > window {window}"
 
 
+def test_T18_a_model_litellm_lacks_is_registered_before_the_first_call():
+    """The mapping itself is checked in a process of its own (tests/engine/test_haiku_price.py): here, that
+    every manual entry carries the fields the mapping reads, and that the real builder registers them."""
+    for name, e in b.MANUAL_MODELS.items():
+        assert e["litellm_provider"] == "anthropic" and e["supports_native_structured_output"] is True, name
+        assert e["input_cost_per_token"] and e["output_cost_per_token"] and e["max_output_tokens"], name
+    assert "register_manual_models()" in inspect.getsource(b.real_gateway)
+
+
+def test_T19_the_largest_prompt_is_below_the_price_tier(db_path):
+    tier = b.price_tier("claude-haiku-5-5")
+    assert tier == 100_000
+    q, mats = worst_materials(db_path)
+    largest = max(pl._path_inputs(q, None, mats))
+    intent = b.estimate_input_tokens(prompts.render_intent(CAT, "APPROVER", q, None,
+                                                           prompts.load(seed.HERE / "intent_analysis.md")))
+    assert max(largest, intent) < tier / 2, (largest, intent)
+
+
 @pytest.mark.parametrize("name", ["intent", "rewrite.md", "synthesis.md", "synthesis_redraft.md", "gate.md"])
 def test_T20_every_stable_prefix_is_long_enough_to_cache(name):
     if name == "intent":

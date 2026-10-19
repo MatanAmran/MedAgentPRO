@@ -18,6 +18,9 @@ ignore = ["B008"]
 files = ["query_assistance", "model_client"]
 python_version = "3.14"
 ignore_missing_imports = true
+# mypy 2.x parses with a compiled extension (ast_serialize) that Application Control blocks on Evyatar's
+# machine; the Python parser checks the same (Phase B, 19.10)
+native_parser = false
 
 [tool.bandit]
 exclude_dirs = ["venv", "tests"]
