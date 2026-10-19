@@ -267,13 +267,17 @@ def router(state: AppState) -> APIRouter:
             raise HTTPException(403, "this exchange belongs to another user") from None
         shown = next((r.get("rows", []) for r in item["response"]["readings"] if r["label"] == label), [])
         try:
-            return pipeline.show_all(label, plan, user, state.deps, shown)
+            return pipeline.show_all(exchange_id, label, plan, user, state.deps, shown)
         except CompileError:
             raise HTTPException(403, "these records are not readable for this user") from None
         except pipeline.SourceUnavailable:
             operational_log.error("show all records: source unreachable: exchange=%s user=%s",
                                   exchange_id, user.get("user_id"))
             raise HTTPException(503, "The company database could not be reached.") from None
+        except pipeline.NotRecorded as e:
+            operational_log.error("show all records: not recorded, not shown: exchange=%s user=%s error=%s",
+                                  exchange_id, user.get("user_id"), e)
+            raise HTTPException(503, "The records could not be shown: viewing them could not be recorded.") from None
 
     @r.post("/exchanges/{exchange_id}/rating")
     def rate(exchange_id: str, body: RatingBody, user: dict = Depends(demo_user)):

@@ -2,7 +2,8 @@
 "Show all records" (Phase B task 5, chat 19.10) [demo extension]: for a reading that was cut, the server
 compiles again the plan it kept when the exchange ran, with the asking user's entitlement and a cap of
 SHOW_ALL_LIMIT, and returns the rows. No model, no client-sent query, nothing into the conversation's
-history (NFR 21). The scripted model throughout.
+history (NFR 21). Each viewing is a records_viewed entry on the exchange's audit chain, with no record
+content (chat 19.10). The scripted model throughout.
 """
 
 import json
@@ -124,3 +125,45 @@ def test_a_reading_shown_whole_returns_the_same_rows(client):
     for shown in res["response"]["readings"]:
         every = records(client, res["exchange_id"], shown["label"], PL).json()
         assert every["rows"] == shown["rows"] and every["total"] == shown["total"]
+
+
+def viewed(state, exchange_id):
+    return [e for e in state.deps.audit.storage.audit_trail(exchange_id) if e["event_type"] == "records_viewed"]
+
+
+def test_each_viewing_is_recorded_on_the_exchange_without_record_content(client, state):
+    """Chat 19.10: exchange id, label, user and row count, in a chained entry of its own; no value of any row."""
+    _, res = ask(client, Q1)
+    shown = res["response"]["readings"][0]
+    every = records(client, res["exchange_id"], shown["label"]).json()
+    records(client, res["exchange_id"], shown["label"])
+    entries = viewed(state, res["exchange_id"])
+    assert len(entries) == 2                          # one per viewing, none overwrites another
+    e = entries[0]
+    assert e["investigation_id"] == res["exchange_id"] and e["actor_id"] == "AP-01" and e["role"] == "APPROVER"
+    assert e["evidence_reviewed"] == [{"label": shown["label"], "row_count": 28}]
+    text = json.dumps(entries)
+    for row in every["rows"]:
+        for value in row.values():
+            if isinstance(value, str) and len(value) > 2:
+                assert value not in text, value
+    state.deps.audit.verify_chain(res["exchange_id"])
+
+
+def test_a_refused_viewing_records_nothing(client, state):
+    _, res = ask(client, Q1)
+    label = res["response"]["readings"][0]["label"]
+    assert records(client, res["exchange_id"], label, PL).status_code == 403
+    assert records(client, res["exchange_id"], "no_such_label").status_code == 404
+    assert viewed(state, res["exchange_id"]) == []
+
+
+def test_records_that_cannot_be_recorded_as_viewed_are_not_shown(client, state, monkeypatch):
+    """As R1: what cannot be recorded is not presented. 503, and no row in the body."""
+    _, res = ask(client, Q1)
+
+    def down(*args, **kwargs):
+        raise RuntimeError("audit store down")
+    monkeypatch.setattr(state.deps.audit, "write_event", down)
+    r = records(client, res["exchange_id"], res["response"]["readings"][0]["label"])
+    assert r.status_code == 503 and "rows" not in r.json()

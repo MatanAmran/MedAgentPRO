@@ -1,10 +1,10 @@
 # MedAgentPro — מפת המסלולים וההיתכנות
 
-**נוצר אוטומטית** ב-`python -m tools.path_map` (מתוך `backend\`), 19.10.2026 13:17. **לא לערוך ידנית** — המקור הוא `backend\tests\paths\registry.py` ו-`backend\tests\feasibility\constraints.py`.
+**נוצר אוטומטית** ב-`python -m tools.path_map` (מתוך `backend\`), 19.10.2026 16:12. **לא לערוך ידנית** — המקור הוא `backend\tests\paths\registry.py` ו-`backend\tests\feasibility\constraints.py`.
 
 **איך זה גדל:** `tests\paths\branches.py` קורא מהקוד ומהסכמות כל הסתעפות (מצב סיום, שלב, סוג כשל, `except`, הודעה, נקודת קצה, קוד HTTP, סוג פער, תפקיד). **הסתעפות בלי מסלול מפילה את `pytest`.** מגבלה שמתגלה (כמו הטמפרטורה) נכנסת כשורה ב-`constraints.py`, ושורה בלי בדיקה מפילה את `pytest`.
 
-**תוצאות:** 79 עוברים · 0 נכשלים · 0 פער ידוע · 0 דולגו
+**תוצאות:** 80 עוברים · 0 נכשלים · 0 פער ידוע · 0 דולגו
 
 ## מסלולים
 
@@ -87,7 +87,8 @@
 | ✅ | `server_archived_listing` | `endpoint:GET /api/conversations` | S3 · long list L5 | [demo extension] ?archived=true lists the asker's archived conversations only; another user never sees them; unarchive through PATCH |
 | ✅ | `server_listing_and_health` | `endpoint:GET /api/conversations`, `endpoint:GET /api/health` | S3 |  |
 | ✅ | `server_examples` | `endpoint:GET /api/examples` | task 8 A4 | the scripted questions for the empty screen; none on the real model |
-| ✅ | `server_show_all_records` | `endpoint:GET /api/exchanges/{exchange_id}/readings/{label}/records` | Phase B task 5 · NFR 17 · NFR 21 | [demo extension] the plan the server kept, compiled again for the asker, up to 1000 rows; no model |
+| ✅ | `server_show_all_records` | `endpoint:GET /api/exchanges/{exchange_id}/readings/{label}/records`, `stage:show_all_records` | Phase B task 5 · NFR 17 · NFR 21 | [demo extension] the plan the server kept, compiled again for the asker, up to 1000 rows; no model; each viewing a records_viewed entry (label, user, row count, no record content) |
+| ✅ | `server_show_all_not_recorded` | `http:503` | Phase B task 5 · R1 | the viewing could not be recorded: 503, nothing shown |
 | ✅ | `server_show_all_unreachable` | `http:503` | Phase B task 5 · FR 15 | the source could not be reached: 503, nothing recorded |
 
 ## הסתעפויות בקוד, ומי מכסה כל אחת
@@ -100,7 +101,7 @@
 
 **gap** — `cross_record_condition` (every_gap_kind) · `no_such_column` (every_gap_kind) · `no_such_table` (every_gap_kind) · `source_outside_system` (every_gap_kind) · `unspecified` (every_gap_kind) · `value_not_present` (every_gap_kind)
 
-**stage** — `compilation` (answered_all_supported) · `intent_analysis` (answered_all_supported) · `output_contract` (answered_all_supported) · `question_rewriting` (follow_up_rewritten) · `rating` (server_rating) · `regeneration` (redraft_from_kept) · `retrieval` (answered_all_supported) · `support_gate` (answered_all_supported) · `synthesis` (answered_all_supported)
+**stage** — `compilation` (answered_all_supported) · `intent_analysis` (answered_all_supported) · `output_contract` (answered_all_supported) · `question_rewriting` (follow_up_rewritten) · `rating` (server_rating) · `regeneration` (redraft_from_kept) · `retrieval` (answered_all_supported) · `show_all_records` (server_show_all_records) · `support_gate` (answered_all_supported) · `synthesis` (answered_all_supported)
 
 **handler** — `finish.Exception` (record_not_written) · `run.BudgetExceeded` (budget_used_up) · `run.Exception` (raw_exception) · `run.ExchangeCancelled` (cancelled_before_synthesis) · `run.RateLimited` (rate_limit) · `run._Rejected` (intent_rejected_twice) · `run._SystemFault` (retrieval_system_fault) · `run._Unreachable` (source_missing)
 
@@ -112,7 +113,7 @@
 
 **endpoint** — `GET /api/conversations` (server_archived_listing, server_listing_and_health) · `GET /api/conversations/{conversation_id}` (server_each_ending_then_goes_on) · `GET /api/examples` (server_examples) · `GET /api/exchanges/{exchange_id}/readings/{label}/records` (server_show_all_records) · `GET /api/health` (server_listing_and_health) · `PATCH /api/conversations/{conversation_id}` (server_conversation_update) · `POST /api/conversations` (server_each_ending_then_goes_on) · `POST /api/conversations/{conversation_id}/exchanges` (server_each_ending_then_goes_on) · `POST /api/exchanges/{exchange_id}/rating` (server_rating)
 
-**http** — `200` (server_each_ending_then_goes_on) · `201` (server_each_ending_then_goes_on) · `401` (server_refusals) · `403` (server_refusals) · `404` (server_refusals) · `409` (server_refusals) · `422` (server_refusals) · `503` (server_show_all_unreachable)
+**http** — `200` (server_each_ending_then_goes_on) · `201` (server_each_ending_then_goes_on) · `401` (server_refusals) · `403` (server_refusals) · `404` (server_refusals) · `409` (server_refusals) · `422` (server_refusals) · `503` (server_show_all_not_recorded, server_show_all_unreachable)
 
 **role** — `APPROVER` (answered_all_supported) · `PLANNER` (planner_reads_every_row)
 

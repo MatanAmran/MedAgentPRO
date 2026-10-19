@@ -838,6 +838,20 @@ def test_server_show_all_records(db_path):
     assert every["row_count"] == every["total"] == reading["total"] and every["rows"][:10] == reading["rows"]
     assert s.client.get(url, headers=PL).status_code == 403
     assert s.client.get(f"/api/exchanges/{eid}/readings/nope/records", headers=AP).status_code == 404
+    seen = [e for e in s.storage.audit_trail(eid) if e["event_type"] == "records_viewed"]
+    assert [(e["agent"], e["actor_id"], e["evidence_reviewed"]) for e in seen] == [
+        ("show_all_records", "AP-01", [{"label": reading["label"], "row_count": reading["total"]}])]
+
+
+def test_server_show_all_not_recorded(db_path, monkeypatch):
+    """Records whose viewing cannot be recorded are not shown (as R1): 503."""
+    s, eid, reading = _show_all_server(db_path)
+
+    def down(*args, **kwargs):
+        raise RuntimeError("audit store down")
+    monkeypatch.setattr(s.state.deps.audit, "write_event", down)
+    r = s.client.get(f"/api/exchanges/{eid}/readings/{reading['label']}/records", headers=AP)
+    assert r.status_code == 503 and "rows" not in r.json()
 
 
 def test_server_show_all_unreachable(db_path, monkeypatch):
