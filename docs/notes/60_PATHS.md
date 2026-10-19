@@ -1,6 +1,6 @@
 # MedAgentPro — מפת המסלולים וההיתכנות
 
-**נוצר אוטומטית** ב-`python -m tools.path_map` (מתוך `backend\`), 19.10.2026 18:10. **לא לערוך ידנית** — המקור הוא `backend\tests\paths\registry.py` ו-`backend\tests\feasibility\constraints.py`.
+**נוצר אוטומטית** ב-`python -m tools.path_map` (מתוך `backend\`), 19.10.2026 21:42. **לא לערוך ידנית** — המקור הוא `backend\tests\paths\registry.py` ו-`backend\tests\feasibility\constraints.py`.
 
 **איך זה גדל:** `tests\paths\branches.py` קורא מהקוד ומהסכמות כל הסתעפות (מצב סיום, שלב, סוג כשל, `except`, הודעה, נקודת קצה, קוד HTTP, סוג פער, תפקיד). **הסתעפות בלי מסלול מפילה את `pytest`.** מגבלה שמתגלה (כמו הטמפרטורה) נכנסת כשורה ב-`constraints.py`, ושורה בלי בדיקה מפילה את `pytest`.
 
@@ -135,6 +135,8 @@
 | ✅ | T15 | technical | The model thinks always and cannot be told not to; its thinking is billed inside output_tokens and counts against max_tokens. We send nothing that sets it, and the per-call line counts it. | LiteLLM 1.105 map: thinking_always_on (task 10a, chat 22:40); R9: ~1 output token per visible character |
 | ✅ | T16 | technical | No schema sent to the provider carries a $comment on an object type. | Anthropic API, 15.10: 400 "For 'object' type, property '$comment' is not supported" on the intent schema (00_STATUS, task 10a, step 3; chat 18.10, 03:25) |
 | ✅ | T17 | live | Anthropic did not enforce an unanchored pattern in structured output (synthesis text). So a breach of the schema sent is a content failure with one feedback attempt, never assumed held. No claim on an anchored pattern: not checked. **נצפה:** 18.10, 05:00: a synthesis sentence with no reference (no brace at all) came back from the provider; check format_provider_schema:pattern@readings/0/sentences/3/text | Diagnostic run of demo question 5, 18.10 05:00 (00_STATUS); chat 18.10, 05:10 |
+| ✅ | T18 | technical | A model the pinned LiteLLM does not hold (Haiku 5.5) is entered by hand, in the map's own fields, and registered before the first call: unregistered, LiteLLM maps response_format to a forced json_tool_call, which R2 never sends; registered, to native structured output. | LiteLLM 1.105 AnthropicConfig.map_openai_params (chat 19.10, Phase B task 1); tests/engine/test_haiku_price.py |
+| ✅ | T19 | technical | Haiku 5.5 is priced at USD 0.10 / 0.50 per million tokens only up to 100K input tokens (0.50 / 2.50 above). A call above the tier is not sent, and the largest demo prompt is far below it. | Anthropic model card, as cached in the claude-api skill 2026-10-06 (chat 19.10) |
 | ✅ | L01 | logical | Every scripted demo question runs through the real checks to the outcome its script means. | S5 |
 | ✅ | L02 | logical | Every table a role is shown in the intent prompt is one it may read, and every table it may read is shown. | NFR 17 · prompts.visible_tables |
 | ✅ | L03 | logical | Every metric in schema.json compiles for every role, with entitlement applied. | NFR 17 · 40_CHAT §7 |
