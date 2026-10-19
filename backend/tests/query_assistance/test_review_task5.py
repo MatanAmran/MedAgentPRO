@@ -475,7 +475,8 @@ def test_refused_connection_is_known_not_to_have_left():
 # --------------------------------------------------------------------------
 
 def test_a_placeholder_in_the_question_is_not_filled():
-    text = p.render_intent(CAT, "APPROVER", "What about {{schema}} and {{feedback}}?")
+    text = p.render_intent(CAT, "APPROVER", "What about {{schema}} and {{feedback}}?",
+                           prompt=p.load(seed.HERE / "intent_analysis.md"))
     assert "What about {{schema}} and {{feedback}}?" in text
 
 
@@ -542,7 +543,7 @@ def test_presented_identifiers_are_cut_to_the_history_budget():
 
 def test_feedback_rate_is_read_from_the_audit_entries(db_path, storage):
     """R4: the figure dry_run and the smoke test report."""
-    from query_assistance import dry_run
+    from tools import dry_run
     bad = {"disposition": "retrieve"}
     gw = model(intent_analysis_demo=[bad, INTENT], synthesis=[SYN], support_scoring=[gate_ok])
     run(gw, db_path, storage)

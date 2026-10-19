@@ -213,7 +213,7 @@ The remote is `MedAgentPRO` (`github.com/MatanAmran/MedAgentPRO`, Matan's reposi
 ## Layout
 
 - **`backend/`** — run everything from here (`pytest.ini` puts it on `pythonpath`).
-  - `query_assistance/` — `compiler.py`, `prompts.py` + `templates/`, `gate.py`, `synthesis.py`, `contract.py`, `pipeline.py` (one exchange end to end: `run`, `rate`). `schema.json`/`relations.json` are the compiler tests' placeholder and stay unchanged. `medagentpro_schemas.json` holds every JSON Schema.
+  - `query_assistance/` — `compiler.py`, `prompts.py` + `templates/`, `gate.py`, `synthesis.py`, `contract.py`, `pipeline.py` (one exchange end to end: `run`, `rate`). The compiler tests' placeholder catalog is `tests/fixtures/placeholder_schema.json` + `placeholder_relations.json` (moved there 19.10); `Catalog.load()` takes explicit paths and `pipeline.run` an explicit intent prompt (the catalog's own, `demo_data/intent_analysis.md`). `medagentpro_schemas.json` holds every JSON Schema.
   - `demo_data/` — the demo store: `schema.json`, `relations.json`, `seed.py` (deterministic), `intent_analysis.md` (the demo intent prompt). `demo.db` is generated, not committed.
   - `model_client/client.py` — `ModelGateway`, `ScriptedModelGateway`, `LiteLLMGateway`. `model_client/budget.py` — `BudgetedGateway`, `SpendLedger`, `real_gateway()` (task 5).
   - `shared/circuit_breaker.py`, `persistence/audit_repository.py` — engine pieces from Phase A design.
@@ -235,8 +235,8 @@ python -m pip install -r requirements.txt
 python -m demo_data.seed          # builds demo_data\demo.db
 python -m pytest -q               # the default run; 1068 after the scripted demo (19.10)
 python -m tools.path_map          # runs tests/paths and tests/feasibility, writes docs/notes/60_PATHS.md
-python -m query_assistance.dry_run   # prices two scripted exchanges at the .env prices, no model call, no key
-python -m query_assistance.dry_run --model claude-sonnet-5-5   # the same, prices from LiteLLM's local map, no .env
+python -m tools.dry_run             # prices two scripted exchanges at the .env prices, no model call, no key
+python -m tools.dry_run --model claude-sonnet-5-5   # the same, prices from LiteLLM's local map, no .env
 python -m main                    # the chat server on the scripted model, http://127.0.0.1:8000/api/health
 python -m main --panel            # the same, with "How this was answered" under each answer (task 10); with --real too, never with --reload
 python -m tools.preflight         # before a demo: database, server, screen, examples, one scripted question; --real adds .env, the map, the budget; never a model call

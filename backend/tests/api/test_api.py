@@ -65,7 +65,33 @@ def result(r) -> dict:
 
 def test_health_says_scripted_and_no_authentication(client):
     h = client.get("/api/health").json()
-    assert h == {"mode": "scripted", "model": "scripted-demo", "authentication": "none (demo)", "panel": False}
+    assert {k: h[k] for k in ("mode", "model", "authentication", "panel")} == {
+        "mode": "scripted", "model": "scripted-demo", "authentication": "none (demo)", "panel": False}
+
+
+def test_health_says_what_the_store_is_about_from_the_catalog(client):
+    """Chat 19.10, C: the screen's domain words come from the catalog, exactly as the demo showed them."""
+    h = client.get("/api/health").json()
+    assert h["domain"] == {
+        "name": "Supply chain",
+        "description": "Query assistance over supply-chain records (demo)",
+        "placeholder": "Ask about suppliers, orders, parts or deliveries",
+        "can_ask": "Ask about suppliers, purchase orders and their lines, goods receipts, parts and their stock "
+                   "on hand, and the forecast."}
+    assert h["entities"] == []   # no user named: no tables listed
+    named = client.get("/api/health", headers={"X-Demo-User": "PL-02"}).json()["entities"]
+    assert named == ["suppliers", "parts", "purchase orders", "purchase order lines", "goods receipts",
+                     "demand forecast"]
+
+
+def test_the_clarification_notice_reads_as_before_on_the_demo_catalog():
+    """Chat 19.10, C: built from the catalog's identifier labels, the same words as the fixed text was."""
+    from query_assistance import contract
+    cat = Catalog.load(seed.HERE / "schema.json", seed.HERE / "relations.json")
+    assert contract.needs_clarification(catalog=cat)["notice"] == (
+        "The question could not be interpreted on its own. Ask it in full, naming what it concerns, "
+        "such as the period, supplier or part.")
+    assert contract.needs_clarification()["notice"].endswith("such as the period.")
 
 
 @pytest.mark.parametrize("headers", [{}, {"X-Demo-User": "XX-99"}])
