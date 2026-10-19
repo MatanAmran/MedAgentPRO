@@ -562,7 +562,26 @@
   },
   "/api/health": {
    "get": {
+    "description": "domain: what the screen says the store is about, from the catalog (chat 19.10, C). entities:\nthe labels of the tables the demo user named in X-Demo-User may read; none without a user.",
     "operationId": "health_api_health_get",
+    "parameters": [
+     {
+      "in": "header",
+      "name": "x-demo-user",
+      "required": false,
+      "schema": {
+       "anyOf": [
+        {
+         "type": "string"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "title": "X-Demo-User"
+      }
+     }
+    ],
     "responses": {
      "200": {
       "content": {
@@ -571,6 +590,16 @@
        }
       },
       "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
      }
     },
     "summary": "Health"

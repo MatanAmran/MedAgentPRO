@@ -14,6 +14,11 @@ What it does, in order:
   6. Builds, per reading, the main query, a count query that tells whether the
      result was cut by LIMIT, and existence probes for the identifiers the plan
      names (Test 35), checked where each identifier is held (its declared references).
+  7. Normalises a value compared with a column that declares its values to the declared
+     form ('Open' -> 'open'), and rejects any other value (NFR 6, chat 19.10, A2).
+
+Before retrieval the caller may resolve an identifier written in another case to the one
+form the store holds (resolve_identifiers, chat 19.10, A1), and compile again.
 
 Every rejection raises CompileError with a code and a reason. The caller records
 it and tells the user the request could not be completed (Test 13).
@@ -75,6 +80,8 @@ class Probe:
     sql: str
     params: list
     checked_in: str = ""
+    resolve_sql: str = ""     # the stored forms equal to value ignoring case, at most two (A1)
+    resolve_params: list = field(default_factory=list)
 
 
 @dataclass
@@ -111,6 +118,7 @@ class CompiledIntent:
     disposition: str
     readings: list[CompiledReading] = field(default_factory=list)
     unresolved: list = field(default_factory=list)
+    intent: dict = field(default_factory=dict)   # the intent compiled, values normalised (A2)
 
 
 @dataclass
@@ -133,6 +141,9 @@ class Catalog:
         self.metrics = schema.get("metrics", {})
         # The date the data runs to (YYYY-MM-DD), where the store declares one: the demo's reference date
         self.data_as_of: str | None = schema.get("data_as_of")
+        # What the screen says the store is about (chat 19.10, C) [demo extension]: name, description,
+        # placeholder, can_ask. Text for the interface only; no stage reads it
+        self.domain: dict = {k: v for k, v in schema.get("domain", {}).items() if not k.startswith("$")}
         self.relations = relations["relations"]
         for table, ent in self.entities.items():
             for col, spec in ent["columns"].items():
@@ -145,7 +156,8 @@ class Catalog:
                                      f"an identifier column, and so must {table}.{col}")
 
     @classmethod
-    def load(cls, schema_path=HERE / "schema.json", relations_path=HERE / "relations.json"):
+    def load(cls, schema_path: str | Path, relations_path: str | Path) -> Catalog:
+        """The catalog of one store. No default: a catalog is the store's, never the code's (chat 19.10, C)."""
         return cls(json.loads(Path(schema_path).read_text(encoding="utf-8")),
                    json.loads(Path(relations_path).read_text(encoding="utf-8")))
 
@@ -562,7 +574,12 @@ class _ReadingCompiler:
             # bandit B608: identifiers from the catalog, quoted; every value is a bound parameter
             # (tests/security, tests/property)
             sql = f"SELECT 1 FROM {_q(table)} WHERE {' AND '.join(where)} LIMIT 1"  # nosec B608
-            out.append(Probe(column, value, sql, params, target))
+            # A1 (chat 19.10): the same lookup ignoring case, for the stored forms (ASCII folding,
+            # SQLite's NOCASE); the entitlement condition applies as in the probe
+            loose = [f"{_q(table)}.{_q(col)} = ? COLLATE NOCASE"] + where[1:]
+            resolve_sql = (f"SELECT DISTINCT {_q(table)}.{_q(col)} FROM {_q(table)} "  # nosec B608
+                           f"WHERE {' AND '.join(loose)} LIMIT 2")
+            out.append(Probe(column, value, sql, params, target, resolve_sql, params))
         return out
 
 
@@ -626,7 +643,8 @@ def compile_intent(intent: dict, question: "str | Conversation", user: dict, cat
         raise CompileError("schema_violation", e.message, path="/".join(map(str, e.path)))
 
     if intent["disposition"] in ("refer_to_investigation", "out_of_scope_action", "needs_clarification"):
-        return CompiledIntent(intent["disposition"])
+        return CompiledIntent(intent["disposition"], intent=intent)
+    intent = normalise_values(intent, cat)
 
     for u in intent.get("unresolved", []):
         _check_span(u["asked"], conv, "unresolved.asked")
@@ -654,7 +672,84 @@ def compile_intent(intent: dict, question: "str | Conversation", user: dict, cat
         rc = _ReadingCompiler(cat, user, r, row_limit)
         compiled.append(rc.compile())
         _check_provenance(rc.named_ids, conv, r["label"])
-    return CompiledIntent("retrieve", compiled, intent.get("unresolved", []))
+    return CompiledIntent("retrieve", compiled, intent.get("unresolved", []), intent)
+
+
+# --------------------------------------------------------------------------
+# values as the store holds them (chat 19.10, A1 and A2)
+# --------------------------------------------------------------------------
+
+def _comparisons(node: dict, path: str):
+    """Each literal compared with a column in a WHERE tree: (column, the node holding "value", path)."""
+    (op, arg), = node.items()
+    if op in ("AND", "OR"):
+        for i, p in enumerate(arg):
+            yield from _comparisons(p, f"{path}/{op}/{i}")
+    elif op in CMP_SQL:
+        for i, j in ((0, 1), (1, 0)):
+            if "col" in arg[i] and "value" in arg[j]:
+                yield arg[i]["col"], arg[j], f"{path}/{op}/{j}/value"
+    elif op == "IN":
+        for i, v in enumerate(arg["values"]):
+            yield arg["col"], v, f"{path}/IN/values/{i}/value"
+    elif op == "BETWEEN":
+        for end in ("from", "to"):
+            yield arg["col"], arg[end], f"{path}/BETWEEN/{end}/value"
+
+
+def _where_comparisons(intent: dict):
+    for i, r in enumerate(intent.get("readings", [])):
+        where = r["plan"].get("WHERE")
+        if where:
+            for column, holder, path in _comparisons(where, f"readings/{i}/plan/WHERE"):
+                yield r["label"], column, holder, path
+
+
+def normalise_values(intent: dict, cat: Catalog) -> dict:
+    """A2: a value compared with a column that declares its values is one of them. Equal to exactly
+    one ignoring case, it is written in the declared form; otherwise the plan is rejected, naming
+    the path, so the feedback attempt can correct it. Returns a copy; the model's output is kept."""
+    out = copy.deepcopy(intent)
+    for label, column, holder, path in _where_comparisons(out):
+        spec = cat.column(column) or {}
+        declared, value = spec.get("values"), holder["value"]
+        if not declared or value in declared:
+            continue
+        same = [d for d in declared if isinstance(value, str) and d.casefold() == value.casefold()]
+        if len(same) == 1:
+            holder["value"] = same[0]
+            continue
+        raise CompileError("value_not_declared",
+                           f"{value!r} at {path} is not a value {column} takes. It takes one of: "
+                           f"{', '.join(declared)}.", label=label, path=path, column=column)
+    return out
+
+
+def resolve_identifiers(compiled: CompiledIntent, conn: sqlite3.Connection) -> dict[tuple[str, Any], Any]:
+    """A1: an identifier the store does not hold as written, but holds in exactly one form ignoring
+    case, maps to that form. Several forms keep the exact match; none keeps the value, so the
+    reading reports it absent (Test 35)."""
+    found: dict[tuple[str, Any], Any] = {}
+    for r in compiled.readings:
+        for p in r.probes:
+            if not p.resolve_sql or not isinstance(p.value, str) or (p.column, p.value) in found:
+                continue
+            if conn.execute(p.sql, p.params).fetchone() is not None:
+                continue
+            forms = [row[0] for row in conn.execute(p.resolve_sql, p.resolve_params)]
+            if len(forms) == 1 and forms[0] != p.value:
+                found[(p.column, p.value)] = forms[0]
+    return found
+
+
+def with_identifiers(intent: dict, found: dict[tuple[str, Any], Any]) -> dict:
+    """The intent with each resolved identifier written as the store holds it, where it is compared
+    with the column it was probed on. Returns a copy."""
+    out = copy.deepcopy(intent)
+    for _, column, holder, _ in _where_comparisons(out):
+        if (column, holder["value"]) in found:
+            holder["value"] = found[(column, holder["value"])]
+    return out
 
 
 # Phase B task 5 ("Show all records", chat 19.10): the most rows a reading shows when asked for all of them

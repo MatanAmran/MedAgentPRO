@@ -132,7 +132,7 @@ Evyatar pays for the model himself, with a total budget of **USD 10**. The code 
 
 **Principle: no retry without a change in input.** A call repeated with the same prompt is a paid bet: a model does not improve on a bare "try again" (Huang et al., ICLR 2024), it improves on specific external feedback. Today `pipeline._ask` (rewriting, intent, gate) and `synthesis._call` (synthesis, redraft) resend the identical prompt: up to 12 calls per exchange, 6 of them identical repeats. The NFR 19 redraft is fine (its input changes).
 
-- **R1 Temperature (was T4).** Send `temperature` only if `MODEL_TEMPERATURE` is set in `.env`; unset, the audit records "provider default". Never `drop_params`. The audit records what was sent, not what was configured. Verified in LiteLLM 1.105's model map: `claude-sonnet-5-5` and `claude-opus-5-5` have `supports_sampling_params: false`; LiteLLM raises `UnsupportedParamsError` client side, before sending (no charge). `claude-haiku-5-5` is **not in** LiteLLM 1.105's map: do not use it.
+- **R1 Temperature (was T4).** Send `temperature` only if `MODEL_TEMPERATURE` is set in `.env`; unset, the audit records "provider default". Never `drop_params`. The audit records what was sent, not what was configured. Verified in LiteLLM 1.105's model map: `claude-sonnet-5-5` and `claude-opus-5-5` have `supports_sampling_params: false`; LiteLLM raises `UnsupportedParamsError` client side, before sending (no charge). `claude-haiku-5-5` is **not in** LiteLLM 1.105's map; since 19.10 it has a manual entry (`model_client/budget.py`, `MANUAL_MODELS`: USD 0.10 / 0.50, 128K output, no sampling parameters, native structured output), registered with LiteLLM by `real_gateway()` before the first call (unregistered, LiteLLM would send a forced tool call), and a call above its 100K-token price tier is not sent (T18, T19). **Development rounds run on Haiku 5.5, the last round before a merge on Sonnet 5.5** (chat 19.10), each only with Evyatar's approval in that session.
 - **R2 Structured outputs ON (reverses T6).** LiteLLM 1.105 maps `response_format` to Anthropic's native structured output for models with `supports_native_structured_output` (Sonnet 5.5: true), not to forced tool use (Sonnet 5.5: `supports_forced_tool_use: false`; never send tools). Each stage sends its schema reduced to the subset Anthropic accepts; the full schema is still validated in code (rule 3). If the provider rejects a schema, the stage fails without retry and says so. Checked in the smoke test.
 - **R3 Fence strip (was T5)** stays as a fallback: one fence enclosing the whole text, nothing else.
 - **R4 Classify every failure, then act:**
@@ -213,7 +213,7 @@ The remote is `MedAgentPRO` (`github.com/MatanAmran/MedAgentPRO`, Matan's reposi
 ## Layout
 
 - **`backend/`** — run everything from here (`pytest.ini` puts it on `pythonpath`).
-  - `query_assistance/` — `compiler.py`, `prompts.py` + `templates/`, `gate.py`, `synthesis.py`, `contract.py`, `pipeline.py` (one exchange end to end: `run`, `rate`). `schema.json`/`relations.json` are the compiler tests' placeholder and stay unchanged. `medagentpro_schemas.json` holds every JSON Schema.
+  - `query_assistance/` — `compiler.py`, `prompts.py` + `templates/`, `gate.py`, `synthesis.py`, `contract.py`, `pipeline.py` (one exchange end to end: `run`, `rate`). The compiler tests' placeholder catalog is `tests/fixtures/placeholder_schema.json` + `placeholder_relations.json` (moved there 19.10); `Catalog.load()` takes explicit paths and `pipeline.run` an explicit intent prompt (the catalog's own, `demo_data/intent_analysis.md`). `medagentpro_schemas.json` holds every JSON Schema.
   - `demo_data/` — the demo store: `schema.json`, `relations.json`, `seed.py` (deterministic), `intent_analysis.md` (the demo intent prompt). `demo.db` is generated, not committed.
   - `model_client/client.py` — `ModelGateway`, `ScriptedModelGateway`, `LiteLLMGateway`. `model_client/budget.py` — `BudgetedGateway`, `SpendLedger`, `real_gateway()` (task 5).
   - `shared/circuit_breaker.py`, `persistence/audit_repository.py` — engine pieces from Phase A design.
@@ -235,8 +235,8 @@ python -m pip install -r requirements.txt
 python -m demo_data.seed          # builds demo_data\demo.db
 python -m pytest -q               # the default run; 1068 after the scripted demo (19.10)
 python -m tools.path_map          # runs tests/paths and tests/feasibility, writes docs/notes/60_PATHS.md
-python -m query_assistance.dry_run   # prices two scripted exchanges at the .env prices, no model call, no key
-python -m query_assistance.dry_run --model claude-sonnet-5-5   # the same, prices from LiteLLM's local map, no .env
+python -m tools.dry_run             # prices two scripted exchanges at the .env prices, no model call, no key
+python -m tools.dry_run --model claude-sonnet-5-5   # the same, prices from LiteLLM's local map, no .env
 python -m main                    # the chat server on the scripted model, http://127.0.0.1:8000/api/health
 python -m main --panel            # the same, with "How this was answered" under each answer (task 10); with --real too, never with --reload
 python -m tools.preflight         # before a demo: database, server, screen, examples, one scripted question; --real adds .env, the map, the budget; never a model call

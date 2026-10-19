@@ -243,7 +243,7 @@ A_PATHS = [
      lambda r: r["readings"] == [] and r["gaps"] == [] and r["notice"] == contract.ACTION_DECLINED),
     ("needs_clarification", Q_FOLLOW_UP, APPROVER, False,
      dict(intent_analysis_demo=[CLARIFY]), "answered", True, 1,
-     lambda r: r["readings"] == [] and r["gaps"] == [] and r["notice"] == contract.NEEDS_CLARIFICATION),
+     lambda r: r["readings"] == [] and r["gaps"] == [] and contract.is_needs_clarification(r["notice"])),
     ("planner_reads_every_row", Q, PLANNER, False,
      dict(intent_analysis_demo=[INTENT], synthesis=[SYN], support_scoring=[gate_says("supported")]),
      "answered", True, 3, lambda r: "limited to the records you hold" not in r["readings"][0]["checked"]),

@@ -89,6 +89,16 @@ CONSTRAINTS: list[Constraint] = [
                "Diagnostic run of demo question 5, 18.10 05:00 (00_STATUS); chat 18.10, 05:10", result="confirmed",
                observed="18.10, 05:00: a synthesis sentence with no reference (no brace at all) came back from the "
                         "provider; check format_provider_schema:pattern@readings/0/sentences/3/text"),
+    Constraint("T18", "technical",
+               "A model the pinned LiteLLM does not hold (Haiku 5.5) is entered by hand, in the map's own fields, "
+               "and registered before the first call: unregistered, LiteLLM maps response_format to a forced "
+               "json_tool_call, which R2 never sends; registered, to native structured output.",
+               "LiteLLM 1.105 AnthropicConfig.map_openai_params (chat 19.10, Phase B task 1); "
+               "tests/engine/test_haiku_price.py"),
+    Constraint("T19", "technical",
+               "Haiku 5.5 is priced at USD 0.10 / 0.50 per million tokens only up to 100K input tokens (0.50 / 2.50 "
+               "above). A call above the tier is not sent, and the largest demo prompt is far below it.",
+               "Anthropic model card, as cached in the claude-api skill 2026-10-06 (chat 19.10)"),
     # --- logical: the design on the demo data ------------------------------------------------------
     Constraint("L01", "logical",
                "Every scripted demo question runs through the real checks to the outcome its script means.",

@@ -49,14 +49,18 @@ from .calls import MODEL_CALL_ATTEMPTS, Call, StageFailed, StageRejected
 from .compiler import (
     HERE,
     Catalog,
+    CompiledIntent,
     CompiledReading,
     CompileError,
+    Conversation,
     RetrievalResult,
     _norm,
     compile_all,
     compile_intent,
     execute,
     intent_validator,
+    resolve_identifiers,
+    with_identifiers,
 )
 from .synthesis import Draft
 
@@ -92,7 +96,7 @@ class Deps:
     catalog: Catalog
     connect: Callable[[], sqlite3.Connection]   # a new connection per call, one per retrieval thread
     audit: AuditRepository
-    intent_prompt: prompts.Prompt | None = None   # defaults to templates/intent_analysis.md
+    intent_prompt: prompts.Prompt | None = None   # the catalog's intent prompt; run() refuses none (chat 19.10, C)
     source_breaker: CircuitBreaker = field(default_factory=lambda: CircuitBreaker("company_store", MemoryStore()))
     attempts: int = MODEL_CALL_ATTEMPTS
     source: str = "The company database"
@@ -320,6 +324,40 @@ def _retrieve(readings: list[CompiledReading], connect: Callable[[], sqlite3.Con
     return out
 
 
+def _resolve(compiled: CompiledIntent, conv: Conversation, user: dict, cat: Catalog, validator,
+             connect: Callable[[], sqlite3.Connection], breaker: CircuitBreaker) -> tuple[CompiledIntent, list]:
+    """A1 (chat 19.10): an identifier written in another case than the store holds it, held in one
+    form only, is compiled again in the stored form, so the query and Examined use it. No model.
+    Reaching the source is as for retrieval: an unreachable source ends the exchange (FR 15)."""
+    if not any(r.probes for r in compiled.readings):
+        return compiled, []
+
+    def op():
+        try:
+            conn = connect()
+        except Exception as e:
+            raise _Unreachable(repr(e)) from e
+        try:
+            return resolve_identifiers(compiled, conn)
+        except sqlite3.Error as e:
+            if _cannot_reach(e):
+                raise _Unreachable(repr(e)) from e
+            return _SystemFault(repr(e))
+        finally:
+            conn.close()
+
+    try:
+        found = breaker.call(op)
+    except CircuitOpen as e:
+        raise _Unreachable(f"circuit open for {e}") from e
+    if isinstance(found, _SystemFault):
+        raise found
+    if not found:
+        return compiled, []
+    again = compile_intent(with_identifiers(compiled.intent, found), conv, user, cat, validator)
+    return again, [{"column": c, "as_written": v, "as_held": h} for (c, v), h in found.items()]
+
+
 class SourceUnavailable(Exception):
     """Show all records (task 5): the source could not be reached, or the query failed there."""
 
@@ -398,6 +436,8 @@ def run(question: str, history: list[prompts.Exchange], user: dict, deps: Deps,
     """history holds the earlier exchanges of the same conversation, oldest first. context holds the
     request and conversation ids, which only the operational log line carries (R9). on_call receives
     the trace of each model call as it is recorded, the same metadata as that line."""
+    if deps.intent_prompt is None:   # chat 19.10, C: the catalog's own prompt, never a built-in one
+        raise ValueError("Deps.intent_prompt is required: the intent prompt that goes with the catalog")
     stage = on_stage or (lambda name: None)
     ran: dict[str, dict] = {}   # the plans retrieved, for Outcome.plans (task 5)
     eid = "EX-" + uuid.uuid4().hex[:12]
@@ -471,7 +511,7 @@ def run(question: str, history: list[prompts.Exchange], user: dict, deps: Deps,
         # "Settled on Code's proposals"), so every schema breach is a content failure
         stage("intent")
         conv = prompts.compiler_conversation(history, question, rewritten)
-        pr = deps.intent_prompt or prompts.load("intent_analysis.md")
+        pr = deps.intent_prompt
         validator = intent_validator()
         intent, compiled = _ask(deps, rec, INTENT, pr,
                                 lambda fb: prompts.render_intent(cat, role, question, rewritten, pr, fb),
@@ -483,11 +523,12 @@ def run(question: str, history: list[prompts.Exchange], user: dict, deps: Deps,
         if compiled.disposition == "out_of_scope_action":   # task 8, A1: nothing is retrieved
             return finish(contract.declined_action(understood))
         if compiled.disposition == "needs_clarification":   # chat 18.10, 11:35: nothing is retrieved
-            return finish(contract.needs_clarification(understood))
+            return finish(contract.needs_clarification(understood, cat))
 
         # retrieval
         stage("retrieval")
         try:
+            compiled, resolved = _resolve(compiled, conv, user, cat, validator, deps.connect, deps.source_breaker)
             retrieved = _retrieve(compiled.readings, deps.connect, deps.source_breaker)
         except _SystemFault as e:   # review F1: our fault, not the source's
             operational_log.error("retrieval fault: attempt=%s user=%s source=%s error=%s",
@@ -501,8 +542,10 @@ def run(question: str, history: list[prompts.Exchange], user: dict, deps: Deps,
             return Outcome(contract.source_unreachable(deps.source, understood),
                            prompts.Exchange(question, understood), eid, recorded=False, cost=cost())
         rec.step(RETRIEVAL, [{"label": res.label, "result": res.outcome, "row_count": len(res.rows),
-                              "total": res.total, "started": s, "finished": f} for res, s, f in retrieved])
+                              "total": res.total, "started": s, "finished": f} for res, s, f in retrieved]
+                 + ([{"resolved": resolved}] if resolved else []))
 
+        intent = compiled.intent   # values as compiled: declared forms (A2), identifiers as held (A1)
         plans = {r["label"]: r["plan"] for r in intent["readings"]}
         ran.update(plans)
         terms = ambiguous_terms(intent, question)
