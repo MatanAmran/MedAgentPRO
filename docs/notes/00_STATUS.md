@@ -4877,6 +4877,32 @@ exchange cost: attempt=EX-bc247dc6774a usd=0.061608 remaining=1.714846
 - **"as PL-02" על הכפתור של שאלה 14** (`frontend/app/components/Examples.tsx`), מ-`expect.user`: מוצג רק לדוגמה שהמשתמש שלה שונה מזה שהמסך פותח בו (`DEMO_USERS[0]`, ‏AP-01). **הלחיצה שואלת בתור המשתמש הנוכחי ואינה מחליפה אותו.** שם הכפתור נשאר השאלה (‏`aria-label`), ו-"as PL-02" הוא התיאור שלו (‏`aria-describedby`), כך שבדיקות ה-e2e שמוצאות כפתור לפי השאלה לא השתנו. בדיקות: vitest (התג, התיאור, והשאלה נשלחת בתור AP-01 והבורר לא זז), ו-e2e של סט הדמו (התג על הכפתור, והבורר נשאר על התפקיד אחרי כל שאלה).
 - **`70_DEMO.md`:** סדר ההפעלה (seed, השרת, המסך, Datasette), ש-Datasette מחזיק את `demo.db` פתוח, ושכפתור 14 לא מחליף משתמש.
 
+### **שלב ב׳, סבב 19.10 (צ׳אט, אחרי 80_GENERALITY): A–D ו-4–8.** בלי אף קריאה בתשלום. ענף ו-PR לכל פריט
+
+| פריט | ענף | מה נבנה |
+|---|---|---|
+| A | `phaseb/value-checks` | **A1:** מזהה באותיות אחרות (`s-001`) נפתר לצורה המוחזקת אם יש בדיוק אחת, דרך החיפוש עם ההרשאה (`resolve_identifiers`, ‏`pipeline._resolve`). השליפה ו-Examined מציגים `S-001`. כמה צורות: רק התאמה מדויקת. אף צורה: "does not appear", כמו היום. **A2:** ערך מול עמודה עם `values` מיושר לצורה המוצהרת (`'Open'` → `'open'`). ערך אחר נדחה עם הנתיב, ומשם ניסיון משוב (`normalise_values`). ב-`10_BOOK` סעיף 9: הבהרה אפשרית ל-NFR 6 ולמבחן 35, בלי לגעת בספר |
+| B | `phaseb/userpicker` | הבורר לפי D6: ‏"sees all records" לשני התפקידים, ‏"Sees every record; “my” means the lines they plan", ‏"PLANNERS · “MY” MEANS THEIR OWN LINES", ותחתית: "Every user sees every record; switching user changes whose lines “my” means." |
+| C | `phaseb/generality-code` | ‏`NEEDS_CLARIFICATION` נבנה מתוויות המזהים בקטלוג (בדמו: "supplier or part", כמו קודם). בלוק `domain` ב-`schema.json`, דרך `/api/health` עם תוויות הישויות שהמשתמש רואה: התגית, ה-placeholder, טקסט המסך הריק ותיאור הדף. ‏`Catalog.load()` דורש נתיבים, והקטלוג הזמני עבר ל-`tests/fixtures/placeholder_*.json`. ‏`dry_run` עבר ל-`tools/`. תבנית intent אחת: `pipeline.run` ו-`render_intent` מסרבים בלעדיה, ו-`templates/intent_analysis.md` (v6) הוסר |
+| D | `phaseb/value-match-note` | ‏`81_VALUE_MATCH.md`: ‏`MATCHES` על עמודות `searchable`. הפתרון בקוד (שווה, מתחיל ב-, מכיל), עם ההרשאה בתוך החיפוש. כמה התאמות: בירור שהקוד בונה, למשתמש בלבד. ועוד כינויים (שם בטוח ו-`physical`) לשמות בסגנון BIRD |
+| 4 | `phaseb/record-replay` | ‏`model_client/replay.py`: הקלטה וניגון. מפתח = sha256 של שם הפרומפט והגרסה, המודל, ההודעות והסכמה. ניגון בלי gateway מאחוריו, ו-`ReplayMiss` כשאין רשומה. ‏`eval_cache/` ב-gitignore. **commit שני:** מחיר ידני ל-Haiku 5.5 (`MANUAL_MODELS`). LiteLLM נשאר 1.105. ‏T18, ‏T19, ועדכון R1 ב-`CLAUDE.md` |
+| 5 | `phaseb/show-all` | ‏`GET /api/exchanges/{id}/readings/{label}/records`: התוכנית שהשרת שמר מהודרת מחדש למשתמש ששואל, עם ההרשאה, בלי ה-LIMIT של התוכנית ועם 1000. רק לבעלים. אין מודל, ושום דבר לא נכנס להיסטוריה (NFR 21). כפתור "Show all N records" על המסך `[demo extension]` |
+| 6 | `phaseb/mypy-ci` | ‏mypy מ-30 שגיאות ל-0, בלי ignore. ‏`native_parser = false`. השלב ב-CI חוסם, ו-`real_gateway()` מסרב כש-`CI` מוגדר |
+| 7 | `phaseb/prompt-caching` | ‏`prompts.Rendered.cache_prefix`: מה שלפני ה-placeholder המשתנה הראשון. ‏`cache_control: ephemeral` על הבלוק הזה, **רק עם `MODEL_PROMPT_CACHE=1`** (T1 נשאר: כבוי כברירת מחדל). ההזמנה מתמחרת קלט במחיר כתיבה למטמון. ‏T20 |
+| 8 | `phaseb/demo-windows` | ‏`70_DEMO`: ארבעה חלונות, הבדיקה הרביעית |
+
+- **בדיקות, כל הענפים ממוזגים יחד מקומית** (ענף בדיקה שלא נדחף): ‏pytest ‏1178 (ועוד 1 skipped), ‏mypy 0, ‏vitest ‏132, ‏Playwright ‏25 ו-6 עם הספק המזויף, ‏`--plans` ‏14/14 ו-31/31. **14 שאלות הדמו:** אף תשובת golden לא השתנתה, רק `openapi.json`. אחד בלבד השתנה בטקסט שרואים בדמו, כמו שהתבקש: הבורר (B), והכפתור "Show all records" (5).
+- **סדר מיזוג מומלץ, כדי שהקונפליקטים יהיו קטנים:** ‏tasks, ‏value-mapping, ‏value-checks, ‏userpicker, ‏generality-code, ‏value-match-note, ‏record-replay, ‏show-all, ‏mypy-ci, ‏prompt-caching, ‏demo-windows. **אחרי כל מיזוג, Code ממזג את master לענף הבא ופותר שם** (בלי force push). הקונפליקטים הידועים:
+  - ‏record-replay אחרי C: ‏`test_haiku_price.py` מייבא `query_assistance.dry_run` → `tools.dry_run`.
+  - ‏show-all אחרי A: שתי פונקציות חדשות זו ליד זו ב-`pipeline.py`, ו-import ב-`routes.py`.
+  - ‏mypy-ci ו-prompt-caching אחרי record-replay: ‏`BudgetedGateway.invoke` (בדיקת שכבת המחיר, `max_tokens`, ‏`worst_cost`) ו-`real_gateway()`.
+  - ‏`60_PATHS.md` נוצר מחדש בכל ענף.
+- **מעבר לספר:** A1 ו-A2 (הבהרות ל-NFR 6 ולמבחן 35, ב-`10_BOOK` סעיף 9). ‏Show all records, ‏`domain` ב-`/api/health`, הקלטה וניגון, מחיר ידני, ומטמון הפרומפטים: כולם `[demo extension]` או תשתית. אף אחד מהם לא דרישה בספר.
+- ❓ **לצ׳אט:**
+  1. ‏`81_VALUE_MATCH` מחכה להכרעה: שינוי בסכמה 1, גרסת פרומפט, סבב Haiku והערה ב-3.1.6.
+  2. **Show all records לא נרשם ברשומת הביקורת.** זה רק תצוגה. האם צריך אירוע `write_event`?
+  3. **בלי הרשמה, LiteLLM 1.105 שולח ל-Haiku 5.5 tool call כפוי ולא structured output** (T18). ההרשמה מתקנת. האם לשדרג את LiteLLM במקום, אחרי הדמו?
+
 ## מה שנסגר בסבב האחרון
 
 - **הקוד עבר לריפו** — `MedAgentPro\backend` (`query_assistance`, `model_client`, `persistence`, `shared`, `tests`). **`03_Code` נשאר כמקור ומעודכן.** `python -m pytest -q` מתוך `backend`
