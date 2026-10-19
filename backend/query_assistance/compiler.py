@@ -301,7 +301,7 @@ class _ReadingCompiler:
         self.join_sql: list[tuple[str, list]] = []
         self.aliases: dict[str, Expr] = {}
         self.identities: list[tuple[str, Any]] = []   # probed when the result is empty
-        self.named_ids: list[tuple[str, Any]] = []    # every identifier literal, for NFR 27
+        self.named_ids: list[tuple[str, Any, str]] = []   # every identifier literal and its path, for NFR 27
         self.names: list[tuple[str, str, str]] = []   # MATCHES: (column, term, path), chat 20.10
 
     def fail(self, code: str, reason: str, **detail: Any) -> NoReturn:
@@ -425,10 +425,10 @@ class _ReadingCompiler:
             for v in values:
                 self.identities.append((side.column, v))
 
-    def _note_named(self, side: Expr, values: list):
+    def _note_named(self, side: Expr, values: list, path: str):
         if side.column and self._is_identifier(side):
             for v in values:
-                self.named_ids.append((side.column, v))
+                self.named_ids.append((side.column, v, path))
 
     def predicate(self, node: dict, top: bool = True, path: str = "WHERE") -> tuple[str, list]:
         (op, arg), = node.items()
@@ -452,7 +452,7 @@ class _ReadingCompiler:
             if a.is_literal or b.is_literal:
                 side, lit = (b, a.literal) if a.is_literal else (a, b.literal)
                 self._check_literal(side, lit, op)
-                self._note_named(side, [lit])
+                self._note_named(side, [lit], path)
                 if op == "EQ" and top:
                     self._note_identity(side, [lit])
             elif a.type is None or b.type is None or not _types_match(a.type, b.type):
@@ -463,7 +463,7 @@ class _ReadingCompiler:
             vals = [v["value"] for v in arg["values"]]
             for v in vals:
                 self._check_literal(c, v, "IN")
-            self._note_named(c, vals)
+            self._note_named(c, vals, path)
             if top:
                 self._note_identity(c, vals)
             return f"{c.sql} IN ({', '.join('?' for _ in vals)})", vals
@@ -472,7 +472,7 @@ class _ReadingCompiler:
             lo, hi = arg["from"]["value"], arg["to"]["value"]
             self._check_literal(c, lo, "BETWEEN")
             self._check_literal(c, hi, "BETWEEN")
-            self._note_named(c, [lo, hi])
+            self._note_named(c, [lo, hi], path)
             return f"{c.sql} BETWEEN ? AND ?", [lo, hi]
         if op == "MATCHES":   # a name the user wrote (chat 20.10) [proposal, not in the book]
             c = self.col(arg["col"])
@@ -701,12 +701,14 @@ def _mentioned(value: Any, texts: list[str]) -> bool:
     return any(pat.search(t.casefold()) for t in texts)
 
 
-def _check_provenance(named: list, conv: Conversation, label: str):
-    """NFR 27, Test 45. The rewritten question is not a source: the model wrote it."""
+def _check_provenance(named: list, conv: Conversation, label: str, exempt: set[tuple[str, str]] | None = None):
+    """NFR 27, Test 45. The rewritten question is not a source: the model wrote it. exempt: the nodes, as
+    (label, path), that code wrote from a name the question holds (with_names, chat 20.10): only those
+    nodes, never another condition on the same identifier the model wrote itself."""
     texts = [conv.question] + list(conv.earlier)
     shown = {str(v).casefold() for v in conv.presented}
-    for column, value in named:
-        if str(value).casefold() in shown or _mentioned(value, texts):
+    for column, value, path in named:
+        if (label, path) in (exempt or set()) or str(value).casefold() in shown or _mentioned(value, texts):
             continue
         raise CompileError("identifier_not_in_conversation",
                            f"'{value}' for {column} appears neither in the conversation nor among "
@@ -735,7 +737,7 @@ def _check_gap_entity(cat: Catalog, needs: dict):
 
 def compile_intent(intent: dict, question: "str | Conversation", user: dict, cat: Catalog,
                    validator: Draft202012Validator | None = None,
-                   row_limit: int = ROW_LIMIT) -> CompiledIntent:
+                   row_limit: int = ROW_LIMIT, exempt: set[tuple[str, str]] | None = None) -> CompiledIntent:
     conv = question if isinstance(question, Conversation) else Conversation(question)
     validator = validator or intent_validator(row_limit=row_limit)
     errors = sorted(validator.iter_errors(intent), key=lambda e: list(e.path))
@@ -775,7 +777,7 @@ def compile_intent(intent: dict, question: "str | Conversation", user: dict, cat
     for r in readings:
         rc = _ReadingCompiler(cat, user, r, row_limit)
         compiled.append(rc.compile())
-        _check_provenance(rc.named_ids, conv, r["label"])
+        _check_provenance(rc.named_ids, conv, r["label"], exempt)
     return CompiledIntent("retrieve", compiled, intent.get("unresolved", []), intent)
 
 
@@ -888,23 +890,28 @@ def resolve_names(compiled: CompiledIntent, conn: sqlite3.Connection) -> dict[tu
     return out
 
 
-def with_names(intent: dict, single: dict[tuple[str, str, str], tuple[str, Any]]) -> dict:
+def with_names(intent: dict, single: dict[tuple[str, str, str], tuple[str, Any]],
+               written: set[tuple[str, str]] | None = None) -> dict:
     """The intent with each MATCHES that found one entity written as EQ on that entity's identifier
-    (B), never on the name, so two entities sharing a name are never merged. Returns a copy."""
+    (B), never on the name, so two entities sharing a name are never merged. Returns a copy. written, if
+    given, receives each node written, as (label, path) in the compiler's form ("WHERE/AND/0"): the only
+    nodes NFR 27 lets hold that identifier without the question holding it (chat 20.10, task 4)."""
     out = copy.deepcopy(intent)
 
-    def walk(node: dict, label: str) -> dict:
+    def walk(node: dict, label: str, path: str) -> dict:
         (op, arg), = node.items()
         if op in ("AND", "OR"):
-            return {op: [walk(p, label) for p in arg]}
+            return {op: [walk(p, label, f"{path}/{op}/{i}") for i, p in enumerate(arg)]}
         if op == "MATCHES" and (label, arg["col"], arg["term"]) in single:
             id_column, value = single[(label, arg["col"], arg["term"])]
+            if written is not None:
+                written.add((label, path))
             return {"EQ": [{"col": id_column}, {"value": value}]}
         return node
 
     for r in out.get("readings", []):
         if r["plan"].get("WHERE"):
-            r["plan"]["WHERE"] = walk(r["plan"]["WHERE"], r["label"])
+            r["plan"]["WHERE"] = walk(r["plan"]["WHERE"], r["label"], "WHERE")
     return out
 
 
