@@ -4911,6 +4911,19 @@ exchange cost: attempt=EX-bc247dc6774a usd=0.061608 remaining=1.714846
 - ✅ **3. LiteLLM:** משדרגים אחרי הדמו, ב-PR משלו, עם הסוויטה המלאה לפני השדרוג ואחריו. עד אז ההרשמה הידנית נשארת. כל קריאת smoke ל-Haiku צריכה אישור.
 - **הסבב הבא מוכרע בצ׳אט.**
 
+### **הכנת המיזוג של סבב 19.10 (הנחיית הצ׳אט, 19.10 16:30).** בלי קריאה למודל אמיתי, בלי push, ובלי מחיקת ענף ב-GitHub בלי אישור של אביתר
+
+0. **ניקיון:** ‏master נקי: ‏`git status` ו-`git diff --ignore-cr-at-eol` ריקים, ולא היה שינוי לבטל. כאן: השם "אביתר" מתוקן, הסעיף הזה נוסף, ו-`01_HANDOFF.md` מפנה למצב של 19.10. ה-handoff המלא לצ׳אט נמצא בפרויקט, לא בריפו.
+1. ‏`git config rerere.enabled true`.
+2. **ענף מקומי `phaseb/integration` מ-master.** הענפים ממוזגים אליו עם `--no-ff`, בסדר הזה: tasks, value-mapping, value-checks, userpicker, generality-code, value-match-note, record-replay, show-all, mypy-ci, prompt-caching, demo-windows, ו-round-notes אחרון. ‏`phaseb/generality` לא נכנס. איך פותרים את הקונפליקטים:
+   - **show-all:** ב-`routes.py` שני ה-imports נשארים. ב-`pipeline.py` נשארים `_resolve` וגם `SourceUnavailable`, ‏`NotRecorded` ו-`show_all`, ו-`ran.update(plans)` בא אחרי הנרמול, כך ש"הצג הכול" מריץ את התוכנית המנורמלת. בדיקה: ‏`s-001` שנפתר ל-`S-001`. ‏`60_PATHS.md` נבנה מחדש ב-`tools.path_map`.
+   - **mypy-ci,** ‏`BudgetedGateway`: ‏`max_tokens = min(config.max_tokens or cap, cap)`, ואז `replace`, הערכת הקלט, ובדיקת המדרגה (`price_tier`, ‏`BudgetExceeded` עם `scope="model"`). ‏`worst = cfg.cost(...)`.
+   - **prompt-caching:** כמו ב-mypy-ci, אבל `worst = cfg.worst_cost(...)`. ב-`real_gateway()`: ‏`cache_prompts`, ‏`SpendLedger` ו-`register_manual_models()`, והבלוק של `MANUAL_MODELS` נשאר כולו. ‏T18, ‏T19 ו-T20 נשארים.
+3. **בדיקת הפתרונות:** ‏grep, ובדיקת מוטציה על בדיקת המדרגה ועל `worst_cost`. אם אף בדיקה לא נכשלת, מוסיפים בדיקה.
+4. **כל הבדיקות על `phaseb/integration`.** הבסיס להשוואה: ‏pytest 1178, ‏mypy 0, ‏vitest 132, ‏Playwright 31.
+5. **עצירה ודיווח.** ‏`phaseb/integration` נשאר מקומי.
+6. **אחרי אישור הצ׳אט, ענף אחרי ענף:** קישור PR מול `master`. אחרי שאביתר ממזג: מיזוג master לענף הבא (rerere), בדיקה, ו-push באישור. אחרי value-mapping: ‏`phaseb/generality` נסגר ונמחק, באישור, כש-`git log master..MedAgentPRO/phaseb/generality` ריק. כל ענף שמוזג נמחק ב-`git branch -d`.
+
 ## מה שנסגר בסבב האחרון
 
 - **הקוד עבר לריפו** — `MedAgentPro\backend` (`query_assistance`, `model_client`, `persistence`, `shared`, `tests`). **`03_Code` נשאר כמקור ומעודכן.** `python -m pytest -q` מתוך `backend`
