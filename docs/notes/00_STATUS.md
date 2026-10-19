@@ -4903,6 +4903,14 @@ exchange cost: attempt=EX-bc247dc6774a usd=0.061608 remaining=1.714846
   2. **Show all records לא נרשם ברשומת הביקורת.** זה רק תצוגה. האם צריך אירוע `write_event`?
   3. **בלי הרשמה, LiteLLM 1.105 שולח ל-Haiku 5.5 tool call כפוי ולא structured output** (T18). ההרשמה מתקנת. האם לשדרג את LiteLLM במקום, אחרי הדמו?
 
+### **הוכרע בצ׳אט (19.10), סקירת הסבב: מאושר.** עדיין אין אף קריאה למודל אמיתי
+
+- **מיזוג:** אוויתר ממזג ב-GitHub בסדר שלמעלה (tasks, value-mapping, value-checks, userpicker, generality-code, value-match-note, record-replay, show-all, mypy-ci, prompt-caching, demo-windows). ‏`phaseb/generality` נסגר בלי מיזוג, כי הוא כלול ב-value-mapping. אחרי כל מיזוג Code ממזג את master לענף הבא ופותר את הקונפליקטים שם, בלי force push.
+- ✅ **1. ‏`81_VALUE_MATCH`: מאושר כמו שתוכנן.** נבנה אחרי הדמו, ב-PR אחד: ‏`MATCHES`, ‏`searchable`, ‏`intent_analysis_demo@10`, ובדיקות בלי מודל שרשומות בהערה. סבב ה-Haiku רץ רק באישור מפורש של אוויתר באותו סשן. ההערה ב-3.1.6 נכתבת רק אחרי שהסבב עובר.
+- ✅ **2. Show all records נרשם בביקורת. נבנה על `phaseb/show-all`** (‏`f0567e2`): כל צפייה היא רשומה משלה בשרשרת של ה-exchange: שלב 11 `show_all_records`, ‏`event_type: records_viewed`, ‏`actor_id`, ‏`role`, ו-`evidence_reviewed: [{label, row_count}]`. אין בה תוכן מהרשומות. היא לא מעדכנת את מסמך ה-exchange, כך שצפייה אחת לא דורסת קודמת. **מעבר להחלטה, החלטת מימוש שלי:** אם אי אפשר לרשום את הצפייה, הרשומות לא מוצגות (503, כמו R1: "an answer that cannot be recorded is not presented"). המסך כבר מציג על זה "The records could not be fetched.". בדיקות: צפייה נרשמת פעם אחת לכל צפייה, אף ערך משורה לא מופיע ברשומה, והשרשרת מאומתת. 403 ו-404 לא רושמים כלום. אם הכתיבה נכשלת: 503 בלי שורות. במפת הנתיבים נוספו `stage:show_all_records` ו-`server_show_all_not_recorded`. ‏pytest ‏1124 (ועוד 1 skipped) על הענף, ‏ruff ו-bandit נקיים.
+- ✅ **3. LiteLLM:** משדרגים אחרי הדמו, ב-PR משלו, עם הסוויטה המלאה לפני השדרוג ואחריו. עד אז ההרשמה הידנית נשארת. כל קריאת smoke ל-Haiku צריכה אישור.
+- **הסבב הבא מוכרע בצ׳אט.**
+
 ## מה שנסגר בסבב האחרון
 
 - **הקוד עבר לריפו** — `MedAgentPro\backend` (`query_assistance`, `model_client`, `persistence`, `shared`, `tests`). **`03_Code` נשאר כמקור ומעודכן.** `python -m pytest -q` מתוך `backend`
