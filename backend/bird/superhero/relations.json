@@ -1,0 +1,115 @@
+{
+  "$comment": "Pairs with bird/superhero/schema.json: BIRD's foreign keys, each a named relation.",
+  "relations": {
+    "superhero_gender": {
+      "from": "superhero",
+      "to": "gender",
+      "on": [
+        [
+          "superhero.gender_id",
+          "gender.id"
+        ]
+      ]
+    },
+    "superhero_eye_colour": {
+      "from": "superhero",
+      "to": "colour",
+      "on": [
+        [
+          "superhero.eye_colour_id",
+          "colour.id"
+        ]
+      ]
+    },
+    "superhero_hair_colour": {
+      "from": "superhero",
+      "to": "colour",
+      "on": [
+        [
+          "superhero.hair_colour_id",
+          "colour.id"
+        ]
+      ]
+    },
+    "superhero_skin_colour": {
+      "from": "superhero",
+      "to": "colour",
+      "on": [
+        [
+          "superhero.skin_colour_id",
+          "colour.id"
+        ]
+      ]
+    },
+    "superhero_race": {
+      "from": "superhero",
+      "to": "race",
+      "on": [
+        [
+          "superhero.race_id",
+          "race.id"
+        ]
+      ]
+    },
+    "superhero_publisher": {
+      "from": "superhero",
+      "to": "publisher",
+      "on": [
+        [
+          "superhero.publisher_id",
+          "publisher.id"
+        ]
+      ]
+    },
+    "superhero_alignment": {
+      "from": "superhero",
+      "to": "alignment",
+      "on": [
+        [
+          "superhero.alignment_id",
+          "alignment.id"
+        ]
+      ]
+    },
+    "hero_attribute_hero": {
+      "from": "hero_attribute",
+      "to": "superhero",
+      "on": [
+        [
+          "hero_attribute.hero_id",
+          "superhero.id"
+        ]
+      ]
+    },
+    "hero_attribute_attribute": {
+      "from": "hero_attribute",
+      "to": "attribute",
+      "on": [
+        [
+          "hero_attribute.attribute_id",
+          "attribute.id"
+        ]
+      ]
+    },
+    "hero_power_hero": {
+      "from": "hero_power",
+      "to": "superhero",
+      "on": [
+        [
+          "hero_power.hero_id",
+          "superhero.id"
+        ]
+      ]
+    },
+    "hero_power_power": {
+      "from": "hero_power",
+      "to": "superpower",
+      "on": [
+        [
+          "hero_power.power_id",
+          "superpower.id"
+        ]
+      ]
+    }
+  }
+}

@@ -243,6 +243,8 @@ python -m tools.preflight         # before a demo: database, server, screen, exa
 python -m tools.fake_real_server  # the real-model path with a fake provider (no key, no network), for the end-to-end tests
 python -m tools.real_eval --plans   # rule 1: every question's hand-written plan through schema, compiler and store, no model; --set demo for the 12
 python -m tools.real_eval --plans --set stage   # task 14: the set by pipeline stage (82_STAGE_SET.md), report by category
+python -m tools.bird_fetch [--download]   # task 11b: BIRD dev (346 MB, CC BY-SA 4.0) outside the repo, SHA-256 checked; superhero only
+python -m tools.bird_eval --plans   # the superhero catalog: each hand plan's rows against BIRD's SQL, and the gaps
 python -m tools.real_eval --real --confirm --out DIR   # the held-out set (demo_data/offscript_set.json) on the real model, paid, only with Evyatar's approval; report outside the repo; without --real, the scripted model; --set demo for the 12 demo questions
 python -m pytest -m stress        # load, concurrency, and the property tests at 2000 examples (not in the default run)
 UPDATE_GOLDEN=1 python -m pytest tests/golden   # rewrite golden snapshots, printing the diff for review

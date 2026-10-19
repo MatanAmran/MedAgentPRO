@@ -1,0 +1,289 @@
+{
+  "$comment": "BIRD dev, database superhero (CC BY-SA 4.0, bird-bench.github.io), task 11b (chat 20.10): a second catalog, to check that the pipeline runs on a store it was not written for, by the catalog alone. Names are BIRD's own (they already match the schema's pattern). Every role sees every record: said here explicitly, as the entitlement of each table. The database is not in git: tools/bird_fetch.py downloads and checks it.",
+  "entities": {
+    "superhero": {
+      "label": "superheroes",
+      "columns": {
+        "id": {
+          "label": "superhero",
+          "type": "integer",
+          "identifier": true
+        },
+        "superhero_name": {
+          "label": "superhero name",
+          "type": "text"
+        },
+        "full_name": {
+          "label": "full name",
+          "type": "text"
+        },
+        "gender_id": {
+          "label": "gender",
+          "type": "integer",
+          "identifier": true,
+          "references": "gender.id"
+        },
+        "eye_colour_id": {
+          "label": "eye colour",
+          "type": "integer",
+          "identifier": true,
+          "references": "colour.id"
+        },
+        "hair_colour_id": {
+          "label": "hair colour",
+          "type": "integer",
+          "identifier": true,
+          "references": "colour.id"
+        },
+        "skin_colour_id": {
+          "label": "skin colour",
+          "type": "integer",
+          "identifier": true,
+          "references": "colour.id"
+        },
+        "race_id": {
+          "label": "race",
+          "type": "integer",
+          "identifier": true,
+          "references": "race.id"
+        },
+        "publisher_id": {
+          "label": "publisher",
+          "type": "integer",
+          "identifier": true,
+          "references": "publisher.id"
+        },
+        "alignment_id": {
+          "label": "alignment",
+          "type": "integer",
+          "identifier": true,
+          "references": "alignment.id"
+        },
+        "height_cm": {
+          "label": "height in cm",
+          "type": "integer"
+        },
+        "weight_kg": {
+          "label": "weight in kg",
+          "type": "integer"
+        }
+      },
+      "entitlement": {
+        "PLANNER": {
+          "all": true
+        },
+        "APPROVER": {
+          "all": true
+        }
+      }
+    },
+    "alignment": {
+      "label": "alignments",
+      "columns": {
+        "id": {
+          "label": "alignment",
+          "type": "integer",
+          "identifier": true
+        },
+        "alignment": {
+          "label": "alignment",
+          "type": "text"
+        }
+      },
+      "entitlement": {
+        "PLANNER": {
+          "all": true
+        },
+        "APPROVER": {
+          "all": true
+        }
+      }
+    },
+    "attribute": {
+      "label": "attributes",
+      "columns": {
+        "id": {
+          "label": "attribute",
+          "type": "integer",
+          "identifier": true
+        },
+        "attribute_name": {
+          "label": "attribute name",
+          "type": "text"
+        }
+      },
+      "entitlement": {
+        "PLANNER": {
+          "all": true
+        },
+        "APPROVER": {
+          "all": true
+        }
+      }
+    },
+    "colour": {
+      "label": "colours",
+      "columns": {
+        "id": {
+          "label": "colour",
+          "type": "integer",
+          "identifier": true
+        },
+        "colour": {
+          "label": "colour",
+          "type": "text"
+        }
+      },
+      "entitlement": {
+        "PLANNER": {
+          "all": true
+        },
+        "APPROVER": {
+          "all": true
+        }
+      }
+    },
+    "gender": {
+      "label": "genders",
+      "columns": {
+        "id": {
+          "label": "gender",
+          "type": "integer",
+          "identifier": true
+        },
+        "gender": {
+          "label": "gender",
+          "type": "text"
+        }
+      },
+      "entitlement": {
+        "PLANNER": {
+          "all": true
+        },
+        "APPROVER": {
+          "all": true
+        }
+      }
+    },
+    "publisher": {
+      "label": "publishers",
+      "columns": {
+        "id": {
+          "label": "publisher",
+          "type": "integer",
+          "identifier": true
+        },
+        "publisher_name": {
+          "label": "publisher name",
+          "type": "text"
+        }
+      },
+      "entitlement": {
+        "PLANNER": {
+          "all": true
+        },
+        "APPROVER": {
+          "all": true
+        }
+      }
+    },
+    "race": {
+      "label": "races",
+      "columns": {
+        "id": {
+          "label": "race",
+          "type": "integer",
+          "identifier": true
+        },
+        "race": {
+          "label": "race",
+          "type": "text"
+        }
+      },
+      "entitlement": {
+        "PLANNER": {
+          "all": true
+        },
+        "APPROVER": {
+          "all": true
+        }
+      }
+    },
+    "superpower": {
+      "label": "superpowers",
+      "columns": {
+        "id": {
+          "label": "superpower",
+          "type": "integer",
+          "identifier": true
+        },
+        "power_name": {
+          "label": "power name",
+          "type": "text"
+        }
+      },
+      "entitlement": {
+        "PLANNER": {
+          "all": true
+        },
+        "APPROVER": {
+          "all": true
+        }
+      }
+    },
+    "hero_attribute": {
+      "label": "superhero attributes",
+      "columns": {
+        "hero_id": {
+          "label": "superhero",
+          "type": "integer",
+          "identifier": true,
+          "references": "superhero.id"
+        },
+        "attribute_id": {
+          "label": "attribute",
+          "type": "integer",
+          "identifier": true,
+          "references": "attribute.id"
+        },
+        "attribute_value": {
+          "label": "attribute value",
+          "type": "integer"
+        }
+      },
+      "entitlement": {
+        "PLANNER": {
+          "all": true
+        },
+        "APPROVER": {
+          "all": true
+        }
+      }
+    },
+    "hero_power": {
+      "label": "superhero powers",
+      "columns": {
+        "hero_id": {
+          "label": "superhero",
+          "type": "integer",
+          "identifier": true,
+          "references": "superhero.id"
+        },
+        "power_id": {
+          "label": "superpower",
+          "type": "integer",
+          "identifier": true,
+          "references": "superpower.id"
+        }
+      },
+      "entitlement": {
+        "PLANNER": {
+          "all": true
+        },
+        "APPROVER": {
+          "all": true
+        }
+      }
+    }
+  }
+}

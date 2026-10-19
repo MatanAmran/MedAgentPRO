@@ -1,0 +1,614 @@
+{
+  "$comment": "BIRD dev questions on superhero (task 11b, chat 20.10), from BIRD's dev.json as written (question, evidence, SQL: CC BY-SA 4.0). Each has a hand-written plan whose result must equal the result of BIRD's SQL on the same database (tools/bird_eval.py --plans); compare says how: value (one number, AVG within the 2 decimals the compiler rounds to), set, bag, or ordered, over the columns named. gaps: questions the plan language cannot state, with the reason, and where one exists the plan the compiler refuses.",
+  "database": "superhero",
+  "questions": [
+    {
+      "id": 717,
+      "question": "Please list all the superpowers of 3-D Man.",
+      "evidence": "3-D Man refers to superhero_name = '3-D Man'; superpowers refers to power_name",
+      "difficulty": "simple",
+      "sql": "SELECT T3.power_name FROM superhero AS T1 INNER JOIN hero_power AS T2 ON T1.id = T2.hero_id INNER JOIN superpower AS T3 ON T2.power_id = T3.id WHERE T1.superhero_name = '3-D Man'",
+      "plan": {
+        "disposition": "retrieve",
+        "readings": [
+          {
+            "label": "r",
+            "plan": {
+              "SELECT": [
+                {
+                  "expr": {
+                    "col": "superpower.power_name"
+                  },
+                  "as": "power_name"
+                }
+              ],
+              "FROM": "superhero",
+              "JOIN": [
+                {
+                  "rel": "hero_power_hero",
+                  "type": "INNER"
+                },
+                {
+                  "rel": "hero_power_power",
+                  "type": "INNER"
+                }
+              ],
+              "WHERE": {
+                "EQ": [
+                  {
+                    "col": "superhero.superhero_name"
+                  },
+                  {
+                    "value": "3-D Man"
+                  }
+                ]
+              }
+            }
+          }
+        ]
+      },
+      "compare": {
+        "mode": "bag",
+        "columns": [
+          "power_name"
+        ]
+      }
+    },
+    {
+      "id": 720,
+      "question": "Please list the full names of all the superheroes with over 15 super powers.",
+      "evidence": "15 super powers refers to COUNT(full_name) > 15",
+      "difficulty": "simple",
+      "sql": "SELECT DISTINCT T1.full_name FROM superhero AS T1 INNER JOIN hero_power AS T2 ON T1.id = T2.hero_id GROUP BY T1.full_name HAVING COUNT(T2.power_id) > 15",
+      "plan": {
+        "disposition": "retrieve",
+        "readings": [
+          {
+            "label": "r",
+            "plan": {
+              "SELECT": [
+                {
+                  "expr": {
+                    "col": "superhero.full_name"
+                  },
+                  "as": "full_name"
+                },
+                {
+                  "expr": {
+                    "func": "COUNT",
+                    "arg": "*"
+                  },
+                  "as": "n"
+                }
+              ],
+              "FROM": "superhero",
+              "JOIN": [
+                {
+                  "rel": "hero_power_hero",
+                  "type": "INNER"
+                }
+              ],
+              "GROUP_BY": [
+                "full_name"
+              ],
+              "HAVING": [
+                {
+                  "agg": "n",
+                  "op": "GT",
+                  "value": 15
+                }
+              ]
+            }
+          }
+        ]
+      },
+      "compare": {
+        "mode": "set",
+        "columns": [
+          "full_name"
+        ]
+      }
+    },
+    {
+      "id": 721,
+      "question": "How many superheroes have blue eyes?",
+      "evidence": "blue eyes refers to colour = 'Blue' and eye_colour_id = colour.id;",
+      "difficulty": "simple",
+      "sql": "SELECT COUNT(T1.id) FROM superhero AS T1 INNER JOIN colour AS T2 ON T1.eye_colour_id = T2.id WHERE T2.colour = 'Blue'",
+      "plan": {
+        "disposition": "retrieve",
+        "readings": [
+          {
+            "label": "r",
+            "plan": {
+              "SELECT": [
+                {
+                  "expr": {
+                    "func": "COUNT",
+                    "arg": "*"
+                  },
+                  "as": "n"
+                }
+              ],
+              "FROM": "superhero",
+              "JOIN": [
+                {
+                  "rel": "superhero_eye_colour",
+                  "type": "INNER"
+                }
+              ],
+              "WHERE": {
+                "EQ": [
+                  {
+                    "col": "colour.colour"
+                  },
+                  {
+                    "value": "Blue"
+                  }
+                ]
+              }
+            }
+          }
+        ]
+      },
+      "compare": {
+        "mode": "value",
+        "columns": [
+          "n"
+        ]
+      }
+    },
+    {
+      "id": 729,
+      "question": "What is the average height of the superheroes from Marvel Comics?",
+      "evidence": "superheroes from Marvel Comics refers to publisher_name = 'Marvel Comics'; average height of the superheroes refers to AVG(height_cm)",
+      "difficulty": "simple",
+      "sql": "SELECT AVG(T1.height_cm) FROM superhero AS T1 INNER JOIN publisher AS T2 ON T1.publisher_id = T2.id WHERE T2.publisher_name = 'Marvel Comics'",
+      "plan": {
+        "disposition": "retrieve",
+        "readings": [
+          {
+            "label": "r",
+            "plan": {
+              "SELECT": [
+                {
+                  "expr": {
+                    "func": "AVG",
+                    "arg": {
+                      "col": "superhero.height_cm"
+                    }
+                  },
+                  "as": "avg_height"
+                }
+              ],
+              "FROM": "superhero",
+              "JOIN": [
+                {
+                  "rel": "superhero_publisher",
+                  "type": "INNER"
+                }
+              ],
+              "WHERE": {
+                "EQ": [
+                  {
+                    "col": "publisher.publisher_name"
+                  },
+                  {
+                    "value": "Marvel Comics"
+                  }
+                ]
+              }
+            }
+          }
+        ]
+      },
+      "compare": {
+        "mode": "value",
+        "columns": [
+          "avg_height"
+        ]
+      }
+    },
+    {
+      "id": 747,
+      "question": "What is the total number of superheroes without full name?",
+      "evidence": "superheroes without full name refers to full_name IS NULL",
+      "difficulty": "simple",
+      "sql": "SELECT COUNT(id) FROM superhero WHERE full_name IS NULL",
+      "plan": {
+        "disposition": "retrieve",
+        "readings": [
+          {
+            "label": "r",
+            "plan": {
+              "SELECT": [
+                {
+                  "expr": {
+                    "func": "COUNT",
+                    "arg": "*"
+                  },
+                  "as": "n"
+                }
+              ],
+              "FROM": "superhero",
+              "WHERE": {
+                "IS_NULL": {
+                  "col": "superhero.full_name"
+                }
+              }
+            }
+          }
+        ]
+      },
+      "compare": {
+        "mode": "value",
+        "columns": [
+          "n"
+        ]
+      }
+    },
+    {
+      "id": 753,
+      "question": "Among the superheroes with height from 170 to 190, list the names of the superheroes with no eye color.",
+      "evidence": "height from 170 to 190 refers to height_cm BETWEEN 170 AND 190; no eye color refers to colour = 'No Colour'",
+      "difficulty": "moderate",
+      "sql": "SELECT DISTINCT T1.superhero_name FROM superhero AS T1 INNER JOIN colour AS T2 ON T1.eye_colour_id = T2.id WHERE T1.height_cm BETWEEN 170 AND 190 AND T2.colour = 'No Colour'",
+      "plan": {
+        "disposition": "retrieve",
+        "readings": [
+          {
+            "label": "r",
+            "plan": {
+              "SELECT": [
+                {
+                  "expr": {
+                    "col": "superhero.superhero_name"
+                  },
+                  "as": "superhero_name"
+                }
+              ],
+              "FROM": "superhero",
+              "JOIN": [
+                {
+                  "rel": "superhero_eye_colour",
+                  "type": "INNER"
+                }
+              ],
+              "WHERE": {
+                "AND": [
+                  {
+                    "BETWEEN": {
+                      "col": "superhero.height_cm",
+                      "from": {
+                        "value": 170
+                      },
+                      "to": {
+                        "value": 190
+                      }
+                    }
+                  },
+                  {
+                    "EQ": [
+                      {
+                        "col": "colour.colour"
+                      },
+                      {
+                        "value": "No Colour"
+                      }
+                    ]
+                  }
+                ]
+              }
+            }
+          }
+        ]
+      },
+      "compare": {
+        "mode": "set",
+        "columns": [
+          "superhero_name"
+        ]
+      }
+    },
+    {
+      "id": 762,
+      "question": "Which power do superheroes have the most of?",
+      "evidence": "power that superheroes have the most refers to MAX(COUNT(power_name))",
+      "difficulty": "simple",
+      "sql": "SELECT T2.power_name FROM hero_power AS T1 INNER JOIN superpower AS T2 ON T1.power_id = T2.id GROUP BY T2.power_name ORDER BY COUNT(T1.hero_id) DESC LIMIT 1",
+      "plan": {
+        "disposition": "retrieve",
+        "readings": [
+          {
+            "label": "r",
+            "plan": {
+              "SELECT": [
+                {
+                  "expr": {
+                    "col": "superpower.power_name"
+                  },
+                  "as": "power_name"
+                },
+                {
+                  "expr": {
+                    "func": "COUNT",
+                    "arg": "*"
+                  },
+                  "as": "n"
+                }
+              ],
+              "FROM": "hero_power",
+              "JOIN": [
+                {
+                  "rel": "hero_power_power",
+                  "type": "INNER"
+                }
+              ],
+              "GROUP_BY": [
+                "power_name"
+              ],
+              "ORDER_BY": [
+                {
+                  "by": "n",
+                  "dir": "DESC"
+                }
+              ],
+              "LIMIT": 1
+            }
+          }
+        ]
+      },
+      "compare": {
+        "mode": "ordered",
+        "columns": [
+          "power_name"
+        ]
+      }
+    },
+    {
+      "id": 787,
+      "question": "What are the race and alignment of Cameron Hicks?",
+      "evidence": "Cameron Hicks refers to superhero_name = 'Cameron Hicks';",
+      "difficulty": "simple",
+      "sql": "SELECT T2.race, T3.alignment FROM superhero AS T1 INNER JOIN race AS T2 ON T1.race_id = T2.id INNER JOIN alignment AS T3 ON T1.alignment_id = T3.id WHERE T1.superhero_name = 'Cameron Hicks'",
+      "plan": {
+        "disposition": "retrieve",
+        "readings": [
+          {
+            "label": "r",
+            "plan": {
+              "SELECT": [
+                {
+                  "expr": {
+                    "col": "race.race"
+                  },
+                  "as": "race"
+                },
+                {
+                  "expr": {
+                    "col": "alignment.alignment"
+                  },
+                  "as": "alignment"
+                }
+              ],
+              "FROM": "superhero",
+              "JOIN": [
+                {
+                  "rel": "superhero_race",
+                  "type": "INNER"
+                },
+                {
+                  "rel": "superhero_alignment",
+                  "type": "INNER"
+                }
+              ],
+              "WHERE": {
+                "EQ": [
+                  {
+                    "col": "superhero.superhero_name"
+                  },
+                  {
+                    "value": "Cameron Hicks"
+                  }
+                ]
+              }
+            }
+          }
+        ]
+      },
+      "compare": {
+        "mode": "bag",
+        "columns": [
+          "race",
+          "alignment"
+        ]
+      }
+    },
+    {
+      "id": 802,
+      "question": "Who is the tallest superhero?",
+      "evidence": "who refers to superhero_name; tallest superhero refers to MAX(height_cm);",
+      "difficulty": "simple",
+      "sql": "SELECT superhero_name FROM superhero ORDER BY height_cm DESC LIMIT 1",
+      "plan": {
+        "disposition": "retrieve",
+        "readings": [
+          {
+            "label": "r",
+            "plan": {
+              "SELECT": [
+                {
+                  "expr": {
+                    "col": "superhero.superhero_name"
+                  },
+                  "as": "superhero_name"
+                },
+                {
+                  "expr": {
+                    "col": "superhero.height_cm"
+                  },
+                  "as": "height_cm"
+                }
+              ],
+              "FROM": "superhero",
+              "ORDER_BY": [
+                {
+                  "by": "height_cm",
+                  "dir": "DESC"
+                }
+              ],
+              "LIMIT": 1
+            }
+          }
+        ]
+      },
+      "compare": {
+        "mode": "ordered",
+        "columns": [
+          "superhero_name"
+        ]
+      }
+    },
+    {
+      "id": 823,
+      "question": "How many female superheroes are in Marvel Comics?",
+      "evidence": "female refers to gender = 'Female'; Marvel Comics refers to publisher_name = 'Marvel Comics';",
+      "difficulty": "moderate",
+      "sql": "SELECT COUNT(T1.id) FROM superhero AS T1 INNER JOIN publisher AS T2 ON T1.publisher_id = T2.id INNER JOIN gender AS T3 ON T1.gender_id = T3.id WHERE T2.publisher_name = 'Marvel Comics' AND T3.gender = 'Female'",
+      "plan": {
+        "disposition": "retrieve",
+        "readings": [
+          {
+            "label": "r",
+            "plan": {
+              "SELECT": [
+                {
+                  "expr": {
+                    "func": "COUNT",
+                    "arg": "*"
+                  },
+                  "as": "n"
+                }
+              ],
+              "FROM": "superhero",
+              "JOIN": [
+                {
+                  "rel": "superhero_publisher",
+                  "type": "INNER"
+                },
+                {
+                  "rel": "superhero_gender",
+                  "type": "INNER"
+                }
+              ],
+              "WHERE": {
+                "AND": [
+                  {
+                    "EQ": [
+                      {
+                        "col": "publisher.publisher_name"
+                      },
+                      {
+                        "value": "Marvel Comics"
+                      }
+                    ]
+                  },
+                  {
+                    "EQ": [
+                      {
+                        "col": "gender.gender"
+                      },
+                      {
+                        "value": "Female"
+                      }
+                    ]
+                  }
+                ]
+              }
+            }
+          }
+        ]
+      },
+      "compare": {
+        "mode": "value",
+        "columns": [
+          "n"
+        ]
+      }
+    }
+  ],
+  "gaps": [
+    {
+      "id": 724,
+      "question": "Please list the superhero names of all the superheroes that have blue eyes and blond hair.",
+      "sql": "SELECT T1.superhero_name FROM superhero AS T1 INNER JOIN colour AS T2 ON T1.eye_colour_id = T2.id INNER JOIN colour AS T3 ON T1.hair_colour_id = T3.id WHERE T2.colour = 'Blue' AND T3.colour = 'Blond'",
+      "reason": "the colour table joined twice (eye colour and hair colour): a plan joins a table once (duplicate_table). Needs a table joined under two roles, an alias per relation",
+      "plan": {
+        "disposition": "retrieve",
+        "readings": [
+          {
+            "label": "r",
+            "plan": {
+              "SELECT": [
+                {
+                  "expr": {
+                    "col": "superhero.superhero_name"
+                  },
+                  "as": "superhero_name"
+                }
+              ],
+              "FROM": "superhero",
+              "JOIN": [
+                {
+                  "rel": "superhero_eye_colour",
+                  "type": "INNER"
+                },
+                {
+                  "rel": "superhero_hair_colour",
+                  "type": "INNER"
+                }
+              ],
+              "WHERE": {
+                "AND": [
+                  {
+                    "EQ": [
+                      {
+                        "col": "colour.colour"
+                      },
+                      {
+                        "value": "Blue"
+                      }
+                    ]
+                  },
+                  {
+                    "EQ": [
+                      {
+                        "col": "colour.colour"
+                      },
+                      {
+                        "value": "Blond"
+                      }
+                    ]
+                  }
+                ]
+              }
+            }
+          }
+        ]
+      },
+      "compile": "duplicate_table"
+    },
+    {
+      "id": 726,
+      "question": "Rank heroes published by Marvel Comics by their height in descending order.",
+      "sql": "SELECT superhero_name, height_cm, RANK() OVER (ORDER BY height_cm DESC) AS HeightRank FROM superhero INNER JOIN publisher ON superhero.publisher_id = publisher.id WHERE publisher.publisher_name = 'Marvel Comics'",
+      "reason": "a rank over the rows (RANK() OVER): the plan language has no window function; ORDER BY gives the order, not the rank number"
+    },
+    {
+      "id": 743,
+      "question": "What is the percentage of superheroes who act in their own self-interest or make decisions based on their own moral code? Indicate how many of the said superheroes were published by Marvel Comics.",
+      "sql": "SELECT (CAST(COUNT(*) AS REAL) * 100 / (SELECT COUNT(*) FROM superhero)), CAST(SUM(CASE WHEN T2.publisher_name = 'Marvel Comics' THEN 1 ELSE 0 END) AS REAL) FROM superhero AS T1 INNER JOIN publisher AS T2 ON T1.publisher_id = T2.id INNER JOIN alignment AS T3 ON T3.id = T1.alignment_id WHERE T3.alignment = 'Bad'",
+      "reason": "a percentage of all superheroes and a count under a condition in one row: arithmetic between aggregates, a subquery for the whole count, and CASE; none is in the plan language"
+    }
+  ]
+}
