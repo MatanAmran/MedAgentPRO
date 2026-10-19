@@ -45,15 +45,35 @@ def test_the_budget_starts_on_haiku_and_reserves_at_its_price(ledger):
     gw.invoke(prompt, ModelConfig("claude-haiku-5-5", prompt_identity="synthesis@11"))
 
 
-def test_a_prompt_above_the_price_tier_is_not_sent(ledger):
-    """Above 100K input tokens Haiku 5.5 costs five times as much: the .env price would undercount."""
+@pytest.mark.parametrize("cache", ["0", "1"])
+def test_a_prompt_above_the_price_tier_is_not_sent(ledger, cache):
+    """Above 100K input tokens Haiku 5.5 costs five times as much: the .env price would undercount. With
+    the prompt cache on as well (task 7 after task 1, merged 19.10)."""
     inner = ScriptedModelGateway(lambda p, c: "{}")
     gw = b.BudgetedGateway(inner, b.BudgetConfig.from_env({**ENV, "MODEL_MAX_USD_PER_EXCHANGE": "5",
-                                                            "MODEL_BUDGET_USD": "5"}), ledger)
+                                                            "MODEL_BUDGET_USD": "5",
+                                                            "MODEL_PROMPT_CACHE": cache}), ledger)
     with pytest.raises(BudgetExceeded, match="100000 input tokens") as e:
         gw.invoke("x" * 200_002, ModelConfig("claude-haiku-5-5", prompt_identity="synthesis@11"))
     assert e.value.scope == "model" and inner.calls == []
 
+
+
+@pytest.mark.parametrize("cache, sent", [("0", True), ("1", False)])
+def test_the_reservation_prices_input_as_a_cache_write_when_the_cache_is_on(ledger, cache, sent):
+    """The gateway reserves worst_cost, not cost (task 7 after task 1, merged 19.10): 80,000 input tokens
+    and 2000 out cost USD 0.009 at the plain price and 0.017 with every input token a cache write (twice the
+    input price, no write price set). A total cap of 0.012 lets the first through and stops the second."""
+    inner = ScriptedModelGateway(lambda p, c: "{}")
+    cfg = b.BudgetConfig.from_env({**ENV, "MODEL_BUDGET_USD": "0.012", "MODEL_PROMPT_CACHE": cache})
+    gw = b.BudgetedGateway(inner, cfg, ledger)
+    call = ModelConfig("claude-haiku-5-5", prompt_identity="synthesis@11")
+    if sent:
+        gw.invoke("x" * 160_000, call)
+    else:
+        with pytest.raises(BudgetExceeded):
+            gw.invoke("x" * 160_000, call)
+    assert len(inner.calls) == (1 if sent else 0)
 
 # register_model changes LiteLLM's process-wide state (the map, its provider model sets and the list it
 # replays on a reload), which no fixture undoes reliably: these two run in a process of their own.
