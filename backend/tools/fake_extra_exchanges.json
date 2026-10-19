@@ -1,0 +1,109 @@
+{
+  "$comment": "Exchanges the fake provider answers in the end-to-end tests only (tools/fake_real_server.py), never the demo's examples or its scripted model: a name the user wrote (MATCHES, chat 20.10). The demo's prompts do not teach MATCHES (@9), so only a script can put one in a plan; each output goes through the schema, the compiler, the references, the gate and the contract like a real one.",
+  "version": 1,
+  "exchanges": [
+    {
+      "question": "What is on hand for Strain relief?",
+      "intent": {
+        "disposition": "retrieve",
+        "readings": [
+          {
+            "label": "on_hand",
+            "plan": {
+              "SELECT": [
+                {
+                  "expr": {
+                    "col": "parts.part_id"
+                  },
+                  "as": "part_id"
+                },
+                {
+                  "expr": {
+                    "col": "parts.on_hand"
+                  },
+                  "as": "on_hand"
+                }
+              ],
+              "FROM": "parts",
+              "WHERE": {
+                "MATCHES": {
+                  "col": "parts.description",
+                  "term": "Strain relief"
+                }
+              }
+            }
+          }
+        ]
+      },
+      "expect": {
+        "outcome": "answered",
+        "note": "eight parts are described so: name_ambiguous, five candidates and 3 more, nothing retrieved"
+      }
+    },
+    {
+      "question": "What is on hand for Strain relief K77?",
+      "rewrite": {
+        "question": "What is on hand for Strain relief K77?",
+        "carried_from_history": false
+      },
+      "intent": {
+        "disposition": "retrieve",
+        "readings": [
+          {
+            "label": "on_hand",
+            "plan": {
+              "SELECT": [
+                {
+                  "expr": {
+                    "col": "parts.part_id"
+                  },
+                  "as": "part_id"
+                },
+                {
+                  "expr": {
+                    "col": "parts.on_hand"
+                  },
+                  "as": "on_hand"
+                }
+              ],
+              "FROM": "parts",
+              "WHERE": {
+                "MATCHES": {
+                  "col": "parts.description",
+                  "term": "Strain relief K77"
+                }
+              }
+            }
+          }
+        ]
+      },
+      "synthesis": {
+        "readings": [
+          {
+            "label": "on_hand",
+            "sentences": [
+              {
+                "text": "{on_hand.part_id#1} has {on_hand.on_hand#1} on hand."
+              }
+            ]
+          }
+        ]
+      },
+      "gate": {
+        "verdicts": [
+          "supported"
+        ],
+        "evidence": {
+          "on_hand": [
+            "part_id",
+            "on_hand"
+          ]
+        }
+      },
+      "expect": {
+        "outcome": "answered",
+        "note": "the full description matches one part exactly: EQ on its identifier, Examined says what matched"
+      }
+    }
+  ]
+}
