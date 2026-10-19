@@ -5101,6 +5101,43 @@ exchange cost: attempt=EX-bc247dc6774a usd=0.061608 remaining=1.714846
 - **ד.** בדיקה: קריאה עם `s-001` וגם עם "Apex". ההידור מחדש אחרי `with_names` שומר את `S-001` כפי שהוא מוחזק (A1), ושני הפתרונות מופיעים ברשומה.
 - **הבהרה של Code (מימוש):** כשמונח נפתר לישות, נוצר `EQ` על מזהה שלא הופיע בשאלה. ההידור מחדש מקבל את המזהים האלה כמותרים לבדיקת המקור (NFR 27), כמו מזהה שהוצג קודם, כי הקוד מצא אותם מתוך מונח שנמצא בשאלה. רק בהידור מחדש הזה, ורק המזהים שנפתרו.
 
+#### **‏value-match: נבנה (20.10, ענף `phaseb/value-match`, מקומי).** בלי מודל. התשובות המוזהבות, `scripted_exchanges.json` ו-@9 לא השתנו
+
+**מה נבנה:**
+- `searchable` ו-`max_candidates` בקטלוג.
+- `MATCHES` בסכמה 1.
+- **במהדר:**
+  - הבדיקות `match_not_searchable`, `match_not_top_level` ו-span.
+  - `NameProbe` לכל מונח: שלושה שלבים, ההרשאה בכל שאילתה, והספירה לפי המזהה של הישות.
+  - `resolve_names` ו-`with_names`.
+  - **`execute` מסרב** לקריאה שעדיין יש בה `MATCHES` (‏`UnresolvedName`). בצינור הסירוב הופך ל-`request_not_completed`.
+- **בצינור:** הפתרון רץ ב-`_resolve` יחד עם A1, בהידור אחד. ‏`name_ambiguous` ו-`name_not_matched` לא נשלפים. ברשומה יש `matched`: המונח, השלב והספירה.
+- **בחוזה:** שני ה-`result` החדשים, טקסט קבוע, ושדה `candidates`. ‏`for_record` מוריד את המועמדים מהרשומה.
+- **show-all:** קריאה שלא נפתרה מקבלת 409.
+- **במסך:** רשימת המועמדים כטקסט בלבד.
+- **@10:** ‏`demo_data/intent_analysis_demo_v10.md`, לבדיקות בלבד. ‏`render_schema` מסמן `searchable` רק לתבנית שמלמדת `MATCHES`.
+- **T21** נוסף ל-`constraints.py`.
+
+**הבדיקות:**
+- ‏pytest **1232** (לפני: 1186; ‏+32 ב-`test_value_match.py`, ‏+2 ב-`test_paths.py`, ‏+1 ‏T21, ו-+11 דוגמאות של @10 ב-`test_provider_enforced`). ‏stress 8, ‏mypy 0, ruff ו-bandit נקיים.
+- ‏path_map 165. ‏vitest **134** (+2). ‏Playwright 25 ועוד 6 עם הספק המזויף.
+- ‏`--plans`: ‏31/31 ו-14/14.
+- **בדיקות מוטציה:**
+  - בלי ההרשאה בחיפוש: `test_a_supplier_the_user_may_not_see_is_neither_a_candidate_nor_counted` נכשלת.
+  - בלי הסירוב ב-`execute`: שלוש בדיקות נכשלות. מוחלת בסירוב, show-all, ו-`request_not_completed`.
+
+**איפה הקוד חורג מהספר או מההכרעות. לסקירה:**
+1. ❗ **NFR 21, החלטה שלי.** ‏`suppliers.name` הוא free text לפי `free_text_aliases` (טקסט, לא מזהה, בלי `values`). שורת Examined עוברת לסינתזה ולשער (`render_records`, שמתועד כ-"never from a record") ולהיסטוריה של השכתוב (`ReadingNote`). לכן:
+   - במסך: ‏"supplier name 'Apex' matched Apex Polymers (by prefix)", כמו בהכרעה ג׳.
+   - לכל מודל ולהיסטוריה: ‏"… matched S-001 (by prefix)". זה הפרמטר `by_identifier` ב-`examined_line`.
+   - בדיקה מוודאת ש-"Apex Polymers" לא מופיע באף prompt.
+   - אם הצ׳אט רוצה שגם הסינתזה תקבל את השם, זה שינוי של שורה אחת, אבל הוא מחליש את הכלל של `render_records`.
+2. **הקטלוג מסרב בטעינה לעמודה `searchable` בלי מזהה משלה.** זו שמירה בלבד, עד שהשאלה הפתוחה מ-ב׳ תוכרע. היא לא הכרעה.
+3. **show-all על קריאה שלא נפתרה מקבל 409** ("a name in the question matched no single record"). המסך ממילא לא מציג שם את הכפתור, כי אין שורות.
+4. **משפחה חדשה במפת הנתיבים:** ‏`result` (ה-enum של `result` בקריאה). חמשת הערכים מכוסים: שלושה ישנים דרך נתיבים קיימים, ושני החדשים דרך `test_server_name_ambiguous` ו-`test_server_name_not_matched`.
+5. **לא נבנה: בדיקת e2e עם הספק המזויף,** שהייתה בתוכנית. הצד של המסך מכוסה ב-vitest, והצד של השרת דרך ה-API ב-`test_paths`. השרת לא מריץ את @10, ולכן מקרה כזה מגיע למסך בדמו רק דרך תסריט שכתבנו.
+6. **לא בספר:** ‏`MATCHES`, ‏`name_ambiguous`, ‏`name_not_matched` ו-`candidates` הם הצעה או `[demo extension]`. ההערה ב-3.1.6 מחכה לסבב מול המודל.
+
 ## מה שנסגר בסבב האחרון
 
 - **הקוד עבר לריפו** — `MedAgentPro\backend` (`query_assistance`, `model_client`, `persistence`, `shared`, `tests`). **`03_Code` נשאר כמקור ומעודכן.** `python -m pytest -q` מתוך `backend`
