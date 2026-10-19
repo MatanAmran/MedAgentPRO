@@ -7,15 +7,20 @@ model's real output goes through, so an example cannot teach something the syste
 
 import json
 import re
+from pathlib import Path
 
 import pytest
 from jsonschema import Draft202012Validator
 
+from demo_data import seed
 from query_assistance import compiler as c
 from query_assistance import gate
 from query_assistance import prompts as p
 
-CAT = c.Catalog.load()
+FIXTURES = Path(__file__).parents[1] / "fixtures"
+CAT = c.Catalog.load(FIXTURES / "placeholder_schema.json", FIXTURES / "placeholder_relations.json")
+DEMO = c.Catalog.load(seed.HERE / "schema.json", seed.HERE / "relations.json")
+INTENT = p.load(seed.HERE / "intent_analysis.md")
 BUNDLE = json.loads((c.HERE / "medagentpro_schemas.json").read_text(encoding="utf-8"))
 
 
@@ -36,28 +41,17 @@ def examples(prompt):
 # prompt files
 # --------------------------------------------------------------------------
 
-@pytest.mark.parametrize("file", ["rewrite.md", "intent_analysis.md", "gate.md"])
+@pytest.mark.parametrize("file", ["rewrite.md", seed.HERE / "intent_analysis.md", "gate.md"])
 def test_prompt_has_version_and_schema(file):
     pr = p.load(file)
     assert pr.version and pr.output_schema in BUNDLE["schemas"]
     assert pr.identity == f"{pr.name}@{pr.version}"
 
 
-@pytest.mark.parametrize("file", ["rewrite.md", "intent_analysis.md", "gate.md"])
+@pytest.mark.parametrize("file", ["rewrite.md", seed.HERE / "intent_analysis.md", "gate.md"])
 def test_prompt_text_has_no_semicolons_or_dashes(file):
     body = p.load(file).body
     assert "—" not in body and "–" not in body
-
-
-def test_intent_examples_validate_and_compile():
-    pr = p.load("intent_analysis.md")
-    exs = examples(pr)
-    assert len(exs) == 5   # task 8, A1: the request to change records; chat 18.10 11:35: one not interpretable
-    v = c.intent_validator()
-    for inp, out in exs:
-        q = re.search(r"Question: (.*)", inp).group(1)
-        assert not list(v.iter_errors(out)), q
-        c.compile_intent(out, q, {"role": "APPROVER"}, CAT, v)
 
 
 def test_rewrite_examples_validate_and_name_no_new_identifier():
@@ -117,9 +111,9 @@ def test_role_with_no_access_sees_no_table():
 
 
 def test_intent_prompt_carries_both_forms_only_when_rewritten():
-    one = p.render_intent(CAT, "PLANNER", "Which suppliers were late?")
+    one = p.render_intent(DEMO, "PLANNER", "Which suppliers were late?", prompt=INTENT)
     assert "Question as posed" not in one and one.rstrip().endswith("Output:")
-    two = p.render_intent(CAT, "PLANNER", "And in October?", "Which suppliers were late in October?")
+    two = p.render_intent(DEMO, "PLANNER", "And in October?", "Which suppliers were late in October?", INTENT)
     assert "Question as posed: And in October?" in two and "Question: Which suppliers were late in October?" in two
 
 

@@ -49,13 +49,18 @@ from .calls import MODEL_CALL_ATTEMPTS, Call, StageFailed, StageRejected
 from .compiler import (
     HERE,
     Catalog,
+    CompiledIntent,
     CompiledReading,
     CompileError,
+    Conversation,
     RetrievalResult,
     _norm,
+    compile_all,
     compile_intent,
     execute,
     intent_validator,
+    resolve_identifiers,
+    with_identifiers,
 )
 from .synthesis import Draft
 
@@ -66,10 +71,11 @@ _SYNTHESIS_SCHEMA = _BUNDLE["synthesis"]["schema"]
 
 # The order stages are declared in, which the audit trail follows (Test 21).
 REWRITING, INTENT, COMPILATION, RETRIEVAL, SYNTHESIS, GATE, REGENERATION, REGATE, CONTRACT, RATING = range(1, 11)
+RECORDS_VIEWED = 11   # Phase B task 5 [demo extension]: "Show all records", a later entry like the rating
 STAGE_NAMES = {REWRITING: "question_rewriting", INTENT: "intent_analysis", COMPILATION: "compilation",
                RETRIEVAL: "retrieval", SYNTHESIS: "synthesis", GATE: "support_gate",
                REGENERATION: "regeneration", REGATE: "support_gate", CONTRACT: "output_contract",
-               RATING: "rating"}
+               RATING: "rating", RECORDS_VIEWED: "show_all_records"}
 
 # SQLite primary result codes that mean the source cannot be reached, not that the query is wrong
 # (review F1): busy, locked, cannot open. A failed connection counts as well.
@@ -90,7 +96,7 @@ class Deps:
     catalog: Catalog
     connect: Callable[[], sqlite3.Connection]   # a new connection per call, one per retrieval thread
     audit: AuditRepository
-    intent_prompt: prompts.Prompt | None = None   # defaults to templates/intent_analysis.md
+    intent_prompt: prompts.Prompt | None = None   # the catalog's intent prompt; run() refuses none (chat 19.10, C)
     source_breaker: CircuitBreaker = field(default_factory=lambda: CircuitBreaker("company_store", MemoryStore()))
     attempts: int = MODEL_CALL_ATTEMPTS
     source: str = "The company database"
@@ -103,6 +109,9 @@ class Outcome:
     exchange_id: str
     recorded: bool
     cost: dict | None = None             # exchange_usd, remaining_usd. Outside exchange_response (T3)
+    # Phase B task 5: each reading's plan as run, kept by the server for "Show all records". Never in
+    # exchange_response, never sent to a model
+    plans: dict[str, dict] = field(default_factory=dict)
 
 
 class _Rejected(Exception):
@@ -315,6 +324,77 @@ def _retrieve(readings: list[CompiledReading], connect: Callable[[], sqlite3.Con
     return out
 
 
+def _resolve(compiled: CompiledIntent, conv: Conversation, user: dict, cat: Catalog, validator,
+             connect: Callable[[], sqlite3.Connection], breaker: CircuitBreaker) -> tuple[CompiledIntent, list]:
+    """A1 (chat 19.10): an identifier written in another case than the store holds it, held in one
+    form only, is compiled again in the stored form, so the query and Examined use it. No model.
+    Reaching the source is as for retrieval: an unreachable source ends the exchange (FR 15)."""
+    if not any(r.probes for r in compiled.readings):
+        return compiled, []
+
+    def op():
+        try:
+            conn = connect()
+        except Exception as e:
+            raise _Unreachable(repr(e)) from e
+        try:
+            return resolve_identifiers(compiled, conn)
+        except sqlite3.Error as e:
+            if _cannot_reach(e):
+                raise _Unreachable(repr(e)) from e
+            return _SystemFault(repr(e))
+        finally:
+            conn.close()
+
+    try:
+        found = breaker.call(op)
+    except CircuitOpen as e:
+        raise _Unreachable(f"circuit open for {e}") from e
+    if isinstance(found, _SystemFault):
+        raise found
+    if not found:
+        return compiled, []
+    again = compile_intent(with_identifiers(compiled.intent, found), conv, user, cat, validator)
+    return again, [{"column": c, "as_written": v, "as_held": h} for (c, v), h in found.items()]
+
+
+class SourceUnavailable(Exception):
+    """Show all records (task 5): the source could not be reached, or the query failed there."""
+
+
+class NotRecorded(Exception):
+    """Show all records (task 5): the records_viewed event could not be written, so nothing is shown."""
+
+
+def show_all(exchange_id: str, label: str, plan: dict, user: dict, deps: Deps, shown: list[dict]) -> dict:
+    """Phase B task 5: every record of a reading that was cut, up to SHOW_ALL_LIMIT, as reading_view
+    presents it, with no answer. No model call, nothing added to the conversation's history (NFR 21): the
+    rows go to the screen only. The rows the exchange showed come first, in their order, so a reference in
+    the answer still points at its row; the rest follow in the query's order.
+    The viewing is recorded on the exchange as a records_viewed event (chat 19.10): its label, the user and
+    the row count, never record content. Records that cannot be recorded as viewed are not shown (as R1)."""
+    cat = deps.catalog
+    reading = compile_all(label, plan, user, cat)
+    try:
+        ((res, _, _),) = _retrieve([reading], deps.connect, deps.source_breaker)
+    except (_Unreachable, _SystemFault) as e:
+        raise SourceUnavailable(str(e)) from e
+    view = contract.reading_view(label, plan, res, cat, user["role"])
+    rest = list(view["rows"])
+    for row in shown:
+        if row in rest:
+            rest.remove(row)
+    view["rows"] = [r for r in shown if r in view["rows"]] + rest
+    try:
+        # in the entry itself, so each viewing is its own link in the chain and none overwrites another
+        deps.audit.write_event(AuditEntry(exchange_id, RECORDS_VIEWED, STAGE_NAMES[RECORDS_VIEWED],
+                                          "records_viewed", user["role"], actor_id=user.get("user_id"),
+                                          evidence_reviewed=[{"label": label, "row_count": view["row_count"]}]))
+    except Exception as e:
+        raise NotRecorded(type(e).__name__) from e
+    return view
+
+
 def ambiguous_terms(intent: dict, question: str) -> list[str]:
     """Task 7, Q4 [demo extension]: the terms declared ambiguous, for the interface to name. The
     compiler accepts a span of the rewritten question as well (_check_span), and the rewrite is model
@@ -356,7 +436,10 @@ def run(question: str, history: list[prompts.Exchange], user: dict, deps: Deps,
     """history holds the earlier exchanges of the same conversation, oldest first. context holds the
     request and conversation ids, which only the operational log line carries (R9). on_call receives
     the trace of each model call as it is recorded, the same metadata as that line."""
+    if deps.intent_prompt is None:   # chat 19.10, C: the catalog's own prompt, never a built-in one
+        raise ValueError("Deps.intent_prompt is required: the intent prompt that goes with the catalog")
     stage = on_stage or (lambda name: None)
+    ran: dict[str, dict] = {}   # the plans retrieved, for Outcome.plans (task 5)
     eid = "EX-" + uuid.uuid4().hex[:12]
     rec = _Record(eid, user, context, on_call)
     cat, role = deps.catalog, user["role"]
@@ -405,7 +488,7 @@ def run(question: str, history: list[prompts.Exchange], user: dict, deps: Deps,
         if answer is not None and answer.sentences:
             ex.answer = "\n".join(f"[{label}] {answer.answer(label, cat, for_history=True)}"
                                   for label in answer.sentences)
-        return Outcome(response, ex, eid, recorded=True, cost=spent)
+        return Outcome(response, ex, eid, recorded=True, cost=spent, plans=dict(ran))
 
     try:
         # task 5: the rate across users, and this exchange's own cap, before any model call
@@ -428,7 +511,7 @@ def run(question: str, history: list[prompts.Exchange], user: dict, deps: Deps,
         # "Settled on Code's proposals"), so every schema breach is a content failure
         stage("intent")
         conv = prompts.compiler_conversation(history, question, rewritten)
-        pr = deps.intent_prompt or prompts.load("intent_analysis.md")
+        pr = deps.intent_prompt
         validator = intent_validator()
         intent, compiled = _ask(deps, rec, INTENT, pr,
                                 lambda fb: prompts.render_intent(cat, role, question, rewritten, pr, fb),
@@ -440,11 +523,12 @@ def run(question: str, history: list[prompts.Exchange], user: dict, deps: Deps,
         if compiled.disposition == "out_of_scope_action":   # task 8, A1: nothing is retrieved
             return finish(contract.declined_action(understood))
         if compiled.disposition == "needs_clarification":   # chat 18.10, 11:35: nothing is retrieved
-            return finish(contract.needs_clarification(understood))
+            return finish(contract.needs_clarification(understood, cat))
 
         # retrieval
         stage("retrieval")
         try:
+            compiled, resolved = _resolve(compiled, conv, user, cat, validator, deps.connect, deps.source_breaker)
             retrieved = _retrieve(compiled.readings, deps.connect, deps.source_breaker)
         except _SystemFault as e:   # review F1: our fault, not the source's
             operational_log.error("retrieval fault: attempt=%s user=%s source=%s error=%s",
@@ -458,9 +542,12 @@ def run(question: str, history: list[prompts.Exchange], user: dict, deps: Deps,
             return Outcome(contract.source_unreachable(deps.source, understood),
                            prompts.Exchange(question, understood), eid, recorded=False, cost=cost())
         rec.step(RETRIEVAL, [{"label": res.label, "result": res.outcome, "row_count": len(res.rows),
-                              "total": res.total, "started": s, "finished": f} for res, s, f in retrieved])
+                              "total": res.total, "started": s, "finished": f} for res, s, f in retrieved]
+                 + ([{"resolved": resolved}] if resolved else []))
 
+        intent = compiled.intent   # values as compiled: declared forms (A2), identifiers as held (A1)
         plans = {r["label"]: r["plan"] for r in intent["readings"]}
+        ran.update(plans)
         terms = ambiguous_terms(intent, question)
         results = {res.label: res for res, _, _ in retrieved}
         materials = [synthesis.material(label, plans[label], res.rows, res.truncated, cat,
@@ -471,11 +558,12 @@ def run(question: str, history: list[prompts.Exchange], user: dict, deps: Deps,
         def views(d: Draft | None = None) -> list[dict]:
             out = []
             for label, res in results.items():
-                said = d is not None and label in d.sentences
-                evidence = list(dict.fromkeys(e for s in d.sentences[label] for e in s.evidence)) if said else None
-                out.append(contract.reading_view(label, plans[label], res, cat, role,
-                                                 d.answer(label) if said else None, evidence,
-                                                 d.segments(label, cat) if said else None))   # UI refresh C
+                if d is not None and label in d.sentences:
+                    evidence = list(dict.fromkeys(e for s in d.sentences[label] for e in s.evidence))
+                    out.append(contract.reading_view(label, plans[label], res, cat, role, d.answer(label), evidence,
+                                                     d.segments(label, cat)))   # UI refresh C
+                else:
+                    out.append(contract.reading_view(label, plans[label], res, cat, role))
             return out
 
         if not any(m.rows for m in materials):   # an empty result is a finding (Test 35), no model call

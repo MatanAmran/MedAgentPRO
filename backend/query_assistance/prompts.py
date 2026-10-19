@@ -1,11 +1,12 @@
 """
 MedAgentPro - query assistance pipeline. Prompt rendering.
 
-Three prompts, one file each under templates/, each with a version recorded in
+The prompts, one file each under templates/, each with a version recorded in
 model_identity (NFR 3):
   rewrite.md          question rewriting, runs only where the conversation has earlier exchanges
-  intent_analysis.md  schema 1, the plan the compiler builds the query from
   gate.md             schema 4, a verdict per assertion of the drafted answer
+The intent prompt (schema 1, the plan the compiler builds the query from) goes with the catalog,
+since its examples name the catalog's tables: demo_data/intent_analysis.md (chat 19.10, C).
 
 Also here: the conversation history given to the rewriting call, reduced in layers
 when it outgrows its budget (Table 15, "History carried into rewriting"), and the
@@ -70,13 +71,31 @@ def load(file: str | Path) -> Prompt:
     return Prompt(meta["prompt"], meta["version"], meta["output_schema"], text[m.end():])
 
 
-def fill(prompt: Prompt, **values: str) -> str:
+# The placeholders whose value changes with each request: the question, the conversation, the records, the
+# answer, the feedback. What a template holds before the first of them (its instructions, the catalog's
+# schema, the examples, the reference date) is the same for every request of that prompt and catalog: the
+# stable prefix a provider may cache (Phase B task 7, chat 19.10)
+VOLATILE = ("question_block", "question", "history", "answer", "records", "kept", "rejected", "feedback")
+_PLACEHOLDER = re.compile(r"\{\{(\w+)\}\}")
+
+
+class Rendered(str):
+    """A filled prompt, and the part of it that is the same for every request: cache_prefix, which the
+    whole text starts with. Empty where the template opens with a request's own content."""
+    cache_prefix: str = ""
+
+
+def fill(prompt: Prompt, **values: str) -> Rendered:
     """One pass over the template only. A value is never scanned again, so a question or record text
     that holds {{name}} stays as written (review R6)."""
-    left = [k for k in re.findall(r"\{\{(\w+)\}\}", prompt.body) if k not in values]
+    left = [k for k in _PLACEHOLDER.findall(prompt.body) if k not in values]
     if left:
         raise ValueError(f"{prompt.name}: unfilled {left}")
-    return re.sub(r"\{\{(\w+)\}\}", lambda m: values[m.group(1)], prompt.body)
+    out = Rendered(_PLACEHOLDER.sub(lambda m: values[m.group(1)], prompt.body))
+    first = next((m.start() for m in _PLACEHOLDER.finditer(prompt.body) if m.group(1) in VOLATILE),
+                 len(prompt.body))
+    out.cache_prefix = _PLACEHOLDER.sub(lambda m: values[m.group(1)], prompt.body[:first])
+    return out
 
 
 def feedback_block(feedback: str | None) -> str:
@@ -276,7 +295,9 @@ def render_intent(cat: Catalog, role: str, posed: str, rewritten: str | None = N
     """The reference date resolves a month or period given without a year (task 10a, chat 01:15). It is
     the date the catalog's data runs to, never the system clock, so the same question plans the same
     way on any day. A prompt that names it, over a catalog that holds none, fails here."""
-    pr = prompt or load("intent_analysis.md")
+    if prompt is None:   # one intent prompt per catalog, with its examples (chat 19.10, C): no default
+        raise ValueError("render_intent needs the catalog's intent prompt")
+    pr = prompt
     if "{{reference_date}}" in pr.body and not cat.data_as_of:
         raise ValueError(f"{pr.name}: the catalog holds no data_as_of for {{{{reference_date}}}}")
     return fill(pr, schema=render_schema(cat, role), question_block=question_block(posed, rewritten),

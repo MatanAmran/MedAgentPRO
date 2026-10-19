@@ -81,6 +81,10 @@ class BudgetConfig:
     # The gate alone, where set (chat, 18.10, 13:50): a long answer over two readings makes many claims, and
     # D4 of the held-out set stopped at 2000 (723 of them thinking). The answer's length is not limited
     max_output_tokens_gate: int | None = None
+    # Phase B task 7: the stable prefix of each prompt marked for Anthropic's cache. Off unless
+    # MODEL_PROMPT_CACHE is set: a cache write costs more than a plain input token and lives about five
+    # minutes, so spread-out questions pay more with it (T1); evaluation rounds, asked back to back, less
+    prompt_cache: bool = False
 
     @classmethod
     def from_env(cls, env: Mapping[str, str] | None = None, env_file: Path = ENV_FILE,
@@ -122,7 +126,8 @@ class BudgetConfig:
                    number("MODEL_PRICE_CACHE_WRITE", required=False),
                    str(env.get("ANTHROPIC_API_KEY") or "").strip(), temperature,
                    number("MODEL_MAX_OUTPUT_TOKENS_INTENT", int, required=False),
-                   number("MODEL_MAX_OUTPUT_TOKENS_GATE", int, required=False))
+                   number("MODEL_MAX_OUTPUT_TOKENS_GATE", int, required=False),
+                   _flag(env, "MODEL_PROMPT_CACHE"))
 
     def output_cap(self, prompt_identity: str = "") -> int:
         """The max_tokens a call of this prompt is sent: the intent cap for intent analysis and the gate
@@ -134,10 +139,27 @@ class BudgetConfig:
             return self.max_output_tokens_gate
         return self.max_output_tokens
 
+    def worst_cost(self, input_tokens: int, output_tokens: int) -> float:
+        """What a call may cost at most, before it is sent. With the prompt cache on, any input token may be
+        a cache write, which costs more than a plain one: priced at the higher of the two (task 7)."""
+        price_in = self.price_in
+        if self.prompt_cache:
+            price_in = max(price_in, self.price_cache_write or 2 * self.price_in)
+        return (input_tokens * price_in + output_tokens * self.price_out) / 1_000_000
+
     def cost(self, input_tokens: int, output_tokens: int, cache_read: int = 0, cache_write: int = 0) -> float:
         cached = self.price_cache_write or 2 * self.price_in
         return (input_tokens * self.price_in + output_tokens * self.price_out
                 + (cache_read + cache_write) * cached) / 1_000_000
+
+
+def _flag(env: Mapping[str, str], name: str) -> bool:
+    raw = str(env.get(name) or "").strip().lower()
+    if raw in ("", "0", "false", "no", "off"):
+        return False
+    if raw in ("1", "true", "yes", "on"):
+        return True
+    raise BudgetConfigError(f"{name} in backend/.env is not 1 or 0")
 
 
 def estimate_input_tokens(prompt: str) -> int:
@@ -309,7 +331,7 @@ class BudgetedGateway(ModelGateway):
             self._current.reset(token)
 
     def worst_case(self, input_tokens: int, prompt_identity: str = "") -> float:
-        return self.config.cost(input_tokens, self.config.output_cap(prompt_identity))
+        return self.config.worst_cost(input_tokens, self.config.output_cap(prompt_identity))
 
     def _refuse_if_over(self, amount: float, ex: ExchangeSpend | None):
         """Under the lock. The total cap first: it is the one that ends every exchange."""
@@ -334,8 +356,14 @@ class BudgetedGateway(ModelGateway):
         if config.model != cfg.model_id:
             raise BudgetExceeded(f"model {config.model} is not the one priced in backend/.env", scope="model")
         cap = cfg.output_cap(config.prompt_identity)
-        call = replace(config, max_tokens=min(config.max_tokens or cap, cap))
-        worst = cfg.cost(estimate_input_tokens(prompt), call.max_tokens)
+        max_tokens = min(config.max_tokens or cap, cap)
+        call = replace(config, max_tokens=max_tokens)
+        estimated = estimate_input_tokens(prompt)
+        tier = price_tier(cfg.model_id)
+        if tier is not None and estimated > tier:   # chat 19.10: above it the .env price undercounts
+            raise BudgetExceeded(f"the prompt may exceed {tier} input tokens, above which {cfg.model_id} costs "
+                                 f"more than backend/.env prices it", scope="model")
+        worst = cfg.worst_cost(estimated, max_tokens)
         ex = self._current.get()
         with self._lock:
             self._refuse_if_over(worst, ex)
@@ -378,21 +406,68 @@ def real_gateway(env: Mapping[str, str] | None = None, spend_file: Path = SPEND_
     Refuses under pytest (R8): tests never reach a real model (6.1)."""
     if "pytest" in sys.modules:
         raise BudgetConfigError("the real model is never built under pytest (book 6.1, R8)")
+    if os.environ.get("CI"):   # Phase B (19.10): nor in CI, whatever runs there (GitHub sets CI=true)
+        raise BudgetConfigError("the real model is never built in CI (book 6.1)")
     cfg = BudgetConfig.from_env(env)
     check_against_provider_map(cfg)
     inner = LiteLLMGateway(breaker or CircuitBreaker("model_provider", MemoryStore()),
-                           api_key=cfg.api_key, provider="anthropic", temperature=cfg.temperature)
-    return BudgetedGateway(inner, cfg, SpendLedger(spend_file))
+                           api_key=cfg.api_key, provider="anthropic", temperature=cfg.temperature,
+                           cache_prompts=cfg.prompt_cache)
+    ledger = SpendLedger(spend_file)   # refuses a damaged spend file before anything else changes
+    register_manual_models()
+    return BudgetedGateway(inner, cfg, ledger)
+
+
+# Models the pinned LiteLLM (1.105) does not hold, entered by hand in its map's own fields (chat 19.10,
+# Phase B task 1: development rounds on Haiku 5.5). From Anthropic's model card as cached in the claude-api
+# skill, 2026-10-06: USD 0.10 / 0.50 per million tokens for a prompt of 100K tokens or fewer (0.50 / 2.50
+# above), 1M context, 128K output, no sampling parameters, structured outputs, caching from 512 tokens.
+# No cache prices: a cached token is then counted at twice the input price, never less (T1). LiteLLM's
+# own entry wins wherever it has one, so an upgrade that adds the model replaces this one.
+MANUAL_MODELS: dict[str, dict] = {
+    "claude-haiku-5-5": {
+        "litellm_provider": "anthropic", "mode": "chat",
+        "input_cost_per_token": 1e-07, "output_cost_per_token": 5e-07,  # nosec B105  prices, not secrets
+        "max_input_tokens": 1_000_000, "max_output_tokens": 128_000, "max_tokens": 128_000,
+        "supports_sampling_params": False, "supports_native_structured_output": True,
+        "supports_response_schema": True, "supports_forced_tool_use": False,
+        "supports_assistant_prefill": False, "supports_prompt_caching": True, "prompt_cache_min_tokens": 512,
+        "supports_reasoning": True, "supports_function_calling": True, "supports_tool_choice": True,
+        "source": "https://platform.claude.com/docs/en/about-claude/pricing (manual entry, chat 19.10)",
+    },
+}
+# Above this many input tokens the model costs more than its listed price (Haiku 5.5: 5 times): a call
+# over it is not sent, so the budget never undercounts (chat 19.10)
+PRICE_TIER_INPUT_TOKENS: dict[str, int] = {"claude-haiku-5-5": 100_000}
+
+
+def price_tier(model_id: str) -> int | None:
+    return PRICE_TIER_INPUT_TOKENS.get(model_id.split("/", 1)[-1])
+
+
+def register_manual_models() -> list[str]:
+    """Adds each manual entry LiteLLM lacks to its map, so its request mapping (structured output, no
+    tools, no sampling parameters: R1, R2) and its cost figures follow the same fields. Only the real
+    gateway calls it, never a test (it changes LiteLLM's process-wide map). Returns the names added."""
+    import litellm
+    added = [n for n in MANUAL_MODELS if n not in litellm.model_cost]
+    if added:
+        litellm.register_model({n: dict(MANUAL_MODELS[n]) for n in added})   # it keys by the bare name
+    return added
 
 
 def map_entry(name: str) -> dict:
-    """The raw entry of LiteLLM's local map (H1). get_model_info is not used: for an Anthropic model the
-    map does not hold it builds an entry priced at zero, and it does not pass supports_sampling_params
-    on (False on the Claude 5 models in the raw entry). Raises KeyError where the map holds none."""
+    """The raw entry of LiteLLM's local map (H1), else the manual entry (chat 19.10). get_model_info is not
+    used: for an Anthropic model the map does not hold it builds an entry priced at zero, and it does not
+    pass supports_sampling_params on (False on the Claude 5 models in the raw entry). Raises KeyError
+    where neither holds one."""
     import litellm
     for key in (name, name.split("/", 1)[-1]):
         if key in litellm.model_cost:
             return dict(litellm.model_cost[key])
+    for key in (name, name.split("/", 1)[-1]):
+        if key in MANUAL_MODELS:
+            return dict(MANUAL_MODELS[key])
     raise KeyError(name)
 
 

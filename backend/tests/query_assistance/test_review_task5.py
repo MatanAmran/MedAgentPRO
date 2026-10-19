@@ -215,11 +215,17 @@ def test_a_model_with_no_price_in_the_map_refuses_to_start():
 
 
 def test_against_litellms_own_map():
-    """In the local map of LiteLLM 1.105: Sonnet 5.5 at 2 / 10 passes, Haiku 5.5 is not held (R1, H1)."""
+    """In the local map of LiteLLM 1.105: Sonnet 5.5 at 2 / 10 passes; Haiku 5.5, which it does not hold,
+    passes on its manual entry (chat 19.10); a model in neither is refused (R1, H1)."""
     b.check_against_provider_map(cfg(MODEL_ID="claude-sonnet-5-5"))
-    for missing in ("claude-haiku-5-5", "claude-not-a-model-9-9"):
-        with pytest.raises(b.BudgetConfigError, match="not in LiteLLM's model map"):
-            b.check_against_provider_map(cfg(MODEL_ID=missing))
+    b.check_against_provider_map(cfg(MODEL_ID="claude-haiku-5-5", MODEL_PRICE_IN="0.10", MODEL_PRICE_OUT="0.50"))
+    with pytest.raises(b.BudgetConfigError, match="MODEL_PRICE_OUT"):
+        b.check_against_provider_map(cfg(MODEL_ID="claude-haiku-5-5", MODEL_PRICE_IN="0.10", MODEL_PRICE_OUT="0.05"))
+    with pytest.raises(b.BudgetConfigError, match="takes no temperature"):
+        b.check_against_provider_map(cfg(MODEL_ID="claude-haiku-5-5", MODEL_PRICE_IN="0.1", MODEL_PRICE_OUT="0.5",
+                                         MODEL_TEMPERATURE="0"))
+    with pytest.raises(b.BudgetConfigError, match="not in LiteLLM's model map"):
+        b.check_against_provider_map(cfg(MODEL_ID="claude-not-a-model-9-9"))
     with pytest.raises(b.BudgetConfigError, match="takes no temperature"):   # read from the raw map entry
         b.check_against_provider_map(cfg(MODEL_ID="claude-sonnet-5-5", MODEL_TEMPERATURE="0"))
     with pytest.raises(b.BudgetConfigError, match="MODEL_PRICE_IN"):
@@ -469,7 +475,8 @@ def test_refused_connection_is_known_not_to_have_left():
 # --------------------------------------------------------------------------
 
 def test_a_placeholder_in_the_question_is_not_filled():
-    text = p.render_intent(CAT, "APPROVER", "What about {{schema}} and {{feedback}}?")
+    text = p.render_intent(CAT, "APPROVER", "What about {{schema}} and {{feedback}}?",
+                           prompt=p.load(seed.HERE / "intent_analysis.md"))
     assert "What about {{schema}} and {{feedback}}?" in text
 
 
@@ -536,7 +543,7 @@ def test_presented_identifiers_are_cut_to_the_history_budget():
 
 def test_feedback_rate_is_read_from_the_audit_entries(db_path, storage):
     """R4: the figure dry_run and the smoke test report."""
-    from query_assistance import dry_run
+    from tools import dry_run
     bad = {"disposition": "retrieve"}
     gw = model(intent_analysis_demo=[bad, INTENT], synthesis=[SYN], support_scoring=[gate_ok])
     run(gw, db_path, storage)

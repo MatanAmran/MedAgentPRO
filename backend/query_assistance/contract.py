@@ -253,7 +253,7 @@ def reading_entity(plan: dict, cat: Catalog) -> str | None:
     if plan.get("GROUP_BY"):
         if len(plan["GROUP_BY"]) != 1:
             return None
-        expr = next((i["expr"] for i in plan["SELECT"] if i["as"] == plan["GROUP_BY"][0]), {})
+        expr: dict = next((i["expr"] for i in plan["SELECT"] if i["as"] == plan["GROUP_BY"][0]), {})
         spec = cat.column(expr["col"]) if "col" in expr else None
         if not spec or not spec.get("identifier"):
             return None
@@ -385,16 +385,41 @@ def declined_action(understood_as: str | None = None) -> dict:
     return _finish({"outcome": "answered", "readings": [], "gaps": [], "notice": ACTION_DECLINED}, understood_as)
 
 
-NEEDS_CLARIFICATION = ("The question could not be interpreted on its own. Ask it in full, naming what it concerns, "
-                       "such as the period, supplier or part.")
+NEEDS_CLARIFICATION = "The question could not be interpreted on its own."
 
 
-def needs_clarification(understood_as: str | None = None) -> dict:
+def clarification_examples(cat: Catalog | None, n: int = 2) -> list[str]:
+    """What a question may name, from the catalog (chat 19.10, C): the label of the identifier the first
+    n entities hold as their own (an identifier column that references no other table), in the catalog's
+    order. On the demo catalog: supplier, part."""
+    out: list[str] = []
+    for ent in (cat.entities.values() if cat else []):
+        own = next((s for s in ent["columns"].values() if s.get("identifier") and not s.get("references")), None)
+        if own and own.get("label") and own["label"] not in out:
+            out.append(own["label"])
+        if len(out) == n:
+            break
+    return out
+
+
+def needs_clarification_notice(cat: Catalog | None) -> str:
+    named = clarification_examples(cat)
+    such = "the period" + (", " + " or ".join(named) if named else "")
+    return f"{NEEDS_CLARIFICATION} Ask it in full, naming what it concerns, such as {such}."
+
+
+def is_needs_clarification(notice: str | None) -> bool:
+    """Whether a notice is the request to ask in full. Code's own words, as is_rate_limited reads them."""
+    return (notice or "").startswith(NEEDS_CLARIFICATION)
+
+
+def needs_clarification(understood_as: str | None = None, catalog: Catalog | None = None) -> dict:
     """Chat, 18.10, 11:35 [demo extension]: a question intent analysis could not interpret, such as a
     follow-up at the start of a conversation. As declined_action: answered, no reading, no gap, a fixed
-    notice, nothing retrieved. Before it, such a question ended as a failure of the system."""
-    return _finish({"outcome": "answered", "readings": [], "gaps": [], "notice": NEEDS_CLARIFICATION},
-                   understood_as)
+    notice, nothing retrieved. Before it, such a question ended as a failure of the system. What the
+    notice suggests naming comes from the catalog (chat 19.10, C)."""
+    return _finish({"outcome": "answered", "readings": [], "gaps": [],
+                    "notice": needs_clarification_notice(catalog)}, understood_as)
 
 
 def no_supported_assertion(readings: list[dict], understood_as: str | None = None) -> dict:

@@ -17,3 +17,6 @@ backend/htmlcov/
 backend/.mypy_cache/
 backend/.ruff_cache/
 .claude/
+# record and replay of model calls (Phase B, task 1): prompts with record values, never in git
+backend/eval_cache/
+eval_cache/

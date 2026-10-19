@@ -22,7 +22,7 @@ import re
 import socket
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
-from typing import Any, Callable
+from typing import Any, Callable, Iterator
 
 from shared.circuit_breaker import CircuitBreaker, log
 
@@ -40,6 +40,9 @@ class ModelConfig:
     max_tokens: int | None = None
     output_schema: dict | None = None      # enforced by the provider where it supports it (R2)
     prompt_identity: str = ""              # e.g. intent_analysis@1, recorded with the call
+    # The start of the prompt that is the same for every request of this prompt (Phase B task 7): marked
+    # for the provider's cache where the gateway caches prompts. Never changes what is sent, only how
+    cache_prefix: str | None = None
 
 
 @dataclass
@@ -135,12 +138,13 @@ def is_money_refusal(e: Exception) -> bool:
     return False
 
 
-def _chain(e: BaseException):
-    seen = set()
-    while e is not None and id(e) not in seen:
-        seen.add(id(e))
-        yield e
-        e = e.__cause__ or e.__context__
+def _chain(e: BaseException) -> Iterator[BaseException]:
+    seen: set[int] = set()
+    cur: BaseException | None = e
+    while cur is not None and id(cur) not in seen:
+        seen.add(id(cur))
+        yield cur
+        cur = cur.__cause__ or cur.__context__
 
 
 def _never_connected(e: BaseException) -> bool:
@@ -230,6 +234,16 @@ def _reasoning_tokens(details: Any) -> int | None:
     return v if isinstance(v, int) and not isinstance(v, bool) else None
 
 
+def _content(prompt: str, cache_prefix: str | None) -> str | list[dict]:
+    """The user message's content. With a stable prefix the prompt starts with, two text blocks, the
+    first marked for Anthropic's prompt cache (ephemeral, about five minutes); the text sent is the same,
+    split in two. Otherwise the prompt as one string, as before (Phase B task 7)."""
+    if not cache_prefix or not prompt.startswith(cache_prefix) or len(cache_prefix) == len(prompt):
+        return prompt
+    return [{"type": "text", "text": cache_prefix, "cache_control": {"type": "ephemeral"}},
+            {"type": "text", "text": prompt[len(cache_prefix):]}]
+
+
 class LiteLLMGateway(ModelGateway):
     """No hidden retries: LiteLLM's own are off, so the only further attempt is the counted
     feedback attempt (task 5, R4). Temperature is sent only where it is configured (R1); the
@@ -237,13 +251,14 @@ class LiteLLMGateway(ModelGateway):
 
     def __init__(self, breaker: CircuitBreaker, completion: Callable[..., Any] | None = None,
                  api_key: str | None = None, provider: str | None = None, temperature: float | None = None,
-                 timeout: float = MODEL_REQUEST_TIMEOUT_SECONDS):
+                 timeout: float = MODEL_REQUEST_TIMEOUT_SECONDS, cache_prompts: bool = False):
         self.breaker = breaker
         self._completion = completion
         self._api_key = api_key
         self._provider = provider   # prefixed to a model id that names none, e.g. anthropic/
         self._temperature = temperature
         self._timeout = timeout
+        self._cache_prompts = cache_prompts   # Phase B task 7: off unless MODEL_PROMPT_CACHE is set (T1)
 
     def _litellm(self):
         if self._completion is None:
@@ -256,7 +271,8 @@ class LiteLLMGateway(ModelGateway):
 
     def invoke(self, prompt, config):
         model = config.model if "/" in config.model or not self._provider else f"{self._provider}/{config.model}"
-        kwargs: dict[str, Any] = {"model": model, "messages": [{"role": "user", "content": prompt}],
+        content = _content(prompt, config.cache_prefix if self._cache_prompts else None)
+        kwargs: dict[str, Any] = {"model": model, "messages": [{"role": "user", "content": content}],
                                   "num_retries": 0, "max_retries": 0, "timeout": self._timeout}
         temperature = config.temperature if config.temperature is not None else self._temperature
         if temperature is not None:

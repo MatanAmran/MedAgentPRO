@@ -1,10 +1,10 @@
 # MedAgentPro — מפת המסלולים וההיתכנות
 
-**נוצר אוטומטית** ב-`python -m tools.path_map` (מתוך `backend\`), 19.10.2026 02:09. **לא לערוך ידנית** — המקור הוא `backend\tests\paths\registry.py` ו-`backend\tests\feasibility\constraints.py`.
+**נוצר אוטומטית** ב-`python -m tools.path_map` (מתוך `backend\`), 19.10.2026 22:51. **לא לערוך ידנית** — המקור הוא `backend\tests\paths\registry.py` ו-`backend\tests\feasibility\constraints.py`.
 
 **איך זה גדל:** `tests\paths\branches.py` קורא מהקוד ומהסכמות כל הסתעפות (מצב סיום, שלב, סוג כשל, `except`, הודעה, נקודת קצה, קוד HTTP, סוג פער, תפקיד). **הסתעפות בלי מסלול מפילה את `pytest`.** מגבלה שמתגלה (כמו הטמפרטורה) נכנסת כשורה ב-`constraints.py`, ושורה בלי בדיקה מפילה את `pytest`.
 
-**תוצאות:** 77 עוברים · 0 נכשלים · 0 פער ידוע · 0 דולגו
+**תוצאות:** 80 עוברים · 0 נכשלים · 0 פער ידוע · 0 דולגו
 
 ## מסלולים
 
@@ -87,6 +87,9 @@
 | ✅ | `server_archived_listing` | `endpoint:GET /api/conversations` | S3 · long list L5 | [demo extension] ?archived=true lists the asker's archived conversations only; another user never sees them; unarchive through PATCH |
 | ✅ | `server_listing_and_health` | `endpoint:GET /api/conversations`, `endpoint:GET /api/health` | S3 |  |
 | ✅ | `server_examples` | `endpoint:GET /api/examples` | task 8 A4 | the scripted questions for the empty screen; none on the real model |
+| ✅ | `server_show_all_records` | `endpoint:GET /api/exchanges/{exchange_id}/readings/{label}/records`, `stage:show_all_records` | Phase B task 5 · NFR 17 · NFR 21 | [demo extension] the plan the server kept, compiled again for the asker, up to 1000 rows; no model; each viewing a records_viewed entry (label, user, row count, no record content) |
+| ✅ | `server_show_all_not_recorded` | `http:503` | Phase B task 5 · R1 | the viewing could not be recorded: 503, nothing shown |
+| ✅ | `server_show_all_unreachable` | `http:503` | Phase B task 5 · FR 15 | the source could not be reached: 503, nothing recorded |
 
 ## הסתעפויות בקוד, ומי מכסה כל אחת
 
@@ -98,7 +101,7 @@
 
 **gap** — `cross_record_condition` (every_gap_kind) · `no_such_column` (every_gap_kind) · `no_such_table` (every_gap_kind) · `source_outside_system` (every_gap_kind) · `unspecified` (every_gap_kind) · `value_not_present` (every_gap_kind)
 
-**stage** — `compilation` (answered_all_supported) · `intent_analysis` (answered_all_supported) · `output_contract` (answered_all_supported) · `question_rewriting` (follow_up_rewritten) · `rating` (server_rating) · `regeneration` (redraft_from_kept) · `retrieval` (answered_all_supported) · `support_gate` (answered_all_supported) · `synthesis` (answered_all_supported)
+**stage** — `compilation` (answered_all_supported) · `intent_analysis` (answered_all_supported) · `output_contract` (answered_all_supported) · `question_rewriting` (follow_up_rewritten) · `rating` (server_rating) · `regeneration` (redraft_from_kept) · `retrieval` (answered_all_supported) · `show_all_records` (server_show_all_records) · `support_gate` (answered_all_supported) · `synthesis` (answered_all_supported)
 
 **handler** — `finish.Exception` (record_not_written) · `run.BudgetExceeded` (budget_used_up) · `run.Exception` (raw_exception) · `run.ExchangeCancelled` (cancelled_before_synthesis) · `run.RateLimited` (rate_limit) · `run._Rejected` (intent_rejected_twice) · `run._SystemFault` (retrieval_system_fault) · `run._Unreachable` (source_missing)
 
@@ -108,9 +111,9 @@
 
 **notice** — `ACTION_DECLINED` (action_declined) · `BUDGET_USED_UP` (budget_used_up) · `EXCHANGE_CAP` (exchange_cap) · `MODEL_UNAVAILABLE` (every_failure_kind) · `NEEDS_CLARIFICATION` (needs_clarification) · `NOT_COMPLETED` (intent_rejected_twice) · `PLAN_LIMIT` (plan_limit) · `RATE_LIMITED` (rate_limit) · `WITHHELD` (redraft_from_kept)
 
-**endpoint** — `GET /api/conversations` (server_archived_listing, server_listing_and_health) · `GET /api/conversations/{conversation_id}` (server_each_ending_then_goes_on) · `GET /api/examples` (server_examples) · `GET /api/health` (server_listing_and_health) · `PATCH /api/conversations/{conversation_id}` (server_conversation_update) · `POST /api/conversations` (server_each_ending_then_goes_on) · `POST /api/conversations/{conversation_id}/exchanges` (server_each_ending_then_goes_on) · `POST /api/exchanges/{exchange_id}/rating` (server_rating)
+**endpoint** — `GET /api/conversations` (server_archived_listing, server_listing_and_health) · `GET /api/conversations/{conversation_id}` (server_each_ending_then_goes_on) · `GET /api/examples` (server_examples) · `GET /api/exchanges/{exchange_id}/readings/{label}/records` (server_show_all_records) · `GET /api/health` (server_listing_and_health) · `PATCH /api/conversations/{conversation_id}` (server_conversation_update) · `POST /api/conversations` (server_each_ending_then_goes_on) · `POST /api/conversations/{conversation_id}/exchanges` (server_each_ending_then_goes_on) · `POST /api/exchanges/{exchange_id}/rating` (server_rating)
 
-**http** — `200` (server_each_ending_then_goes_on) · `201` (server_each_ending_then_goes_on) · `401` (server_refusals) · `403` (server_refusals) · `404` (server_refusals) · `409` (server_refusals) · `422` (server_refusals)
+**http** — `200` (server_each_ending_then_goes_on) · `201` (server_each_ending_then_goes_on) · `401` (server_refusals) · `403` (server_refusals) · `404` (server_refusals) · `409` (server_refusals) · `422` (server_refusals) · `503` (server_show_all_not_recorded, server_show_all_unreachable)
 
 **role** — `APPROVER` (answered_all_supported) · `PLANNER` (planner_reads_every_row)
 
@@ -135,6 +138,9 @@
 | ✅ | T15 | technical | The model thinks always and cannot be told not to; its thinking is billed inside output_tokens and counts against max_tokens. We send nothing that sets it, and the per-call line counts it. | LiteLLM 1.105 map: thinking_always_on (task 10a, chat 22:40); R9: ~1 output token per visible character |
 | ✅ | T16 | technical | No schema sent to the provider carries a $comment on an object type. | Anthropic API, 15.10: 400 "For 'object' type, property '$comment' is not supported" on the intent schema (00_STATUS, task 10a, step 3; chat 18.10, 03:25) |
 | ✅ | T17 | live | Anthropic did not enforce an unanchored pattern in structured output (synthesis text). So a breach of the schema sent is a content failure with one feedback attempt, never assumed held. No claim on an anchored pattern: not checked. **נצפה:** 18.10, 05:00: a synthesis sentence with no reference (no brace at all) came back from the provider; check format_provider_schema:pattern@readings/0/sentences/3/text | Diagnostic run of demo question 5, 18.10 05:00 (00_STATUS); chat 18.10, 05:10 |
+| ✅ | T18 | technical | A model the pinned LiteLLM does not hold (Haiku 5.5) is entered by hand, in the map's own fields, and registered before the first call: unregistered, LiteLLM maps response_format to a forced json_tool_call, which R2 never sends; registered, to native structured output. | LiteLLM 1.105 AnthropicConfig.map_openai_params (chat 19.10, Phase B task 1); tests/engine/test_haiku_price.py |
+| ✅ | T19 | technical | Haiku 5.5 is priced at USD 0.10 / 0.50 per million tokens only up to 100K input tokens (0.50 / 2.50 above). A call above the tier is not sent, and the largest demo prompt is far below it. | Anthropic model card, as cached in the claude-api skill 2026-10-06 (chat 19.10) |
+| ✅ | T20 | technical | Anthropic caches a prefix of 512 tokens or more on Sonnet 5.5 and Haiku 5.5; a shorter one is silently not cached. Each prompt's stable prefix is above it, counted at four characters a token (an undercount for English). | claude-api skill, prompt caching minimums, cached 2026-10-06 (Phase B task 7, chat 19.10) |
 | ✅ | L01 | logical | Every scripted demo question runs through the real checks to the outcome its script means. | S5 |
 | ✅ | L02 | logical | Every table a role is shown in the intent prompt is one it may read, and every table it may read is shown. | NFR 17 · prompts.visible_tables |
 | ✅ | L03 | logical | Every metric in schema.json compiles for every role, with entitlement applied. | NFR 17 · 40_CHAT §7 |
@@ -162,7 +168,7 @@
 | ✅ | 32 | FR 11, NFR 6 | A question carrying more than one reading is not answered by selecting one | `backend/tests/paths/registry.py: answered_two_readings`<br>`backend/tests/query_assistance/test_schemas.py: (the file)` |
 | ✅ | 33 | NFR 21 | Retrieved content does not redirect execution | `backend/tests/security/test_security.py: test_record_text_is_shown_but_never_steers_the_next_retrieval` |
 | ✅ | 34 | FR 11 | What was examined is presented with an answer | `backend/tests/paths/registry.py: answered_two_readings`<br>`backend/tests/query_assistance/test_contract.py: test_checked_reads_the_metric_as_its_business_term` |
-| ✅ | 35 | FR 11, FR 15 | A retrieval that matches no record is answered as such | `backend/tests/paths/registry.py: empty_result_no_synthesis`<br>`backend/tests/paths/registry.py: identifier_not_held`<br>`backend/tests/query_assistance/test_compiler.py: test_empty_with_known_identifier_is_no_match`<br>`backend/tests/query_assistance/test_pipeline.py: test_empty_result_is_an_answer_without_a_model_call`<br>`backend/tests/query_assistance/test_schemas.py: (the file)` |
+| ✅ | 35 | FR 11, FR 15 | A retrieval that matches no record is answered as such | `backend/tests/paths/registry.py: empty_result_no_synthesis`<br>`backend/tests/paths/registry.py: identifier_not_held`<br>`backend/tests/query_assistance/test_compiler.py: test_empty_with_known_identifier_is_no_match`<br>`backend/tests/query_assistance/test_pipeline.py: test_empty_result_is_an_answer_without_a_model_call`<br>`backend/tests/query_assistance/test_schemas.py: (the file)`<br>`backend/tests/query_assistance/test_value_checks.py: (the file)` |
 | ✅ | 38 | NFR 22 | User flows complete on each browser engine | `frontend/e2e/demo-set.spec.ts: (the file)` |
 | ⏳ | 39 | NFR 23 | Screens presenting stored content load within the configured time | ממתין: in the company's environment, with its records (task 9, B4) |
 | ✅ | 40 | NFR 24 | The interface is operable from the keyboard and does not depend on color | `frontend/e2e/demo-set.spec.ts: (the file)`<br>`frontend/e2e/demo-set.spec.ts: the demo set as ${role.user}: every question ends as that role`<br>`frontend/e2e/demo-set.spec.ts: the demo set from the keyboard alone (Test 40)`<br>`frontend/e2e/panel.spec.ts: (the file)`<br>`frontend/e2e/ui.spec.ts: (the file)`<br>`frontend/app/components/components.test.tsx: states are told apart by text, not colour (Test 40, task 9 B3)`<br>`frontend/app/components/ui-refresh.test.tsx: roving focus` |
