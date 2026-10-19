@@ -4891,7 +4891,7 @@ exchange cost: attempt=EX-bc247dc6774a usd=0.061608 remaining=1.714846
 | 7 | `phaseb/prompt-caching` | ‏`prompts.Rendered.cache_prefix`: מה שלפני ה-placeholder המשתנה הראשון. ‏`cache_control: ephemeral` על הבלוק הזה, **רק עם `MODEL_PROMPT_CACHE=1`** (T1 נשאר: כבוי כברירת מחדל). ההזמנה מתמחרת קלט במחיר כתיבה למטמון. ‏T20 |
 | 8 | `phaseb/demo-windows` | ‏`70_DEMO`: ארבעה חלונות, הבדיקה הרביעית |
 
-- **בדיקות, כל הענפים ממוזגים יחד מקומית** (ענף בדיקה שלא נדחף): ‏pytest ‏1178 (ועוד 1 skipped), ‏mypy 0, ‏vitest ‏132, ‏Playwright ‏25 ו-6 עם הספק המזויף, ‏`--plans` ‏14/14 ו-31/31. **14 שאלות הדמו:** אף תשובת golden לא השתנתה, רק `openapi.json`. אחד בלבד השתנה בטקסט שרואים בדמו, כמו שהתבקש: הבורר (B), והכפתור "Show all records" (5).
+- **בדיקות, כל הענפים ממוזגים יחד מקומית** (ענף בדיקה שלא נדחף): ‏pytest ‏1178 (ועוד 1 skipped), ‏mypy 0, ‏vitest ‏132, ‏Playwright ‏25 ו-6 עם הספק המזויף, ‏`--plans` ‏14/14 ו-31/31. **14 שאלות הדמו:** אף תשובת golden לא השתנתה, רק `openapi.json`. בטקסט שרואים בדמו השתנו רק שני דברים, ושניהם התבקשו: הבורר (B) והכפתור "Show all records" (5).
 - **סדר מיזוג מומלץ, כדי שהקונפליקטים יהיו קטנים:** ‏tasks, ‏value-mapping, ‏value-checks, ‏userpicker, ‏generality-code, ‏value-match-note, ‏record-replay, ‏show-all, ‏mypy-ci, ‏prompt-caching, ‏demo-windows. **אחרי כל מיזוג, Code ממזג את master לענף הבא ופותר שם** (בלי force push). הקונפליקטים הידועים:
   - ‏record-replay אחרי C: ‏`test_haiku_price.py` מייבא `query_assistance.dry_run` → `tools.dry_run`.
   - ‏show-all אחרי A: שתי פונקציות חדשות זו ליד זו ב-`pipeline.py`, ו-import ב-`routes.py`.
