@@ -12,7 +12,7 @@ import pytest
 
 from model_client import budget as b
 from model_client.client import BudgetExceeded, ModelConfig, ScriptedModelGateway
-from query_assistance import dry_run  # tools.dry_run once the generality PR (C) is in
+from tools import dry_run
 
 ENV = {"ANTHROPIC_API_KEY": "test-key-not-real", "MODEL_ID": "claude-haiku-5-5", "MODEL_PRICE_IN": "0.10",
        "MODEL_PRICE_OUT": "0.50", "MODEL_BUDGET_USD": "1", "MODEL_MAX_USD_PER_EXCHANGE": "0.25",
