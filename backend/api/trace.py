@@ -34,7 +34,7 @@ def _status(response: dict) -> str:
     notice = response.get("notice")
     if response["outcome"] == "answered" and notice == contract.ACTION_DECLINED:
         return "action_declined"
-    if response["outcome"] == "answered" and notice == contract.NEEDS_CLARIFICATION:
+    if response["outcome"] == "answered" and contract.is_needs_clarification(notice):
         return "needs_clarification"
     return response["outcome"]
 

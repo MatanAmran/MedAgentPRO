@@ -94,7 +94,7 @@ class Deps:
     catalog: Catalog
     connect: Callable[[], sqlite3.Connection]   # a new connection per call, one per retrieval thread
     audit: AuditRepository
-    intent_prompt: prompts.Prompt | None = None   # defaults to templates/intent_analysis.md
+    intent_prompt: prompts.Prompt | None = None   # the catalog's intent prompt; run() refuses none (chat 19.10, C)
     source_breaker: CircuitBreaker = field(default_factory=lambda: CircuitBreaker("company_store", MemoryStore()))
     attempts: int = MODEL_CALL_ATTEMPTS
     source: str = "The company database"
@@ -394,6 +394,8 @@ def run(question: str, history: list[prompts.Exchange], user: dict, deps: Deps,
     """history holds the earlier exchanges of the same conversation, oldest first. context holds the
     request and conversation ids, which only the operational log line carries (R9). on_call receives
     the trace of each model call as it is recorded, the same metadata as that line."""
+    if deps.intent_prompt is None:   # chat 19.10, C: the catalog's own prompt, never a built-in one
+        raise ValueError("Deps.intent_prompt is required: the intent prompt that goes with the catalog")
     stage = on_stage or (lambda name: None)
     eid = "EX-" + uuid.uuid4().hex[:12]
     rec = _Record(eid, user, context, on_call)
@@ -466,7 +468,7 @@ def run(question: str, history: list[prompts.Exchange], user: dict, deps: Deps,
         # "Settled on Code's proposals"), so every schema breach is a content failure
         stage("intent")
         conv = prompts.compiler_conversation(history, question, rewritten)
-        pr = deps.intent_prompt or prompts.load("intent_analysis.md")
+        pr = deps.intent_prompt
         validator = intent_validator()
         intent, compiled = _ask(deps, rec, INTENT, pr,
                                 lambda fb: prompts.render_intent(cat, role, question, rewritten, pr, fb),
@@ -478,7 +480,7 @@ def run(question: str, history: list[prompts.Exchange], user: dict, deps: Deps,
         if compiled.disposition == "out_of_scope_action":   # task 8, A1: nothing is retrieved
             return finish(contract.declined_action(understood))
         if compiled.disposition == "needs_clarification":   # chat 18.10, 11:35: nothing is retrieved
-            return finish(contract.needs_clarification(understood))
+            return finish(contract.needs_clarification(understood, cat))
 
         # retrieval
         stage("retrieval")

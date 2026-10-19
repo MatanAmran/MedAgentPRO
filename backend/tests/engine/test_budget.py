@@ -22,9 +22,10 @@ from model_client.client import (
     ScriptedModelGateway,
 )
 from persistence.audit_repository import AuditRepository, MemoryStorage
-from query_assistance import contract, dry_run, pipeline, prompts
+from query_assistance import contract, pipeline, prompts
 from query_assistance.compiler import Catalog
 from shared.circuit_breaker import CircuitBreaker, CircuitOpen, MemoryStore
+from tools import dry_run
 
 ENV = {"ANTHROPIC_API_KEY": "test-key-not-real", "MODEL_ID": "test-model", "MODEL_PRICE_IN": "1",
        "MODEL_PRICE_OUT": "10", "MODEL_BUDGET_USD": "1", "MODEL_MAX_USD_PER_EXCHANGE": "0.5",
