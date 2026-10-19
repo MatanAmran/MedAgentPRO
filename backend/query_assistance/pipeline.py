@@ -49,13 +49,17 @@ from .calls import MODEL_CALL_ATTEMPTS, Call, StageFailed, StageRejected
 from .compiler import (
     HERE,
     Catalog,
+    CompiledIntent,
     CompiledReading,
     CompileError,
+    Conversation,
     RetrievalResult,
     _norm,
     compile_intent,
     execute,
     intent_validator,
+    resolve_identifiers,
+    with_identifiers,
 )
 from .synthesis import Draft
 
@@ -315,6 +319,40 @@ def _retrieve(readings: list[CompiledReading], connect: Callable[[], sqlite3.Con
     return out
 
 
+def _resolve(compiled: CompiledIntent, conv: Conversation, user: dict, cat: Catalog, validator,
+             connect: Callable[[], sqlite3.Connection], breaker: CircuitBreaker) -> tuple[CompiledIntent, list]:
+    """A1 (chat 19.10): an identifier written in another case than the store holds it, held in one
+    form only, is compiled again in the stored form, so the query and Examined use it. No model.
+    Reaching the source is as for retrieval: an unreachable source ends the exchange (FR 15)."""
+    if not any(r.probes for r in compiled.readings):
+        return compiled, []
+
+    def op():
+        try:
+            conn = connect()
+        except Exception as e:
+            raise _Unreachable(repr(e)) from e
+        try:
+            return resolve_identifiers(compiled, conn)
+        except sqlite3.Error as e:
+            if _cannot_reach(e):
+                raise _Unreachable(repr(e)) from e
+            return _SystemFault(repr(e))
+        finally:
+            conn.close()
+
+    try:
+        found = breaker.call(op)
+    except CircuitOpen as e:
+        raise _Unreachable(f"circuit open for {e}") from e
+    if isinstance(found, _SystemFault):
+        raise found
+    if not found:
+        return compiled, []
+    again = compile_intent(with_identifiers(compiled.intent, found), conv, user, cat, validator)
+    return again, [{"column": c, "as_written": v, "as_held": h} for (c, v), h in found.items()]
+
+
 def ambiguous_terms(intent: dict, question: str) -> list[str]:
     """Task 7, Q4 [demo extension]: the terms declared ambiguous, for the interface to name. The
     compiler accepts a span of the rewritten question as well (_check_span), and the rewrite is model
@@ -445,6 +483,7 @@ def run(question: str, history: list[prompts.Exchange], user: dict, deps: Deps,
         # retrieval
         stage("retrieval")
         try:
+            compiled, resolved = _resolve(compiled, conv, user, cat, validator, deps.connect, deps.source_breaker)
             retrieved = _retrieve(compiled.readings, deps.connect, deps.source_breaker)
         except _SystemFault as e:   # review F1: our fault, not the source's
             operational_log.error("retrieval fault: attempt=%s user=%s source=%s error=%s",
@@ -458,8 +497,10 @@ def run(question: str, history: list[prompts.Exchange], user: dict, deps: Deps,
             return Outcome(contract.source_unreachable(deps.source, understood),
                            prompts.Exchange(question, understood), eid, recorded=False, cost=cost())
         rec.step(RETRIEVAL, [{"label": res.label, "result": res.outcome, "row_count": len(res.rows),
-                              "total": res.total, "started": s, "finished": f} for res, s, f in retrieved])
+                              "total": res.total, "started": s, "finished": f} for res, s, f in retrieved]
+                 + ([{"resolved": resolved}] if resolved else []))
 
+        intent = compiled.intent   # values as compiled: declared forms (A2), identifiers as held (A1)
         plans = {r["label"]: r["plan"] for r in intent["readings"]}
         terms = ambiguous_terms(intent, question)
         results = {res.label: res for res, _, _ in retrieved}
