@@ -169,6 +169,22 @@ def test_s001_lowercase_finds_s001_and_examined_shows_the_stored_form(db_path):
     assert "'S-001'" in reading["checked"] and "s-001" not in reading["checked"]
 
 
+def test_show_all_runs_the_plan_as_resolved(db_path):
+    """A1 with Phase B task 5: "Show all records" runs the plan the exchange kept after A1, so 's-001'
+    asked for returns the records of S-001, the form held, and never the empty set of 's-001'."""
+    answer = scripted([intent(supplied("s-001"))])
+    audit = AuditRepository(MemoryStorage(), CircuitBreaker("system_store", MemoryStore()), b"test-key")
+    deps = pl.Deps(ScriptedModelGateway(answer), "demo", CAT, lambda: sqlite3.connect(db_path), audit,
+                   p.load(seed.HERE / "intent_analysis.md"))
+    out = pl.run("What did s-001 supply?", [], APPROVER, deps)
+    assert out.plans["r0"]["WHERE"] == {"EQ": [{"col": "commitments.supplier_id"}, {"value": "S-001"}]}
+    shown = out.response["readings"][0]
+    every = pl.show_all(out.exchange_id, "r0", out.plans["r0"], APPROVER, deps, shown["rows"])
+    want = sqlite3.connect(db_path).execute(
+        "SELECT COUNT(*) FROM commitments WHERE supplier_id = 'S-001'").fetchone()[0]
+    assert every["total"] == want > 0 and "'S-001'" in every["checked"]
+
+
 def test_an_identifier_that_does_not_exist_is_still_reported_absent(db_path):
     out, _ = run(db_path, "What did s-099 supply?", supplied("s-099"))
     reading = out.response["readings"][0]
