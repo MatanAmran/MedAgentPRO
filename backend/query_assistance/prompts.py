@@ -70,13 +70,31 @@ def load(file: str | Path) -> Prompt:
     return Prompt(meta["prompt"], meta["version"], meta["output_schema"], text[m.end():])
 
 
-def fill(prompt: Prompt, **values: str) -> str:
+# The placeholders whose value changes with each request: the question, the conversation, the records, the
+# answer, the feedback. What a template holds before the first of them (its instructions, the catalog's
+# schema, the examples, the reference date) is the same for every request of that prompt and catalog: the
+# stable prefix a provider may cache (Phase B task 7, chat 19.10)
+VOLATILE = ("question_block", "question", "history", "answer", "records", "kept", "rejected", "feedback")
+_PLACEHOLDER = re.compile(r"\{\{(\w+)\}\}")
+
+
+class Rendered(str):
+    """A filled prompt, and the part of it that is the same for every request: cache_prefix, which the
+    whole text starts with. Empty where the template opens with a request's own content."""
+    cache_prefix: str = ""
+
+
+def fill(prompt: Prompt, **values: str) -> Rendered:
     """One pass over the template only. A value is never scanned again, so a question or record text
     that holds {{name}} stays as written (review R6)."""
-    left = [k for k in re.findall(r"\{\{(\w+)\}\}", prompt.body) if k not in values]
+    left = [k for k in _PLACEHOLDER.findall(prompt.body) if k not in values]
     if left:
         raise ValueError(f"{prompt.name}: unfilled {left}")
-    return re.sub(r"\{\{(\w+)\}\}", lambda m: values[m.group(1)], prompt.body)
+    out = Rendered(_PLACEHOLDER.sub(lambda m: values[m.group(1)], prompt.body))
+    first = next((m.start() for m in _PLACEHOLDER.finditer(prompt.body) if m.group(1) in VOLATILE),
+                 len(prompt.body))
+    out.cache_prefix = _PLACEHOLDER.sub(lambda m: values[m.group(1)], prompt.body[:first])
+    return out
 
 
 def feedback_block(feedback: str | None) -> str:

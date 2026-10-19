@@ -176,6 +176,17 @@ def test_T05_largest_prompt_fits_the_context_window(db_path):
     assert worst <= window, f"worst prompt ~{worst} tokens > window {window}"
 
 
+@pytest.mark.parametrize("name", ["intent", "rewrite.md", "synthesis.md", "synthesis_redraft.md", "gate.md"])
+def test_T20_every_stable_prefix_is_long_enough_to_cache(name):
+    if name == "intent":
+        prefix = prompts.render_intent(CAT, "APPROVER", "Which lines?", None,
+                                       prompts.load(seed.HERE / "intent_analysis.md")).cache_prefix
+    else:
+        pr = prompts.load(name)
+        prefix = prompts.fill(pr, **{k: "" for k in prompts._PLACEHOLDER.findall(pr.body)}).cache_prefix
+    assert len(prefix) / 4 >= 512, (name, len(prefix))
+
+
 @pytest.mark.parametrize("stage", sorted(SENT))
 def test_T06_sent_schemas_within_the_providers_limits(stage):
     c = complexity(calls.provider_schema(SENT[stage]))

@@ -89,6 +89,11 @@ CONSTRAINTS: list[Constraint] = [
                "Diagnostic run of demo question 5, 18.10 05:00 (00_STATUS); chat 18.10, 05:10", result="confirmed",
                observed="18.10, 05:00: a synthesis sentence with no reference (no brace at all) came back from the "
                         "provider; check format_provider_schema:pattern@readings/0/sentences/3/text"),
+    Constraint("T20", "technical",
+               "Anthropic caches a prefix of 512 tokens or more on Sonnet 5.5 and Haiku 5.5; a shorter one is "
+               "silently not cached. Each prompt's stable prefix is above it, counted at four characters a "
+               "token (an undercount for English).",
+               "claude-api skill, prompt caching minimums, cached 2026-10-06 (Phase B task 7, chat 19.10)"),
     # --- logical: the design on the demo data ------------------------------------------------------
     Constraint("L01", "logical",
                "Every scripted demo question runs through the real checks to the outcome its script means.",
