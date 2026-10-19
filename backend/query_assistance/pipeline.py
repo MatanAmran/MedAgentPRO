@@ -30,7 +30,7 @@ import sqlite3
 import uuid
 from concurrent.futures import ThreadPoolExecutor
 from contextlib import ExitStack
-from dataclasses import dataclass, field, replace
+from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Callable
@@ -338,8 +338,8 @@ def _resolve(compiled: CompiledIntent, conv: Conversation, user: dict, cat: Cata
     """A1 (chat 19.10): an identifier written in another case than the store holds it, held in one
     form only, is compiled again in the stored form, so the query and Examined use it. No model.
     Chat 20.10: each name a reading matches (MATCHES) is resolved too; one entity becomes EQ on its
-    identifier, in the same compilation as A1. The identifiers found so are allowed by NFR 27 in that
-    compilation only: code found them from a term of the question.
+    identifier, in the same compilation as A1. NFR 27 exempts the nodes code wrote so, and only them: an
+    EQ on the same identifier the model wrote itself is checked as any other (task 4).
     Reaching the source is as for retrieval: an unreachable source ends the exchange (FR 15)."""
     if not any(r.probes or r.names for r in compiled.readings):
         return compiled, [], {}
@@ -377,9 +377,9 @@ def _resolve(compiled: CompiledIntent, conv: Conversation, user: dict, cat: Cata
     resolved = [{"column": c, "as_written": v, "as_held": h} for (c, v), h in found.items()]
     if not found and not single:
         return compiled, resolved, names
-    allowed = replace(conv, presented=set(conv.presented) | {v for _, v in single.values()})
-    again = compile_intent(with_names(with_identifiers(compiled.intent, found), single), allowed, user, cat,
-                           validator)
+    written: set[tuple[str, str]] = set()   # the nodes with_names wrote: NFR 27 exempts those only (task 4)
+    again = compile_intent(with_names(with_identifiers(compiled.intent, found), single, written), conv, user, cat,
+                           validator, exempt=written)
     return again, resolved, names
 
 
