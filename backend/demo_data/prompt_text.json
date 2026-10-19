@@ -1,0 +1,17 @@
+{
+  "$comment": "The demo catalog's words for the generic prompts (chat 20.10, task 5): each fills a [[name]] in query_assistance/templates/generic/. The examples per prompt are in examples/<prompt name>.md. Filled from this catalog, each generic prompt is the frozen version it follows, character for character (tests/query_assistance/test_prompt_generality.py). The demo itself still runs the frozen versions.",
+  "texts": {
+    "subject_data": "supply-chain data",
+    "subject_records": "supply-chain records",
+    "recorded_reason_example": "a recorded delay reason",
+    "cross_record_example": "the open orders of suppliers that were late, where being late and being open are different lines",
+    "date_column_example": "delivered_at for a delivery",
+    "event_dates": "delivered, received, ordered",
+    "scheduled_dates": "due, promised",
+    "named_entities": "a supplier or a part",
+    "reason_reference": "{r.delay_reason#1}",
+    "many_rows_example": "\"{label.total} suppliers had lines delivered after the requested date in September, among them {label.supplier_id#1} and {label.supplier_id#2}.\"",
+    "outside_knowledge": "suppliers, parts or the world",
+    "unit_example": "\"days late: {ref}\""
+  }
+}

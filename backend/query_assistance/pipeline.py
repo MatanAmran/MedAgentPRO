@@ -103,6 +103,12 @@ class Deps:
     source_breaker: CircuitBreaker = field(default_factory=lambda: CircuitBreaker("company_store", MemoryStore()))
     attempts: int = MODEL_CALL_ATTEMPTS
     source: str = "The company database"
+    # chat 20.10, task 5: the prompts after intent analysis. None: the frozen set the demo runs
+    prompt_set: prompts.PromptSet | None = None
+
+    @property
+    def prompts(self) -> prompts.PromptSet:
+        return self.prompt_set or prompts.PromptSet.frozen()
 
 
 @dataclass
@@ -248,8 +254,9 @@ def _gate(deps: Deps, rec: _Record, ordinal: int, d: Draft) -> gate.GateResult:
     order = synthesis.ordered_by(list(d.materials.values()))
     examined = synthesis.examined_of(list(d.materials.values()))
     totals = synthesis.totals_of(list(d.materials.values()))
-    return _ask(deps, rec, ordinal, prompts.load("gate.md"),
-                lambda fb: prompts.render_gate(answer, records, feedback=fb, ordered_by=order, examined=examined,
+    pr = deps.prompts.gate
+    return _ask(deps, rec, ordinal, pr,
+                lambda fb: prompts.render_gate(answer, records, pr, feedback=fb, ordered_by=order, examined=examined,
                                                totals=totals),
                 lambda out: gate.evaluate(out, sentences, aliases), _GATE_V.schema, _GATE_V)
 
@@ -546,8 +553,9 @@ def run(question: str, history: list[prompts.Exchange], user: dict, deps: Deps,
         if history:
             stage("rewriting")
             built = prompts.build_history(history)
-            rewritten = _ask(deps, rec, REWRITING, prompts.load("rewrite.md"),
-                             lambda fb: prompts.render_rewrite(built, question, feedback=fb),
+            rewrite_pr = deps.prompts.rewrite
+            rewritten = _ask(deps, rec, REWRITING, rewrite_pr,
+                             lambda fb: prompts.render_rewrite(built, question, rewrite_pr, feedback=fb),
                              lambda out: prompts.check_rewrite(out, question, history), _REWRITE_V.schema,
                              _REWRITE_V)
             if _norm(rewritten) != _norm(question):
@@ -639,7 +647,8 @@ def run(question: str, history: list[prompts.Exchange], user: dict, deps: Deps,
         # Synthesis receives both forms of the question (4.9, review F3)
         stage("synthesis")
         first = _synthesize(deps, rec, SYNTHESIS, lambda: synthesis.draft(
-            deps.gateway, question, materials, deps.model, deps.attempts, rewritten=rewritten))
+            deps.gateway, question, materials, deps.model, deps.attempts, rewritten=rewritten,
+            prompt=deps.prompts.synthesis))
         stage("gate")
         g1 = _gate(deps, rec, GATE, first)
 
@@ -653,11 +662,12 @@ def run(question: str, history: list[prompts.Exchange], user: dict, deps: Deps,
                 for n, texts in sorted(g1.kept_by_sentence.items()):
                     kept.setdefault(labels[n - 1], []).extend(texts)
                 second = _synthesize(deps, rec, REGENERATION, lambda: synthesis.redraft(
-                    deps.gateway, question, materials, kept, deps.model, deps.attempts, rewritten=rewritten))
+                    deps.gateway, question, materials, kept, deps.model, deps.attempts, rewritten=rewritten,
+                    prompt=deps.prompts.redraft))
             else:
                 second = _synthesize(deps, rec, REGENERATION, lambda: synthesis.draft(
                     deps.gateway, question, materials, deps.model, deps.attempts, rejected=g1.removed,
-                    rewritten=rewritten))
+                    rewritten=rewritten, prompt=deps.prompts.synthesis))
             stage("gate")
             g2 = _gate(deps, rec, REGATE, second)
             final, withheld = second.only(g2.supported), True

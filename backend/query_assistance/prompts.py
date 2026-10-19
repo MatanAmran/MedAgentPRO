@@ -15,6 +15,7 @@ Conversation the compiler checks identifiers against (NFR 27).
 
 from __future__ import annotations
 
+import json
 import re
 from dataclasses import dataclass, field, replace
 from pathlib import Path
@@ -69,6 +70,53 @@ def load(file: str | Path) -> Prompt:
     if missing:
         raise ValueError(f"{path.name}: header lacks {', '.join(missing)}")
     return Prompt(meta["prompt"], meta["version"], meta["output_schema"], text[m.end():])
+
+
+# --------------------------------------------------------------------------
+# the generic prompts (chat 20.10, task 5): the domain's words and examples come from the catalog
+# --------------------------------------------------------------------------
+
+GENERIC = PROMPTS / "generic"
+_MARK = re.compile(r"\[\[(\w+)\]\]")
+
+
+def specialize(template: Prompt, texts: dict[str, str], examples: str) -> Prompt:
+    """A generic template with the catalog's words in place: each [[name]] from texts, [[examples]] from
+    the catalog's examples for that prompt. One pass, as fill: a value is never scanned again. A mark the
+    catalog does not fill is refused, so no prompt goes out with a hole in it."""
+    values = {**texts, "examples": examples}
+    missing = sorted({k for k in _MARK.findall(template.body) if k not in values})
+    if missing:
+        raise ValueError(f"{template.identity}: the catalog gives no text for {', '.join(missing)}")
+    return replace(template, body=_MARK.sub(lambda m: values[m.group(1)], template.body))
+
+
+def for_catalog(file: str, catalog_dir: Path) -> Prompt:
+    """The generic template `file` (templates/generic/) with the words of the catalog held in catalog_dir:
+    prompt_text.json and examples/<prompt name>.md."""
+    template = load(GENERIC / file)
+    texts = json.loads((Path(catalog_dir) / "prompt_text.json").read_text(encoding="utf-8"))["texts"]
+    examples = (Path(catalog_dir) / "examples" / f"{template.name}.md").read_text(encoding="utf-8")
+    return specialize(template, texts, examples)
+
+
+@dataclass(frozen=True)
+class PromptSet:
+    """The prompts after intent analysis, one set per run. The server and the demo run the frozen set
+    (frozen()); a run on another catalog, or a round on the generic prompts, passes generic(dir)."""
+    rewrite: Prompt
+    synthesis: Prompt
+    redraft: Prompt
+    gate: Prompt
+
+    @classmethod
+    def frozen(cls) -> PromptSet:
+        return cls(load("rewrite.md"), load("synthesis.md"), load("synthesis_redraft.md"), load("gate.md"))
+
+    @classmethod
+    def generic(cls, catalog_dir: Path) -> PromptSet:
+        return cls(*(for_catalog(f, catalog_dir) for f in ("rewrite.md", "synthesis.md", "synthesis_redraft.md",
+                                                            "gate.md")))
 
 
 # The placeholders whose value changes with each request: the question, the conversation, the records, the
