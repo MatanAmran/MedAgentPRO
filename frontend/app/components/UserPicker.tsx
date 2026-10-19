@@ -5,11 +5,11 @@ import { DEMO_USERS, type DemoUserId } from "@/lib/types";
 
 // UI refresh (UserPicker.dc.html): the demo user, with what each role sees. A listbox driven from the
 // keyboard: arrows, Home and End move, Enter or Space chooses, Escape closes and returns focus. Demo only,
-// no authentication (S2).
+// no authentication (S2). D6 (18.10): both roles see every record; "my" is the planner's own lines (D7).
 
 export const ROLE_SEES: Record<string, { short: string; long: string }> = {
-  Approver: { short: "sees all orders", long: "Sees every purchase order" },
-  Planner: { short: "own orders only", long: "Sees only their own orders" },
+  Approver: { short: "sees all records", long: "Sees every record" },
+  Planner: { short: "sees all records", long: "Sees every record; “my” means the lines they plan" },
 };
 
 const ORDER = DEMO_USERS.map((u) => u.id);
@@ -163,14 +163,14 @@ export function UserPicker({
             <div aria-hidden="true" className="px-2.5 pb-1 pt-2 text-xs font-extrabold tracking-[0.08em] text-ink-4">APPROVER</div>
             {DEMO_USERS.filter((u) => u.role === "Approver").map((u) => option(u, ORDER.indexOf(u.id)))}
           </div>
-          <div role="group" aria-label="Planners, own orders only">
+          <div role="group" aria-label="Planners">
             <div aria-hidden="true" className="px-2.5 pb-1 pt-2.5 text-xs font-extrabold tracking-[0.08em] text-ink-4">
-              PLANNERS · OWN ORDERS ONLY
+              PLANNERS · “MY” MEANS THEIR OWN LINES
             </div>
             {DEMO_USERS.filter((u) => u.role === "Planner").map((u) => option(u, ORDER.indexOf(u.id)))}
           </div>
           <div aria-hidden="true" className="mt-1.5 border-t border-line-3 p-2.5 text-xs text-ink-4">
-            Demo · no authentication. Switching user changes what the records show.
+            Demo · no authentication. Every user sees every record; switching user changes whose lines “my” means.
           </div>
         </div>
       )}

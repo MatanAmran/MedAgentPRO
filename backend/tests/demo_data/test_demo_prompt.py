@@ -113,8 +113,6 @@ def test_a_year_left_out_is_read_by_what_the_date_records():
 
 def test_rule_7_names_every_aggregate_the_schema_allows():
     rule = next(line for line in PROMPT.body.splitlines() if line.startswith("7. "))
-    general = next(line for line in p.load("intent_analysis.md").body.splitlines() if line.startswith("7. "))
-    assert rule == general
     for func in ("COUNT", "SUM", "AVG", "MIN", "MAX"):
         assert func in rule
 

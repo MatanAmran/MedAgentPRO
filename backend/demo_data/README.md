@@ -2,7 +2,7 @@
 
 **Demo only.** A synthetic supply-chain store for demonstrating the query assistance
 (chat) pipeline until the company data structure arrives. It is not the placeholder in
-`query_assistance/schema.json`, which the compiler tests rely on and which stays as it is.
+`tests/fixtures/placeholder_schema.json`, which the compiler tests rely on and which stays as it is.
 
 | File | What it is |
 |---|---|

@@ -5,8 +5,12 @@ import { forwardRef, useState } from "react";
 export const MAX_QUESTION = 1000;
 
 /** The question box. While a question runs it is locked (R8): one question at a time, no retry. */
-export const Composer = forwardRef<HTMLTextAreaElement, { locked: boolean; onSend: (q: string) => void }>(
-  function Composer({ locked, onSend }, ref) {
+export const Composer = forwardRef<
+  HTMLTextAreaElement,
+  { locked: boolean; onSend: (q: string) => void; placeholder?: string }
+>(
+  // placeholder: the catalog's hint (chat 19.10, C)
+  function Composer({ locked, onSend, placeholder }, ref) {
     const [text, setText] = useState("");
     const question = text.trim();
     const canSend = !locked && question.length > 0 && question.length <= MAX_QUESTION;
@@ -32,7 +36,7 @@ export const Composer = forwardRef<HTMLTextAreaElement, { locked: boolean; onSen
             ref={ref}
             aria-label="Question"
             className="max-h-40 min-h-10 flex-1 resize-none bg-transparent py-2 text-base text-ink outline-none placeholder:text-ink-4"
-            placeholder={locked ? "Waiting for the answer…" : "Ask about suppliers, orders, parts or deliveries"}
+            placeholder={locked ? "Waiting for the answer…" : (placeholder ?? "")}
             rows={1}
             maxLength={MAX_QUESTION}
             value={text}

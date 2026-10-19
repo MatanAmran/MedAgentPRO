@@ -228,3 +228,35 @@ describe("fix round, screen (U-1, U-2)", () => {
     expect(within(group).getByRole("button", { name: /Old\s*\(archived\)/ })).toBeTruthy();
   });
 });
+
+describe("Show all records (Phase B task 5)", () => {
+  const rows = (n: number) => Array.from({ length: n }, (_, i) => ({ po_id: `PO-${80000 + i}` }));
+  const cut = reading({ columns: ["po_id"], rows: rows(3), row_count: 3, total: 5, notice: "Showing 3 of 5." });
+
+  it("offers every record of a cut reading, fetched from the server, and shows them", async () => {
+    const onShowAll = vi.fn(async () => reading({ columns: ["po_id"], rows: rows(5), row_count: 5, total: 5 }));
+    render(<ReadingCard reading={cut} onShowAll={onShowAll} />);
+    expect(screen.getAllByRole("row")).toHaveLength(4); // the header and 3 rows
+    fireEvent.click(screen.getByTestId("show-all-records"));
+    expect(await screen.findByText("PO-80004")).toBeTruthy();
+    expect(onShowAll).toHaveBeenCalledTimes(1);
+    expect(screen.getAllByRole("row")).toHaveLength(6);
+    expect(screen.queryByTestId("show-all-records")).toBeNull();
+    expect(screen.getByTestId("reading-count").textContent).toBe("5 rows");
+  });
+
+  it("is not offered where nothing was cut, or where there is no server to ask", () => {
+    render(<ReadingCard reading={reading({ columns: ["po_id"], rows: rows(3), row_count: 3, total: 3 })} onShowAll={vi.fn()} />);
+    expect(screen.queryByTestId("show-all-records")).toBeNull();
+    cleanup();
+    render(<ReadingCard reading={cut} />);
+    expect(screen.queryByTestId("show-all-records")).toBeNull();
+  });
+
+  it("says so when the records could not be fetched, and keeps what was shown", async () => {
+    render(<ReadingCard reading={cut} onShowAll={vi.fn(async () => Promise.reject(new Error("503")))} />);
+    fireEvent.click(screen.getByTestId("show-all-records"));
+    expect((await screen.findByRole("alert")).textContent).toBe("The records could not be fetched.");
+    expect(screen.getAllByRole("row")).toHaveLength(4);
+  });
+});
