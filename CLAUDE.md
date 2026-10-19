@@ -5,7 +5,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ## Working with Evyatar
 
 - **Reply in Hebrew, always**, including summaries after long tool work. Check before sending. Code, comments and commit messages stay in English.
-- Be concise and practical. For non-trivial work, propose a short plan and wait for approval before writing code.
+- Be concise and practical. **A plan for approval only for a branch that changes a schema, the output contract or entitlement** (chat, 20.10); every other decision Code takes and records in `docs/notes/00_STATUS.md`, and the chat reviews the final diff. Architecture questions still stop the work (below).
 - Point out bugs, risks and better alternatives unprompted. Say which parts of a proposal come from the book and which are your own.
 - **The book is the source of truth** (`C:\Users\EvyatarS\project filles\01_Book\`). Where code and book differ, raise it, do not silently pick one.
 - Never delete files from `project filles\` (the original research folder). Copy, do not move.
@@ -242,6 +242,7 @@ python -m main --panel            # the same, with "How this was answered" under
 python -m tools.preflight         # before a demo: database, server, screen, examples, one scripted question; --real adds .env, the map, the budget; never a model call
 python -m tools.fake_real_server  # the real-model path with a fake provider (no key, no network), for the end-to-end tests
 python -m tools.real_eval --plans   # rule 1: every question's hand-written plan through schema, compiler and store, no model; --set demo for the 12
+python -m tools.real_eval --plans --set stage   # task 14: the set by pipeline stage (82_STAGE_SET.md), report by category
 python -m tools.real_eval --real --confirm --out DIR   # the held-out set (demo_data/offscript_set.json) on the real model, paid, only with Evyatar's approval; report outside the repo; without --real, the scripted model; --set demo for the 12 demo questions
 python -m pytest -m stress        # load, concurrency, and the property tests at 2000 examples (not in the default run)
 UPDATE_GOLDEN=1 python -m pytest tests/golden   # rewrite golden snapshots, printing the diff for review
