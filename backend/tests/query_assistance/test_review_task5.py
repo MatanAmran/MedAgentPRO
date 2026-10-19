@@ -215,11 +215,17 @@ def test_a_model_with_no_price_in_the_map_refuses_to_start():
 
 
 def test_against_litellms_own_map():
-    """In the local map of LiteLLM 1.105: Sonnet 5.5 at 2 / 10 passes, Haiku 5.5 is not held (R1, H1)."""
+    """In the local map of LiteLLM 1.105: Sonnet 5.5 at 2 / 10 passes; Haiku 5.5, which it does not hold,
+    passes on its manual entry (chat 19.10); a model in neither is refused (R1, H1)."""
     b.check_against_provider_map(cfg(MODEL_ID="claude-sonnet-5-5"))
-    for missing in ("claude-haiku-5-5", "claude-not-a-model-9-9"):
-        with pytest.raises(b.BudgetConfigError, match="not in LiteLLM's model map"):
-            b.check_against_provider_map(cfg(MODEL_ID=missing))
+    b.check_against_provider_map(cfg(MODEL_ID="claude-haiku-5-5", MODEL_PRICE_IN="0.10", MODEL_PRICE_OUT="0.50"))
+    with pytest.raises(b.BudgetConfigError, match="MODEL_PRICE_OUT"):
+        b.check_against_provider_map(cfg(MODEL_ID="claude-haiku-5-5", MODEL_PRICE_IN="0.10", MODEL_PRICE_OUT="0.05"))
+    with pytest.raises(b.BudgetConfigError, match="takes no temperature"):
+        b.check_against_provider_map(cfg(MODEL_ID="claude-haiku-5-5", MODEL_PRICE_IN="0.1", MODEL_PRICE_OUT="0.5",
+                                         MODEL_TEMPERATURE="0"))
+    with pytest.raises(b.BudgetConfigError, match="not in LiteLLM's model map"):
+        b.check_against_provider_map(cfg(MODEL_ID="claude-not-a-model-9-9"))
     with pytest.raises(b.BudgetConfigError, match="takes no temperature"):   # read from the raw map entry
         b.check_against_provider_map(cfg(MODEL_ID="claude-sonnet-5-5", MODEL_TEMPERATURE="0"))
     with pytest.raises(b.BudgetConfigError, match="MODEL_PRICE_IN"):
