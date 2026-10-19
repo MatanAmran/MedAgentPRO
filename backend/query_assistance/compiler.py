@@ -752,6 +752,19 @@ def with_identifiers(intent: dict, found: dict[tuple[str, Any], Any]) -> dict:
     return out
 
 
+# Phase B task 5 ("Show all records", chat 19.10): the most rows a reading shows when asked for all of them
+SHOW_ALL_LIMIT = 1000
+
+
+def compile_all(label: str, plan: dict, user: dict, cat: Catalog, limit: int = SHOW_ALL_LIMIT) -> CompiledReading:
+    """A plan already compiled and run in an exchange, compiled again to show all its records: the plan's
+    own LIMIT left out and SHOW_ALL_LIMIT injected. Entitlement is injected afresh for the user asking now
+    (NFR 17), from the catalog, as on every compilation. The plan is the server's record of the exchange,
+    never one a client sent; it passed the schema and NFR 27 when the exchange ran. No model."""
+    whole = {k: v for k, v in copy.deepcopy(plan).items() if k != "LIMIT"}
+    return _ReadingCompiler(cat, user, {"label": label, "plan": whole}, limit).compile()
+
+
 def execute(reading: CompiledReading, conn: sqlite3.Connection) -> RetrievalResult:
     """Runs one reading. No model call. Empty is a finding, not a failure (Test 35)."""
     conn.row_factory = sqlite3.Row

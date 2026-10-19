@@ -497,6 +497,69 @@
     "summary": "Rate"
    }
   },
+  "/api/exchanges/{exchange_id}/readings/{label}/records": {
+   "get": {
+    "description": "Phase B task 5 [demo extension]: every record of a reading that was cut, up to SHOW_ALL_LIMIT.\nThe plan is the one the server kept when the exchange ran, never one the client sends; it is\ncompiled again with the asking user's entitlement (NFR 17). No model. The rows go to the screen\nonly: not into the conversation's history, not to any model (NFR 21).",
+    "operationId": "all_records_api_exchanges__exchange_id__readings__label__records_get",
+    "parameters": [
+     {
+      "in": "path",
+      "name": "exchange_id",
+      "required": true,
+      "schema": {
+       "title": "Exchange Id",
+       "type": "string"
+      }
+     },
+     {
+      "in": "path",
+      "name": "label",
+      "required": true,
+      "schema": {
+       "title": "Label",
+       "type": "string"
+      }
+     },
+     {
+      "in": "header",
+      "name": "x-demo-user",
+      "required": false,
+      "schema": {
+       "anyOf": [
+        {
+         "type": "string"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "title": "X-Demo-User"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "All Records"
+   }
+  },
   "/api/health": {
    "get": {
     "description": "domain: what the screen says the store is about, from the catalog (chat 19.10, C). entities:\nthe labels of the tables the demo user named in X-Demo-User may read; none without a user.",

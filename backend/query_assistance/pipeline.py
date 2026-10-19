@@ -55,6 +55,7 @@ from .compiler import (
     Conversation,
     RetrievalResult,
     _norm,
+    compile_all,
     compile_intent,
     execute,
     intent_validator,
@@ -70,10 +71,11 @@ _SYNTHESIS_SCHEMA = _BUNDLE["synthesis"]["schema"]
 
 # The order stages are declared in, which the audit trail follows (Test 21).
 REWRITING, INTENT, COMPILATION, RETRIEVAL, SYNTHESIS, GATE, REGENERATION, REGATE, CONTRACT, RATING = range(1, 11)
+RECORDS_VIEWED = 11   # Phase B task 5 [demo extension]: "Show all records", a later entry like the rating
 STAGE_NAMES = {REWRITING: "question_rewriting", INTENT: "intent_analysis", COMPILATION: "compilation",
                RETRIEVAL: "retrieval", SYNTHESIS: "synthesis", GATE: "support_gate",
                REGENERATION: "regeneration", REGATE: "support_gate", CONTRACT: "output_contract",
-               RATING: "rating"}
+               RATING: "rating", RECORDS_VIEWED: "show_all_records"}
 
 # SQLite primary result codes that mean the source cannot be reached, not that the query is wrong
 # (review F1): busy, locked, cannot open. A failed connection counts as well.
@@ -107,6 +109,9 @@ class Outcome:
     exchange_id: str
     recorded: bool
     cost: dict | None = None             # exchange_usd, remaining_usd. Outside exchange_response (T3)
+    # Phase B task 5: each reading's plan as run, kept by the server for "Show all records". Never in
+    # exchange_response, never sent to a model
+    plans: dict[str, dict] = field(default_factory=dict)
 
 
 class _Rejected(Exception):
@@ -353,6 +358,43 @@ def _resolve(compiled: CompiledIntent, conv: Conversation, user: dict, cat: Cata
     return again, [{"column": c, "as_written": v, "as_held": h} for (c, v), h in found.items()]
 
 
+class SourceUnavailable(Exception):
+    """Show all records (task 5): the source could not be reached, or the query failed there."""
+
+
+class NotRecorded(Exception):
+    """Show all records (task 5): the records_viewed event could not be written, so nothing is shown."""
+
+
+def show_all(exchange_id: str, label: str, plan: dict, user: dict, deps: Deps, shown: list[dict]) -> dict:
+    """Phase B task 5: every record of a reading that was cut, up to SHOW_ALL_LIMIT, as reading_view
+    presents it, with no answer. No model call, nothing added to the conversation's history (NFR 21): the
+    rows go to the screen only. The rows the exchange showed come first, in their order, so a reference in
+    the answer still points at its row; the rest follow in the query's order.
+    The viewing is recorded on the exchange as a records_viewed event (chat 19.10): its label, the user and
+    the row count, never record content. Records that cannot be recorded as viewed are not shown (as R1)."""
+    cat = deps.catalog
+    reading = compile_all(label, plan, user, cat)
+    try:
+        ((res, _, _),) = _retrieve([reading], deps.connect, deps.source_breaker)
+    except (_Unreachable, _SystemFault) as e:
+        raise SourceUnavailable(str(e)) from e
+    view = contract.reading_view(label, plan, res, cat, user["role"])
+    rest = list(view["rows"])
+    for row in shown:
+        if row in rest:
+            rest.remove(row)
+    view["rows"] = [r for r in shown if r in view["rows"]] + rest
+    try:
+        # in the entry itself, so each viewing is its own link in the chain and none overwrites another
+        deps.audit.write_event(AuditEntry(exchange_id, RECORDS_VIEWED, STAGE_NAMES[RECORDS_VIEWED],
+                                          "records_viewed", user["role"], actor_id=user.get("user_id"),
+                                          evidence_reviewed=[{"label": label, "row_count": view["row_count"]}]))
+    except Exception as e:
+        raise NotRecorded(type(e).__name__) from e
+    return view
+
+
 def ambiguous_terms(intent: dict, question: str) -> list[str]:
     """Task 7, Q4 [demo extension]: the terms declared ambiguous, for the interface to name. The
     compiler accepts a span of the rewritten question as well (_check_span), and the rewrite is model
@@ -397,6 +439,7 @@ def run(question: str, history: list[prompts.Exchange], user: dict, deps: Deps,
     if deps.intent_prompt is None:   # chat 19.10, C: the catalog's own prompt, never a built-in one
         raise ValueError("Deps.intent_prompt is required: the intent prompt that goes with the catalog")
     stage = on_stage or (lambda name: None)
+    ran: dict[str, dict] = {}   # the plans retrieved, for Outcome.plans (task 5)
     eid = "EX-" + uuid.uuid4().hex[:12]
     rec = _Record(eid, user, context, on_call)
     cat, role = deps.catalog, user["role"]
@@ -445,7 +488,7 @@ def run(question: str, history: list[prompts.Exchange], user: dict, deps: Deps,
         if answer is not None and answer.sentences:
             ex.answer = "\n".join(f"[{label}] {answer.answer(label, cat, for_history=True)}"
                                   for label in answer.sentences)
-        return Outcome(response, ex, eid, recorded=True, cost=spent)
+        return Outcome(response, ex, eid, recorded=True, cost=spent, plans=dict(ran))
 
     try:
         # task 5: the rate across users, and this exchange's own cap, before any model call
@@ -504,6 +547,7 @@ def run(question: str, history: list[prompts.Exchange], user: dict, deps: Deps,
 
         intent = compiled.intent   # values as compiled: declared forms (A2), identifiers as held (A1)
         plans = {r["label"]: r["plan"] for r in intent["readings"]}
+        ran.update(plans)
         terms = ambiguous_terms(intent, question)
         results = {res.label: res for res, _, _ in retrieved}
         materials = [synthesis.material(label, plans[label], res.rows, res.truncated, cat,

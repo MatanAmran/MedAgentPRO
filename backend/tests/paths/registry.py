@@ -171,4 +171,13 @@ PATHS: list[Path] = [
          ("endpoint:GET /api/conversations", "endpoint:GET /api/health"), "S3"),
     Path("server_examples", f"{B}::test_server_examples_on_the_scripted_model_only", ("endpoint:GET /api/examples",),
          "task 8 A4", "the scripted questions for the empty screen; none on the real model"),
+    Path("server_show_all_records", f"{P}::test_server_show_all_records",
+         ("endpoint:GET /api/exchanges/{exchange_id}/readings/{label}/records", "stage:show_all_records"),
+         "Phase B task 5 · NFR 17 · NFR 21",
+         "[demo extension] the plan the server kept, compiled again for the asker, up to 1000 rows; no model; "
+         "each viewing a records_viewed entry (label, user, row count, no record content)"),
+    Path("server_show_all_not_recorded", f"{P}::test_server_show_all_not_recorded", ("http:503",),
+         "Phase B task 5 · R1", "the viewing could not be recorded: 503, nothing shown"),
+    Path("server_show_all_unreachable", f"{P}::test_server_show_all_unreachable",
+         ("http:503",), "Phase B task 5 · FR 15", "the source could not be reached: 503, nothing recorded"),
 ]

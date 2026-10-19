@@ -820,6 +820,50 @@ def test_server_refuses_what_it_should(db_path):
     assert s.ask(cid, Q, request_id=rid).status_code == 409
 
 
+def _show_all_server(db_path):
+    from demo_data.scripted import ScriptedDemoGateway, load_scripts
+    s = Server(db_path, gateway_for=lambda q: ScriptedDemoGateway(q, load_scripts()))
+    res = check_stream(s.ask(s.conversation(), "Which suppliers were late in weeks 1 to 13?"))
+    reading = res["response"]["readings"][0]
+    return s, res["exchange_id"], reading
+
+
+def test_server_show_all_records(db_path):
+    """Phase B task 5 [demo extension]: a cut reading (10 of 28) shown whole, from the plan the server kept,
+    for its own user only; no model call (the scripted gateway is not asked again)."""
+    s, eid, reading = _show_all_server(db_path)
+    assert reading["row_count"] < reading["total"]
+    url = f"/api/exchanges/{eid}/readings/{reading['label']}/records"
+    every = s.client.get(url, headers=AP).json()
+    assert every["row_count"] == every["total"] == reading["total"] and every["rows"][:10] == reading["rows"]
+    assert s.client.get(url, headers=PL).status_code == 403
+    assert s.client.get(f"/api/exchanges/{eid}/readings/nope/records", headers=AP).status_code == 404
+    seen = [e for e in s.storage.audit_trail(eid) if e["event_type"] == "records_viewed"]
+    assert [(e["agent"], e["actor_id"], e["evidence_reviewed"]) for e in seen] == [
+        ("show_all_records", "AP-01", [{"label": reading["label"], "row_count": reading["total"]}])]
+
+
+def test_server_show_all_not_recorded(db_path, monkeypatch):
+    """Records whose viewing cannot be recorded are not shown (as R1): 503."""
+    s, eid, reading = _show_all_server(db_path)
+
+    def down(*args, **kwargs):
+        raise RuntimeError("audit store down")
+    monkeypatch.setattr(s.state.deps.audit, "write_event", down)
+    r = s.client.get(f"/api/exchanges/{eid}/readings/{reading['label']}/records", headers=AP)
+    assert r.status_code == 503 and "rows" not in r.json()
+
+
+def test_server_show_all_unreachable(db_path, monkeypatch):
+    s, eid, reading = _show_all_server(db_path)
+
+    def unreachable(*args, **kwargs):
+        raise pl._Unreachable("unable to open database file")
+    monkeypatch.setattr(pl, "_retrieve", unreachable)
+    r = s.client.get(f"/api/exchanges/{eid}/readings/{reading['label']}/records", headers=AP)
+    assert r.status_code == 503
+
+
 def test_server_conversation_update(db_path):
     """UI refresh, phase B [demo extension]: a conversation's title, pin and archive, by its own user only. An
     archived conversation leaves the list; its exchanges stay in the audit record, and the chain holds."""
