@@ -1,19 +1,22 @@
 import type { Metadata } from "next";
-import { Hanken_Grotesk, IBM_Plex_Mono } from "next/font/google";
+import localFont from "next/font/local";
 import "./globals.css";
 
-// UI refresh (18.10, docs/design/ui-refresh): fetched at build time and served from this app, so the demo
-// needs no network for its fonts
-const sans = Hanken_Grotesk({
+// UI refresh (18.10, docs/design/ui-refresh); local since task 6a (chat 20.10): the files sit in app/fonts
+// beside their licences (OFL, from github.com/google/fonts), so neither the build nor the demo needs a network
+const sans = localFont({
   variable: "--font-hanken",
-  subsets: ["latin"],
-  weight: ["400", "500", "600", "700", "800"],
+  src: "./fonts/HankenGrotesk[wght].ttf",
+  weight: "400 800",
 });
 
-const mono = IBM_Plex_Mono({
+const mono = localFont({
   variable: "--font-plex-mono",
-  subsets: ["latin"],
-  weight: ["400", "500", "600"],
+  src: [
+    { path: "./fonts/IBMPlexMono-Regular.ttf", weight: "400" },
+    { path: "./fonts/IBMPlexMono-Medium.ttf", weight: "500" },
+    { path: "./fonts/IBMPlexMono-SemiBold.ttf", weight: "600" },
+  ],
 });
 
 export const metadata: Metadata = {
