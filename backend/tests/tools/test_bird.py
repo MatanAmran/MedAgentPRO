@@ -83,3 +83,50 @@ def test_a_database_that_is_not_the_recorded_one_is_refused(tmp_path, monkeypatc
     assert hashlib.sha256(b"x").hexdigest() != bf.SUPERHERO_SHA256
     with pytest.raises(ValueError, match="SHA-256"):
         bf.superhero_db()
+
+
+# --------------------------------------------------------------------------
+# what BIRD found (chat 20.10): "the period", and the relation a table was joined through
+# --------------------------------------------------------------------------
+
+def _demo():
+    from demo_data import seed
+    from query_assistance.compiler import Catalog
+    return Catalog.load(seed.HERE / "schema.json", seed.HERE / "relations.json")
+
+
+def test_the_clarification_names_the_period_only_where_the_store_holds_a_date():
+    from query_assistance import contract
+    assert contract.needs_clarification_notice(_demo()) == (
+        "The question could not be interpreted on its own. Ask it in full, naming what it concerns, such as "
+        "the period, supplier or part.")   # the demo's notice, word for word as before
+    notice = contract.needs_clarification_notice(CAT)
+    assert "the period" not in notice and notice.endswith("such as superhero or alignment.")
+
+
+def test_examined_names_the_key_where_two_relations_reach_the_same_table():
+    from query_assistance import contract
+    q721 = next(q for q in DATA["questions"] if q["id"] == 721)
+    line = contract.render_checked(q721["plan"]["readings"][0]["plan"], CAT, "APPROVER")
+    assert "superheroes with colours (eye colour) where colour = 'Blue'" in line
+
+
+def test_each_reading_names_its_own_relation():
+    """A reading joins a table once (duplicate_table), so eye and hair colour are two readings: each
+    names the relation it joined through."""
+    from query_assistance import contract
+    lines = {}
+    for rel, label in (("superhero_eye_colour", "eye"), ("superhero_hair_colour", "hair")):
+        plan = {"SELECT": [{"expr": {"col": "superhero.superhero_name"}, "as": "superhero_name"}], "FROM": "superhero",
+                "JOIN": [{"rel": rel, "type": "LEFT"}],
+                "WHERE": {"EQ": [{"col": "colour.colour"}, {"value": "Blue"}]}}
+        compile_intent({"disposition": "retrieve", "readings": [{"label": label, "plan": plan}]}, "Blue?", be.USER, CAT)
+        lines[label] = contract.render_checked(plan, CAT, "APPROVER")
+    assert "with colours (eye colour) where held" in lines["eye"]
+    assert "with colours (hair colour) where held" in lines["hair"]
+
+
+def test_no_demo_relation_shares_its_tables_so_the_demos_examined_is_unchanged():
+    from query_assistance import contract
+    demo = _demo()
+    assert all(contract._join_role(name, demo) == "" for name in demo.relations)
