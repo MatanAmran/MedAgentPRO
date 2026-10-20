@@ -211,7 +211,8 @@
         },
         "delay_reason": {
           "label": "delay reason",
-          "type": "text"
+          "type": "text",
+          "records_reason": true
         }
       },
       "entitlement": {

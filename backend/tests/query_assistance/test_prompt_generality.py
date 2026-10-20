@@ -24,10 +24,10 @@ CAT = Catalog.load(seed.HERE / "schema.json", seed.HERE / "relations.json")
 
 # generic file -> (the frozen prompt it follows, the identity it carries)
 LINEAGE = {
-    "intent_analysis.md": (seed.HERE / "intent_analysis_demo_v10.md", "intent_analysis@12"),
+    "intent_analysis.md": (seed.HERE / "intent_analysis_demo_v10.md", "intent_analysis@13"),
     "rewrite.md": ("rewrite.md", "question_rewriting@4"),
-    "synthesis.md": ("synthesis.md", "synthesis@12"),
-    "synthesis_redraft.md": ("synthesis_redraft.md", "synthesis_redraft@9"),
+    "synthesis.md": ("synthesis.md", "synthesis@13"),
+    "synthesis_redraft.md": ("synthesis_redraft.md", "synthesis_redraft@10"),
     "gate.md": ("gate.md", "support_scoring@7"),
 }
 
@@ -98,6 +98,6 @@ def test_a_run_on_the_generic_prompts_sends_the_same_prompts(db_path, question):
     frozen, sent_frozen = run(p.load(seed.HERE / "intent_analysis_demo_v10.md"), None)
     generic, sent_generic = run(p.for_catalog("intent_analysis.md", seed.HERE), p.PromptSet.generic(seed.HERE))
     assert [t for _, t in sent_generic] == [t for _, t in sent_frozen] and len(sent_frozen) >= 3
-    assert {i for i, _ in sent_generic} <= {"intent_analysis@12", "synthesis@12", "synthesis_redraft@9",
+    assert {i for i, _ in sent_generic} <= {"intent_analysis@13", "synthesis@13", "synthesis_redraft@10",
                                            "support_scoring@7"}
     assert generic.response == frozen.response

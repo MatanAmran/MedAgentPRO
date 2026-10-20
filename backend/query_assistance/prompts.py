@@ -82,9 +82,10 @@ _MARK = re.compile(r"\[\[(\w+)\]\]")
 # [[if name]] ... [[end name]]: text kept only where the catalog holds what name says (chat 20.10, B1)
 _SECTION = re.compile(r"\[\[if (\w+)\]\](.*?)\[\[end \1\]\]", re.S)
 # what each condition asks of the catalog's columns: a date column; a column holding a user (who asks, "me");
-# a column a name is matched on (MATCHES)
+# a column a name is matched on (MATCHES); a column that records a reason (chat 20.10, 14:00: a reason is
+# quoted only where a record holds one, so no other value is taught as one)
 CONDITIONS = {"dates": lambda c: c.get("type") == "date", "users": lambda c: bool(c.get("user_column")),
-              "searchable": lambda c: bool(c.get("searchable"))}
+              "searchable": lambda c: bool(c.get("searchable")), "reasons": lambda c: bool(c.get("records_reason"))}
 
 
 def specialize(template: Prompt, texts: dict[str, str], examples: str,

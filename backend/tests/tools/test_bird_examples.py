@@ -33,7 +33,7 @@ INTENT = _pairs((HERE / "examples" / "intent_analysis.md").read_text(encoding="u
 
 def test_superhero_holds_none_of_the_conditions_and_the_demo_all():
     assert p.catalog_holds(HERE) == set()
-    assert p.catalog_holds(seed.HERE) == {"dates", "users", "searchable"}
+    assert p.catalog_holds(seed.HERE) == {"dates", "users", "searchable", "reasons"}
 
 
 def test_intent_12_on_superhero_drops_the_date_the_user_and_the_name_rules():
@@ -112,4 +112,27 @@ def test_the_pipeline_runs_on_superhero_without_data_as_of(tmp_path):
                          p.for_catalog("intent_analysis.md", HERE), prompt_set=p.PromptSet.generic(HERE))
     out = pipeline.run("What is the name of Sauron?", [], be.USER, deps)
     assert out.response["outcome"] == "answered", out.response
-    assert sent[0] == "intent_analysis@12"
+    assert sent[0] == "intent_analysis@13"
+
+
+def test_superhero_is_taught_no_value_as_a_reason():
+    """Chat 20.10, 14:00: alignment is a trait, not a reason. superhero marks no column records_reason, so the
+    sentences on a recorded reason are dropped; the first sentence of each, refer a cause, never give one, stays."""
+    intent = p.for_catalog("intent_analysis.md", HERE).body
+    synthesis = p.for_catalog("synthesis.md", HERE).body
+    redraft = p.for_catalog("synthesis_redraft.md", HERE).body
+    assert "Retrieving a reason" not in intent and "attributing a cause" in intent
+    assert "records a reason" not in synthesis and "Reason recorded" not in synthesis
+    assert "do not give a cause" in synthesis
+    assert "A recorded reason" not in redraft and "do not give a cause" in redraft
+    for body in (intent, synthesis, redraft):
+        assert not re.search(r"reason[^.\n]*alignment|alignment[^.\n]*reason", body, re.I)
+    texts = json.loads((HERE / "prompt_text.json").read_text(encoding="utf-8"))["texts"]
+    assert "recorded_reason_example" not in texts and "reason_reference" not in texts
+
+
+def test_the_demo_marks_its_one_reason_column():
+    from query_assistance.compiler import Catalog
+    cat = Catalog.load(seed.HERE / "schema.json", seed.HERE / "relations.json")
+    marked = [f"{t}.{c}" for t, e in cat.entities.items() for c, s in e["columns"].items() if s.get("records_reason")]
+    assert marked == ["commitments.delay_reason"]
