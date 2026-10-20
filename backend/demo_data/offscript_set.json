@@ -1758,7 +1758,7 @@
   },
   {
    "id": "F2",
-   "book_test": [44, 37, 17],
+   "book_test": [44, 37],
    "user": "AP-01",
    "chain": "A1",
    "after": "A1",
