@@ -128,3 +128,47 @@
 - **מסמך המחקר של 19.10,** Claude Doc "MedAgentPro — מחקר לשלב ב׳", בחשבון הקודם. המשימות שלו ב-`00_STATUS.md` ("Phase B tasks"), אבל המקורות שלו לא הועברו לריפו. **לבקש מאביתר את הקישור או ייצוא, ולהוסיף כאן.**
 - **צינור החקירה (משימה 10):** דורש סקר נפרד. המקורות של פרק 7 בספר ([5], ‏[8], ‏[44], ‏[45]) הם נקודת הפתיחה.
 - **בדיקת הכיסוי (R-4, משימה 4):** עוד לא נחקרה מול מקורות.
+
+## 6. משימה 4 (R-4), בדיקת הכיסוי: סקר שוק ומחקר (הצ׳אט, 20.10 21:00)
+
+נפתחו ב-20.10.2026. ההקשר: `88_COVERAGE_RESEARCH.md`.
+
+| מקור | סוג | מה הוא תומך בו | איפה ב-88 |
+|---|---|---|---|
+| [AWS: Bedrock Guardrails, contextual grounding check](https://docs.aws.amazon.com/bedrock/latest/userguide/guardrails-contextual-grounding-check.md) | תיעוד | ציון רלוונטיות לשאלה וציון ביסוס, עם ספים, בזמן ריצה | 2, התקדים לבדיקה נפרדת |
+| [AWS News Blog: Guardrails detect hallucinations](https://aws.amazon.com/blogs/aws/guardrails-for-amazon-bedrock-can-now-detect-hallucinations-and-safeguard-apps-built-using-custom-or-third-party-fms) | תיעוד | אותו דבר, עם דוגמת הגדרה | 2 |
+| [Microsoft Foundry: built-in evaluators](https://learn.microsoft.com/en-us/azure/foundry/concepts/built-in-evaluators) | תיעוד | Response Completeness ו-Relevance, הערכה מול תשובת אמת | 2, במעבדה ולא בזמן ריצה |
+| [Google: Looker Conversational Analytics with dashboards](https://docs.cloud.google.com/looker/docs/conversational-analytics-looker-data-agents-dashboards) | תיעוד | מצב Thinking שמתכנן ומשלב תוצאות | 2 |
+| [Google: Converse with Looker data](https://docs.cloud.google.com/looker/docs/2520/conversational-analytics-looker-data) | תיעוד | תמיכה בשאלות מרובות חלקים | 2 |
+| [Zhou et al., Least-to-Most Prompting, arXiv:2205.10625](https://arxiv.org/abs/2205.10625v3) | מאמר | פירוק לתת-בעיות | 3, ‏A |
+| [Press et al., Measuring and Narrowing the Compositionality Gap, arXiv:2210.03350](https://arxiv.org/abs/2210.03350v3) | מאמר | הפער בין חלקים לשלם לא קטן עם גודל המודל. ‏Self-ask | 3, ‏P1 |
+| [Khot et al., Decomposed Prompting, arXiv:2210.02406](https://arxiv.org/pdf/2210.02406) | מאמר | פירוק מודולרי | 3 |
+| [Wang et al., MAC-SQL, arXiv:2312.11242](https://www.arxiv.org/pdf/2312.11242) | מאמר | סוכן Decomposer ב-Text-to-SQL | 3, ‏E |
+| [Pourreza, Rafiei, DIN-SQL, NeurIPS 2023](https://papers.neurips.cc/paper_files/paper/2023/file/72223cc66f63ca1aa59edaec1b3670e6-Paper-Conference.pdf) | מאמר | פירוק משימה ב-Text-to-SQL | 3 |
+| [Xie et al., MAG-SQL, arXiv:2408.07930](https://arxiv.org/pdf/2408.07930) | מאמר | צריך קריטריון אחיד לפירוק | 3, ‏A |
+| [Tai et al., Exploring Chain-of-Thought Style Prompting for Text-to-SQL (QDecomp)](https://papers.lunadong.com/paper/11213) | מאמר | פירוק במעבר אחד עם עמודות לכל חלק | 3, ‏A |
+| [Guo et al., MMSQL, arXiv:2412.17867](https://arxiv.org/abs/2412.17867v4) | מאמר | זיהוי סוג השאלה לפני ה-SQL, בשיחה רב-שלבית | רקע |
+| [Dhuliawala et al., Chain-of-Verification, ACL Findings 2024](https://preview.aclanthology.org/setup/2024.findings-acl.212) | מאמר | אימות עצמאי מפחית הזיה | 3, ‏B |
+| [Yu, Li, Wang, Detecting Causal Language Use in Science Findings, EMNLP 2019](https://aclanthology.org/D19-1473/) | מאמר | ארבע קטגוריות של שפה סיבתית, ומסווג אוטומטי | 3 ו-5, ‏P3 |
+| [Huang, Chang, Towards Reasoning in LLMs: A Survey, arXiv:2212.10403](https://arxiv.org/pdf/2212.10403) | סקירה | סיכום שיטות הפירוק | רקע |
+
+## 7. מרשם הפערים (הצ׳אט, 20.10 21:40)
+
+נפתחו ב-20.10.2026. ההקשר: `89_GAPS.md`. מקורות שכבר רשומים למעלה לא חוזרים כאן.
+
+| מקור | סוג | מה הוא תומך בו | פער ב-89 |
+|---|---|---|---|
+| [Eyal, Bachar, Haroche, Mahabi, Elhadad, Semantic Decomposition of Question and SQL (QPL), arXiv:2310.13575](https://arxiv.org/abs/2310.13575v1) | מאמר, ‏EMNLP Findings 2023 | שפת תוכניות מודולרית שבה כל תת-תוכנית ניתנת להרצה | GAP-02 |
+| [Saparina, Lapata, AMBROSIA, NeurIPS 2024](https://proceedings.neurips.cc/paper_files/paper/2024/hash/a4c942a8405cc910f0a833d28d2573cc-Abstract.html) | מאמר | מודלים מתקשים לזהות עמימות בשאלות למסד | GAP-01 |
+| [Talaei et al., CHESS, arXiv:2405.16755](https://arxiv.org/abs/2405.16755v3) | מאמר | אחזור ערכים והקשר מהקטלוג | GAP-01, ‏GAP-11 |
+| [Geng et al., JSONSchemaBench, arXiv:2501.10868](https://arxiv.org/abs/2501.10868) | מאמר, ‏ICML 2025 | פענוח מוגבל לא מכסה סכמות מורכבות | GAP-06 |
+| [Atil et al., Non-Determinism of "Deterministic" LLM Settings, arXiv:2408.04667](https://arxiv.org/html/2408.04667v5) | מאמר | שונות בין ריצות גם בטמפרטורה 0 | GAP-08 |
+| [Microsoft, Eureka: Evaluating and Understanding Large Foundation Models, arXiv:2409.10566](https://arxiv.org/pdf/2409.10566) | מאמר | מדידת אי-דטרמיניזם כחלק מהערכה | GAP-08 |
+| [Wang et al., Recursively Summarizing Enables Long-Term Dialogue Memory, arXiv:2308.15022](https://arxiv.org/abs/2308.15022v2) | מאמר | סיכום רקורסיבי של היסטוריה | GAP-09 |
+| [Survey on context length extension (MemGPT section), arXiv:2401.07872](https://arxiv.org/pdf/2401.07872) | סקירה | סיכום רקורסיבי מאבד מידע | GAP-09 |
+| [Snowflake: Cortex Analyst Verified Query Repository](https://docs.snowflake.com/en/user-guide/views-semantic/verified-query-repository) | תיעוד | שאילתות מאומתות | GAP-01 |
+| [Snowflake: Suggestions for semantic models and views](https://docs.snowflake.com/en/user-guide/views-semantic/verified-query-suggestions) | תיעוד | הצעות לשאילתות מאומתות משימוש, ואדם מאשר | GAP-01, משימה 12 |
+| [Databricks: ABAC core concepts (Unity Catalog)](https://docs.databricks.com/en/data-governance/unity-catalog/abac/core-concepts) | תיעוד | מסנני שורות ומסכות עמודות | GAP-10 |
+| [Implementing Row-Level Security in Snowflake (Galaxy)](https://www.getgalaxy.io/learn/glossary/implementing-row-level-security-in-snowflake) | מדריך משני | מדיניות על טבלת הבסיס חלה על views | GAP-10 |
+| [AI/BI release notes 2025 (Databricks)](https://learn.microsoft.com/en-us/Azure/databricks/ai-bi/release-notes/2025) | תיעוד | התאמת ישויות, והסבר לתוצאה ריקה | GAP-07, ‏GAP-11 |
+| [Snowflake Cortex Analyst launch (AIM Research)](https://aimresearch.co/?p=10421) | כתבה משנית | בקשה לנסח מחדש עם הצעות, בשאלה עמומה | GAP-07 |
