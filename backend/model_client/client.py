@@ -244,6 +244,26 @@ def _content(prompt: str, cache_prefix: str | None) -> str | list[dict]:
             {"type": "text", "text": prompt[len(cache_prefix):]}]
 
 
+def build_request(prompt: str, config: ModelConfig, *, provider: str | None = None, temperature: float | None = None,
+                  timeout: float = MODEL_REQUEST_TIMEOUT_SECONDS, cache_prompts: bool = False) -> dict[str, Any]:
+    """The request as it goes to the provider, every parameter but the API key: what LiteLLMGateway sends, and
+    what record and replay hash (chat 20.10, 16:40, R-1), so a parameter added here is in the key unasked."""
+    model = config.model if "/" in config.model or not provider else f"{provider}/{config.model}"
+    content = _content(prompt, config.cache_prefix if cache_prompts else None)
+    kwargs: dict[str, Any] = {"model": model, "messages": [{"role": "user", "content": content}],
+                              "num_retries": 0, "max_retries": 0, "timeout": timeout}
+    sent_temperature = config.temperature if config.temperature is not None else temperature
+    if sent_temperature is not None:
+        kwargs["temperature"] = sent_temperature
+    if config.max_tokens:
+        kwargs["max_tokens"] = config.max_tokens
+    if config.output_schema:
+        kwargs["response_format"] = {"type": "json_schema",
+                                     "json_schema": {"name": config.prompt_identity.split("@")[0] or "output",
+                                                     "schema": config.output_schema}}
+    return kwargs
+
+
 class LiteLLMGateway(ModelGateway):
     """No hidden retries: LiteLLM's own are off, so the only further attempt is the counted
     feedback attempt (task 5, R4). Temperature is sent only where it is configured (R1); the
@@ -269,22 +289,16 @@ class LiteLLMGateway(ModelGateway):
             self._completion = litellm.completion
         return self._completion
 
+    def request_settings(self) -> dict[str, Any]:
+        """This gateway's part of every request, the API key aside: what a replay needs to build it again."""
+        return {"provider": self._provider, "temperature": self._temperature, "timeout": self._timeout,
+                "cache_prompts": self._cache_prompts}
+
     def invoke(self, prompt, config):
-        model = config.model if "/" in config.model or not self._provider else f"{self._provider}/{config.model}"
-        content = _content(prompt, config.cache_prefix if self._cache_prompts else None)
-        kwargs: dict[str, Any] = {"model": model, "messages": [{"role": "user", "content": content}],
-                                  "num_retries": 0, "max_retries": 0, "timeout": self._timeout}
-        temperature = config.temperature if config.temperature is not None else self._temperature
-        if temperature is not None:
-            kwargs["temperature"] = temperature
+        kwargs = build_request(prompt, config, **self.request_settings())
+        temperature = kwargs.get("temperature")
         if self._api_key:
             kwargs["api_key"] = self._api_key
-        if config.max_tokens:
-            kwargs["max_tokens"] = config.max_tokens
-        if config.output_schema:
-            kwargs["response_format"] = {"type": "json_schema",
-                                         "json_schema": {"name": config.prompt_identity.split("@")[0] or "output",
-                                                         "schema": config.output_schema}}
 
         def op():
             try:

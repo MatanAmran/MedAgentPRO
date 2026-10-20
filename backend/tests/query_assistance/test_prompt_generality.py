@@ -24,7 +24,7 @@ CAT = Catalog.load(seed.HERE / "schema.json", seed.HERE / "relations.json")
 
 # generic file -> (the frozen prompt it follows, the identity it carries)
 LINEAGE = {
-    "intent_analysis.md": (seed.HERE / "intent_analysis_demo_v10.md", "intent_analysis@13"),
+    "intent_analysis.md": (seed.HERE / "intent_analysis_demo_v10.md", "intent_analysis@14"),
     "rewrite.md": ("rewrite.md", "question_rewriting@4"),
     "synthesis.md": ("synthesis.md", "synthesis@13"),
     "synthesis_redraft.md": ("synthesis_redraft.md", "synthesis_redraft@10"),
@@ -32,12 +32,39 @@ LINEAGE = {
 }
 
 
+# intent@14 (chat 20.10, 16:25): what it changes from the frozen v10, and nothing else. E1: "why" and "what caused"
+# are referred even where a column records a reason. T17: the label's pattern, said. One example more
+INTENT_14 = [
+    ("2. If answering requires attributing a cause or judging whether a value is anomalous, set disposition to "
+     "refer_to_investigation and return no readings. Retrieving a reason that a record already holds, such as a "
+     "recorded delay reason, is not attributing a cause.",
+     "2. If the question asks why something happened or what caused it, or answering requires attributing a cause "
+     "or judging whether a value is anomalous, set disposition to refer_to_investigation and return no readings. "
+     "This holds even where a column records a reason: retrieve a recorded reason, such as a recorded delay reason, "
+     "only when the question asks what reason was recorded."),
+    ("6. Give every SELECT item an alias. GROUP_BY, HAVING and ORDER_BY name aliases.\n",
+     "6. Give every SELECT item an alias. GROUP_BY, HAVING and ORDER_BY name aliases.\n6a. A reading's label starts "
+     "with a lowercase letter, followed only by lowercase letters, digits and underscores, at most 40 characters in "
+     "all, such as reading_1.\n"),
+    ('Question: Why is S-014 late so often?\nOutput: {"disposition": "refer_to_investigation"}\n',
+     'Question: Why is S-014 late so often?\nOutput: {"disposition": "refer_to_investigation"}\n\n'
+     'Question: What caused PO-87006 to arrive late?\nOutput: {"disposition": "refer_to_investigation"}\n'),
+]
+CHANGED = {"intent_analysis.md": INTENT_14}
+
+
 @pytest.mark.parametrize("generic", sorted(LINEAGE))
 def test_filled_from_the_demo_catalog_each_is_the_frozen_prompt_exactly(generic):
+    """Each generic prompt, filled from the demo catalog, is the frozen one it follows, character for character,
+    but for the changes listed in CHANGED, each made exactly once."""
     frozen, identity = LINEAGE[generic]
     built = p.for_catalog(generic, seed.HERE)
     before = p.load(frozen)
-    assert built.body == before.body
+    expected = before.body.replace("\r\n", "\n")
+    for old, new in CHANGED.get(generic, []):
+        assert expected.count(old) == 1, old[:60]
+        expected = expected.replace(old, new)
+    assert built.body.replace("\r\n", "\n") == expected
     assert built.identity == identity and built.output_schema == before.output_schema
 
 
@@ -97,7 +124,14 @@ def test_a_run_on_the_generic_prompts_sends_the_same_prompts(db_path, question):
 
     frozen, sent_frozen = run(p.load(seed.HERE / "intent_analysis_demo_v10.md"), None)
     generic, sent_generic = run(p.for_catalog("intent_analysis.md", seed.HERE), p.PromptSet.generic(seed.HERE))
-    assert [t for _, t in sent_generic] == [t for _, t in sent_frozen] and len(sent_frozen) >= 3
-    assert {i for i, _ in sent_generic} <= {"intent_analysis@13", "synthesis@13", "synthesis_redraft@10",
+    def as_changed(identity, text):   # the intent call carries @14's listed changes, and only them
+        text = text.replace("\r\n", "\n")
+        if identity.startswith("intent_analysis"):
+            for old, new in INTENT_14:
+                text = text.replace(old, new)
+        return text
+    assert [t.replace("\r\n", "\n") for _, t in sent_generic] == [as_changed(i, t) for i, t in sent_frozen]
+    assert len(sent_frozen) >= 3
+    assert {i for i, _ in sent_generic} <= {"intent_analysis@14", "synthesis@13", "synthesis_redraft@10",
                                            "support_scoring@7"}
     assert generic.response == frozen.response

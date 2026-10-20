@@ -25,7 +25,7 @@ def test_eval_cache_stays_out_of_git():
 def test_a_recorded_run_replays_to_the_same_report(db_path, tmp_path, capsys):
     assert _run(db_path, tmp_path, "--record") == 0
     recorded = json.loads((tmp_path / "out" / "results.json").read_text(encoding="utf-8"))
-    calls = list((tmp_path / "cache").glob("*.json"))
+    calls = list((tmp_path / "cache").glob("*-demo/*.json"))
     assert calls and "manifest" in capsys.readouterr().out
     assert _run(db_path, tmp_path, "--replay") == 0
     assert "none missing" in capsys.readouterr().out
@@ -38,9 +38,9 @@ def test_the_manifest_says_what_made_the_run_and_holds_no_question(db_path, tmp_
     assert _run(db_path, tmp_path, "--record", "--prompts", "generic") == 0
     path, = (tmp_path / "cache" / "manifests").glob("*-demo.json")
     m = json.loads(path.read_text(encoding="utf-8"))
-    assert set(m) == {"commit", "prompts", "output_caps", "model", "set", "started", "mode", "exchanges", "calls",
-                    "spent_usd"}
-    assert m["prompts"]["intent"] == "intent_analysis@13" and m["set"] == "demo" and m["exchanges"] == 2
+    assert set(m) == {"run", "commit", "prompts", "output_caps", "request_settings", "model", "set", "started", "mode",
+                    "exchanges", "calls", "spent_usd"}
+    assert m["prompts"]["intent"] == "intent_analysis@14" and m["set"] == "demo" and m["exchanges"] == 2
     text = path.read_text(encoding="utf-8")
     assert not any(it["question"] in text for it in ev.demo_set()[:2])
     assert "S-0" not in text and "PO-" not in text
@@ -48,7 +48,7 @@ def test_the_manifest_says_what_made_the_run_and_holds_no_question(db_path, tmp_
 
 def test_a_replay_fails_on_a_call_not_stored(db_path, tmp_path, capsys):
     assert _run(db_path, tmp_path, "--record") == 0
-    next((tmp_path / "cache").glob("*.json")).unlink()
+    next((tmp_path / "cache").glob("*-demo/*.json")).unlink()
     capsys.readouterr()
     assert _run(db_path, tmp_path, "--replay") == 1
     assert "replay incomplete" in capsys.readouterr().out

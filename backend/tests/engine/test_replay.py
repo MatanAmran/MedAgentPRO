@@ -66,28 +66,60 @@ def test_the_key_follows_the_messages_and_the_output_cap():
     miss for a run at 4000, never served to it."""
     assert request_key("p", CFG) != request_key("q", CFG)
     assert request_key("p", ModelConfig(**{**CFG.__dict__, "max_tokens": 3000})) != request_key("p", CFG)
-    assert request_key("p", CFG, 4000) != request_key("p", CFG, 2000)
 
 
-def test_a_call_recorded_behind_the_budget_is_keyed_and_stored_at_the_cap_it_was_sent(tmp_path):
-    """The budget sets max_tokens after the record layer: the layer asks the budget's config for the cap,
+@pytest.mark.parametrize("field, other", [("model", "claude-sonnet-5-5"), ("temperature", 0.0), ("max_tokens", 4000),
+                                           ("output_schema", {"type": "array"}), ("prompt_identity", "synthesis@12"),
+                                           ("cache_prefix", "the p")])
+def test_every_field_of_the_config_is_in_the_key(field, other):
+    """R-1 (chat 20.10, 16:40): the whole request as sent, not a list picked by hand. Every field of ModelConfig
+    is named here, so a field added later fails this test until it is."""
+    from dataclasses import fields
+    assert {f.name for f in fields(ModelConfig)} == {"model", "temperature", "max_tokens", "output_schema",
+                                                      "prompt_identity", "cache_prefix"}
+    changed = ModelConfig(**{**CFG.__dict__, field: other})
+    settings = {"cache_prompts": True} if field == "cache_prefix" else {}   # the prefix is sent only with the cache on
+    assert request_key("the prompt", changed, settings) != request_key("the prompt", CFG, settings)
+
+
+@pytest.mark.parametrize("setting, value", [("provider", "anthropic"), ("temperature", 0.5), ("timeout", 30.0),
+                                             ("cache_prompts", True)])
+def test_every_setting_of_the_gateway_is_in_the_key(setting, value):
+    """The gateway's own part of the request: a run at another temperature or timeout is another request."""
+    config = ModelConfig(**{**CFG.__dict__, "cache_prefix": "the "})
+    assert request_key("the prompt", config, {setting: value}) != request_key("the prompt", config, {})
+
+
+def test_a_call_recorded_behind_the_budget_is_keyed_and_stored_as_it_was_sent(tmp_path):
+    """The budget sets max_tokens after the record layer: the layer asks the budget for the config it sends,
     so the key and the record hold the cap sent, not the None the pipeline passes."""
-    from model_client.budget import BudgetConfig
-
-    class Budget(ScriptedModelGateway):
-        config = BudgetConfig("m", 1, 1, 1, 1, 2000, 10, max_output_tokens_synthesis=4000)
-
+    from model_client.budget import BudgetConfig, BudgetedGateway, SpendLedger
+    cfg = BudgetConfig("claude-haiku-5-5", 1, 1, 1, 1, 2000, 10, max_output_tokens_synthesis=4000)
+    budget = BudgetedGateway(ScriptedModelGateway(["{}"]), cfg, SpendLedger(tmp_path / "spend.json"))
     plain = ModelConfig("claude-haiku-5-5", prompt_identity="synthesis@11")
-    RecordReplayGateway("record", tmp_path, Budget(["{}"])).invoke("the prompt", plain)
-    (saved,) = tmp_path.glob("*.json")
+    with budget.exchange():
+        RecordReplayGateway("record", tmp_path / "run", budget).invoke("the prompt", plain)
+    (saved,) = (tmp_path / "run").glob("*.json")
     record = json.loads(saved.read_text(encoding="utf-8"))
     assert record["request"]["max_tokens"] == 4000
-    assert record["key"] == request_key("the prompt", plain, 4000)
-    at_old_cap = RecordReplayGateway("replay", tmp_path, output_cap=lambda ident: 2000)
+    sent = ModelConfig("claude-haiku-5-5", max_tokens=4000, prompt_identity="synthesis@11")
+    assert record["key"] == request_key("the prompt", sent)
+    at_old_cap = RecordReplayGateway("replay", tmp_path / "run", output_cap=lambda ident: 2000)
     with pytest.raises(ReplayMiss):
         at_old_cap.invoke("the prompt", plain)
-    at_its_cap = RecordReplayGateway("replay", tmp_path, output_cap=lambda ident: 4000)
+    at_its_cap = RecordReplayGateway("replay", tmp_path / "run", output_cap=lambda ident: 4000)
     assert at_its_cap.invoke("the prompt", plain).text == "{}"
+
+
+def test_a_request_sent_twice_keeps_both_answers_and_replays_them_in_order(tmp_path):
+    """Chat 20.10: stage's EN2 and offscript's G1 were the same request; one file per key served G1's answer to
+    EN2. Now each answer is kept, and a replay gives them back in the order they came."""
+    rec = RecordReplayGateway("record", tmp_path, ScriptedModelGateway(['{"n": 1}', '{"n": 2}']))
+    assert [rec.invoke("same", CFG).text, rec.invoke("same", CFG).text] == ['{"n": 1}', '{"n": 2}']
+    replay = RecordReplayGateway("replay", tmp_path)
+    assert [replay.invoke("same", CFG).text, replay.invoke("same", CFG).text] == ['{"n": 1}', '{"n": 2}']
+    with pytest.raises(ReplayMiss):
+        replay.invoke("same", CFG)
 
 
 def test_a_failed_call_is_raised_and_not_stored(tmp_path):
@@ -102,7 +134,9 @@ def test_the_store_holds_the_request_and_the_response(tmp_path):
     (saved,) = tmp_path.glob("*.json")
     record = json.loads(saved.read_text(encoding="utf-8"))
     assert record["key"] == saved.stem == request_key("the prompt", CFG)
-    assert record["request"]["prompt_identity"] == "synthesis@11" and record["request"]["max_tokens"] == 100
+    assert record["prompt_identity"] == "synthesis@11" and record["request"]["max_tokens"] == 100
+    assert record["request"]["messages"] == [{"role": "user", "content": "the prompt"}]
+    assert "api_key" not in record["request"]
     assert record["response"]["text"] == "{}"
 
 

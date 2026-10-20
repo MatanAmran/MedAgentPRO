@@ -54,6 +54,7 @@ import sqlite3
 import sys
 import tempfile
 import time
+from collections import Counter
 from dataclasses import asdict, dataclass, field, replace
 from datetime import datetime, timezone
 from pathlib import Path
@@ -77,7 +78,9 @@ MAX_RATE_WAITS = 5
 
 STATUSES = {"answered", "referred_to_investigation", "action_declined", "needs_clarification",
             "no_supported_assertion", "request_not_completed", "source_unreachable"}
-COMPARES = {"total", "rows", "value"}
+# ordered (chat 20.10, 16:25): BIRD's rows, projected on its columns, begin ours; a row tied with BIRD's last one
+# may stand in its place, since LIMIT 1 hides a tie (B802: Surtur and Ymir) and ours shows it
+COMPARES = {"total", "rows", "value", "ordered"}
 # Task 14 (chat 20.10, 82_STAGE_SET.md): the rows of the research doc's section 8 the stage set covers
 CATEGORIES = ("semantic_layer", "value_mapping", "classification_ambiguity", "query_building", "validation_repair",
               "entitlement", "follow_ups", "multi_part", "transparency", "answer_verification", "row_limit",
@@ -209,9 +212,10 @@ def bird_set() -> list[dict]:
     raw = bird_eval.load()
     out = []
     for q in raw["questions"]:
-        mode = q["compare"]["mode"]
+        mode, columns = q["compare"]["mode"], q["compare"]["columns"]
         sql = ([{"query": q["sql"], "compare": "value"}] if mode == "value" else
-               [{"query": q["sql"], "compare": "total"}] if mode in ("bag", "ordered") else [])
+               [{"query": q["sql"], "compare": "total"}] if mode == "bag" else
+               [{"query": q["sql"], "compare": "ordered", "columns": columns}] if mode == "ordered" else [])
         out.append({"id": f"B{q['id']}", "user": "AP-01", "question": q["question"], "sql": sql,
                     "expect": {"status": ["answered"]}, "watch": q.get("evidence"), "plan": [q["plan"]]})
     for g in raw["gaps"]:
@@ -260,13 +264,32 @@ def _close(a: float, b: float) -> bool:
     return abs(a - b) <= 0.005 + 1e-9 * abs(b)
 
 
+def _tied(a: dict, b: dict) -> bool:
+    """Two shown rows with the same numbers: tied on whatever they were ordered by."""
+    return _numbers(a) == _numbers(b)
+
+
+def _begins(gold: list[tuple], shown: list[dict], columns: list[str]) -> bool:
+    """BIRD's rows begin ours (chat 20.10, 16:25), on BIRD's columns, in order. BIRD's last row may be any
+    of ours that is tied with the row in its place: LIMIT 1 picks one of a tie, the reading shows them all."""
+    ours = [tuple(r.get(c) for c in columns) for r in shown]
+    n = len(gold)
+    if n == 0 or len(ours) < n or ours[:n - 1] != [tuple(g) for g in gold[:n - 1]]:
+        return False
+    last = tuple(gold[-1])
+    return any(ours[i] == last and _tied(shown[i], shown[n - 1]) for i in range(n - 1, len(ours)))
+
+
 def check_counts(item: dict, response: dict, conn: sqlite3.Connection) -> tuple[bool | None, list[dict]]:
     """Each alternative's expected count, and the readings that match it. None where the set holds no
     SQL; True where any reading matches any alternative."""
     out = []
     for alt in item.get("sql", []):
         rows = conn.execute(alt["query"]).fetchall()
-        if alt["compare"] == "value":
+        if alt["compare"] == "ordered":
+            expected = len(rows)
+            matched = [r["label"] for r in response["readings"] if _begins(rows, r.get("rows") or [], alt["columns"])]
+        elif alt["compare"] == "value":
             expected: Any = rows[0][0] if rows else None
             matched = [r["label"] for r in response["readings"] if expected is not None and r["row_count"] == 1
                        and any(_close(n, float(expected)) for n in _numbers(r["rows"][0]))]
@@ -782,14 +805,27 @@ def output_caps(deps: pipeline.Deps) -> dict[str, int | None]:
             for ident in prompt_identities(deps).values()}
 
 
+def request_settings(deps: pipeline.Deps) -> dict:
+    """The model gateway's own part of each request (provider, temperature, timeout, prompt cache): none on
+    the scripted model. A replay builds the request again with them (R-1). The API key is never one."""
+    settings = getattr(deps.gateway, "request_settings", None)
+    return settings() if settings is not None else {}
+
+
+def run_name(stamp: str, set_name: str) -> str:
+    return f"{stamp}-{Path(set_name).stem}"
+
+
 def write_manifest(store: Path, run: Run, set_name: str, deps: pipeline.Deps, stamp: str) -> Path:
-    """What a recorded run was: the commit, the prompts and their output caps, the model, the set, when and
-    what it cost. Never a record value, a question or the key: the calls are in the store beside it."""
-    manifest = {"commit": commit(), "prompts": prompt_identities(deps), "output_caps": output_caps(deps),
+    """What a recorded run was: its directory in the store, the commit, the prompts with their output caps
+    and the gateway's settings, the model, the set, when and what it cost. Never a record value, a question
+    or the API key: the calls are in the run's own directory."""
+    manifest = {"run": run_name(stamp, set_name), "commit": commit(), "prompts": prompt_identities(deps),
+                "output_caps": output_caps(deps), "request_settings": request_settings(deps),
                 "model": run.model, "set": set_name,
                 "started": run.started, "mode": run.mode, "exchanges": len(run.results),
                 "calls": sum(len(r.calls) for r in run.results), "spent_usd": run.spent}
-    path = Path(store) / "manifests" / f"{stamp}-{Path(set_name).stem}.json"
+    path = Path(store) / "manifests" / f"{run_name(stamp, set_name)}.json"
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(json.dumps(manifest, indent=1), encoding="utf-8")
     return path
@@ -800,8 +836,8 @@ def latest_manifest(store: Path, set_name: str, identities: dict[str, str]) -> d
     found = sorted((Path(store) / "manifests").glob(f"*-{Path(set_name).stem}.json"), reverse=True)
     for path in found:
         m = json.loads(path.read_text(encoding="utf-8"))
-        if m.get("set") == set_name and m.get("prompts") == identities:
-            return m
+        if m.get("set") == set_name and m.get("prompts") == identities and m.get("run"):
+            return m   # a manifest without a run directory predates R-1: its calls are keyed otherwise
     return None
 
 
@@ -908,12 +944,17 @@ def main(argv: list[str] | None = None, *, build: Callable[..., tuple] | None = 
             print(f"no recorded run of {args.set} on these prompts in {args.cache}: record one first")
             return 1
         caps = recorded.get("output_caps") or {}
-        replaying = RecordReplayGateway("replay", args.cache, output_cap=caps.get)
+        replaying = RecordReplayGateway("replay", Path(args.cache) / recorded["run"], output_cap=caps.get,
+                                        settings=recorded.get("request_settings") or {})
         deps = replace(deps, gateway=replaying, model=recorded["model"])
         gateway_for = lambda question: replaying   # noqa: E731  the whole gateway: nothing behind it
     elif args.record:
         inner_for = gateway_for
-        gateway_for = lambda question: RecordReplayGateway("record", args.cache, inner_for(question))   # noqa: E731
+        run_dir = Path(args.cache) / run_name(stamp, args.set)
+        asked: Counter[str] = Counter()   # one count for the run: a request sent twice keeps both answers
+
+        def gateway_for(question: str) -> ModelGateway:
+            return RecordReplayGateway("record", run_dir, inner_for(question), asked=asked)
     out_dir.mkdir(parents=True, exist_ok=True)
     handler = logging.FileHandler(out_dir / "operational.log", encoding="utf-8")
     handler.setFormatter(logging.Formatter("%(asctime)s %(levelname)s %(message)s"))

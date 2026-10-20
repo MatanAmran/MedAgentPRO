@@ -189,6 +189,8 @@ The remote is `MedAgentPRO` (`github.com/MatanAmran/MedAgentPRO`, Matan's reposi
 - `tests/feasibility/constraints.py` lists the limits the design must fit (provider, LiteLLM, SQLite, the demo data), each with its source; `test_feasibility.py` checks each one offline. **Every limit discovered from now on (like temperature on Claude 5) becomes a row and a check first.** Rows of kind `live` are confirmed only in the smoke test (R9).
 - Known gaps are `xfail(strict=True)` with the gap id in the reason, so fixing one forces removing the mark.
 - `python -m tools.path_map` (from `backend\`) runs both suites and regenerates `docs/notes/60_PATHS.md`. Run it before handing a task back to the chat.
+- **A change to a measure (R-7, chat 20.10, 16:40).** Any change to how the evaluation tools judge (`tools/bird_eval.py`, `tools/real_eval.py`: a comparison, a check, an expectation) is recorded with its reason and applied back to every set of the last round with `--replay` (no model, USD 0), with the results before and after in the report. A result is never re-judged by a rule the earlier rounds were not judged by.
+- **Record and replay (R-1, chat 20.10, 16:40).** The key is the whole request as sent (`client.build_request`): every parameter, a future one too, the API key alone aside. Each recorded run has a directory of its own under `eval_cache/`, and a request sent twice keeps both answers, in order. A manifest from before R-1 (no `run`) does not replay.
 
 ## Decisions in force (details in `docs/notes/40_CHAT.md`)
 

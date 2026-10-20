@@ -112,7 +112,7 @@ def test_the_pipeline_runs_on_superhero_without_data_as_of(tmp_path):
                          p.for_catalog("intent_analysis.md", HERE), prompt_set=p.PromptSet.generic(HERE))
     out = pipeline.run("What is the name of Sauron?", [], be.USER, deps)
     assert out.response["outcome"] == "answered", out.response
-    assert sent[0] == "intent_analysis@13"
+    assert sent[0] == "intent_analysis@14"
 
 
 def test_superhero_is_taught_no_value_as_a_reason():
@@ -125,8 +125,7 @@ def test_superhero_is_taught_no_value_as_a_reason():
     assert "records a reason" not in synthesis and "Reason recorded" not in synthesis
     assert "do not give a cause" in synthesis
     assert "A recorded reason" not in redraft and "do not give a cause" in redraft
-    for body in (intent, synthesis, redraft):
-        assert not re.search(r"reason[^.\n]*alignment|alignment[^.\n]*reason", body, re.I)
+    # which column a reason may name is checked against the marks, not by a word (R-2, test_prompt_text.py)
     texts = json.loads((HERE / "prompt_text.json").read_text(encoding="utf-8"))["texts"]
     assert "recorded_reason_example" not in texts and "reason_reference" not in texts
 

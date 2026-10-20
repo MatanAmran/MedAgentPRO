@@ -112,10 +112,64 @@ def catalog_holds(catalog_dir: Path) -> set[str]:
     return {name for name, holds in CONDITIONS.items() if any(holds(c) for c in columns)}
 
 
+GENERIC_FILES = ("intent_analysis.md", "rewrite.md", "synthesis.md", "synthesis_redraft.md", "gate.md")
+_REFERENCE = re.compile(r"\{\w+\.(\w+)(?:#\d+)?\}")
+
+
+def slot_conditions() -> dict[str, set[str]]:
+    """Each [[name]] of the generic templates, and the conditions it stands under: none where it appears
+    anywhere outside an [[if ...]] section, else the sections it appears in."""
+    out: dict[str, set[str]] = {}
+    free: set[str] = set()
+    for file in GENERIC_FILES:
+        body = load(GENERIC / file).body
+        for m in _SECTION.finditer(body):
+            for name in _MARK.findall(m.group(2)):
+                out.setdefault(name, set()).add(m.group(1))
+        free.update(_MARK.findall(_SECTION.sub("", body)))
+    return {name: (set() if name in free else conds) for name, conds in out.items()} | {n: set() for n in free}
+
+
+def check_prompt_text(catalog_dir: Path) -> list[str]:
+    """R-2 (chat 20.10, 16:40): the catalog's words agree with its marks. Refused (ValueError): words for a
+    section the catalog does not hold, such as a recorded reason where no column records_reason; a column a
+    word names ({x.col#n}, or a column's own name) that the catalog lacks or that lacks the section's mark.
+    Returned: the words under a condition that name no column at all, so cannot be checked against one."""
+    schema = json.loads((Path(catalog_dir) / "schema.json").read_text(encoding="utf-8"))
+    columns: dict[str, list[dict]] = {}
+    for ent in schema.get("entities", {}).values():
+        for name, spec in ent.get("columns", {}).items():
+            columns.setdefault(name, []).append(spec)
+    texts = json.loads((Path(catalog_dir) / "prompt_text.json").read_text(encoding="utf-8"))["texts"]
+    holds, conds = catalog_holds(catalog_dir), slot_conditions()
+    unlinked = []
+    for slot, value in texts.items():
+        need = conds.get(slot, set())
+        if need - holds:
+            raise ValueError(f"prompt_text.json: {slot} is for {', '.join(sorted(need - holds))}, which "
+                             f"the catalog does not hold")
+        if not need:   # a word under no condition names an alias, if anything, not a kind of column
+            continue
+        named = set(_REFERENCE.findall(value)) - {"total"}   # {label.total} is synthesis's own, no column
+        for col in named:
+            if col not in columns:
+                raise ValueError(f"prompt_text.json: {slot} names {col}, which no table of the catalog holds")
+        named |= {w for w in re.findall(r"[a-z][a-z0-9_]*", value) if w in columns and "_" in w}
+        for col in named:
+            for cond in need:
+                if not any(CONDITIONS[cond](spec) for spec in columns[col]):
+                    raise ValueError(f"prompt_text.json: {slot} names {col}, which is not a column of the "
+                                     f"kind {cond} asks for")
+        if need and not named:
+            unlinked.append(slot)
+    return sorted(unlinked)
+
+
 def for_catalog(file: str, catalog_dir: Path) -> Prompt:
     """The generic template `file` (templates/generic/) with the words of the catalog held in catalog_dir:
     prompt_text.json and examples/<prompt name>.md, and its sections as the catalog's schema decides."""
     template = load(GENERIC / file)
+    check_prompt_text(catalog_dir)
     texts = json.loads((Path(catalog_dir) / "prompt_text.json").read_text(encoding="utf-8"))["texts"]
     examples = (Path(catalog_dir) / "examples" / f"{template.name}.md").read_text(encoding="utf-8")
     return specialize(template, texts, examples, catalog_holds(catalog_dir))
