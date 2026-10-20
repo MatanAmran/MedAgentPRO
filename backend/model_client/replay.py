@@ -61,6 +61,15 @@ class RecordReplayGateway(ModelGateway):
         self.served = 0
         self.recorded = 0
 
+    def __getattr__(self, name: str):
+        """Record mode is the gateway it wraps in every other respect: the budget's exchange(), remaining()
+        and ensure_path(), its config and ledger (chat 20.10), so each recorded call is capped as any other.
+        Replay mode wraps nothing, so it has none of them, as the scripted model has none."""
+        inner = self.__dict__.get("inner")
+        if inner is None:
+            raise AttributeError(name)
+        return getattr(inner, name)
+
     def _path(self, key: str) -> Path:
         return self.store / f"{key}.json"
 

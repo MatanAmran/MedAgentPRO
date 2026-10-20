@@ -1,0 +1,13 @@
+{
+  "$comment": "superhero's words for the generic prompts (chat 20.10, B1(b)): each fills a [[name]] in query_assistance/templates/generic/, taken from BIRD's schema and column descriptions only. superhero holds no date, no user column and no searchable column, so the sections that need them are dropped (prompts.catalog_holds) and their words are not given here. It records no reason either: recorded_reason_example and reason_reference name the alignment, the nearest value a record holds about a superhero's conduct (80_GENERALITY). The examples per prompt are in examples/<prompt name>.md, their questions in example_questions.json.",
+  "texts": {
+    "subject_data": "superhero data",
+    "subject_records": "superhero records",
+    "recorded_reason_example": "a superhero's recorded alignment",
+    "cross_record_example": "the bad superheroes of publishers that published more than 100 superheroes, where the publisher's count and each superhero's alignment are different rows",
+    "reason_reference": "{r.alignment#1}",
+    "many_rows_example": "\"{label.total} superheroes are published by Dark Horse Comics, among them {label.superhero_name#1} and {label.superhero_name#2}.\"",
+    "outside_knowledge": "superheroes, publishers or the world",
+    "unit_example": "\"height: {ref} cm\""
+  }
+}
