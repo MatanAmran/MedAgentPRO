@@ -149,11 +149,14 @@ def check_provider_map(cfg) -> Check:
 def check_output_caps(cfg) -> Check:
     """The max_tokens each call is sent, numbers only: the general cap, intent analysis's where
     MODEL_MAX_OUTPUT_TOKENS_INTENT is set (task 10a, chat 23:35), and the gate's where
-    MODEL_MAX_OUTPUT_TOKENS_GATE is (chat, 18.10, 13:50)."""
+    MODEL_MAX_OUTPUT_TOKENS_GATE is (chat, 18.10, 13:50), and synthesis's where
+    MODEL_MAX_OUTPUT_TOKENS_SYNTHESIS is (chat 20.10, 14:50)."""
     intent, gate = cfg.max_output_tokens_intent, cfg.max_output_tokens_gate
+    synthesis = cfg.max_output_tokens_synthesis
     return Check(True, f"output cap per call: {cfg.max_output_tokens} tokens; intent analysis: "
                  + (f"{intent} tokens" if intent else "the same")
-                 + "; the gate: " + (f"{gate} tokens" if gate else "the same"))
+                 + "; the gate: " + (f"{gate} tokens" if gate else "the same")
+                 + "; synthesis: " + (f"{synthesis} tokens" if synthesis else "the same"))
 
 
 def check_chain_key(env: dict | None = None) -> Check:

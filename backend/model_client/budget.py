@@ -51,11 +51,13 @@ SPEND_FILE = BACKEND / ".model_spend.json"
 REQUIRED = ("ANTHROPIC_API_KEY", "MODEL_ID", "MODEL_PRICE_IN", "MODEL_PRICE_OUT", "MODEL_BUDGET_USD",
             "MODEL_MAX_USD_PER_EXCHANGE", "MODEL_MAX_OUTPUT_TOKENS", "MODEL_MAX_EXCHANGES_PER_MINUTE")
 OPTIONAL = ("MODEL_PRICE_CACHE_READ", "MODEL_PRICE_CACHE_WRITE", "MODEL_TEMPERATURE", "MODEL_MAX_OUTPUT_TOKENS_INTENT",
-            "MODEL_MAX_OUTPUT_TOKENS_GATE")
+            "MODEL_MAX_OUTPUT_TOKENS_GATE", "MODEL_MAX_OUTPUT_TOKENS_SYNTHESIS")
 # The stage MODEL_MAX_OUTPUT_TOKENS_INTENT applies to, by the prompt identity's name
 INTENT_PROMPTS = ("intent_analysis", "intent_analysis_demo")
 # The stage MODEL_MAX_OUTPUT_TOKENS_GATE applies to: the support gate, first and second
 GATE_PROMPTS = ("support_scoring",)
+# The stages MODEL_MAX_OUTPUT_TOKENS_SYNTHESIS applies to: the draft and the redraft (chat 20.10, 14:50)
+SYNTHESIS_PROMPTS = ("synthesis", "synthesis_redraft")
 
 
 class BudgetConfigError(Exception):
@@ -81,6 +83,9 @@ class BudgetConfig:
     # The gate alone, where set (chat, 18.10, 13:50): a long answer over two readings makes many claims, and
     # D4 of the held-out set stopped at 2000 (723 of them thinking). The answer's length is not limited
     max_output_tokens_gate: int | None = None
+    # Synthesis and the redraft, where set (chat 20.10, 14:50): on Haiku 5.5 the draft thinks up to the whole
+    # 2000 (the demo round, 20.10: 5 of 14 cut at length, 1773-2000 of it thinking). Room only; no effort set
+    max_output_tokens_synthesis: int | None = None
     # Phase B task 7: the stable prefix of each prompt marked for Anthropic's cache. Off unless
     # MODEL_PROMPT_CACHE is set: a cache write costs more than a plain input token and lives about five
     # minutes, so spread-out questions pay more with it (T1); evaluation rounds, asked back to back, less
@@ -127,16 +132,19 @@ class BudgetConfig:
                    str(env.get("ANTHROPIC_API_KEY") or "").strip(), temperature,
                    number("MODEL_MAX_OUTPUT_TOKENS_INTENT", int, required=False),
                    number("MODEL_MAX_OUTPUT_TOKENS_GATE", int, required=False),
-                   _flag(env, "MODEL_PROMPT_CACHE"))
+                   max_output_tokens_synthesis=number("MODEL_MAX_OUTPUT_TOKENS_SYNTHESIS", int, required=False),
+                   prompt_cache=_flag(env, "MODEL_PROMPT_CACHE"))
 
     def output_cap(self, prompt_identity: str = "") -> int:
-        """The max_tokens a call of this prompt is sent: the intent cap for intent analysis and the gate
-        cap for the gate, each where set, else the general one."""
+        """The max_tokens a call of this prompt is sent: the intent cap for intent analysis, the gate cap for
+        the gate and the synthesis cap for the draft and the redraft, each where set, else the general one."""
         name = prompt_identity.split("@")[0]
         if self.max_output_tokens_intent and name in INTENT_PROMPTS:
             return self.max_output_tokens_intent
         if self.max_output_tokens_gate and name in GATE_PROMPTS:
             return self.max_output_tokens_gate
+        if self.max_output_tokens_synthesis and name in SYNTHESIS_PROMPTS:
+            return self.max_output_tokens_synthesis
         return self.max_output_tokens
 
     def worst_cost(self, input_tokens: int, output_tokens: int) -> float:
@@ -504,6 +512,7 @@ def check_against_provider_map(cfg: BudgetConfig, model_info: Callable[[str], di
     limit = info.get("max_output_tokens")
     for var, cap in (("MODEL_MAX_OUTPUT_TOKENS", cfg.max_output_tokens),
                      ("MODEL_MAX_OUTPUT_TOKENS_INTENT", cfg.max_output_tokens_intent),
-                     ("MODEL_MAX_OUTPUT_TOKENS_GATE", cfg.max_output_tokens_gate)):
+                     ("MODEL_MAX_OUTPUT_TOKENS_GATE", cfg.max_output_tokens_gate),
+                     ("MODEL_MAX_OUTPUT_TOKENS_SYNTHESIS", cfg.max_output_tokens_synthesis)):
         if limit and cap and cap > limit:
             raise BudgetConfigError(f"{var} in backend/.env is above this model's own output limit")

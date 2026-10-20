@@ -65,7 +65,9 @@ CONSTRAINTS: list[Constraint] = [
                "The worst path after intent (synthesis, gate, redraft, gate) fits the per-exchange cap "
                "at the model's prices, for the largest material the pipeline can retrieve. Each call is priced at "
                "its own output cap: with the gate's at 3000 the path needs about 0.244 of 0.25, so a gate cap "
-               "above about 3300 breaks it, and raising the gate's cap needs a higher per-exchange cap.",
+               "above about 3300 breaks it, and raising the gate's cap needs a higher per-exchange cap. With "
+               "synthesis's own cap at 4000 (chat 20.10, 14:50) the path needs about 0.290 at Sonnet 5.5's prices: "
+               "a known gap, G-SYNTHCAP, to settle before a Sonnet round (Haiku 5.5: about 0.0145 of 0.05).",
                "R7a · chat 18.10, 14:40 (G-GATECAP)", "map"),
     Constraint("T12", "technical", "The total budget covers at least 10 exchanges each spending its whole cap.",
                "Task 5 budget (USD 10 total)"),
@@ -124,7 +126,9 @@ CONSTRAINTS: list[Constraint] = [
                "default per-exchange cap (USD 0.25) at Sonnet 5.5's prices; the largest needs about 0.17 (0.14 "
                "before the fix round's prompts, 19.10). So "
                "with intent analysis's own cap (MODEL_MAX_OUTPUT_TOKENS_INTENT=3000), and with the gate's "
-               "(MODEL_MAX_OUTPUT_TOKENS_GATE=4000, chat 18.10, 13:50).",
+               "(MODEL_MAX_OUTPUT_TOKENS_GATE=4000, chat 18.10, 13:50); and with synthesis's own cap "
+               "(MODEL_MAX_OUTPUT_TOKENS_SYNTHESIS=4000 beside the gate's 3000, chat 20.10, 14:50: on Haiku "
+               "5.5 the draft thought through the whole 2000 in 5 of 14 demo questions).",
                "Task 9 · R7a · tools/fake_real_server.py"),
     # --- live: only the real model can confirm (R9) -------------------------------------------
     Constraint("V01", "live", "The provider accepts the three reduced schemas (no 400).", "R2 · R9",
