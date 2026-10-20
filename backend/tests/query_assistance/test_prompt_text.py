@@ -35,11 +35,32 @@ def test_each_slot_stands_under_the_sections_it_appears_in():
     assert conds["subject_records"] == conds["many_rows_example"] == set()
 
 
-def test_both_catalogs_pass_and_the_words_that_name_no_column_are_listed():
-    """The demo's four words under a condition that name no column: a question for the chat (R-2)."""
-    assert p.check_prompt_text(seed.HERE) == ["event_dates", "named_entities", "recorded_reason_example",
-                                              "scheduled_dates"]
+def test_both_catalogs_pass_and_only_the_word_slots_name_no_column():
+    """Chat 20.10, 17:10: the date slots name columns now; the two word slots are words on purpose."""
+    assert p.check_prompt_text(seed.HERE) == ["named_entities", "recorded_reason_example"]
     assert p.check_prompt_text(bird_eval.HERE) == []
+
+
+def test_a_slot_under_a_condition_that_names_no_column_is_refused_unless_a_word_slot(tmp_path):
+    """The closed list: a slot a third catalog fills with words where a column is meant does not pass."""
+    cat = _catalog(tmp_path)
+    _edit(cat / "prompt_text.json", lambda d: d["texts"].update(event_dates="delivered, received, ordered"))
+    with pytest.raises(ValueError, match="event_dates names no column"):
+        p.check_prompt_text(cat)
+
+
+def test_a_slot_no_template_has_is_refused(tmp_path):
+    cat = _catalog(tmp_path)
+    _edit(cat / "prompt_text.json", lambda d: d["texts"].update(reason_column="delay_reason"))
+    with pytest.raises(ValueError, match="no template has a slot reason_column"):
+        p.check_prompt_text(cat)
+
+
+def test_the_date_slots_name_date_columns_only(tmp_path):
+    cat = _catalog(tmp_path)
+    _edit(cat / "prompt_text.json", lambda d: d["texts"].update(scheduled_dates="due_date, supplier_id"))
+    with pytest.raises(ValueError, match="supplier_id, which is not a column of the kind dates"):
+        p.check_prompt_text(cat)
 
 
 def test_a_reason_word_where_no_column_records_a_reason_is_refused(tmp_path):

@@ -130,11 +130,18 @@ def slot_conditions() -> dict[str, set[str]]:
     return {name: (set() if name in free else conds) for name, conds in out.items()} | {n: set() for n in free}
 
 
+# The slots under a condition that are words on purpose and name no column (chat 20.10, 17:10). Closed: any
+# other slot under a condition must name a column of the condition's kind, so a slot a third catalog brings
+# cannot pass unchecked
+WORD_SLOTS = frozenset({"recorded_reason_example", "named_entities"})
+
+
 def check_prompt_text(catalog_dir: Path) -> list[str]:
-    """R-2 (chat 20.10, 16:40): the catalog's words agree with its marks. Refused (ValueError): words for a
-    section the catalog does not hold, such as a recorded reason where no column records_reason; a column a
-    word names ({x.col#n}, or a column's own name) that the catalog lacks or that lacks the section's mark.
-    Returned: the words under a condition that name no column at all, so cannot be checked against one."""
+    """R-2 (chat 20.10, 16:40 and 17:10): the catalog's words agree with its marks. Refused (ValueError): a
+    slot no template has; words for a section the catalog does not hold, such as a recorded reason where no
+    column records_reason; a column a word names ({x.col#n}, or a column's own name) that the catalog lacks
+    or that lacks the section's mark; a slot under a condition that names no column and is not in WORD_SLOTS.
+    Returned: the word slots the catalog gives, which are checked by their condition only."""
     schema = json.loads((Path(catalog_dir) / "schema.json").read_text(encoding="utf-8"))
     columns: dict[str, list[dict]] = {}
     for ent in schema.get("entities", {}).values():
@@ -144,7 +151,9 @@ def check_prompt_text(catalog_dir: Path) -> list[str]:
     holds, conds = catalog_holds(catalog_dir), slot_conditions()
     unlinked = []
     for slot, value in texts.items():
-        need = conds.get(slot, set())
+        if slot not in conds:
+            raise ValueError(f"prompt_text.json: no template has a slot {slot}")
+        need = conds[slot]
         if need - holds:
             raise ValueError(f"prompt_text.json: {slot} is for {', '.join(sorted(need - holds))}, which "
                              f"the catalog does not hold")
@@ -161,6 +170,9 @@ def check_prompt_text(catalog_dir: Path) -> list[str]:
                     raise ValueError(f"prompt_text.json: {slot} names {col}, which is not a column of the "
                                      f"kind {cond} asks for")
         if need and not named:
+            if slot not in WORD_SLOTS:
+                raise ValueError(f"prompt_text.json: {slot} names no column, and only "
+                                 f"{', '.join(sorted(WORD_SLOTS))} may")
             unlinked.append(slot)
     return sorted(unlinked)
 
@@ -306,15 +318,30 @@ class Exchange:
 
 
 @dataclass(frozen=True)
+class RowUnit:
+    """What one row of a reading is, where it is not a record (G-TOTAL, chat 20.10, 17:10): a group, or a
+    computed row. contract.row_unit derives it from the plan and the catalog; the records synthesis and the
+    gate see, and the history, say it beside the count, so {label.total} is never read as records (FU4)."""
+    one: str
+    many: str
+    per: str | None = None   # "one per supplier": what the groups are, for a grouped reading
+
+    def count(self, n: int) -> str:
+        return f"{n} {self.one if n == 1 else self.many}"
+
+
+@dataclass(frozen=True)
 class ReadingNote:
     label: str
     examined: str
     shown: int
     total: int
+    unit: RowUnit | None = None   # G-TOTAL: a grouped or computed reading says what it counted
 
     def render(self) -> str:
-        count = ("no rows" if self.total == 0 else f"all {self.total} shown" if self.shown >= self.total
-                 else f"{self.shown} of {self.total} shown")
+        whole = self.unit.count(self.total) if self.unit else str(self.total)
+        count = ("no rows" if self.total == 0 else f"all {whole} shown" if self.shown >= self.total
+                 else f"{self.shown} of {whole} shown")
         return f"[{self.label}] examined: {self.examined} · {count}"
 
 
@@ -434,20 +461,26 @@ def render_intent(cat: Catalog, role: str, posed: str, rewritten: str | None = N
 
 
 def render_records(results: list[tuple[str, list[dict[str, Any]]]], ordered_by: dict[str, str] | None = None,
-                   examined: dict[str, str] | None = None, totals: dict[str, int] | None = None) -> str:
+                   examined: dict[str, str] | None = None, totals: dict[str, int] | None = None,
+                   units: dict[str, RowUnit] | None = None) -> str:
     """ordered_by maps a reading label to the alias its rows are ordered by (the first ORDER_BY key of
     the plan that ran). A row holding the same value there as the row before it says so, by name and
     row number only: a fact about the rows, given by code, so that no place is named between equal
     values (task 10a, chat 21:50). The marker repeats no value.
     examined maps a label to what the reading examined, as "Examined" shows it (contract.examined_line),
     so the words around references describe that reading and no other (chat, 18.10, 09:40). It is
-    built from the plan and the catalog, never from a record (NFR 21)."""
-    out, said = [], examined or {}
+    built from the plan and the catalog, never from a record (NFR 21).
+    units maps a grouped or computed reading to what its rows are (G-TOTAL, chat 20.10, 17:10): its count
+    line says "2 groups matched (one per supplier)" where any other says "rows matched"."""
+    out, said, kinds = [], examined or {}, units or {}
     for label, rows in results:
         if said.get(label):
             out.append(f"[{label}] examined: {said[label]}")
         if totals and label in totals:   # D5 (fix round): a fact from the query, cited as label.total
-            out.append(f"[{label}] {label}.total = {totals[label]} rows matched, {len(rows)} shown")
+            unit = kinds.get(label)
+            matched = (f"{unit.count(totals[label])} matched" + (f" ({unit.per})" if unit.per else "")
+                       if unit else f"{totals[label]} rows matched")
+            out.append(f"[{label}] {label}.total = {matched}, {len(rows)} shown")
         if not rows:
             out.append(f"[{label}] no rows")
         by = (ordered_by or {}).get(label)
@@ -462,10 +495,10 @@ def render_records(results: list[tuple[str, list[dict[str, Any]]]], ordered_by: 
 def render_gate(answer: str, results: list[tuple[str, list[dict[str, Any]]]],
                 prompt: Prompt | None = None, feedback: str | None = None,
                 ordered_by: dict[str, str] | None = None, examined: dict[str, str] | None = None,
-                totals: dict[str, int] | None = None) -> str:
+                totals: dict[str, int] | None = None, units: dict[str, RowUnit] | None = None) -> str:
     """The question is not passed. The gate judges support, not relevance."""
     return fill(prompt or load("gate.md"), answer=answer,
-                records=render_records(results, ordered_by, examined, totals), feedback=feedback_block(feedback))
+                records=render_records(results, ordered_by, examined, totals, units), feedback=feedback_block(feedback))
 
 
 # --------------------------------------------------------------------------

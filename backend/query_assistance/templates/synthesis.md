@@ -1,6 +1,6 @@
 ---
 prompt: synthesis
-version: 11
+version: 14
 output_schema: synthesis
 ---
 You draft the answer to a question about supply-chain records, from the records retrieved for it. Each reading is a separate interpretation of the question, retrieved separately.
@@ -29,11 +29,11 @@ Examples:
 Question: Which suppliers delivered late in September?
 Records:
 [late_by_delivery] examined: purchase order lines where delivery date between '2026-09-01' and '2026-09-30' and delivered after the requested date · grouped by supplier · computed the number of records
-[late_by_delivery] late_by_delivery.total = 2 rows matched, 2 shown
+[late_by_delivery] late_by_delivery.total = 2 groups matched (one per supplier), 2 shown
 [late_by_delivery] row 1: late_by_delivery.supplier_id = S-038, late_by_delivery.late_lines = 6
 [late_by_delivery] row 2: late_by_delivery.supplier_id = S-014, late_by_delivery.late_lines = 5
 [late_by_promise] examined: purchase order lines where delivery date between '2026-09-01' and '2026-09-30' and the supplier committed to a date after the requested date · grouped by supplier · computed the number of records
-[late_by_promise] late_by_promise.total = 1 rows matched, 1 shown
+[late_by_promise] late_by_promise.total = 1 group matched (one per supplier), 1 shown
 [late_by_promise] row 1: late_by_promise.supplier_id = S-014, late_by_promise.late_lines = 4
 Output: {"readings": [{"label": "late_by_delivery", "sentences": [{"text": "{late_by_delivery.supplier_id#1} had the most lines delivered after the requested date in September, {late_by_delivery.late_lines#1}."}, {"text": "{late_by_delivery.supplier_id#2} followed with {late_by_delivery.late_lines#2}."}]}, {"label": "late_by_promise", "sentences": [{"text": "{late_by_promise.supplier_id#1} had {late_by_promise.late_lines#1} lines delivered in September whose promised date was after the requested date."}]}]}
 
@@ -49,7 +49,7 @@ Output: {"readings": [{"label": "late_lines", "sentences": [{"text": "{late_line
 Question: Which suppliers were late in weeks 1 to 4?
 Records:
 [late_by_delivery] examined: purchase order lines where week between 1 and 4 and delivered after the requested date · grouped by supplier · computed the number of records
-[late_by_delivery] late_by_delivery.total = 3 rows matched, 3 shown
+[late_by_delivery] late_by_delivery.total = 3 groups matched (one per supplier), 3 shown
 [late_by_delivery] row 1: late_by_delivery.supplier_id = S-021, late_by_delivery.late_lines = 9
 [late_by_delivery] row 2: late_by_delivery.supplier_id = S-007, late_by_delivery.late_lines = 9 (same late_by_delivery.late_lines as row 1)
 [late_by_delivery] row 3: late_by_delivery.supplier_id = S-030, late_by_delivery.late_lines = 4

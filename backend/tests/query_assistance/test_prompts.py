@@ -74,7 +74,7 @@ def test_gate_examples_validate_and_evaluate():
     count is supported by label.total."""
     pr = p.load("gate.md")
     (inp, out), (tie_in, tie_out), (list_in, list_out) = examples(pr)
-    assert pr.version == "6"
+    assert pr.version == "8"
     for o in (out, tie_out):
         assert not list(validator("support_scoring").iter_errors(o))
     sentences = [(m.group(1), m.group(2)) for m in re.finditer(r"^\d+\. \[(\w+)\] (.*)$", inp, re.M)]

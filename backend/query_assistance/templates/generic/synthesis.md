@@ -1,6 +1,6 @@
 ---
 prompt: synthesis
-version: 13
+version: 15
 output_schema: synthesis
 ---
 You draft the answer to a question about [[subject_records]], from the records retrieved for it. Each reading is a separate interpretation of the question, retrieved separately.

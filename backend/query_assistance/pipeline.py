@@ -254,10 +254,11 @@ def _gate(deps: Deps, rec: _Record, ordinal: int, d: Draft) -> gate.GateResult:
     order = synthesis.ordered_by(list(d.materials.values()))
     examined = synthesis.examined_of(list(d.materials.values()))
     totals = synthesis.totals_of(list(d.materials.values()))
+    units = synthesis.units_of(list(d.materials.values()))
     pr = deps.prompts.gate
     return _ask(deps, rec, ordinal, pr,
                 lambda fb: prompts.render_gate(answer, records, pr, feedback=fb, ordered_by=order, examined=examined,
-                                               totals=totals),
+                                               totals=totals, units=units),
                 lambda out: gate.evaluate(out, sentences, aliases), _GATE_V.schema, _GATE_V)
 
 
@@ -278,7 +279,8 @@ def _path_inputs(question: str, rewritten: str | None, materials: list) -> list[
     syn = estimate_input_tokens(synthesis.render(question, materials, rewritten=rewritten))
     gate_in = estimate_input_tokens(prompts.render_gate(answer, records, ordered_by=synthesis.ordered_by(materials),
                                                         examined=synthesis.examined_of(materials),
-                                                        totals=synthesis.totals_of(materials)))
+                                                        totals=synthesis.totals_of(materials),
+                                                        units=synthesis.units_of(materials)))
     redraft_in = estimate_input_tokens(synthesis.render_redraft(question, materials, {"label": [answer]},
                                                                 rewritten=rewritten))
     return [syn, gate_in, redraft_in, gate_in]
@@ -535,7 +537,8 @@ def run(question: str, history: list[prompts.Exchange], user: dict, deps: Deps,
             ex.readings = [prompts.ReadingNote(r["label"], contract.examined_line(plans[r["label"]], cat, role,
                                                                                 named.get(r["label"]), True)
                                                if r["label"] in named else r["checked"].removeprefix("Examined: "),
-                                               r.get("row_count", 0), r.get("total", r.get("row_count", 0)))
+                                               r.get("row_count", 0), r.get("total", r.get("row_count", 0)),
+                                               contract.row_unit(plans[r["label"]], cat))
                            for r in response["readings"]]
             ex.cut = _shown_identifiers([r for r in response["readings"]
                                          if r.get("total", 0) > r.get("row_count", 0)], plans, cat)
@@ -620,7 +623,7 @@ def run(question: str, history: list[prompts.Exchange], user: dict, deps: Deps,
         results = {res.label: res for res, _, _ in retrieved}
         materials = [synthesis.material(label, plans[label], res.rows, res.truncated, cat,
                                         contract.examined_line(plans[label], cat, role, names.get(label), True),
-                                        res.total)
+                                        res.total, contract.row_unit(plans[label], cat))
                      for label, res in results.items()]
         gaps = compiled.unresolved
 

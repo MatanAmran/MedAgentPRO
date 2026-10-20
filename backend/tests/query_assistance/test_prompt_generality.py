@@ -25,10 +25,10 @@ CAT = Catalog.load(seed.HERE / "schema.json", seed.HERE / "relations.json")
 # generic file -> (the frozen prompt it follows, the identity it carries)
 LINEAGE = {
     "intent_analysis.md": (seed.HERE / "intent_analysis_demo_v10.md", "intent_analysis@14"),
-    "rewrite.md": ("rewrite.md", "question_rewriting@4"),
-    "synthesis.md": ("synthesis.md", "synthesis@13"),
-    "synthesis_redraft.md": ("synthesis_redraft.md", "synthesis_redraft@10"),
-    "gate.md": ("gate.md", "support_scoring@7"),
+    "rewrite.md": ("rewrite.md", "question_rewriting@6"),
+    "synthesis.md": ("synthesis.md", "synthesis@15"),
+    "synthesis_redraft.md": ("synthesis_redraft.md", "synthesis_redraft@12"),
+    "gate.md": ("gate.md", "support_scoring@9"),
 }
 
 
@@ -46,6 +46,9 @@ INTENT_14 = [
      "6. Give every SELECT item an alias. GROUP_BY, HAVING and ORDER_BY name aliases.\n6a. A reading's label starts "
      "with a lowercase letter, followed only by lowercase letters, digits and underscores, at most 40 characters in "
      "all, such as reading_1.\n"),
+    # R-2 (chat 20.10, 17:10): the date slots name the date columns, checked as type date
+    ("(delivered, received, ordered)", "(delivered_at, received_on, order_date)"),
+    ("(due, promised)", "(due_date, promised_date)"),
     ('Question: Why is S-014 late so often?\nOutput: {"disposition": "refer_to_investigation"}\n',
      'Question: Why is S-014 late so often?\nOutput: {"disposition": "refer_to_investigation"}\n\n'
      'Question: What caused PO-87006 to arrive late?\nOutput: {"disposition": "refer_to_investigation"}\n'),
@@ -96,7 +99,7 @@ def test_the_server_runs_the_frozen_set():
     deps = pl.Deps(None, "scripted", CAT, lambda: None, None, p.load(seed.HERE / "intent_analysis.md"))
     assert deps.prompts == p.PromptSet.frozen()
     assert [x.identity for x in deps.prompts.__dict__.values()] == [
-        "question_rewriting@3", "synthesis@11", "synthesis_redraft@8", "support_scoring@6"]
+        "question_rewriting@5", "synthesis@14", "synthesis_redraft@11", "support_scoring@8"]
 
 
 class Recording(ModelGateway):
@@ -132,6 +135,6 @@ def test_a_run_on_the_generic_prompts_sends_the_same_prompts(db_path, question):
         return text
     assert [t.replace("\r\n", "\n") for _, t in sent_generic] == [as_changed(i, t) for i, t in sent_frozen]
     assert len(sent_frozen) >= 3
-    assert {i for i, _ in sent_generic} <= {"intent_analysis@14", "synthesis@13", "synthesis_redraft@10",
-                                           "support_scoring@7"}
+    assert {i for i, _ in sent_generic} <= {"intent_analysis@14", "synthesis@15", "synthesis_redraft@12",
+                                           "support_scoring@9"}
     assert generic.response == frozen.response

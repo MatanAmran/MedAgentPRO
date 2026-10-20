@@ -9,7 +9,7 @@ Output: {"readings": [{"label": "publisher", "sentences": [{"text": "{publisher.
 Question: How many vampire superheroes are there?
 Records:
 [vampires] examined: superheroes with races where race = 'Vampire' · computed the number of records
-[vampires] vampires.total = 1 rows matched, 1 shown
+[vampires] vampires.total = 1 computed row matched, 1 shown
 [vampires] row 1: vampires.vampires = 2
 Output: {"readings": [{"label": "vampires", "sentences": [{"text": "{vampires.vampires#1} superheroes have the race Vampire."}]}]}
 

@@ -1,6 +1,6 @@
 ---
 prompt: question_rewriting
-version: 4
+version: 6
 output_schema: question_rewriting
 ---
 You restate the latest question in a conversation about [[subject_records]] so that it can be understood without the conversation.
