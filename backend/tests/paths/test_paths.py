@@ -171,7 +171,7 @@ class Script(ModelGateway):
 def make_deps(gw, db_path, storage=None, connect=None, audit=None):
     storage = storage or MemoryStorage()
     audit = audit or AuditRepository(storage, CircuitBreaker("system_store", MemoryStore()), b"test-key")
-    return pl.Deps(gw, "scripted", CAT, connect or pl.connect_readonly(db_path), audit, INTENT_PROMPT)
+    return pl.Deps(gw, "scripted", CAT, connect or pl.connect_readonly(db_path), audit, INTENT_PROMPT, coverage=False)
 
 
 def earlier_exchange(db_path):

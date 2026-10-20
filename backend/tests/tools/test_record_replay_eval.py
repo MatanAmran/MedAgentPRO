@@ -40,7 +40,7 @@ def test_the_manifest_says_what_made_the_run_and_holds_no_question(db_path, tmp_
     m = json.loads(path.read_text(encoding="utf-8"))
     assert set(m) == {"run", "commit", "prompts", "output_caps", "request_settings", "model", "set", "started", "mode",
                     "exchanges", "calls", "spent_usd"}
-    assert m["prompts"]["intent"] == "intent_analysis@14" and m["set"] == "demo" and m["exchanges"] == 2
+    assert m["prompts"]["intent"] == "intent_analysis@15" and m["set"] == "demo" and m["exchanges"] == 2
     text = path.read_text(encoding="utf-8")
     assert not any(it["question"] in text for it in ev.demo_set()[:2])
     assert "S-0" not in text and "PO-" not in text

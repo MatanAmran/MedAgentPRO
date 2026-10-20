@@ -13,6 +13,7 @@
         "readings": [
           {
             "label": "r",
+            "asked": "Please list all the superpowers of 3-D Man.",
             "plan": {
               "SELECT": [
                 {
@@ -65,6 +66,7 @@
         "readings": [
           {
             "label": "r",
+            "asked": "Please list the full names of all the superheroes with over 15 super powers.",
             "plan": {
               "SELECT": [
                 {
@@ -120,6 +122,7 @@
         "readings": [
           {
             "label": "r",
+            "asked": "How many superheroes have blue eyes?",
             "plan": {
               "SELECT": [
                 {
@@ -169,6 +172,7 @@
         "readings": [
           {
             "label": "r",
+            "asked": "What is the average height of the superheroes from Marvel Comics?",
             "plan": {
               "SELECT": [
                 {
@@ -220,6 +224,7 @@
         "readings": [
           {
             "label": "r",
+            "asked": "What is the total number of superheroes without full name?",
             "plan": {
               "SELECT": [
                 {
@@ -258,6 +263,7 @@
         "readings": [
           {
             "label": "r",
+            "asked": "Among the superheroes with height from 170 to 190, list the names of the superheroes with no eye color.",
             "plan": {
               "SELECT": [
                 {
@@ -321,6 +327,7 @@
         "readings": [
           {
             "label": "r",
+            "asked": "Which power do superheroes have the most of?",
             "plan": {
               "SELECT": [
                 {
@@ -376,6 +383,7 @@
         "readings": [
           {
             "label": "r",
+            "asked": "What are the race and alignment of Cameron Hicks?",
             "plan": {
               "SELECT": [
                 {
@@ -435,6 +443,7 @@
         "readings": [
           {
             "label": "r",
+            "asked": "Who is the tallest superhero?",
             "plan": {
               "SELECT": [
                 {
@@ -480,6 +489,7 @@
         "readings": [
           {
             "label": "r",
+            "asked": "How many female superheroes are in Marvel Comics?",
             "plan": {
               "SELECT": [
                 {
@@ -548,6 +558,7 @@
         "readings": [
           {
             "label": "r",
+            "asked": "Please list the superhero names of all the superheroes that have blue eyes and blond hair.",
             "plan": {
               "SELECT": [
                 {

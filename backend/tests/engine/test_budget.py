@@ -386,7 +386,7 @@ def deps(gw, db_path, storage):
     return pipeline.Deps(gw, "test-model", Catalog.load(seed.HERE / "schema.json", seed.HERE / "relations.json"),
                          pipeline.connect_readonly(db_path),
                          AuditRepository(storage, CircuitBreaker("system_store", MemoryStore()), b"k"),
-                         prompts.load(seed.HERE / "intent_analysis.md"))
+                         prompts.load(seed.HERE / "intent_analysis.md"), coverage=False)
 
 
 def test_exhausted_budget_ends_the_exchange_with_its_notice(ledger, db_path):

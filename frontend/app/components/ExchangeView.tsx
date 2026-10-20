@@ -1,7 +1,8 @@
 "use client";
 
+import { useState } from "react";
 import { agentSteps, formatUsd, readingsSentence } from "@/lib/present";
-import type { ExchangeItem, Rating, Reading, Stage } from "@/lib/types";
+import type { ExchangeItem, Rating, Reading, ReferredPart, Stage } from "@/lib/types";
 import { HowAnswered } from "./HowAnswered";
 import { ReadingCard } from "./ReadingCard";
 import { StageTimeline } from "./StageTimeline";
@@ -99,16 +100,61 @@ function AgentRow({ item }: { item: ExchangeItem }) {
   );
 }
 
+/** Task 4: a part referred to an investigation. Its records are a click away, from the plan the server kept,
+ * with no model call; they come back saying they establish no cause (contract.SHOW_RECORDED). */
+function ReferredPartView({
+  part,
+  onShowAll,
+}: {
+  part: ReferredPart;
+  onShowAll?: (label: string) => Promise<Reading>;
+}) {
+  const [shown, setShown] = useState<Reading[] | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+  async function show() {
+    if (!onShowAll) return;
+    setBusy(true);
+    setError(null);
+    try {
+      setShown(await Promise.all(part.show_recorded.map((label) => onShowAll(label))));
+    } catch {
+      setError("The records could not be shown.");
+    } finally {
+      setBusy(false);
+    }
+  }
+  return (
+    <div className="flex flex-col gap-3 rounded-[20px] border border-line bg-white p-5 shadow-card" data-testid="referred-part">
+      <p className="text-ink">{part.text}</p>
+      {onShowAll && part.show_recorded.length > 0 && !shown && (
+        <button
+          type="button"
+          onClick={show}
+          disabled={busy}
+          className="self-start rounded-xl border border-line bg-white px-4 py-2 font-bold text-ink hover:bg-canvas disabled:opacity-50"
+        >
+          Show what was recorded
+        </button>
+      )}
+      {error && <p className="text-sm text-brand-dark">{error}</p>}
+      {shown?.map((reading, i) => <ReadingCard key={reading.label} reading={reading} index={i + 1} />)}
+    </div>
+  );
+}
+
 export function ExchangeView({
   item,
   onRate,
   rating,
   onShowAll,
+  onAskPart,
 }: {
   item: ExchangeItem;
   onRate: (r: Rating) => void;
   rating: { busy: boolean; error: string | null };
   onShowAll?: (label: string) => Promise<Reading>; // Phase B task 5
+  onAskPart?: (part: number, asked: string) => void; // task 4: the part as the person wrote it
 }) {
   const r = item.response;
   const sentence = readingsSentence(r);
@@ -141,6 +187,37 @@ export function ExchangeView({
       {r.withheld && (
         <p className="text-sm italic text-ink-3" data-testid="withheld">
           {r.withheld}
+        </p>
+      )}
+      {r.replaced && (
+        <p className="text-sm italic text-ink-3" data-testid="replaced">
+          {r.replaced}
+        </p>
+      )}
+      {r.unanswered_parts?.map((part, i) => (
+        <div
+          key={`${part.asked}-${i}`}
+          className="flex flex-col gap-2.5 rounded-r-xl border-l-4 border-brand-deep bg-white py-2.5 pl-3.5 pr-3"
+          data-testid="unanswered-part"
+        >
+          <p className="text-ink">{part.text}</p>
+          {onAskPart && item.recorded && (
+            <button
+              type="button"
+              onClick={() => onAskPart(i, part.asked)}
+              className="self-start rounded-xl border border-line bg-white px-3.5 py-1.5 text-sm font-bold text-ink hover:bg-canvas"
+            >
+              {part.ask}
+            </button>
+          )}
+        </div>
+      ))}
+      {r.referred_parts?.map((part, i) => (
+        <ReferredPartView key={`${part.asked}-${i}`} part={part} onShowAll={item.recorded ? onShowAll : undefined} />
+      ))}
+      {r.coverage_notice && (
+        <p className="text-sm italic text-ink-3" data-testid="coverage-notice">
+          {r.coverage_notice}
         </p>
       )}
       {r.request_for_input && (

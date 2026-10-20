@@ -125,7 +125,7 @@ export function Chat() {
     }
   }
 
-  async function send(question: string) {
+  async function send(question: string, partOf?: { exchange_id: string; part: number }) {
     if (locked) return;
     let id = current;
     const followUp = items.length > 0;
@@ -143,6 +143,7 @@ export function Chat() {
         await api.ask(user, conversationId, question, {
           requestId: newRequestId(), // R8: a new id for every question, never reused
           signal: ac.signal,
+          partOf,
           onStage: (stage) =>
             setPending((p) => (p ? { ...p, conversationId, seen: [...p.seen.filter((s) => s !== stage), stage] } : p)),
         });
@@ -258,6 +259,7 @@ export function Chat() {
                   item={item}
                   onRate={(r) => rate(item.exchange_id, r)}
                   onShowAll={(label) => api.records(user, item.exchange_id, label)}
+                  onAskPart={locked ? undefined : (part, asked) => send(asked, { exchange_id: item.exchange_id, part })}
                   rating={ratings[item.exchange_id] ?? { busy: false, error: null }}
                 />
               ))}

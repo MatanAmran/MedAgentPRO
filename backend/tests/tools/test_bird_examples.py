@@ -109,10 +109,11 @@ def test_the_pipeline_runs_on_superhero_without_data_as_of(tmp_path):
 
     audit = AuditRepository(MemoryStorage(), CircuitBreaker("system_store", MemoryStore()), b"test-key")
     deps = pipeline.Deps(ScriptedModelGateway(model), "scripted", cat, pipeline.connect_readonly(db), audit,
-                         p.for_catalog("intent_analysis.md", HERE), prompt_set=p.PromptSet.generic(HERE))
+                         p.for_catalog("intent_analysis.md", HERE), prompt_set=p.PromptSet.generic(HERE),
+                         coverage=False)
     out = pipeline.run("What is the name of Sauron?", [], be.USER, deps)
     assert out.response["outcome"] == "answered", out.response
-    assert sent[0] == "intent_analysis@14"
+    assert sent[0] == "intent_analysis@15"
 
 
 def test_superhero_is_taught_no_value_as_a_reason():

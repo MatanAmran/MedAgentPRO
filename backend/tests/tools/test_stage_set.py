@@ -48,7 +48,7 @@ def write(tmp_path, exchanges):
 def test_every_row_holds_about_three_questions(items):
     counts = {c: sum(it["category"] == c for it in items) for c in ev.CATEGORIES}
     assert all(3 <= n <= 4 for n in counts.values()), counts
-    assert len(items) == 38
+    assert len(items) == 39   # MP4 (H4 by ref) joined in task 4 (chat 20.10, 22:30)
 
 
 def test_a_reference_takes_its_question_plan_and_expectations_from_its_own_set(items):
@@ -148,5 +148,5 @@ def test_the_report_goes_by_category(items, conn):
 def test_the_plans_command_on_the_stage_set(db_path, capsys):
     assert ev.main(["--plans", "--set", "stage", "--db", str(db_path)]) == 0
     out = capsys.readouterr().out
-    assert "37 of 38 questions have a plan that passes; known gaps in the plan language (expected_gap): QB3" in out
+    assert "38 of 39 questions have a plan that passes; known gaps in the plan language (expected_gap): QB3" in out
     assert "| category | questions | pass |" in out

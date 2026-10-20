@@ -24,7 +24,7 @@ CAT = Catalog.load(seed.HERE / "schema.json", seed.HERE / "relations.json")
 
 # generic file -> (the frozen prompt it follows, the identity it carries)
 LINEAGE = {
-    "intent_analysis.md": (seed.HERE / "intent_analysis_demo_v10.md", "intent_analysis@14"),
+    "intent_analysis.md": (seed.HERE / "intent_analysis_demo_v10.md", "intent_analysis@15"),
     "rewrite.md": ("rewrite.md", "question_rewriting@8"),
     "synthesis.md": ("synthesis.md", "synthesis@17"),
     "synthesis_redraft.md": ("synthesis_redraft.md", "synthesis_redraft@14"),
@@ -55,6 +55,15 @@ INTENT_14 = [
 ]
 CHANGED = {"intent_analysis.md": INTENT_14}
 
+# intent@15 (task 4, A, chat 20.10, 22:30): rule 9c after 9a, and every reading of every example says the part it
+# answers. Nothing else changes, which the comparison checks with the asked fields taken out
+RULE_9C = ("9c. Give every reading asked: the part of the question it answers, copied exactly from the question as "
+           "posed, or from the question as rewritten where both are given. Every word of the question that is not a "
+           "connecting or question word must be quoted by the asked of a reading or of an unresolved entry. Readings "
+           "that are alternatives of one ambiguous term share the same asked.")
+ASKED = re.compile(r'("label": "[a-z0-9_]{1,40}", )"asked": "[^"]*", ')   # a reading's asked, after its label
+WITH_ASKED = {"intent_analysis.md"}
+
 
 @pytest.mark.parametrize("generic", sorted(LINEAGE))
 def test_filled_from_the_demo_catalog_each_is_the_frozen_prompt_exactly(generic):
@@ -67,7 +76,13 @@ def test_filled_from_the_demo_catalog_each_is_the_frozen_prompt_exactly(generic)
     for old, new in CHANGED.get(generic, []):
         assert expected.count(old) == 1, old[:60]
         expected = expected.replace(old, new)
-    assert built.body.replace("\r\n", "\n") == expected
+    body = built.body.replace("\r\n", "\n")
+    if generic in WITH_ASKED:
+        line = next(ln for ln in expected.split("\n") if ln.startswith("9a. "))
+        assert expected.count(line + "\n") == 1
+        expected = expected.replace(line + "\n", line + "\n" + RULE_9C + "\n")
+        body = ASKED.sub(r"\1", body)
+    assert body == expected
     assert built.identity == identity and built.output_schema == before.output_schema
 
 
@@ -99,7 +114,8 @@ def test_the_server_runs_the_frozen_set():
     deps = pl.Deps(None, "scripted", CAT, lambda: None, None, p.load(seed.HERE / "intent_analysis.md"))
     assert deps.prompts == p.PromptSet.frozen()
     assert [x.identity for x in deps.prompts.__dict__.values()] == [
-        "question_rewriting@7", "synthesis@16", "synthesis_redraft@13", "support_scoring@8"]
+        "question_rewriting@7", "synthesis@16", "synthesis_redraft@13", "support_scoring@8",
+        "question_classification@1", "coverage_check@1"]
 
 
 class Recording(ModelGateway):
@@ -132,9 +148,14 @@ def test_a_run_on_the_generic_prompts_sends_the_same_prompts(db_path, question):
         if identity.startswith("intent_analysis"):
             for old, new in INTENT_14:
                 text = text.replace(old, new)
+            line = next(ln for ln in text.split("\n") if ln.startswith("9a. "))
+            text = text.replace(line + "\n", line + "\n" + RULE_9C + "\n")   # @15: rule 9c, and asked aside
         return text
-    assert [t.replace("\r\n", "\n") for _, t in sent_generic] == [as_changed(i, t) for i, t in sent_frozen]
+    def as_sent(identity, text):
+        text = text.replace("\r\n", "\n")
+        return ASKED.sub(r"\1", text) if identity.startswith("intent_analysis") else text
+    assert [as_sent(i, t) for i, t in sent_generic] == [as_changed(i, t) for i, t in sent_frozen]
     assert len(sent_frozen) >= 3
-    assert {i for i, _ in sent_generic} <= {"intent_analysis@14", "synthesis@17", "synthesis_redraft@14",
-                                           "support_scoring@9"}
+    assert {i for i, _ in sent_generic} <= {"intent_analysis@15", "synthesis@17", "synthesis_redraft@14",
+                                           "support_scoring@9", "question_classification@1", "coverage_check@1"}
     assert generic.response == frozen.response

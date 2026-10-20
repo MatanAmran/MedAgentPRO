@@ -446,11 +446,75 @@ def answered(readings: list[dict], gaps: list[dict] | None = None, understood_as
     return _finish(resp, understood_as)
 
 
+REFERRED = "This asks for a cause, which an investigation determines."
+
+
 def referred(understood_as: str | None = None) -> dict:
     """FR 14, Test 22. No reading, no gap, no cause."""
     return _finish({"outcome": "referred_to_investigation", "readings": [], "gaps": [],
-                    "offer_investigation": True,
-                    "notice": "This asks for a cause, which an investigation determines."}, understood_as)
+                    "offer_investigation": True, "notice": REFERRED}, understood_as)
+
+
+# --------------------------------------------------------------------------
+# task 4, the coverage check (91_COVERAGE_PLAN; chat 20.10, 22:30 to 22:50) [proposal, not in the book]
+# Every sentence here is fixed, or built from a span of the question and catalog labels only
+# --------------------------------------------------------------------------
+
+UNANSWERED = 'Part of your question was not answered from the records: "{span}".'   # wording waits for Evyatar
+ASK_LABEL = 'Ask: "{span}"'
+REFERRED_PART = {
+    "cause": 'The part "{span}" asks for a cause, which an investigation determines.',
+    "judgement": 'The part "{span}" asks for a judgement on the records, which an investigation makes.',
+    "action": 'The part "{span}" asks for an action. This assistant answers questions from the records and does '
+              'not take actions.',
+}
+SHOW_RECORDED = ("These are the records retrieved for this part. They do not establish why it happened; an "
+                 "investigation does.")
+REPLACED = ("A statement that presented a recorded value as the cause of what happened was replaced by the value "
+            "as recorded.")
+CLASSIFY_FAILED = ("The check of what each part of the question asks could not be completed. Statements of a "
+                   "recorded reason are shown as the values recorded.")
+COVERAGE_FAILED = "The check that every part of the question was answered could not be completed."
+
+
+def unanswered_part(span: str, text: str | None, follow_up: str | None) -> dict:
+    """A part no reading answered: the model's sentence where coverage.message() accepted it, else the template;
+    the person's own words on the button; what a click sends, the model's question or else the part."""
+    return {"asked": span, "text": text or UNANSWERED.format(span=span), "ask": ASK_LABEL.format(span=span),
+            "follow_up": follow_up or span}
+
+
+def referred_part(span: str, asks: str, labels: list[str]) -> dict:
+    return {"asked": span, "asks": asks, "text": REFERRED_PART[asks].format(span=span), "show_recorded": labels}
+
+
+def with_coverage(resp: dict, unanswered: list[dict] | None = None, referred_parts: list[dict] | None = None,
+                  replaced: bool = False, notice: str | None = None) -> dict:
+    """The coverage check's findings on a response already built: the parts not answered, the parts referred,
+    whether a statement was replaced, and a notice where a check could not be completed. A referred part offers
+    an investigation (FR 14)."""
+    if unanswered:
+        resp["unanswered_parts"] = unanswered
+    if referred_parts:
+        resp["referred_parts"] = referred_parts
+        resp["offer_investigation"] = True
+    if replaced:
+        resp["replaced"] = REPLACED
+        resp["offer_investigation"] = True
+    if notice:
+        resp["coverage_notice"] = notice
+    return _finish(resp, resp.get("understood_as"))
+
+
+def referred_in_part(referred_parts: list[dict], understood_as: str | None = None,
+                     unanswered: list[dict] | None = None) -> dict:
+    """Every part that retrieved asks for a cause, a judgement or an action: no reading is answered. What the
+    records hold for each part is a click away (show_recorded), never presented as an answer."""
+    resp = {"outcome": "referred_to_investigation", "readings": [], "gaps": [], "offer_investigation": True,
+            "notice": REFERRED}
+    if understood_as:
+        resp["understood_as"] = understood_as
+    return with_coverage(resp, unanswered, referred_parts)
 
 
 # D8 (fix round, chat 18.10, 23:25): says what the assistant does, and that sending is an action too

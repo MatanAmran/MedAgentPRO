@@ -23,6 +23,7 @@
         "readings": [
           {
             "label": "late_by_delivery",
+            "asked": "Which suppliers were late in weeks 1 to 13?",
             "plan": {
               "SELECT": [
                 {
@@ -79,6 +80,7 @@
           },
           {
             "label": "late_by_promise",
+            "asked": "Which suppliers were late in weeks 1 to 13?",
             "plan": {
               "SELECT": [
                 {
@@ -208,6 +210,7 @@
         "readings": [
           {
             "label": "late_by_delivery",
+            "asked": "Which suppliers were late in weeks 14 to 26?",
             "plan": {
               "SELECT": [
                 {
@@ -264,6 +267,7 @@
           },
           {
             "label": "late_by_promise",
+            "asked": "Which suppliers were late in weeks 14 to 26?",
             "plan": {
               "SELECT": [
                 {
@@ -375,6 +379,7 @@
         "readings": [
           {
             "label": "late_in_september",
+            "asked": "Which purchase orders were delivered late in September?",
             "plan": {
               "SELECT": [
                 {
@@ -482,6 +487,7 @@
         "readings": [
           {
             "label": "missed_promise",
+            "asked": "Which suppliers missed a commitment in weeks 1 to 13?",
             "plan": {
               "SELECT": [
                 {
@@ -575,11 +581,13 @@
     },
     {
       "question": "Which open lines are past due, and who approved them?",
+      "book_test": [47],
       "intent": {
         "disposition": "retrieve",
         "readings": [
           {
             "label": "past_due",
+            "asked": "Which open lines are past due",
             "plan": {
               "SELECT": [
                 {
@@ -692,12 +700,13 @@
     },
     {
       "question": "What delay reasons were recorded for S-038's late lines?",
-      "book_test": [22],
+      "book_test": [22, 47],
       "intent": {
         "disposition": "retrieve",
         "readings": [
           {
             "label": "recorded_reasons",
+            "asked": "What delay reasons were recorded for S-038's late lines?",
             "plan": {
               "SELECT": [
                 {
@@ -802,6 +811,7 @@
         "readings": [
           {
             "label": "supplied",
+            "asked": "What did S-040 supply?",
             "plan": {
               "SELECT": [
                 {
@@ -848,6 +858,7 @@
         "readings": [
           {
             "label": "supplied",
+            "asked": "What did S-099 supply?",
             "plan": {
               "SELECT": [
                 {
@@ -894,6 +905,7 @@
         "readings": [
           {
             "label": "below_reorder",
+            "asked": "Which parts are below their reorder point?",
             "plan": {
               "SELECT": [
                 {
@@ -1018,6 +1030,7 @@
         "readings": [
           {
             "label": "on_time",
+            "asked": "Which supplier delivered the most lines on time in weeks 1 to 13?",
             "plan": {
               "SELECT": [
                 {
@@ -1159,6 +1172,7 @@
         "readings": [
           {
             "label": "late_by_delivery",
+            "asked": "What is the total value of the open orders of the suppliers that were late in weeks 1 to 13, both those with lines delivered after the requested date and those that committed to a date after the requested date?",
             "plan": {
               "SELECT": [
                 {
@@ -1214,6 +1228,7 @@
           },
           {
             "label": "late_by_promise",
+            "asked": "What is the total value of the open orders of the suppliers that were late in weeks 1 to 13, both those with lines delivered after the requested date and those that committed to a date after the requested date?",
             "plan": {
               "SELECT": [
                 {
@@ -1347,6 +1362,7 @@
         "readings": [
           {
             "label": "late_by_delivery",
+            "asked": "Which of my lines were delivered late in September?",
             "plan": {
               "SELECT": [
                 {
@@ -1426,6 +1442,7 @@
           },
           {
             "label": "late_by_promise",
+            "asked": "Which of my lines were delivered late in September?",
             "plan": {
               "SELECT": [
                 {
@@ -1505,6 +1522,7 @@
           },
           {
             "label": "missed_promise",
+            "asked": "Which of my lines were delivered late in September?",
             "plan": {
               "SELECT": [
                 {

@@ -258,11 +258,17 @@
             "additionalProperties": false,
             "required": [
               "label",
+              "asked",
               "plan"
             ],
             "properties": {
               "label": {
                 "$ref": "#/$defs/name"
+              },
+              "asked": {
+                "type": "string",
+                "maxLength": 400,
+                "$comment": "[proposal, not in the book] Task 4, A (91_COVERAGE_PLAN, chat 20.10, 22:30): the span of the question this reading answers, in the person's own words, as unresolved[].asked. Verified in code as a span of the question; the spans of the readings and of unresolved together must hold every content word of the question (compiler.uncovered)."
               },
               "plan": {
                 "$ref": "#/$defs/plan"
@@ -1294,6 +1300,81 @@
             "type": "string",
             "$comment": "[demo extension, 12.10] A fixed sentence from code, present where the gate removed a statement and something remains. Never says what was removed."
           },
+          "unanswered_parts": {
+            "type": "array",
+            "maxItems": 6,
+            "$comment": "[proposal, not in the book] Task 4 (91_COVERAGE_PLAN): a part of the question no reading answered. text is the model's sentence with code's slots filled, where it passed coverage.message(), else contract.UNANSWERED. ask shows the person's own words; follow_up is what a click sends, where coverage.follow_up() accepted it, else the part as written.",
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "asked",
+                "text",
+                "ask",
+                "follow_up"
+              ],
+              "properties": {
+                "asked": {
+                  "type": "string",
+                  "maxLength": 400
+                },
+                "text": {
+                  "type": "string"
+                },
+                "ask": {
+                  "type": "string"
+                },
+                "follow_up": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "referred_parts": {
+            "type": "array",
+            "maxItems": 4,
+            "$comment": "[proposal, not in the book] Task 4, C: a part of the question that asks for a cause, a judgement or an action. Its readings are not answered; show_recorded names the readings whose records a click shows, by the plan kept on the server, with no model call.",
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "asked",
+                "asks",
+                "text",
+                "show_recorded"
+              ],
+              "properties": {
+                "asked": {
+                  "type": "string",
+                  "maxLength": 400
+                },
+                "asks": {
+                  "enum": [
+                    "cause",
+                    "judgement",
+                    "action"
+                  ]
+                },
+                "text": {
+                  "type": "string"
+                },
+                "show_recorded": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          },
+          "replaced": {
+            "type": "string",
+            "$comment": "[proposal, not in the book] Task 4, B: a fixed sentence from code, present where a sentence that presented a recorded value as a cause was replaced by the value as recorded, or removed."
+          },
+          "coverage_notice": {
+            "type": "string",
+            "$comment": "[proposal, not in the book] Task 4: a fixed sentence from code, present where C or B could not be completed (GAP-07 in task 4's scope)."
+          },
           "ambiguous_terms": {
             "type": "array",
             "maxItems": 3,
@@ -1403,6 +1484,170 @@
           "carried_from_history": {
             "type": "boolean",
             "$comment": "false where the question already stands on its own or changes topic. Recorded, and lets the measurement in phase B separate rewrites from pass-throughs."
+          }
+        }
+      }
+    },
+    "question_classification": {
+      "status": "proposal",
+      "stage": "[proposal, not in the book] Task 4, C: what each part of the question asks, from the question alone. Runs on every question that retrieves, beside retrieval and synthesis (91_COVERAGE_PLAN, chat 20.10).",
+      "requirements": [
+        "FR 14",
+        "NFR 20"
+      ],
+      "tests": [
+        "Test 47 [proposal, not in the book]"
+      ],
+      "post_model_checks": [
+        "Every asked is a span of the question as posed, or of the rewritten question (compiler._check_span).",
+        "A part that asks for a cause or a judgement and overlaps a reading's asked takes that reading's sentences away from the answer: the part is referred to an investigation (coverage.apply_classification)."
+      ],
+      "schema": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "$id": "medagentpro/question_classification.schema.json",
+        "title": "Question Classification",
+        "description": "What each part of the question asks. It sees the question only: no plan, no record, no answer.",
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "parts"
+        ],
+        "properties": {
+          "parts": {
+            "type": "array",
+            "minItems": 1,
+            "maxItems": 4,
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "asked",
+                "asks"
+              ],
+              "properties": {
+                "asked": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 400,
+                  "$comment": "A span of the question, verified in code."
+                },
+                "asks": {
+                  "type": "string",
+                  "enum": [
+                    "recorded",
+                    "cause",
+                    "judgement",
+                    "action"
+                  ],
+                  "$comment": "recorded: values the records hold, a recorded reason among them. cause: why something happened. judgement: whether a value is unusual or acceptable. action: a change to the records or anything to be done."
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "coverage_check": {
+      "status": "proposal",
+      "stage": "[proposal, not in the book] Task 4, B: after the last gate, whether each part of the question was answered, and how each sentence relates values. Skipped only under S1 to S4 (coverage.COVERAGE_SKIP). Sees no record: the sentences as references, the parts, what each reading examined.",
+      "requirements": [
+        "FR 11",
+        "FR 14",
+        "NFR 20",
+        "NFR 27"
+      ],
+      "tests": [
+        "Test 47 [proposal, not in the book]"
+      ],
+      "post_model_checks": [
+        "Every part sent is in the output once, in order, by its asked; every sentence number once.",
+        "A message is shown only where its slots resolve, {part} and {reason} once each, and it holds no digit, no identifier, no catalog name, no causal word and no negation outside {reason} (chat 22:40, 22:50); else the fixed template.",
+        "A follow_up is sent only where every identifier in it is in the conversation (NFR 27), it holds no digit the question does not, and it ends with a question mark; else the part as written."
+      ],
+      "schema": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "$id": "medagentpro/coverage_check.schema.json",
+        "title": "Coverage Check",
+        "description": "Per part of the question: answered, declared or not answered. Per sentence: a kind after Yu et al. (EMNLP 2019).",
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "parts",
+          "sentences"
+        ],
+        "properties": {
+          "parts": {
+            "type": "array",
+            "maxItems": 6,
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "asked",
+                "status",
+                "sentences"
+              ],
+              "properties": {
+                "asked": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 400
+                },
+                "status": {
+                  "type": "string",
+                  "enum": [
+                    "answered",
+                    "declared",
+                    "not_answered"
+                  ]
+                },
+                "sentences": {
+                  "type": "array",
+                  "maxItems": 20,
+                  "items": {
+                    "type": "integer",
+                    "minimum": 1
+                  }
+                },
+                "message": {
+                  "type": "string",
+                  "maxLength": 240,
+                  "$comment": "not_answered only: one sentence with {part} and {reason}, which code fills."
+                },
+                "follow_up": {
+                  "type": "string",
+                  "maxLength": 200,
+                  "$comment": "not_answered only: the part as a question that stands on its own."
+                }
+              }
+            }
+          },
+          "sentences": {
+            "type": "array",
+            "maxItems": 30,
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "n",
+                "kind"
+              ],
+              "properties": {
+                "n": {
+                  "type": "integer",
+                  "minimum": 1
+                },
+                "kind": {
+                  "type": "string",
+                  "enum": [
+                    "no_relation",
+                    "correlational",
+                    "conditional_causal",
+                    "direct_causal"
+                  ]
+                }
+              }
+            }
           }
         }
       }

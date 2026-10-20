@@ -24,11 +24,12 @@ The decisions of 12.10 this follows are listed in CLAUDE.md, "Task 4 decisions".
 
 from __future__ import annotations
 
+import contextvars
 import json
 import re
 import sqlite3
 import uuid
-from concurrent.futures import ThreadPoolExecutor
+from concurrent.futures import Future, ThreadPoolExecutor
 from contextlib import ExitStack
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
@@ -43,7 +44,7 @@ from persistence.audit_repository import AuditEntry, AuditRepository
 from shared.circuit_breaker import CircuitBreaker, CircuitOpen, MemoryStore
 from shared.circuit_breaker import log as operational_log
 
-from . import call_trace, contract, gate, prompts, synthesis
+from . import call_trace, contract, coverage, gate, prompts, synthesis
 from . import calls as model_calls
 from .calls import MODEL_CALL_ATTEMPTS, Call, StageFailed, StageRejected
 from .compiler import (
@@ -73,12 +74,16 @@ _GATE_V = Draft202012Validator(_BUNDLE["support_scoring"]["schema"])
 _SYNTHESIS_SCHEMA = _BUNDLE["synthesis"]["schema"]
 
 # The order stages are declared in, which the audit trail follows (Test 21).
-REWRITING, INTENT, COMPILATION, RETRIEVAL, SYNTHESIS, GATE, REGENERATION, REGATE, CONTRACT, RATING = range(1, 11)
-RECORDS_VIEWED = 11   # Phase B task 5 [demo extension]: "Show all records", a later entry like the rating
+# Task 4 (91_COVERAGE_PLAN) [proposal, not in the book]: the classification (C) runs beside retrieval and
+# synthesis, and is recorded when it is joined, after the last gate; the coverage check (B) follows it
+(REWRITING, INTENT, COMPILATION, RETRIEVAL, SYNTHESIS, GATE, REGENERATION, REGATE, CLASSIFICATION, COVERAGE,
+ CONTRACT, RATING) = range(1, 13)
+RECORDS_VIEWED = 13   # Phase B task 5 [demo extension]: "Show all records", a later entry like the rating
 STAGE_NAMES = {REWRITING: "question_rewriting", INTENT: "intent_analysis", COMPILATION: "compilation",
                RETRIEVAL: "retrieval", SYNTHESIS: "synthesis", GATE: "support_gate",
-               REGENERATION: "regeneration", REGATE: "support_gate", CONTRACT: "output_contract",
-               RATING: "rating", RECORDS_VIEWED: "show_all_records"}
+               REGENERATION: "regeneration", REGATE: "support_gate", CLASSIFICATION: "question_classification",
+               COVERAGE: "coverage_check", CONTRACT: "output_contract", RATING: "rating",
+               RECORDS_VIEWED: "show_all_records"}
 
 # SQLite primary result codes that mean the source cannot be reached, not that the query is wrong
 # (review F1): busy, locked, cannot open. A failed connection counts as well.
@@ -105,6 +110,9 @@ class Deps:
     source: str = "The company database"
     # chat 20.10, task 5: the prompts after intent analysis. None: the frozen set the demo runs
     prompt_set: prompts.PromptSet | None = None
+    # task 4: the coverage check, A, B and C (91_COVERAGE_PLAN). On wherever a server or a tool builds deps;
+    # off only in the unit tests of other stages, whose scripted models answer neither C nor B
+    coverage: bool = True
 
     @property
     def prompts(self) -> prompts.PromptSet:
@@ -415,7 +423,7 @@ class NotShowable(Exception):
 
 
 def show_all(exchange_id: str, label: str, plan: dict, user: dict, deps: Deps, shown: list[dict],
-             matched: list[dict] | None = None) -> dict:
+             matched: list[dict] | None = None, referred: bool = False) -> dict:
     """Phase B task 5: every record of a reading that was cut, up to SHOW_ALL_LIMIT, as reading_view
     presents it, with no answer. No model call, nothing added to the conversation's history (NFR 21): the
     rows go to the screen only. The rows the exchange showed come first, in their order, so a reference in
@@ -436,6 +444,8 @@ def show_all(exchange_id: str, label: str, plan: dict, user: dict, deps: Deps, s
         if row in rest:
             rest.remove(row)
     view["rows"] = [r for r in shown if r in view["rows"]] + rest
+    if referred:   # task 4: the records of a part referred to an investigation say they establish no cause
+        view["notice"] = contract.SHOW_RECORDED + (f" {view['notice']}" if view.get("notice") else "")
     try:
         # in the entry itself, so each viewing is its own link in the chain and none overwrites another
         deps.audit.write_event(AuditEntry(exchange_id, RECORDS_VIEWED, STAGE_NAMES[RECORDS_VIEWED],
@@ -483,10 +493,14 @@ def _presented(response: dict, plans: dict[str, dict], cat: Catalog, answer: Dra
 
 def run(question: str, history: list[prompts.Exchange], user: dict, deps: Deps,
         on_stage: Callable[[str], None] | None = None, context: dict | None = None,
-        on_call: Callable[[call_trace.CallTrace], None] | None = None) -> Outcome:
+        on_call: Callable[[call_trace.CallTrace], None] | None = None, follow_up: str | None = None) -> Outcome:
     """history holds the earlier exchanges of the same conversation, oldest first. context holds the
     request and conversation ids, which only the operational log line carries (R9). on_call receives
-    the trace of each model call as it is recorded, the same metadata as that line."""
+    the trace of each model call as it is recorded, the same metadata as that line.
+    follow_up (task 4, chat 20.10, 22:50): a part the last answer did not answer, asked on its own. question is
+    the part in the person's words; follow_up is the standalone question the coverage check wrote and
+    coverage.follow_up() accepted, which the server holds. It stands as the rewrite, shown as Understood as,
+    and no rewriting call is made. NFR 27 holds as for any follow-up: it is no source of identifiers."""
     if deps.intent_prompt is None:   # chat 19.10, C: the catalog's own prompt, never a built-in one
         raise ValueError("Deps.intent_prompt is required: the intent prompt that goes with the catalog")
     stage = on_stage or (lambda name: None)
@@ -497,6 +511,8 @@ def run(question: str, history: list[prompts.Exchange], user: dict, deps: Deps,
     cat, role = deps.catalog, user["role"]
     understood: str | None = None
     rewritten: str | None = None
+    carried = False       # task 4, S4: the rewrite carried something from earlier exchanges
+    classifying: Future | None = None   # task 4, C: running beside retrieval and synthesis
     spend = None          # this exchange's spend, where the gateway keeps a budget (task 5)
     stack = ExitStack()
 
@@ -509,8 +525,37 @@ def run(question: str, history: list[prompts.Exchange], user: dict, deps: Deps,
                              eid, c["exchange_usd"], c["remaining_usd"])
         return c
 
+    joined: list[tuple[list[dict] | None, bool, BaseException | None]] = []   # task 4: C, once joined
+
+    def join_classification() -> tuple[list[dict] | None, bool, BaseException | None]:
+        """Task 4, C: waits for the classification and records its calls, once. Every way out of the exchange
+        joins it before the cost is taken (finish), so what C spent is in this exchange's cost and in the record,
+        whichever way the exchange ended. Returns C's parts, whether C could not be completed, and a
+        cancellation C met, for the caller to raise."""
+        if classifying is None:
+            return None, False, None
+        if joined:
+            return joined[0]
+        try:
+            parts_, made = classifying.result()
+            rec.calls(CLASSIFICATION, made, deps.model)
+            got: tuple[list[dict] | None, bool, BaseException | None] = (parts_, False, None)
+        except (StageRejected, StageFailed) as e:
+            rec.calls(CLASSIFICATION, e.calls, deps.model)
+            got = (None, True, None)
+        except ExchangeCancelled as e:
+            rec.calls(CLASSIFICATION, model_calls.calls_made(e), deps.model)
+            got = (None, True, e)
+        except Exception as e:   # a refusal for budget or rate, a breaker: C did not complete
+            rec.calls(CLASSIFICATION, model_calls.calls_made(e), deps.model)
+            operational_log.warning("classification not completed: attempt=%s error=%s", eid, type(e).__name__)
+            got = (None, True, None)
+        joined.append(got)
+        return got
+
     def finish(response: dict, answer: Draft | None = None, failure: str | None = None,
                presented: list[str] | None = None) -> Outcome:
+        join_classification()   # task 4: C's spend and calls belong to this exchange, however it ended
         stage("contract")
         rec.step(CONTRACT)
         spent = cost()
@@ -553,14 +598,19 @@ def run(question: str, history: list[prompts.Exchange], user: dict, deps: Deps,
             spend = stack.enter_context(deps.gateway.exchange())
 
         # rewriting, only with earlier exchanges. Layer 3 drops the oldest with no summary (decision 7)
-        if history:
+        if follow_up:
+            rewritten, carried = follow_up, True
+            if _norm(rewritten) != _norm(question):
+                understood = rewritten
+        elif history:
             stage("rewriting")
             built = prompts.build_history(history)
             rewrite_pr = deps.prompts.rewrite
-            rewritten = _ask(deps, rec, REWRITING, rewrite_pr,
-                             lambda fb: prompts.render_rewrite(built, question, rewrite_pr, feedback=fb),
-                             lambda out: prompts.check_rewrite(out, question, history), _REWRITE_V.schema,
-                             _REWRITE_V)
+            rewritten, carried = _ask(deps, rec, REWRITING, rewrite_pr,
+                                      lambda fb: prompts.render_rewrite(built, question, rewrite_pr, feedback=fb),
+                                      lambda out: (prompts.check_rewrite(out, question, history),
+                                                   bool(out["carried_from_history"])),
+                                      _REWRITE_V.schema, _REWRITE_V)
             if _norm(rewritten) != _norm(question):
                 understood = rewritten
 
@@ -571,10 +621,25 @@ def run(question: str, history: list[prompts.Exchange], user: dict, deps: Deps,
         conv = prompts.compiler_conversation(history, question, rewritten)
         pr = deps.intent_prompt
         validator = intent_validator()
+        tries = [0]
+
+        def accept_intent(out):
+            """Task 4, A: a plan that leaves a part of the question unquoted is sent back once, naming the
+            person's words it left out; on the last attempt it is taken, and those parts are said not answered
+            (chat 20.10, 22:30: no new ending in "not completed")."""
+            tries[0] += 1
+            compiled_ = compile_intent(out, conv, user, cat, validator)
+            if deps.coverage and compiled_.uncovered and tries[0] < deps.attempts:
+                raise CompileError("uncovered_part",
+                                   "These parts of the question are quoted by no reading's asked and by no "
+                                   "unresolved entry: " + "; ".join(f'"{u}"' for u in compiled_.uncovered)
+                                   + ". Give each part of the question a reading or an unresolved entry whose "
+                                     "asked quotes it.")
+            return out, compiled_
+
         intent, compiled = _ask(deps, rec, INTENT, pr,
                                 lambda fb: prompts.render_intent(cat, role, question, rewritten, pr, fb),
-                                lambda out: (out, compile_intent(out, conv, user, cat, validator)),
-                                validator=validator, rejected=(CompileError,))
+                                accept_intent, validator=validator, rejected=(CompileError,))
         rec.step(COMPILATION, [{"label": r.label, "sql": r.sql, "params": r.params} for r in compiled.readings])
         if compiled.disposition == "refer_to_investigation":
             return finish(contract.referred(understood))
@@ -582,6 +647,13 @@ def run(question: str, history: list[prompts.Exchange], user: dict, deps: Deps,
             return finish(contract.declined_action(understood))
         if compiled.disposition == "needs_clarification":   # chat 18.10, 11:35: nothing is retrieved
             return finish(contract.needs_clarification(understood, cat))
+
+        # task 4, C: what each part asks, from the question alone, beside retrieval and synthesis. It runs in
+        # this exchange's context, so the budget counts it against this exchange's own cap (ContextVar)
+        if deps.coverage:
+            pool = stack.enter_context(ThreadPoolExecutor(max_workers=1))
+            classifying = pool.submit(contextvars.copy_context().run, coverage.classify, deps.gateway, deps.model,
+                                      question, rewritten, conv, deps.prompts.classify, deps.attempts)
 
         # retrieval
         stage("retrieval")
@@ -627,9 +699,11 @@ def run(question: str, history: list[prompts.Exchange], user: dict, deps: Deps,
                      for label, res in results.items()]
         gaps = compiled.unresolved
 
-        def views(d: Draft | None = None) -> list[dict]:
+        def views(d: Draft | None = None, hidden: set[str] | frozenset = frozenset()) -> list[dict]:
             out = []
             for label, res in results.items():
+                if label in hidden:   # task 4: a reading of a part referred to an investigation
+                    continue
                 if d is not None and label in d.sentences:
                     evidence = list(dict.fromkeys(e for s in d.sentences[label] for e in s.evidence))
                     out.append(contract.reading_view(label, plans[label], res, cat, role, d.answer(label), evidence,
@@ -638,13 +712,89 @@ def run(question: str, history: list[prompts.Exchange], user: dict, deps: Deps,
                     out.append(contract.reading_view(label, plans[label], res, cat, role, matched=names.get(label)))
             return out
 
+        def classified() -> tuple[list[dict] | None, bool]:
+            """C's parts, or None and True where C could not be completed. A cancellation ends the exchange."""
+            parts_, failed, cancelled = join_classification()
+            if cancelled is not None:
+                raise cancelled
+            return parts_, failed
+
+        def covered(draft: Draft | None, withheld_: bool) -> Outcome:
+            """Task 4: what C and B found, applied to the answer (91_COVERAGE_PLAN, section 3)."""
+            parts = coverage.parts_of(intent, compiled.uncovered)
+            got, c_failed = classified()
+            refs = coverage.referred(got, parts) if got else []
+            hit = {id(p) for r in refs for p in r["parts"]}
+            hidden = {lab for r in refs for lab in r["labels"]}
+            ref_parts = [contract.referred_part(r["asked"], r["asks"], r["labels"]) for r in refs]
+            left = [p for p in parts if id(p) not in hit]
+            notice = contract.CLASSIFY_FAILED if c_failed else None
+            replaced = removed = 0
+            d = coverage.without_labels(draft, hidden) if draft is not None else None
+            if d is not None and c_failed:   # the cautious side (decision 8): a recorded reason as recorded
+                d, replaced, removed = coverage.replace_reason_sentences(d, cat)
+            texts: dict[int, tuple[str | None, str | None]] = {}
+            if d is not None and d.sentences and not all(coverage.skip_conditions(left, d, cat, carried).values()):
+                stage("coverage")
+                try:
+                    out, made = coverage.check(deps.gateway, deps.model, question, rewritten, left, d, cat,
+                                               deps.prompts.coverage, deps.attempts)
+                except (StageRejected, StageFailed) as e:
+                    rec.calls(COVERAGE, e.calls, deps.model)
+                    out = None
+                except ExchangeCancelled:
+                    raise
+                except Exception as e:
+                    rec.calls(COVERAGE, model_calls.calls_made(e), deps.model)
+                    operational_log.warning("coverage check not completed: attempt=%s error=%s", eid,
+                                            type(e).__name__)
+                    out = None
+                else:
+                    rec.calls(COVERAGE, made, deps.model)
+                if out is None:
+                    notice = contract.COVERAGE_FAILED
+                    if not c_failed:
+                        d, r_, m_ = coverage.replace_reason_sentences(d, cat)
+                        replaced, removed = replaced + r_, removed + m_
+                else:
+                    causal = {s["n"] for s in out["sentences"] if s["kind"] in coverage.CAUSAL_KINDS}
+                    if causal:
+                        d, r_, m_ = coverage.replace_reason_sentences(d, cat, causal)
+                        replaced, removed = replaced + r_, removed + m_
+                    for n, (p, o) in enumerate(zip(left, out["parts"], strict=True)):
+                        if o["status"] == "not_answered" or p.uncovered:
+                            if p.declared:
+                                continue
+                            texts[n] = (coverage.message(o.get("message"), p.asked, "uncovered", cat),
+                                        coverage.follow_up(o.get("follow_up"), question, conv))
+            unanswered = [contract.unanswered_part(p.asked, *texts.get(n, (None, None)))
+                          for n, p in enumerate(left) if p.uncovered or n in texts]
+            if d is None or not d.sentences:
+                if ref_parts:
+                    return finish(contract.referred_in_part(ref_parts, understood, unanswered or None))
+                if d is None:   # nothing was retrieved: an empty result stays a finding (Test 35)
+                    resp = contract.answered(views(None, hidden), gaps, understood, ambiguous_terms=terms,
+                                             catalog=cat)
+                    return finish(contract.with_coverage(resp, unanswered, None, False, notice), presented=[])
+                return finish(contract.no_supported_assertion(views(None, hidden), understood))
+            resp = contract.answered(views(d, hidden), gaps, understood, withheld_ or removed > 0,
+                                     ambiguous_terms=terms, catalog=cat)
+            resp = contract.with_coverage(resp, unanswered, ref_parts, replaced + removed > 0, notice)
+            return finish(resp, d, presented=_presented(resp, plans, cat, d))
+
         if not any(m.rows for m in materials):   # an empty result is a finding (Test 35), no model call
+            if deps.coverage:
+                return covered(None, False)
             return finish(contract.answered(views(), gaps, understood, ambiguous_terms=terms, catalog=cat),
                           presented=[])
 
         # R7a: stop before the first synthesis call if the whole path cannot fit
         if hasattr(deps.gateway, "ensure_path"):
-            deps.gateway.ensure_path(_path_inputs(question, rewritten, materials), PATH_PROMPTS)
+            inputs = _path_inputs(question, rewritten, materials)
+            if deps.coverage:   # task 4: B after the last gate, priced like the gate's input (it sees less)
+                deps.gateway.ensure_path(inputs + [inputs[1]], PATH_PROMPTS + ("coverage_check",))
+            else:
+                deps.gateway.ensure_path(inputs, PATH_PROMPTS)
 
         # synthesis, the gate, and the single regeneration (NFR 19, decisions 3 to 5).
         # Synthesis receives both forms of the question (4.9, review F3)
@@ -676,7 +826,10 @@ def run(question: str, history: list[prompts.Exchange], user: dict, deps: Deps,
             final, withheld = second.only(g2.supported), True
 
         if not final.sentences:   # NFR 19, strict reading: records included are replaced (Test 17)
+            classified()   # recorded, and not left running; it changes nothing here
             return finish(contract.no_supported_assertion(views(), understood))
+        if deps.coverage:
+            return covered(final, withheld)
         response = contract.answered(views(final), gaps, understood, withheld, ambiguous_terms=terms, catalog=cat)
         return finish(response, final, presented=_presented(response, plans, cat, final))
 

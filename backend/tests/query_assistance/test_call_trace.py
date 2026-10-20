@@ -55,7 +55,7 @@ def fields(line: str) -> dict:
 def run(gw, db_path, caplog, storage=None, model_name="demo", question=Q):
     storage = storage if storage is not None else MemoryStorage()
     audit = AuditRepository(storage, CircuitBreaker("system_store", MemoryStore()), b"test-key")
-    d = pl.Deps(gw, model_name, CAT, lambda: sqlite3.connect(db_path), audit, INTENT_PROMPT)
+    d = pl.Deps(gw, model_name, CAT, lambda: sqlite3.connect(db_path), audit, INTENT_PROMPT, coverage=False)
     with caplog.at_level(logging.INFO, logger="medagentpro.breaker"):
         return pl.run(question, [], APPROVER, d, context=CONTEXT)
 

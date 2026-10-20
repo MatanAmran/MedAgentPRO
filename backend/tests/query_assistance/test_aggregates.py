@@ -30,8 +30,10 @@ def plan(func="AVG", col="commitments.quantity", alias="avg_qty"):
             "GROUP_BY": ["supplier_id"]}
 
 
-def intent(pl_):
-    return {"disposition": "retrieve", "readings": [{"label": "avg", "plan": pl_}]}
+def intent(pl_, asked=None):
+    """asked is given for a check of the schema alone; compiled, the test fixture gives the whole question."""
+    reading = {"label": "avg", "plan": pl_, **({"asked": asked} if asked else {})}
+    return {"disposition": "retrieve", "readings": [reading]}
 
 
 def compile_(pl_, question=Q):
@@ -46,7 +48,7 @@ def db(db_path):
 
 
 def test_avg_is_valid_in_the_schema():
-    assert not list(c.intent_validator().iter_errors(intent(plan())))
+    assert not list(c.intent_validator().iter_errors(intent(plan(), "q")))
 
 
 @pytest.mark.parametrize("func, sql", [
@@ -96,7 +98,7 @@ def test_an_average_reaches_the_answer_as_a_reference(db_path):
 
     audit = AuditRepository(MemoryStorage(), CircuitBreaker("system_store", MemoryStore()), b"test-key")
     deps = pl.Deps(ScriptedModelGateway(answer), "demo", CAT, lambda: sqlite3.connect(db_path), audit,
-                   p.load(seed.HERE / "intent_analysis.md"))
+                   p.load(seed.HERE / "intent_analysis.md"), coverage=False)
     out = pl.run(Q, [], APPROVER, deps)
     assert out.response["outcome"] == "answered", out.response
     view = out.response["readings"][0]
@@ -147,7 +149,7 @@ def test_a_boolean_metric_is_not_aggregated(func):
 
 
 def test_count_still_takes_no_metric():
-    assert list(c.intent_validator().iter_errors(intent(metric_plan("COUNT"))))
+    assert list(c.intent_validator().iter_errors(intent(metric_plan("COUNT"), "q")))
 
 
 def test_examined_says_what_an_aggregate_over_a_metric_was_taken_over():
@@ -174,7 +176,7 @@ def test_an_average_over_a_metric_reaches_the_answer_as_a_reference(db_path):
 
     audit = AuditRepository(MemoryStorage(), CircuitBreaker("system_store", MemoryStore()), b"test-key")
     deps = pl.Deps(ScriptedModelGateway(answer), "demo", CAT, lambda: sqlite3.connect(db_path), audit,
-                   p.load(seed.HERE / "intent_analysis.md"))
+                   p.load(seed.HERE / "intent_analysis.md"), coverage=False)
     out = pl.run(QM, [], APPROVER, deps)
     assert out.response["outcome"] == "answered", out.response
     view = out.response["readings"][0]

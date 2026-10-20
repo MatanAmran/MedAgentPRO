@@ -77,7 +77,7 @@ def storage():
 def deps(gw, db_path, storage, model_id="demo"):
     return pl.Deps(gw, model_id, CAT, pl.connect_readonly(db_path),
                    AuditRepository(storage, CircuitBreaker("system_store", MemoryStore()), b"k"),
-                   p.load(seed.HERE / "intent_analysis.md"))
+                   p.load(seed.HERE / "intent_analysis.md"), coverage=False)
 
 
 def trail(storage, eid):

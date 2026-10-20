@@ -80,7 +80,8 @@ def run(path, question, *plans, cat=CAT, user=APPROVER, history=None, seen=None)
             return SYNTHESIS
         return gate_claims(prompt, {"verdicts": ["supported"], "evidence": {"r0": ["total", "po_id"]}})
     audit = AuditRepository(MemoryStorage(), CircuitBreaker("system_store", MemoryStore()), b"test-key")
-    deps = pl.Deps(ScriptedModelGateway(answer), "demo", cat, lambda: sqlite3.connect(path), audit, INTENT_9)
+    deps = pl.Deps(ScriptedModelGateway(answer), "demo", cat, lambda: sqlite3.connect(path), audit, INTENT_9,
+                   coverage=False)
     return pl.run(question, history or [], user, deps), audit, deps
 
 
@@ -157,7 +158,7 @@ def test_a_stored_plan_still_holding_matches_is_not_shown_in_full(db_path):
         c.execute(reading, conn)
     audit = AuditRepository(MemoryStorage(), CircuitBreaker("system_store", MemoryStore()), b"test-key")
     deps = pl.Deps(ScriptedModelGateway(lambda p_, c_: {}), "demo", CAT, lambda: sqlite3.connect(db_path), audit,
-                   INTENT_9)
+                   INTENT_9, coverage=False)
     with pytest.raises(pl.NotShowable):
         pl.show_all("EX-x", "r0", by_name("Apex"), APPROVER, deps, [])
 
@@ -371,7 +372,7 @@ def test_the_demo_intent_prompt_is_unchanged_by_searchable():
     for role in ("APPROVER", "PLANNER"):
         assert (p.render_intent(CAT, role, "Q?", prompt=INTENT_9)
                 == p.render_intent(without, role, "Q?", prompt=INTENT_9))
-    assert "MATCHES" not in INTENT_9.body and INTENT_9.identity == "intent_analysis_demo@9"
+    assert "MATCHES" not in INTENT_9.body and INTENT_9.identity == "intent_analysis_demo@11"
 
 
 def test_the_v10_prompt_marks_searchable_columns_and_its_example_compiles(db_path):

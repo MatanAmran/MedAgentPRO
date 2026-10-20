@@ -35,9 +35,11 @@ test("closed until asked for; the keyboard opens and closes it; the calls are li
   await page.keyboard.press("Enter");
   await expect(button).toHaveAttribute("aria-expanded", "true");
   const rows = answer.getByTestId("how-answered-row");
-  await expect(rows).toHaveCount(3);
+  // task 4: the classification runs beside retrieval and synthesis, recorded when joined, after the gate
+  await expect(rows).toHaveCount(4);
   await expect(rows.nth(0)).toContainText("Planning");
   await expect(rows.nth(2)).toContainText("Checking");
+  await expect(rows.nth(3)).toContainText("Classifying");
   if (real) {
     await expect(rows.nth(0)).toContainText("claude-sonnet-5-5");
     await expect(answer.getByTestId("how-answered-total")).toContainText(/\$0\.0\d{3}/);

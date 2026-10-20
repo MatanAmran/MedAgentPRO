@@ -43,9 +43,19 @@ from .state import BUSY, AppState, ConflictError, Conversation
 DISCONNECT_POLL_SECONDS = 0.25
 
 
+class PartOf(BaseModel):
+    """Task 4 (chat 20.10, 22:50) [proposal, not in the book]: a part an earlier answer did not answer, asked on
+    its own, by the exchange and the part's place. The server takes the part and its follow-up question from the
+    response it holds, never from the client."""
+    model_config = ConfigDict(extra="forbid")
+    exchange_id: str = Field(min_length=1, max_length=40)
+    part: int = Field(ge=0, le=5)
+
+
 class AskBody(BaseModel):
     question: str = Field(min_length=1, max_length=1000)
     request_id: str = Field(min_length=8, max_length=100, pattern=r"^[A-Za-z0-9_-]+$")   # R8
+    part_of: PartOf | None = None
 
 
 class RatingBody(BaseModel):
@@ -201,6 +211,15 @@ def router(state: AppState) -> APIRouter:
     @r.post("/conversations/{conversation_id}/exchanges")
     async def ask(conversation_id: str, body: AskBody, request: Request, user: dict = Depends(demo_user)):
         conv = owned(conversation_id, user)
+        question, follow_up = body.question, None
+        if body.part_of is not None:   # task 4: the part as the person wrote it; the follow-up as the server holds it
+            item = next((i for i in conv.items if i.get("exchange_id") == body.part_of.exchange_id), None)
+            parts = ((item or {}).get("response") or {}).get("unanswered_parts") or []
+            if body.part_of.part >= len(parts):
+                raise HTTPException(404, "no such part")
+            part = parts[body.part_of.part]
+            question = part["asked"]
+            follow_up = part["follow_up"] if part["follow_up"] != part["asked"] else None
         try:
             state.claim_request(body.request_id)
         except ConflictError as e:
@@ -216,7 +235,7 @@ def router(state: AppState) -> APIRouter:
         claim = _Claim()
         try:
             cancelled = threading.Event()
-            deps = state.deps_for(body.question, cancelled)
+            deps = state.deps_for(question, cancelled)
 
             def work(on_stage):
                 nonlocal history
@@ -234,7 +253,7 @@ def router(state: AppState) -> APIRouter:
                 # task 10: the calls' traces, collected by a plain append, which cannot raise into the exchange
                 calls: list = []
                 try:
-                    outcome = pipeline.run(body.question, history, user, deps, on_stage,
+                    outcome = pipeline.run(question, history, user, deps, on_stage, follow_up=follow_up,
                                            context={"request_id": body.request_id, "conversation_id": conv.id},
                                            on_call=calls.append if state.panel else None)
                     result = {"exchange_id": outcome.exchange_id, "recorded": outcome.recorded,
@@ -243,13 +262,13 @@ def router(state: AppState) -> APIRouter:
                         trace = result["trace"] = panel_trace.build(calls, outcome.response, outcome.cost)
                     return result
                 finally:
-                    state.finish(conv, body.question, outcome, trace)
+                    state.finish(conv, question, outcome, trace)
 
             def release_if_unstarted():
                 if claim.take():
                     cancelled.set()
                     if held:                   # only the conversation this request took, never another's
-                        state.finish(conv, body.question, None)
+                        state.finish(conv, question, None)
 
             return StreamingResponse(exchange_events(work, request.is_disconnected, cancelled),
                                      media_type="text/event-stream",
@@ -257,7 +276,7 @@ def router(state: AppState) -> APIRouter:
                                      background=BackgroundTask(release_if_unstarted))
         except Exception:
             if claim.take() and held:
-                state.finish(conv, body.question, None)
+                state.finish(conv, question, None)
             raise
 
     @r.get("/exchanges/{exchange_id}/readings/{label}/records")
@@ -273,8 +292,10 @@ def router(state: AppState) -> APIRouter:
         except PermissionError:
             raise HTTPException(403, "this exchange belongs to another user") from None
         shown = next((r.get("rows", []) for r in item["response"]["readings"] if r["label"] == label), [])
+        # task 4: a reading of a part referred to an investigation shows its records with that said
+        referred = any(label in p.get("show_recorded", []) for p in item["response"].get("referred_parts") or [])
         try:
-            return pipeline.show_all(exchange_id, label, plan, user, state.deps, shown, matched)
+            return pipeline.show_all(exchange_id, label, plan, user, state.deps, shown, matched, referred)
         except CompileError:
             raise HTTPException(403, "these records are not readable for this user") from None
         except pipeline.NotShowable:   # chat 20.10, A: a name not resolved to one entity

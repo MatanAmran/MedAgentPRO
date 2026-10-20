@@ -14,6 +14,10 @@ const RESPONSE_KEYS = [
   "withheld",
   "ambiguous_terms",
   "request_for_input",
+  "unanswered_parts", // task 4, the coverage check
+  "referred_parts",
+  "replaced",
+  "coverage_notice",
 ] as const satisfies readonly (keyof ExchangeResponse)[];
 
 const READING_KEYS = [
