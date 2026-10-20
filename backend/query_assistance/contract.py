@@ -185,7 +185,7 @@ def render_checked(plan: dict, cat: Catalog, role: str, matched: list[dict] | No
         rel = cat.relations[j["rel"]]
         other = rel["to"] if rel["from"] in scope else rel["from"]
         scope.add(other)
-        other_name = _table(other, cat)
+        other_name = _table(other, cat) + _join_role(j["rel"], cat)
         parts[0] += f" with {other_name}" if j["type"] == "INNER" else f" with {other_name} where held"
     if "WHERE" in plan:
         parts[0] += f" where {_predicate(plan['WHERE'], cat, matched_phrases(matched, cat, by_identifier))}"
@@ -199,6 +199,19 @@ def render_checked(plan: dict, cat: Catalog, role: str, matched: list[dict] | No
     if _restricted(plan, cat, role):
         parts.append("limited to the records you hold")
     return " · ".join(parts)
+
+
+def _join_role(name: str, cat: Catalog) -> str:
+    """Chat 20.10 (found on BIRD superhero): where the catalog declares more than one relation between the
+    same two tables (eye, hair and skin colour all reach colour), Examined names the key the reading joined
+    through, " (eye colour)", so the reader can tell which. Where there is one relation, nothing: the demo's
+    Examined, and what synthesis and the gate are given, stay as they were, character for character."""
+    rel = cat.relations[name]
+    pair = {rel["from"], rel["to"]}
+    if sum({r["from"], r["to"]} == pair for r in cat.relations.values()) < 2:
+        return ""
+    key = rel["on"][0][0]   # the column on the from side: the reference that defines this relation
+    return f" ({(cat.column(key) or {}).get('label', key)})"
 
 
 def examined_line(plan: dict, cat: Catalog, role: str, matched: list[dict] | None = None,
@@ -449,9 +462,19 @@ def clarification_examples(cat: Catalog | None, n: int = 2) -> list[str]:
     return out
 
 
+def _has_dates(cat: Catalog | None) -> bool:
+    """Whether the store records a date anywhere. Without a catalog, as before: yes."""
+    if cat is None:
+        return True
+    return any(s.get("type") == "date" for ent in cat.entities.values() for s in ent["columns"].values())
+
+
 def needs_clarification_notice(cat: Catalog | None) -> str:
+    """"the period" is named only where the catalog holds a date column (chat 20.10, found on BIRD
+    superhero, which records none). On the demo catalog the notice is what it was, word for word."""
     named = clarification_examples(cat)
-    such = "the period" + (", " + " or ".join(named) if named else "")
+    parts = (["the period"] if _has_dates(cat) else []) + ([" or ".join(named)] if named else [])
+    such = ", ".join(parts) or "what it concerns"
     return f"{NEEDS_CLARIFICATION} Ask it in full, naming what it concerns, such as {such}."
 
 
