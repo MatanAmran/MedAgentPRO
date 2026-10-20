@@ -145,6 +145,7 @@ def _config(env, argv) -> BudgetConfig:
     ap.add_argument("--max-output", type=int, default=2000, help="output tokens per call (with --model)")
     ap.add_argument("--max-output-intent", type=int, help="intent analysis's own output cap (with --model)")
     ap.add_argument("--max-output-gate", type=int, help="the gate's own output cap (with --model)")
+    ap.add_argument("--max-output-synthesis", type=int, help="synthesis's own output cap (with --model)")
     ap.add_argument("--sets", help=f"price a round instead: {', '.join(SETS)}, comma separated")
     args = ap.parse_args(argv or [])   # never the test runner's own arguments
     if not args.model:
@@ -154,7 +155,8 @@ def _config(env, argv) -> BudgetConfig:
     except KeyError:
         raise BudgetConfigError(f"{args.model} is not priced in LiteLLM's local map") from None
     return BudgetConfig(args.model, price_in, price_out, args.budget, args.cap, args.max_output, 10,
-                        max_output_tokens_intent=args.max_output_intent, max_output_tokens_gate=args.max_output_gate)
+                        max_output_tokens_intent=args.max_output_intent, max_output_tokens_gate=args.max_output_gate,
+                        max_output_tokens_synthesis=args.max_output_synthesis)
 
 
 # --------------------------------------------------------------------------
@@ -163,8 +165,9 @@ def _config(env, argv) -> BudgetConfig:
 
 SETS = ("demo", "stage", "offscript", "bird")
 # Output tokens of an accepted call, thinking included: the mean of the Sonnet 5.5 calls logged on 18-19.10
-# (docs/notes/05_LOG.md, the "model call" lines), rounded up. Haiku may think more or less: an estimate
-TYPICAL_OUT = {"question_rewriting": 150, "intent_analysis": 900, "intent_analysis_demo": 900, "synthesis": 500,
+# (docs/notes/05_LOG.md, the "model call" lines), rounded up; synthesis and rewriting from Haiku 5.5's demo
+# round (20.10: 1311 and 233, chat 14:50). The redraft is not yet measured on Haiku: an estimate
+TYPICAL_OUT = {"question_rewriting": 250, "intent_analysis": 900, "intent_analysis_demo": 900, "synthesis": 1300,
                "synthesis_redraft": 400, "support_scoring": 1100}
 # a question that reaches the gate may take the regeneration path once (NFR 19): these two calls more
 REGENERATION = ("synthesis_redraft", "support_scoring")

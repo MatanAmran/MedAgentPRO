@@ -774,10 +774,19 @@ def commit() -> str:
     return ""
 
 
+def output_caps(deps: pipeline.Deps) -> dict[str, int | None]:
+    """The output cap each prompt of the run is sent with, by its identity: the budget's (the real model),
+    none where no budget sets one (the scripted model). It is part of the cache key (chat 20.10, 14:50)."""
+    budget = getattr(deps.gateway, "config", None)
+    return {ident: (budget.output_cap(ident) if budget is not None and hasattr(budget, "output_cap") else None)
+            for ident in prompt_identities(deps).values()}
+
+
 def write_manifest(store: Path, run: Run, set_name: str, deps: pipeline.Deps, stamp: str) -> Path:
-    """What a recorded run was: the commit, the prompts, the model, the set, when and what it cost. Never a
-    record value, a question or the key: the calls themselves are in the store beside it."""
-    manifest = {"commit": commit(), "prompts": prompt_identities(deps), "model": run.model, "set": set_name,
+    """What a recorded run was: the commit, the prompts and their output caps, the model, the set, when and
+    what it cost. Never a record value, a question or the key: the calls are in the store beside it."""
+    manifest = {"commit": commit(), "prompts": prompt_identities(deps), "output_caps": output_caps(deps),
+                "model": run.model, "set": set_name,
                 "started": run.started, "mode": run.mode, "exchanges": len(run.results),
                 "calls": sum(len(r.calls) for r in run.results), "spent_usd": run.spent}
     path = Path(store) / "manifests" / f"{stamp}-{Path(set_name).stem}.json"
@@ -898,7 +907,8 @@ def main(argv: list[str] | None = None, *, build: Callable[..., tuple] | None = 
         if recorded is None:
             print(f"no recorded run of {args.set} on these prompts in {args.cache}: record one first")
             return 1
-        replaying = RecordReplayGateway("replay", args.cache)
+        caps = recorded.get("output_caps") or {}
+        replaying = RecordReplayGateway("replay", args.cache, output_cap=caps.get)
         deps = replace(deps, gateway=replaying, model=recorded["model"])
         gateway_for = lambda question: replaying   # noqa: E731  the whole gateway: nothing behind it
     elif args.record:

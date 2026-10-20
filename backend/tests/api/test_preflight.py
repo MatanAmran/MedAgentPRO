@@ -130,6 +130,13 @@ def test_the_gate_cap_is_shown_as_a_number(gate, says):
     assert says in pf.check_output_caps(cfg).text
 
 
+@pytest.mark.parametrize("synthesis, says", [("", "synthesis: the same"), ("4000", "synthesis: 4000 tokens")])
+def test_the_synthesis_cap_is_shown_as_a_number(synthesis, says):
+    """Chat 20.10, 14:50: preflight shows synthesis's cap, a number only."""
+    _, cfg = pf.check_env({**CONFIG, "MODEL_MAX_OUTPUT_TOKENS_SYNTHESIS": synthesis})
+    assert says in pf.check_output_caps(cfg).text
+
+
 def test_the_real_setup_shows_the_output_caps(db_path, tmp_path):
     app, _ = build_app(db_path, tmp_path)
     checks = pf.run("real", fetch_for(app), env={**CONFIG, "MEDAGENTPRO_CHAIN_KEY": "k",

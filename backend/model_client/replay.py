@@ -6,8 +6,11 @@ and stores the request and the response under a key; in replay mode it serves th
 wraps no gateway at all, so a replay can never fall through to a real call. A call with no stored
 response raises ReplayMiss and is listed in .misses, so a replay that is not complete says so.
 
-The key is a hash of what decides the answer: the prompt's name and version, the model, the messages and
-the output schema sent (chat 19.10). A change to any of them, a new prompt version among them, is a miss.
+The key is a hash of what decides the answer: the prompt's name and version, the model, the messages, the
+output schema sent (chat 19.10) and the output cap the call is sent with (chat 20.10, 14:50: an answer cut at
+2000 tokens must not be served to a run at 4000). A change to any of them, a new prompt version among them,
+is a miss. The cap is the one the budgeted gateway behind the record layer sends; a replay reads it from the
+manifest of the run it replays (output_cap).
 The store is one JSON file per call under eval_cache/ (gitignored): it holds prompts with record values,
 so it never goes into git.
 
@@ -19,6 +22,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+from collections.abc import Callable
 from dataclasses import asdict, fields
 from pathlib import Path
 
@@ -38,18 +42,21 @@ class ReplayMiss(RuntimeError):
         self.prompt_identity = prompt_identity
 
 
-def request_key(prompt: str, config: ModelConfig) -> str:
-    """sha256 over the prompt's name and version, the model, the messages and the schema, in a canonical
-    form. The messages are those the real gateway sends: one user message holding the prompt."""
+def request_key(prompt: str, config: ModelConfig, max_tokens: int | None = None) -> str:
+    """sha256 over the prompt's name and version, the model, the messages, the schema and the output cap, in
+    a canonical form. The messages are those the real gateway sends: one user message holding the prompt.
+    max_tokens: the cap the call is sent with, where the config does not carry it."""
     body = {"prompt": config.prompt_identity, "model": config.model,
-            "messages": [{"role": "user", "content": prompt}], "schema": config.output_schema}
+            "messages": [{"role": "user", "content": prompt}], "schema": config.output_schema,
+            "max_tokens": max_tokens if max_tokens is not None else config.max_tokens}
     return hashlib.sha256(json.dumps(body, sort_keys=True, ensure_ascii=False).encode("utf-8")).hexdigest()
 
 
 class RecordReplayGateway(ModelGateway):
     """mode "record": inner is called and its response stored. mode "replay": inner must be None."""
 
-    def __init__(self, mode: str, store: Path = DEFAULT_STORE, inner: ModelGateway | None = None):
+    def __init__(self, mode: str, store: Path = DEFAULT_STORE, inner: ModelGateway | None = None,
+                 output_cap: Callable[[str], int | None] | None = None):
         if mode not in ("record", "replay"):
             raise ValueError(f"mode is record or replay, not {mode!r}")
         if mode == "record" and inner is None:
@@ -57,6 +64,7 @@ class RecordReplayGateway(ModelGateway):
         if mode == "replay" and inner is not None:
             raise ValueError("replay mode wraps no gateway: a miss must never reach a model")
         self.mode, self.store, self.inner = mode, Path(store), inner
+        self.output_cap = output_cap   # prompt identity -> the cap it was recorded at (replay, from the manifest)
         self.misses: list[ReplayMiss] = []
         self.served = 0
         self.recorded = 0
@@ -70,11 +78,23 @@ class RecordReplayGateway(ModelGateway):
             raise AttributeError(name)
         return getattr(inner, name)
 
+    def sent_cap(self, config: ModelConfig) -> int | None:
+        """The max_tokens the call goes out with: as the budgeted gateway behind sets it (the lower of the
+        config's and its cap for the prompt), or as the manifest recorded it on replay."""
+        if self.output_cap is not None:
+            return self.output_cap(config.prompt_identity)
+        budget = getattr(self.__dict__.get("inner"), "config", None)
+        if budget is not None and hasattr(budget, "output_cap"):
+            cap = budget.output_cap(config.prompt_identity)
+            return min(config.max_tokens or cap, cap)
+        return config.max_tokens
+
     def _path(self, key: str) -> Path:
         return self.store / f"{key}.json"
 
     def invoke(self, prompt: str, config: ModelConfig) -> ModelResponse:
-        key = request_key(prompt, config)
+        cap = self.sent_cap(config)
+        key = request_key(prompt, config, cap)
         if self.mode == "replay":
             path = self._path(key)
             if not path.exists():
@@ -89,7 +109,7 @@ class RecordReplayGateway(ModelGateway):
         resp = self.inner.invoke(prompt, config)   # a failure is raised as it is, and nothing is stored
         self.store.mkdir(parents=True, exist_ok=True)
         record = {"key": key, "request": {"prompt_identity": config.prompt_identity, "model": config.model,
-                                          "schema": config.output_schema, "max_tokens": config.max_tokens,
+                                          "schema": config.output_schema, "max_tokens": cap,
                                           "temperature": config.temperature, "prompt": prompt},
                   "response": asdict(resp)}
         tmp = self._path(key).with_suffix(".tmp")

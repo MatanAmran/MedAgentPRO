@@ -61,11 +61,33 @@ def test_the_key_follows_the_prompt_version_the_model_and_the_schema(change):
     assert request_key("p", other) != request_key("p", CFG)
 
 
-def test_the_key_follows_the_messages_and_nothing_else():
-    """The four parts the chat named. The output cap is not one: a call recorded at one cap is served
-    at another, and the record keeps the cap it was made with."""
+def test_the_key_follows_the_messages_and_the_output_cap():
+    """Chat 20.10, 14:50: the cap is part of what decides the answer. An answer cut at 2000 tokens must be a
+    miss for a run at 4000, never served to it."""
     assert request_key("p", CFG) != request_key("q", CFG)
-    assert request_key("p", ModelConfig(**{**CFG.__dict__, "max_tokens": 3000})) == request_key("p", CFG)
+    assert request_key("p", ModelConfig(**{**CFG.__dict__, "max_tokens": 3000})) != request_key("p", CFG)
+    assert request_key("p", CFG, 4000) != request_key("p", CFG, 2000)
+
+
+def test_a_call_recorded_behind_the_budget_is_keyed_and_stored_at_the_cap_it_was_sent(tmp_path):
+    """The budget sets max_tokens after the record layer: the layer asks the budget's config for the cap,
+    so the key and the record hold the cap sent, not the None the pipeline passes."""
+    from model_client.budget import BudgetConfig
+
+    class Budget(ScriptedModelGateway):
+        config = BudgetConfig("m", 1, 1, 1, 1, 2000, 10, max_output_tokens_synthesis=4000)
+
+    plain = ModelConfig("claude-haiku-5-5", prompt_identity="synthesis@11")
+    RecordReplayGateway("record", tmp_path, Budget(["{}"])).invoke("the prompt", plain)
+    (saved,) = tmp_path.glob("*.json")
+    record = json.loads(saved.read_text(encoding="utf-8"))
+    assert record["request"]["max_tokens"] == 4000
+    assert record["key"] == request_key("the prompt", plain, 4000)
+    at_old_cap = RecordReplayGateway("replay", tmp_path, output_cap=lambda ident: 2000)
+    with pytest.raises(ReplayMiss):
+        at_old_cap.invoke("the prompt", plain)
+    at_its_cap = RecordReplayGateway("replay", tmp_path, output_cap=lambda ident: 4000)
+    assert at_its_cap.invoke("the prompt", plain).text == "{}"
 
 
 def test_a_failed_call_is_raised_and_not_stored(tmp_path):

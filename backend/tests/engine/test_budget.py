@@ -486,6 +486,42 @@ def test_a_gate_cap_that_is_set_must_be_a_positive_integer(value):
         config(MODEL_MAX_OUTPUT_TOKENS_GATE=value)
 
 
+# --------------------------------------------------------------------------
+# synthesis's own output cap (chat 20.10, 14:50; Haiku's demo round cut 5 of 14 drafts at 2000)
+# --------------------------------------------------------------------------
+
+@pytest.mark.parametrize("identity, sent", [("synthesis@11", 4000), ("synthesis_redraft@10", 4000),
+                                             ("support_scoring@6", 3000), ("intent_analysis_demo@9", 1000),
+                                             ("question_rewriting@3", 1000)])
+def test_the_synthesis_cap_applies_to_the_draft_and_the_redraft_only(ledger, identity, sent):
+    inner = ScriptedModelGateway(lambda p, c: "{}")
+    gw = gateway(ledger, inner, MODEL_MAX_OUTPUT_TOKENS_SYNTHESIS="4000", MODEL_MAX_OUTPUT_TOKENS_GATE="3000")
+    gw.invoke("x", ModelConfig("test-model", prompt_identity=identity))
+    assert inner.calls[0][1].max_tokens == sent
+
+
+def test_without_the_synthesis_cap_synthesis_gets_the_general_one():
+    assert config().max_output_tokens_synthesis is None
+    assert config(MODEL_MAX_OUTPUT_TOKENS_SYNTHESIS="").output_cap("synthesis@11") == 1000
+
+
+def test_r7a_prices_the_draft_and_the_redraft_at_the_synthesis_cap(ledger):
+    """Synthesis, gate, redraft, gate, one input token each: 4000 + 1000 + 4000 + 1000 output tokens is 0.1
+    at 10 per million (plus 4e-06 of input). Under a cap of 0.1 it is refused; at the general cap, 0.04, not."""
+    from query_assistance.pipeline import PATH_PROMPTS
+    gw = gateway(ledger, MODEL_MAX_OUTPUT_TOKENS_SYNTHESIS="4000", MODEL_MAX_USD_PER_EXCHANGE="0.1")
+    with gw.exchange():
+        gw.ensure_path([1, 1, 1, 1])
+        with pytest.raises(BudgetExceeded, match="its own cap"):
+            gw.ensure_path([1, 1, 1, 1], PATH_PROMPTS)
+
+
+@pytest.mark.parametrize("value", ["abc", "0", "-5", "2.5"])
+def test_a_synthesis_cap_that_is_set_must_be_a_positive_integer(value):
+    with pytest.raises(b.BudgetConfigError, match="MODEL_MAX_OUTPUT_TOKENS_SYNTHESIS"):
+        config(MODEL_MAX_OUTPUT_TOKENS_SYNTHESIS=value)
+
+
 def test_the_dry_run_prices_the_gate_and_the_path_at_the_gate_cap(db_path):
     cfg = config(MODEL_MAX_OUTPUT_TOKENS_GATE="4000")
     meter = dry_run._Meter(ScriptedModelGateway(lambda p, c: "{}"), cfg)
