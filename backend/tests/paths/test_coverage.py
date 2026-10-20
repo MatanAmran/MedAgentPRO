@@ -272,3 +272,29 @@ def test_server_shows_what_was_recorded_for_a_referred_part(db_path):
     view = s.client.get(f"/api/exchanges/{res['exchange_id']}/readings/{label}/records",
                         headers={"X-Demo-User": "AP-01"}).json()
     assert view["notice"].startswith(contract.SHOW_RECORDED) and view["rows"] and "answer" not in view
+
+
+@pytest.mark.asked_as_written
+def test_an_exchange_stopped_before_synthesis_counts_what_the_classification_spent(db_path, ledger):
+    """CI, 21.10 (the stress run): an exchange the budget stops before synthesis while C still runs. C is joined
+    before the cost is taken, so what it spent is in the exchange's cost and in the record, never only in the
+    ledger."""
+    import time
+
+    from model_client import budget as b
+
+    def slow(prompt):
+        time.sleep(0.3)
+        return {"parts": [{"asked": REASONS_Q, "asks": "recorded"}]}
+
+    env = {"ANTHROPIC_API_KEY": "test-key-not-real", "MODEL_ID": "test-model", "MODEL_PRICE_IN": "2",
+           "MODEL_PRICE_OUT": "10", "MODEL_BUDGET_USD": "5", "MODEL_MAX_USD_PER_EXCHANGE": "0.06",
+           "MODEL_MAX_OUTPUT_TOKENS": "2000", "MODEL_MAX_EXCHANGES_PER_MINUTE": "1000"}
+    gw = b.BudgetedGateway(Script(intent_analysis_demo=[REASONS_INTENT], question_classification=[slow]),
+                           b.BudgetConfig.from_env(env), ledger)
+    d = replace(make_deps(gw, db_path), model="test-model", coverage=True)
+    out = pl.run(REASONS_Q, [], APPROVER, d)
+    assert out.response["notice"] == contract.EXCHANGE_CAP
+    assert ledger.total == pytest.approx(out.cost["exchange_usd"], abs=1e-6)
+    trail = d.audit.storage.audit_trail(out.exchange_id)
+    assert [e["agent"] for e in trail].count("question_classification") == 1

@@ -525,8 +525,37 @@ def run(question: str, history: list[prompts.Exchange], user: dict, deps: Deps,
                              eid, c["exchange_usd"], c["remaining_usd"])
         return c
 
+    joined: list[tuple[list[dict] | None, bool, BaseException | None]] = []   # task 4: C, once joined
+
+    def join_classification() -> tuple[list[dict] | None, bool, BaseException | None]:
+        """Task 4, C: waits for the classification and records its calls, once. Every way out of the exchange
+        joins it before the cost is taken (finish), so what C spent is in this exchange's cost and in the record,
+        whichever way the exchange ended. Returns C's parts, whether C could not be completed, and a
+        cancellation C met, for the caller to raise."""
+        if classifying is None:
+            return None, False, None
+        if joined:
+            return joined[0]
+        try:
+            parts_, made = classifying.result()
+            rec.calls(CLASSIFICATION, made, deps.model)
+            got: tuple[list[dict] | None, bool, BaseException | None] = (parts_, False, None)
+        except (StageRejected, StageFailed) as e:
+            rec.calls(CLASSIFICATION, e.calls, deps.model)
+            got = (None, True, None)
+        except ExchangeCancelled as e:
+            rec.calls(CLASSIFICATION, model_calls.calls_made(e), deps.model)
+            got = (None, True, e)
+        except Exception as e:   # a refusal for budget or rate, a breaker: C did not complete
+            rec.calls(CLASSIFICATION, model_calls.calls_made(e), deps.model)
+            operational_log.warning("classification not completed: attempt=%s error=%s", eid, type(e).__name__)
+            got = (None, True, None)
+        joined.append(got)
+        return got
+
     def finish(response: dict, answer: Draft | None = None, failure: str | None = None,
                presented: list[str] | None = None) -> Outcome:
+        join_classification()   # task 4: C's spend and calls belong to this exchange, however it ended
         stage("contract")
         rec.step(CONTRACT)
         spent = cost()
@@ -684,22 +713,11 @@ def run(question: str, history: list[prompts.Exchange], user: dict, deps: Deps,
             return out
 
         def classified() -> tuple[list[dict] | None, bool]:
-            """C's parts, or None and True where C could not be completed. Its calls are recorded here."""
-            if classifying is None:
-                return None, False
-            try:
-                parts_, made = classifying.result()
-            except (StageRejected, StageFailed) as e:
-                rec.calls(CLASSIFICATION, e.calls, deps.model)
-                return None, True
-            except ExchangeCancelled:
-                raise
-            except Exception as e:   # a refusal for budget or rate, a breaker: C did not complete
-                rec.calls(CLASSIFICATION, model_calls.calls_made(e), deps.model)
-                operational_log.warning("classification not completed: attempt=%s error=%s", eid, type(e).__name__)
-                return None, True
-            rec.calls(CLASSIFICATION, made, deps.model)
-            return parts_, False
+            """C's parts, or None and True where C could not be completed. A cancellation ends the exchange."""
+            parts_, failed, cancelled = join_classification()
+            if cancelled is not None:
+                raise cancelled
+            return parts_, failed
 
         def covered(draft: Draft | None, withheld_: bool) -> Outcome:
             """Task 4: what C and B found, applied to the answer (91_COVERAGE_PLAN, section 3)."""
