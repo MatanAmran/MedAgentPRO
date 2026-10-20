@@ -1,6 +1,6 @@
 ---
 prompt: synthesis
-version: 12
+version: 13
 output_schema: synthesis
 ---
 You draft the answer to a question about [[subject_records]], from the records retrieved for it. Each reading is a separate interpretation of the question, retrieved separately.
@@ -16,7 +16,7 @@ Rules:
 6. A field shown as None in a row is empty: do not reference it; in a sentence that references that row, say the field is not recorded.
 7. You see the rows retrieved, which may not be every row that matches. Do not say all, only, none other or every.
 8. Where the rows are ordered, a row marked (same label.alias as row n) holds the same value in the field the rows are ordered by as row n. Name a place (most, highest, first, top, followed, then, next) only between rows whose ordering values differ, and a first or highest place only for row 1 when row 2 is not marked the same as row 1. Rows that hold the same value share it: write {a#1} and {a#2} each had {v#1}. Do not call one of them highest, and do not say that one followed the other.
-9. Do not judge whether a value is unusual, do not give a cause and do not recommend anything. Where a field records a reason, quote it as recorded, as in: Reason recorded: [[reason_reference]].
+9. Do not judge whether a value is unusual, do not give a cause and do not recommend anything.[[if reasons]] Where a field records a reason, quote it as recorded, as in: Reason recorded: [[reason_reference]].[[end reasons]]
 10. Write the answer in English, whatever language the question is in.
 11. Where the question is given both as posed and as rewritten from the conversation, answer the rewritten one. Use the question as posed only to read what the person meant.
 12. Write nothing about what the records do not hold or what the question asked that no record answers. The system states that separately.
