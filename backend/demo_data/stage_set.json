@@ -2,6 +2,7 @@
   "$comment": "Task 14 (chat 20.10, docs/notes/82_STAGE_SET.md): questions by pipeline stage, after the rows of the research doc's section 8. The set measures where the system stands, it does not prove success: a question known to fail today carries expected_gap. An entry with ref takes the question, its plan and its expectations from the demo set or the held-out set, never a copy. Run with python -m tools.real_eval --plans --set stage. NEVER copy these questions into a prompt as examples.",
   "$fields": {
     "category": "the row of 82_STAGE_SET.md the question measures (tools/real_eval.py CATEGORIES)",
+    "book_test": "L13: as in offscript_set.json. An entry with ref takes its source's unless it gives its own",
     "ref": "offscript:<id> or demo:<id>: the question is that one, with its plan and expectations; this entry adds its id, category and expectations of its own",
     "expect.disposition": "the disposition the plan carries",
     "expect.readings": "how many readings the response holds",
@@ -372,6 +373,7 @@
     },
     {
       "id": "VM4",
+      "book_test": [35],
       "category": "value_mapping",
       "user": "AP-01",
       "question": "What did s-001 supply in week 6?",
@@ -604,6 +606,7 @@
     },
     {
       "id": "VR1",
+      "book_test": [13],
       "category": "validation_repair",
       "user": "AP-01",
       "question": "Which lines from S-001 came with a carrier?",
@@ -654,6 +657,7 @@
     },
     {
       "id": "VR2",
+      "book_test": [13],
       "category": "validation_repair",
       "user": "AP-01",
       "question": "What did Apex or S-002 supply?",
@@ -714,6 +718,7 @@
     },
     {
       "id": "VR3",
+      "book_test": [13],
       "category": "validation_repair",
       "user": "AP-01",
       "question": "Which suppliers were late in week 2?",
@@ -845,6 +850,7 @@
     },
     {
       "id": "TR1",
+      "book_test": [34],
       "category": "transparency",
       "ref": "offscript:A1",
       "expect": {
@@ -853,6 +859,7 @@
     },
     {
       "id": "TR2",
+      "book_test": [34],
       "category": "transparency",
       "ref": "offscript:A2",
       "expect": {
@@ -861,6 +868,7 @@
     },
     {
       "id": "TR3",
+      "book_test": [34],
       "category": "transparency",
       "ref": "offscript:B2",
       "expect": {
@@ -1079,6 +1087,7 @@
     },
     {
       "id": "RL3",
+      "book_test": [37],
       "category": "row_limit",
       "user": "AP-01",
       "question": "Which lines were delivered in September?",

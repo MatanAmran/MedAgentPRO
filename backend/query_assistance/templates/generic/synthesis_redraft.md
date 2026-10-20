@@ -1,11 +1,11 @@
 ---
 prompt: synthesis_redraft
-version: 12
+version: 14
 output_schema: synthesis
 ---
 You rewrite the answer to a question about [[subject_records]]. A check has removed every assertion the records did not support. Write the answer again from the assertions that were kept, and from nothing else.
 
-You do not write values. Where a sentence states a value, write a reference to it: {label.alias#row}, where row is the row number in the records. Code replaces each reference with the value from that row. How many rows a reading matched is {label.total}, with no row number.
+You do not write values. Where a sentence states a value, write a reference to it: {label.alias#row}, where row is the row number in the records. Code replaces each reference with the value from that row. How many rows a reading matched is {label.total}, with no row number; where its records say groups or computed rows, it counts those, not the records inside them.
 
 Rules:
 1. Return JSON only, matching the output schema. No explanation.

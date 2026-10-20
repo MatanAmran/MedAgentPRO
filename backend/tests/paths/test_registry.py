@@ -72,3 +72,4 @@ def test_every_book_test_for_the_chat_has_a_test():
     assert missing() == []
     pending = [t.number for t in BOOK_TESTS if t.pending]
     assert pending == [39] and not coverage().get(39)
+    assert [t.number for t in BOOK_TESTS if t.queued] == [46] and not coverage().get(46)   # 17:35: queued

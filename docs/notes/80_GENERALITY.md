@@ -97,7 +97,7 @@
 - **התבניות הכלליות:** ‏`query_assistance/templates/generic/`: ‏`intent_analysis@11`, ‏`question_rewriting@4`, ‏`synthesis@12`, ‏`synthesis_redraft@9` ו-`support_scoring@7`. אין בהן אף מילה מתחום הרכש, ובדיקה אוכפת את זה: רשימת מילים, כי זה טקסט שכתבנו בעצמנו.
 - **המילים של התחום:** ‏`demo_data/prompt_text.json`. ‏12 צירופים, כמו משפט הפתיחה, דוגמה לתנאי בין רשומות והיחידה "days late". כל צירוף ממלא סימן `[[name]]` בתבנית.
 - **הדוגמאות:** ‏`demo_data/examples/<prompt>.md`.
-- **הקוד:** ‏`prompts.for_catalog` ממלא תבנית מהקטלוג, וסימן שהקטלוג לא ממלא נדחה. ‏`prompts.PromptSet` מחזיק את סט הפרומפטים. ‏`Deps.prompt_set` נשאר `None` כברירת מחדל, ואז השרת והדמו רצים על הגרסאות הקפואות (rewrite@3, ‏synthesis@11, ‏redraft@8, ‏gate@6, ו-intent_demo@9). **מאז G-TOTAL (20.10, 17:10):** הקפואות rewrite@5, ‏synthesis@14, ‏redraft@11, ‏gate@8, והכלליות rewrite@6, ‏synthesis@15, ‏redraft@12, ‏gate@9 (ו-intent@14).
+- **הקוד:** ‏`prompts.for_catalog` ממלא תבנית מהקטלוג, וסימן שהקטלוג לא ממלא נדחה. ‏`prompts.PromptSet` מחזיק את סט הפרומפטים. ‏`Deps.prompt_set` נשאר `None` כברירת מחדל, ואז השרת והדמו רצים על הגרסאות הקפואות (rewrite@3, ‏synthesis@11, ‏redraft@8, ‏gate@6, ו-intent_demo@9). **מאז G-TOTAL (20.10, 17:10 ו-18:50):** הקפואות rewrite@7, ‏synthesis@16, ‏redraft@13, ‏gate@8, והכלליות rewrite@8, ‏synthesis@17, ‏redraft@14, ‏gate@9 (ו-intent@14).
 
 **השקילות:** כשממלאים את התבניות הכלליות מקטלוג הדמו, יוצא הגוף של הגרסה הקפואה **תו בתו**. ‏intent@11 שווה ל-@10, והשאר שווים לגרסאות הקפואות. ריצה מלאה של שתי שאלות דמו שולחת למודל את אותו טקסט בכל קריאה. רק הזהות (הגרסה) שונה.
 

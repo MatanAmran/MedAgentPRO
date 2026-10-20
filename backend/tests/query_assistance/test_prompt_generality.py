@@ -25,9 +25,9 @@ CAT = Catalog.load(seed.HERE / "schema.json", seed.HERE / "relations.json")
 # generic file -> (the frozen prompt it follows, the identity it carries)
 LINEAGE = {
     "intent_analysis.md": (seed.HERE / "intent_analysis_demo_v10.md", "intent_analysis@14"),
-    "rewrite.md": ("rewrite.md", "question_rewriting@6"),
-    "synthesis.md": ("synthesis.md", "synthesis@15"),
-    "synthesis_redraft.md": ("synthesis_redraft.md", "synthesis_redraft@12"),
+    "rewrite.md": ("rewrite.md", "question_rewriting@8"),
+    "synthesis.md": ("synthesis.md", "synthesis@17"),
+    "synthesis_redraft.md": ("synthesis_redraft.md", "synthesis_redraft@14"),
     "gate.md": ("gate.md", "support_scoring@9"),
 }
 
@@ -99,7 +99,7 @@ def test_the_server_runs_the_frozen_set():
     deps = pl.Deps(None, "scripted", CAT, lambda: None, None, p.load(seed.HERE / "intent_analysis.md"))
     assert deps.prompts == p.PromptSet.frozen()
     assert [x.identity for x in deps.prompts.__dict__.values()] == [
-        "question_rewriting@5", "synthesis@14", "synthesis_redraft@11", "support_scoring@8"]
+        "question_rewriting@7", "synthesis@16", "synthesis_redraft@13", "support_scoring@8"]
 
 
 class Recording(ModelGateway):
@@ -135,6 +135,6 @@ def test_a_run_on_the_generic_prompts_sends_the_same_prompts(db_path, question):
         return text
     assert [t.replace("\r\n", "\n") for _, t in sent_generic] == [as_changed(i, t) for i, t in sent_frozen]
     assert len(sent_frozen) >= 3
-    assert {i for i, _ in sent_generic} <= {"intent_analysis@14", "synthesis@15", "synthesis_redraft@12",
+    assert {i for i, _ in sent_generic} <= {"intent_analysis@14", "synthesis@17", "synthesis_redraft@14",
                                            "support_scoring@9"}
     assert generic.response == frozen.response

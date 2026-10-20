@@ -14,7 +14,8 @@
   "expect.forbid_in_examined": "text that must not appear in any reading's Examined line",
   "sql": "the expected counts, alternatives: the check passes if any reading matches any of them. compare: total (the reading's total = the rows of the query), rows (the rows shown = the rows of the query), value (a one-row reading holds the query's single value)",
   "forbid_sql": "identifiers that must not be shown, in any row or in the answer text",
-  "watch": "the chat's note, in Hebrew, as written"
+  "watch": "the chat's note, in Hebrew, as written",
+  "book_test": "L13 (chat 20.10, 17:35): the book test or tests (chapter 6, tools/book_tests.py) the question checks on a real model, a number or a list. tools.real_eval reports by it, tools.path_map shows it beside the scripted column"
  },
  "data_as_of": "2026-10-09",
  "exchanges": [
@@ -295,6 +296,7 @@
   },
   {
    "id": "A4",
+   "book_test": [22],
    "user": "AP-01",
    "question": "Why does S-036 keep delivering late?",
    "expect": {
@@ -564,6 +566,7 @@
   },
   {
    "id": "B4",
+   "book_test": [35],
    "user": "AP-01",
    "question": "Which lines were delivered late in September 2025?",
    "expect": {
@@ -731,6 +734,7 @@
   },
   {
    "id": "C1",
+   "book_test": [37],
    "user": "AP-01",
    "question": "How many lines did S-014 deliver in weeks 1 to 13?",
    "expect": {
@@ -1070,6 +1074,7 @@
   },
   {
    "id": "D1",
+   "book_test": [16],
    "user": "AP-01",
    "question": "What is the phone number of S-001?",
    "expect": {
@@ -1128,6 +1133,7 @@
   },
   {
    "id": "D2",
+   "book_test": [16],
    "user": "AP-01",
    "question": "Which lines from S-001 were delivered late, and which carrier brought them?",
    "expect": {
@@ -1227,6 +1233,7 @@
   },
   {
    "id": "D3",
+   "book_test": [35],
    "user": "AP-01",
    "question": "What is on hand for P-99999?",
    "expect": {
@@ -1278,6 +1285,7 @@
   },
   {
    "id": "D4",
+   "book_test": [22],
    "user": "AP-01",
    "question": "List S-036's late lines with their delay reasons.",
    "expect": {
@@ -1361,6 +1369,7 @@
   },
   {
    "id": "E1",
+   "book_test": [22],
    "user": "AP-01",
    "question": "What caused the delays at S-038 in September?",
    "expect": {
@@ -1377,6 +1386,7 @@
   },
   {
    "id": "E2",
+   "book_test": [22],
    "user": "AP-01",
    "question": "Cancel PO-87213.",
    "expect": {
@@ -1393,6 +1403,7 @@
   },
   {
    "id": "E3",
+   "book_test": [22],
    "user": "AP-01",
    "question": "Mark the line for P-10037 as received.",
    "expect": {
@@ -1409,6 +1420,7 @@
   },
   {
    "id": "E4",
+   "book_test": [22],
    "user": "AP-01",
    "question": "Is S-014's late rate unusually high compared to the other suppliers?",
    "expect": {
@@ -1529,6 +1541,7 @@
   },
   {
    "id": "F1b",
+   "book_test": [44],
    "user": "AP-01",
    "chain": "F1",
    "after": "F1a",
@@ -1635,6 +1648,7 @@
   },
   {
    "id": "F1c",
+   "book_test": [44],
    "user": "AP-01",
    "chain": "F1",
    "after": "F1b",
@@ -1744,6 +1758,7 @@
   },
   {
    "id": "F2",
+   "book_test": [44, 37, 17],
    "user": "AP-01",
    "chain": "A1",
    "after": "A1",
@@ -1856,6 +1871,7 @@
   },
   {
    "id": "F3",
+   "book_test": [22],
    "user": "AP-01",
    "question": "What about the other supplier?",
    "expect": {
