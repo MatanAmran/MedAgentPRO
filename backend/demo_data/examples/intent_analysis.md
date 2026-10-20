@@ -26,6 +26,9 @@ Output: {"disposition": "retrieve", "readings": [{"label": "delivered_in_march",
 Question: Why is S-014 late so often?
 Output: {"disposition": "refer_to_investigation"}
 
+Question: What caused PO-87006 to arrive late?
+Output: {"disposition": "refer_to_investigation"}
+
 Question: Update the promised date of PO-87006 to 20 October.
 Output: {"disposition": "out_of_scope_action"}
 

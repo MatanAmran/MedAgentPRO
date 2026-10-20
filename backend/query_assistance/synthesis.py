@@ -82,6 +82,7 @@ class Material:
     id_aliases: set[str] = field(default_factory=set)
     examined: str | None = None
     total: int | None = None
+    unit: prompts.RowUnit | None = None   # G-TOTAL: what a row is, where not a record (contract.row_unit)
 
     def identifier_tokens(self) -> set[str]:
         return {t for row in self.rows for a in self.id_aliases if row.get(a) is not None
@@ -100,7 +101,8 @@ def _plan_values(node: Any) -> list[Any]:
 
 
 def material(label: str, plan: dict, rows: list[dict], truncated: bool = False,
-             cat: Catalog | None = None, examined: str | None = None, total: int | None = None) -> Material:
+             cat: Catalog | None = None, examined: str | None = None, total: int | None = None,
+             unit: prompts.RowUnit | None = None) -> Material:
     """Builds a Material from a reading's plan, so the alias -> column map and the literals
     come from what ran. The catalog says which columns are identifiers."""
     cols = {i["as"]: i["expr"].get("col") for i in plan["SELECT"]}
@@ -108,7 +110,7 @@ def material(label: str, plan: dict, rows: list[dict], truncated: bool = False,
     literals = {t for v in values if not isinstance(v, bool) for t in _tokens_with_digits(format_value(v))}
     ids = {a for a, col in cols.items() if col and cat and (cat.column(col) or {}).get("identifier")}
     return Material(label, rows, cols, plan.get("ORDER_BY", []), truncated, literals, ids, examined,
-                    len(rows) if total is None else total)
+                    len(rows) if total is None else total, unit)
 
 
 @dataclass
@@ -346,9 +348,14 @@ def totals_of(materials: list[Material]) -> dict[str, int]:
     return {m.label: m.total for m in materials if m.total is not None}
 
 
+def units_of(materials: list[Material]) -> dict[str, prompts.RowUnit]:
+    """G-TOTAL: what each grouped or computed reading's rows are, for its count line."""
+    return {m.label: m.unit for m in materials if m.unit is not None}
+
+
 def _records(materials: list[Material]) -> str:
     return prompts.render_records([(m.label, m.rows) for m in materials if m.rows], ordered_by(materials),
-                                  examined_of(materials), totals_of(materials))
+                                  examined_of(materials), totals_of(materials), units_of(materials))
 
 
 def _rejected(rejected: list[str] | None) -> str:

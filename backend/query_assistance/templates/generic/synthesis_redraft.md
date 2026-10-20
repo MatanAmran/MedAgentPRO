@@ -1,6 +1,6 @@
 ---
 prompt: synthesis_redraft
-version: 10
+version: 12
 output_schema: synthesis
 ---
 You rewrite the answer to a question about [[subject_records]]. A check has removed every assertion the records did not support. Write the answer again from the assertions that were kept, and from nothing else.

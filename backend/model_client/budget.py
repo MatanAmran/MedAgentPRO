@@ -359,13 +359,22 @@ class BudgetedGateway(ModelGateway):
             self._refuse_if_over(sum(self.worst_case(n, p) for n, p in zip(input_tokens, names, strict=True)),
                                  self._current.get())
 
+    def sent_config(self, config: ModelConfig) -> ModelConfig:
+        """The config the call goes out with: max_tokens at the lower of its own and the prompt's cap."""
+        cap = self.config.output_cap(config.prompt_identity)
+        return replace(config, max_tokens=min(config.max_tokens or cap, cap))
+
+    def request_settings(self) -> dict:
+        """The gateway behind's part of every request (record and replay key on it, R-1)."""
+        settings = getattr(self.inner, "request_settings", None)
+        return settings() if settings is not None else {}
+
     def invoke(self, prompt: str, config: ModelConfig) -> ModelResponse:
         cfg = self.config
         if config.model != cfg.model_id:
             raise BudgetExceeded(f"model {config.model} is not the one priced in backend/.env", scope="model")
-        cap = cfg.output_cap(config.prompt_identity)
-        max_tokens = min(config.max_tokens or cap, cap)
-        call = replace(config, max_tokens=max_tokens)
+        call = self.sent_config(config)
+        max_tokens = call.max_tokens or 0
         estimated = estimate_input_tokens(prompt)
         tier = price_tier(cfg.model_id)
         if tier is not None and estimated > tier:   # chat 19.10: above it the .env price undercounts

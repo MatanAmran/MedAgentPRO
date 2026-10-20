@@ -22,6 +22,6 @@ Answer:
 2. [vampires] Both are villains.
 Records:
 [vampires] examined: superheroes with races where race = 'Vampire' · computed the number of records
-[vampires] vampires.total = 1 rows matched, 1 shown
+[vampires] vampires.total = 1 computed row matched, 1 shown
 [vampires] row 1: vampires.vampires = 2
 Output: {"claims": [{"sentence": 1, "text": "2 superheroes have the race Vampire.", "verdict": "supported", "evidence": ["vampires.vampires"]}, {"sentence": 2, "text": "Both are villains.", "verdict": "uncovered", "evidence": []}]}

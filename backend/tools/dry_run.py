@@ -164,11 +164,11 @@ def _config(env, argv) -> BudgetConfig:
 # --------------------------------------------------------------------------
 
 SETS = ("demo", "stage", "offscript", "bird")
-# Output tokens of an accepted call, thinking included: the mean of the Sonnet 5.5 calls logged on 18-19.10
-# (docs/notes/05_LOG.md, the "model call" lines), rounded up; synthesis and rewriting from Haiku 5.5's demo
-# round (20.10: 1311 and 233, chat 14:50). The redraft is not yet measured on Haiku: an estimate
-TYPICAL_OUT = {"question_rewriting": 250, "intent_analysis": 900, "intent_analysis_demo": 900, "synthesis": 1300,
-               "synthesis_redraft": 400, "support_scoring": 1100}
+# Output tokens of an accepted call, thinking included: the mean of Haiku 5.5's calls in the round of 20.10
+# (96 questions, 271 calls: intent 765, synthesis 1308, gate 1001, rewriting 444, redraft 882), rounded as the
+# chat set them (16:25)
+TYPICAL_OUT = {"question_rewriting": 450, "intent_analysis": 800, "intent_analysis_demo": 800, "synthesis": 1300,
+               "synthesis_redraft": 900, "support_scoring": 1000}
 # a question that reaches the gate may take the regeneration path once (NFR 19): these two calls more
 REGENERATION = ("synthesis_redraft", "support_scoring")
 

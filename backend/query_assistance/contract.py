@@ -24,6 +24,7 @@ from typing import Any
 from jsonschema import Draft202012Validator
 
 from .compiler import HERE, Catalog, RetrievalResult
+from .prompts import RowUnit
 from .synthesis import format_value
 
 CMP = {"EQ": "=", "NE": "≠", "GT": ">", "GTE": "≥", "LT": "<", "LTE": "≤"}
@@ -95,6 +96,24 @@ def _func(node: dict, cat: Catalog, examined: bool = False) -> str:
         return f"{name}, over {_table(m['entity'], cat)} with {' and '.join(cols)} recorded"
     col = _column(arg["col"], cat)
     return f"count of {col}" if node["func"] == "COUNT" else f"{AGG[node['func']]} {col}"
+
+
+def group_names(plan: dict, cat: Catalog) -> list[str]:
+    """The names a reading's rows are grouped by, as Examined shows them."""
+    named = headers(plan, cat)
+    return [named.get(g, g) for g in plan.get("GROUP_BY", [])]
+
+
+def row_unit(plan: dict, cat: Catalog) -> RowUnit | None:
+    """G-TOTAL and R-3 (chat 20.10, 17:10): what one row of the reading is, from the plan and the catalog only.
+    Grouped: a group, one per what it is grouped by. An aggregate with no GROUP_BY: one computed row. Any other
+    reading: None, a record, and nothing is said. The records synthesis and the gate see, the history, and
+    Examined's "grouped by" all come from here."""
+    if plan.get("GROUP_BY"):
+        return RowUnit("group", "groups", "one per " + ", ".join(group_names(plan, cat)))
+    if any("func" in i["expr"] for i in plan["SELECT"]):
+        return RowUnit("computed row", "computed rows")
+    return None
 
 
 def headers(plan: dict, cat: Catalog) -> dict[str, str]:
@@ -190,7 +209,7 @@ def render_checked(plan: dict, cat: Catalog, role: str, matched: list[dict] | No
     if "WHERE" in plan:
         parts[0] += f" where {_predicate(plan['WHERE'], cat, matched_phrases(matched, cat, by_identifier))}"
     if plan.get("GROUP_BY"):
-        parts.append("grouped by " + ", ".join(named.get(g, g) for g in plan["GROUP_BY"]))
+        parts.append("grouped by " + ", ".join(group_names(plan, cat)))
     aggs = [_func(i["expr"], cat, examined=True) for i in plan["SELECT"] if "func" in i["expr"]]
     if aggs:
         parts.append("computed the " + ", the ".join(aggs))
