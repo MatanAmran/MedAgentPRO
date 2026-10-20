@@ -100,3 +100,25 @@ def test_only_grouped_or_computed_readings_change_what_the_demo_sends(db_path, m
             diff = [(x, y) for x, y in zip(a.splitlines(), b.splitlines(), strict=True) if x != y]
             assert all(("groups" in x or "group " in x or "computed row" in x) for x, _ in diff), diff
     assert changed, "no demo question has a grouped reading: G-TOTAL would change nothing"
+
+
+# the prompts that read each line: the history (ReadingNote) goes to the rewrite; the count line of
+# render_records to synthesis, the redraft and the gate. Frozen and generic both
+READERS = {"history": ["rewrite.md", "generic/rewrite.md"],
+           "records": ["synthesis.md", "generic/synthesis.md", "synthesis_redraft.md", "generic/synthesis_redraft.md",
+                       "gate.md", "generic/gate.md"]}
+
+
+@pytest.mark.parametrize("plan", [GROUPED, COMPUTED], ids=["grouped", "computed"])
+def test_every_unit_code_gives_is_described_in_the_rules_of_each_prompt_that_reads_it(plan):
+    """L2 and L5 (chat 20.10, 18:50, F1 and F2): a kind, not a case. Each unit row_unit can give, as it appears in
+    the history and in the count line, is named in the rules (before the examples) of every prompt reading that
+    line, so a new unit cannot reach a prompt that does not say what it counts."""
+    unit = contract.row_unit(plan, CAT)
+    lines = {"history": p.ReadingNote("r", "x", 2, 2, unit).render(),
+             "records": p.render_records([("r", [{"a": 1}])], totals={"r": 2}, units={"r": unit})}
+    for line, readers in READERS.items():
+        assert unit.many in lines[line]
+        for name in readers:
+            rules = p.load(name).body.split("Examples:")[0]
+            assert unit.many in rules, f"{name} does not say what {unit.many} count"
