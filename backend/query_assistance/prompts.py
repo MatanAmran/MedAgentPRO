@@ -195,6 +195,9 @@ class PromptSet:
     synthesis: Prompt
     redraft: Prompt
     gate: Prompt
+    # task 4, C and B (91_COVERAGE_PLAN): one template each, the same for every catalog (no domain words)
+    classify: Prompt = field(default_factory=lambda: load("classification.md"))
+    coverage: Prompt = field(default_factory=lambda: load("coverage_check.md"))
 
     @classmethod
     def frozen(cls) -> PromptSet:
@@ -210,7 +213,8 @@ class PromptSet:
 # answer, the feedback. What a template holds before the first of them (its instructions, the catalog's
 # schema, the examples, the reference date) is the same for every request of that prompt and catalog: the
 # stable prefix a provider may cache (Phase B task 7, chat 19.10)
-VOLATILE = ("question_block", "question", "history", "answer", "records", "kept", "rejected", "feedback")
+VOLATILE = ("question_block", "question", "history", "answer", "records", "kept", "rejected", "feedback", "parts",
+            "tables", "examined")
 _PLACEHOLDER = re.compile(r"\{\{(\w+)\}\}")
 
 

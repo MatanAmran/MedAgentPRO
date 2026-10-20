@@ -22,6 +22,8 @@ const STAGE_LABEL: Record<string, string> = {
   synthesis: "Drafting",
   support_gate: "Checking",
   regeneration: "Redrafting",
+  question_classification: "Classifying", // task 4, C: what each part asks, beside retrieval and synthesis
+  coverage_check: "Checking coverage", // task 4, B
 };
 
 function isScripted(call: TraceCall): boolean {

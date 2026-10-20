@@ -49,6 +49,7 @@
      "readings": [
       {
        "label": "late_by_delivery",
+       "asked": "List the suppliers that delivered late during weeks 1 through 13.",
        "plan": {
         "SELECT": [
          {
@@ -144,6 +145,7 @@
      "readings": [
       {
        "label": "late_orders",
+       "asked": "Show me the September purchase orders that arrived late.",
        "plan": {
         "SELECT": [
          {
@@ -237,6 +239,7 @@
      "readings": [
       {
        "label": "missed_promise",
+       "asked": "Which vendors missed their committed dates in weeks 1-13?",
        "plan": {
         "SELECT": [
          {
@@ -296,7 +299,7 @@
   },
   {
    "id": "A4",
-   "book_test": [22],
+   "book_test": [22, 47],
    "user": "AP-01",
    "question": "Why does S-036 keep delivering late?",
    "expect": {
@@ -341,6 +344,7 @@
      "readings": [
       {
        "label": "open_due_november",
+       "asked": "Which open lines are due in November?",
        "plan": {
         "SELECT": [
          {
@@ -433,6 +437,7 @@
      "readings": [
       {
        "label": "delivered_september",
+       "asked": "Which lines were delivered last month?",
        "plan": {
         "SELECT": [
          {
@@ -505,6 +510,7 @@
      "readings": [
       {
        "label": "delivered_august",
+       "asked": "Which lines did S-001 deliver between 1 and 15 August?",
        "plan": {
         "SELECT": [
          {
@@ -598,6 +604,7 @@
      "readings": [
       {
        "label": "late_september_2025",
+       "asked": "Which lines were delivered late in September 2025?",
        "plan": {
         "SELECT": [
          {
@@ -687,6 +694,7 @@
      "readings": [
       {
        "label": "promised_december",
+       "asked": "Which lines have a promised date in December?",
        "plan": {
         "SELECT": [
          {
@@ -764,6 +772,7 @@
      "readings": [
       {
        "label": "delivered_count",
+       "asked": "How many lines did S-014 deliver in weeks 1 to 13?",
        "plan": {
         "SELECT": [
          {
@@ -833,6 +842,7 @@
      "readings": [
       {
        "label": "open_value",
+       "asked": "What is the total value of open purchase orders with S-001?",
        "plan": {
         "SELECT": [
          {
@@ -910,6 +920,7 @@
      "readings": [
       {
        "label": "most_late",
+       "asked": "Which five suppliers had the most late lines this year?",
        "plan": {
         "SELECT": [
          {
@@ -997,6 +1008,7 @@
      "readings": [
       {
        "label": "average_days_late",
+       "asked": "What is the average number of days late for S-038?",
        "plan": {
         "SELECT": [
          {
@@ -1043,6 +1055,7 @@
      "readings": [
       {
        "label": "average_days_late",
+       "asked": "What is the average number of days late for S-038?",
        "plan": {
         "SELECT": [
          {
@@ -1090,6 +1103,7 @@
      "readings": [
       {
        "label": "supplier",
+       "asked": "What is the phone number of S-001?",
        "plan": {
         "SELECT": [
          {
@@ -1133,7 +1147,7 @@
   },
   {
    "id": "D2",
-   "book_test": [16],
+   "book_test": [16, 47],
    "user": "AP-01",
    "question": "Which lines from S-001 were delivered late, and which carrier brought them?",
    "expect": {
@@ -1158,6 +1172,7 @@
      "readings": [
       {
        "label": "late_lines",
+       "asked": "Which lines from S-001 were delivered late",
        "plan": {
         "SELECT": [
          {
@@ -1251,6 +1266,7 @@
      "readings": [
       {
        "label": "on_hand",
+       "asked": "What is on hand for P-99999?",
        "plan": {
         "SELECT": [
          {
@@ -1285,7 +1301,7 @@
   },
   {
    "id": "D4",
-   "book_test": [22],
+   "book_test": [22, 47],
    "user": "AP-01",
    "question": "List S-036's late lines with their delay reasons.",
    "expect": {
@@ -1309,6 +1325,7 @@
      "readings": [
       {
        "label": "late_with_reasons",
+       "asked": "List S-036's late lines with their delay reasons.",
        "plan": {
         "SELECT": [
          {
@@ -1369,7 +1386,7 @@
   },
   {
    "id": "E1",
-   "book_test": [22],
+   "book_test": [22, 47],
    "user": "AP-01",
    "question": "What caused the delays at S-038 in September?",
    "expect": {
@@ -1420,7 +1437,7 @@
   },
   {
    "id": "E4",
-   "book_test": [22],
+   "book_test": [22, 47],
    "user": "AP-01",
    "question": "Is S-014's late rate unusually high compared to the other suppliers?",
    "expect": {
@@ -1466,6 +1483,7 @@
      "readings": [
       {
        "label": "late_germany",
+       "asked": "Which suppliers in Germany delivered late in weeks 1 to 13?",
        "plan": {
         "SELECT": [
          {
@@ -1573,6 +1591,7 @@
      "readings": [
       {
        "label": "late_germany",
+       "asked": "Which suppliers in Germany delivered late in weeks 14 to 26?",
        "plan": {
         "SELECT": [
          {
@@ -1683,6 +1702,7 @@
      "readings": [
       {
        "label": "late_netherlands",
+       "asked": "Which suppliers in the Netherlands delivered late in weeks 14 to 26?",
        "plan": {
         "SELECT": [
          {
@@ -1794,6 +1814,7 @@
      "readings": [
       {
        "label": "late_lines",
+       "asked": "Which lines did S-014 deliver late in weeks 1 to 13?",
        "plan": {
         "SELECT": [
          {
@@ -1902,6 +1923,7 @@
      "readings": [
       {
        "label": "open_lines",
+       "asked": "Which open lines does PL-03 have?",
        "plan": {
         "SELECT": [
          {
@@ -1996,6 +2018,7 @@
      "readings": [
       {
        "label": "receipts_september",
+       "asked": "Which goods receipts were posted in September?",
        "plan": {
         "SELECT": [
          {
@@ -2071,6 +2094,7 @@
      "readings": [
       {
        "label": "late_by_delivery",
+       "asked": "wich suplier was late in weks 1-13",
        "plan": {
         "SELECT": [
          {
@@ -2159,6 +2183,7 @@
      "readings": [
       {
        "label": "late_by_delivery",
+       "asked": "אילו ספקים איחרו בשבועות 1 עד 13?",
        "plan": {
         "SELECT": [
          {

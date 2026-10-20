@@ -87,7 +87,7 @@ def storage():
 
 def deps(gw, db_path, storage, connect=None, audit=None):
     audit = audit or AuditRepository(storage, CircuitBreaker("system_store", MemoryStore()), b"test-key")
-    return pl.Deps(gw, "demo", CAT, connect or (lambda: sqlite3.connect(db_path)), audit, INTENT_PROMPT)
+    return pl.Deps(gw, "demo", CAT, connect or (lambda: sqlite3.connect(db_path)), audit, INTENT_PROMPT, coverage=False)
 
 
 def trail(storage, eid):

@@ -32,6 +32,7 @@
      "readings": [
       {
        "label": "late_by_delivery",
+       "asked": "Which suppliers were late in weeks 1 to 13?",
        "plan": {
         "SELECT": [
          {
@@ -115,6 +116,7 @@
      "readings": [
       {
        "label": "late_by_delivery",
+       "asked": "What is the total value of the open orders of the suppliers that were late in weeks 1 to 13?",
        "plan": {
         "SELECT": [
          {
@@ -171,7 +173,7 @@
      ],
      "unresolved": [
       {
-       "asked": "What is the total value of their open orders?",
+       "asked": "What is the total value of the open orders of the suppliers that were late in weeks 1 to 13?",
        "needs": {
         "kind": "cross_record_condition",
         "entity": "suppliers"
@@ -211,6 +213,7 @@
      "readings": [
       {
        "label": "late_lines",
+       "asked": "Which lines were delivered late in September?",
        "plan": {
         "SELECT": [
          {
@@ -303,6 +306,7 @@
      "readings": [
       {
        "label": "no_late",
+       "asked": "Which suppliers delivered nothing late in weeks 1 to 13?",
        "plan": {
         "SELECT": [
          {
@@ -381,6 +385,7 @@
      "readings": [
       {
        "label": "late_sep",
+       "asked": "Which suppliers were late in September",
        "plan": {
         "SELECT": [
          {
@@ -477,6 +482,7 @@
      "readings": [
       {
        "label": "late_by_delivery",
+       "asked": "Which supplier had the most late lines in weeks 1 to 13?",
        "plan": {
         "SELECT": [
          {
@@ -561,6 +567,7 @@
      "readings": [
       {
        "label": "receipts",
+       "asked": "How many goods receipts were posted in September?",
        "plan": {
         "SELECT": [
          {
@@ -592,6 +599,7 @@
      "readings": [
       {
        "label": "receipts",
+       "asked": "How many goods receipts were posted in September?",
        "plan": {
         "SELECT": [
          {
@@ -653,6 +661,7 @@
      "readings": [
       {
        "label": "delivered",
+       "asked": "What did S-001, S-002, S-003, S-004, S-005, S-006, S-007, S-008, S-009, S-010, S-011, S-012, S-013, S-014, S-015, S-016, S-017, S-018, S-019, S-020, S-021 and S-022 deliver in September?",
        "plan": {
         "SELECT": [
          {
@@ -817,6 +826,7 @@
      "readings": [
       {
        "label": "late_israel",
+       "asked": "Which suppliers in Israel were late in weeks 1 to 13?",
        "plan": {
         "SELECT": [
          {
@@ -915,6 +925,7 @@
      "readings": [
       {
        "label": "open_value_israel",
+       "asked": "What are the open order values of the suppliers in Israel that were late in weeks 1 to 13?",
        "plan": {
         "SELECT": [
          {
@@ -1010,6 +1021,7 @@
      "readings": [
       {
        "label": "last_week",
+       "asked": "Which lines were delivered last week?",
        "plan": {
         "SELECT": [
          {
@@ -1085,6 +1097,7 @@
      "readings": [
       {
        "label": "my_late_lines",
+       "asked": "Which of my lines were delivered late in September?",
        "plan": {
         "SELECT": [
          {
@@ -1176,6 +1189,7 @@
      "readings": [
       {
        "label": "my_late_lines",
+       "asked": "Which of my lines were delivered late in September?",
        "plan": {
         "SELECT": [
          {

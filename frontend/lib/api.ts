@@ -82,12 +82,18 @@ export const api = {
     user: DemoUserId,
     conversationId: string,
     question: string,
-    opts: { requestId: string; onStage?: (s: Stage) => void; signal?: AbortSignal },
+    opts: {
+      requestId: string;
+      onStage?: (s: Stage) => void;
+      signal?: AbortSignal;
+      // task 4: a part an earlier answer did not answer; the server takes the part and its question itself
+      partOf?: { exchange_id: string; part: number };
+    },
   ): Promise<Omit<ExchangeItem, "posed" | "rating" | "at">> {
     const res = await fetch(`${API_BASE}/api/conversations/${conversationId}/exchanges`, {
       method: "POST",
       headers: { "Content-Type": "application/json", "X-Demo-User": user },
-      body: JSON.stringify({ question, request_id: opts.requestId }),
+      body: JSON.stringify({ question, request_id: opts.requestId, ...(opts.partOf ? { part_of: opts.partOf } : {}) }),
       signal: opts.signal,
     });
     if (!res.ok || !res.body) throw new ApiError(res.status, await detail(res));

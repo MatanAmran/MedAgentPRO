@@ -56,6 +56,19 @@ MATCH_CONTAINS_MIN = 3
 MAX_CANDIDATES_DEFAULT = 5
 CMP_SQL = {"EQ": "=", "NE": "<>", "GT": ">", "GTE": ">=", "LT": "<", "LTE": "<="}
 
+# Task 4, A (91_COVERAGE_PLAN, chat 20.10, 22:30) [proposal, not in the book]: the words of a question that no part
+# has to quote, connecting and question words, English and Hebrew (decision 7). A closed list over the question
+# the person wrote, never over model text. Hebrew prefixes are not split: a span quotes them anyway
+FUNCTION_WORDS = frozenset({
+    "a", "an", "the", "and", "or", "but", "of", "in", "on", "at", "to", "for", "from", "by", "with", "about", "as",
+    "between", "is", "are", "was", "were", "be", "been", "do", "does", "did", "have", "has", "had", "which", "what",
+    "who", "whom", "whose", "when", "where", "how", "i", "me", "we", "us", "you", "it", "its", "they", "them",
+    "their", "this", "that", "these", "those", "there", "show", "list", "give", "tell", "please", "can", "could",
+    "would", "also", "any", "each", "so", "if",
+    "של", "את", "מה", "מי", "אילו", "איזה", "איזו", "האם", "כמה", "עם", "על", "גם", "או", "ו",
+})
+_WORD = re.compile(r"[^\W_]+(?:[-'’][^\W_]+)*")   # a word, with an inner hyphen or apostrophe: S-014, S-038's
+
 
 # --------------------------------------------------------------------------
 # errors and results
@@ -154,6 +167,7 @@ class CompiledIntent:
     readings: list[CompiledReading] = field(default_factory=list)
     unresolved: list = field(default_factory=list)
     intent: dict = field(default_factory=dict)   # the intent compiled, values normalised (A2)
+    uncovered: list[str] = field(default_factory=list)   # task 4, A: parts of the question no asked quotes
 
 
 @dataclass
@@ -688,6 +702,32 @@ class _ReadingCompiler:
 # intent-level checks and entry points
 # --------------------------------------------------------------------------
 
+def _words(text: str) -> list[re.Match]:
+    return list(_WORD.finditer(text))
+
+
+def uncovered(question: str, spans: list[str]) -> list[str]:
+    """Task 4, A: the parts of the question as posed that no span quotes. A word counts unless it is a
+    FUNCTION_WORD; it is covered where it is a word of some span. Each part is a run of uncovered words, with the
+    function words between them, as the question writes it. Empty where every word is covered."""
+    covered = {m.group().casefold() for s in spans for m in _words(s)}
+    parts, start, end = [], None, None
+    for m in _words(question):
+        w = m.group().casefold()
+        if w in FUNCTION_WORDS:
+            continue
+        if w in covered:
+            if start is not None:
+                parts.append(question[start:end])
+                start = None
+            continue
+        start = m.start() if start is None else start
+        end = m.end()
+    if start is not None:
+        parts.append(question[start:end])
+    return parts
+
+
 def _check_span(text: str, conv: Conversation, what: str):
     sources = [conv.question] + ([conv.rewritten] if conv.rewritten else [])
     if not any(_norm(text) in _norm(src) for src in sources):
@@ -754,6 +794,8 @@ def compile_intent(intent: dict, question: "str | Conversation", user: dict, cat
         _check_gap_entity(cat, u["needs"])
 
     readings = intent["readings"]
+    for r in readings:   # task 4, A: the part a reading answers is the person's own words
+        _check_span(r["asked"], conv, "reading.asked")
     for r in readings:   # a name the user wrote is a span of the question (chat 20.10)
         for node in _matches(r["plan"].get("WHERE")):
             _check_span(node["term"], conv, "MATCHES term")
@@ -778,7 +820,8 @@ def compile_intent(intent: dict, question: "str | Conversation", user: dict, cat
         rc = _ReadingCompiler(cat, user, r, row_limit)
         compiled.append(rc.compile())
         _check_provenance(rc.named_ids, conv, r["label"], exempt)
-    return CompiledIntent("retrieve", compiled, intent.get("unresolved", []), intent)
+    spans = [r["asked"] for r in readings] + [u["asked"] for u in intent.get("unresolved", [])]
+    return CompiledIntent("retrieve", compiled, intent.get("unresolved", []), intent, uncovered(conv.question, spans))
 
 
 # --------------------------------------------------------------------------

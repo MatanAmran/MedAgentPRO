@@ -6,63 +6,63 @@
       "question": "Who is the publisher of Sauron?",
       "sql": "SELECT T2.publisher_name FROM superhero AS T1 INNER JOIN publisher AS T2 ON T1.publisher_id = T2.id WHERE T1.superhero_name = 'Sauron'",
       "compare": {"columns": ["publisher_name"], "mode": "set"},
-      "plan": {"disposition": "retrieve", "readings": [{"label": "publisher", "plan": {"SELECT": [{"expr": {"col": "superhero.superhero_name"}, "as": "superhero_name"}, {"expr": {"col": "publisher.publisher_name"}, "as": "publisher_name"}], "FROM": "superhero", "JOIN": [{"rel": "superhero_publisher", "type": "INNER"}], "WHERE": {"EQ": [{"col": "superhero.superhero_name"}, {"value": "Sauron"}]}}}]}
+      "plan": {"disposition": "retrieve", "readings": [{"label": "publisher", "asked": "Who is the publisher of Sauron?", "plan": {"SELECT": [{"expr": {"col": "superhero.superhero_name"}, "as": "superhero_name"}, {"expr": {"col": "publisher.publisher_name"}, "as": "publisher_name"}], "FROM": "superhero", "JOIN": [{"rel": "superhero_publisher", "type": "INNER"}], "WHERE": {"EQ": [{"col": "superhero.superhero_name"}, {"value": "Sauron"}]}}}]}
     },
     {
       "id": 742,
       "question": "How many vampire superheroes are there?",
       "sql": "SELECT COUNT(T1.superhero_name) FROM superhero AS T1 INNER JOIN race AS T2 ON T1.race_id = T2.id WHERE T2.race = 'Vampire'",
       "compare": {"columns": ["vampires"], "mode": "value"},
-      "plan": {"disposition": "retrieve", "readings": [{"label": "vampires", "plan": {"SELECT": [{"expr": {"func": "COUNT", "arg": "*"}, "as": "vampires"}], "FROM": "superhero", "JOIN": [{"rel": "superhero_race", "type": "INNER"}], "WHERE": {"EQ": [{"col": "race.race"}, {"value": "Vampire"}]}}}]}
+      "plan": {"disposition": "retrieve", "readings": [{"label": "vampires", "asked": "How many vampire superheroes are there?", "plan": {"SELECT": [{"expr": {"func": "COUNT", "arg": "*"}, "as": "vampires"}], "FROM": "superhero", "JOIN": [{"rel": "superhero_race", "type": "INNER"}], "WHERE": {"EQ": [{"col": "race.race"}, {"value": "Vampire"}]}}}]}
     },
     {
       "id": 813,
       "question": "Calculate the average attribute value of all neutral superheroes.",
       "sql": "SELECT AVG(T1.attribute_value) FROM hero_attribute AS T1 INNER JOIN superhero AS T2 ON T1.hero_id = T2.id INNER JOIN alignment AS T3 ON T2.alignment_id = T3.id WHERE T3.alignment = 'Neutral'",
       "compare": {"columns": ["avg_value"], "mode": "value"},
-      "plan": {"disposition": "retrieve", "readings": [{"label": "neutral_average", "plan": {"SELECT": [{"expr": {"func": "AVG", "arg": {"col": "hero_attribute.attribute_value"}}, "as": "avg_value"}], "FROM": "hero_attribute", "JOIN": [{"rel": "hero_attribute_hero", "type": "INNER"}, {"rel": "superhero_alignment", "type": "INNER"}], "WHERE": {"EQ": [{"col": "alignment.alignment"}, {"value": "Neutral"}]}}}]}
+      "plan": {"disposition": "retrieve", "readings": [{"label": "neutral_average", "asked": "Calculate the average attribute value of all neutral superheroes.", "plan": {"SELECT": [{"expr": {"func": "AVG", "arg": {"col": "hero_attribute.attribute_value"}}, "as": "avg_value"}], "FROM": "hero_attribute", "JOIN": [{"rel": "hero_attribute_hero", "type": "INNER"}, {"rel": "superhero_alignment", "type": "INNER"}], "WHERE": {"EQ": [{"col": "alignment.alignment"}, {"value": "Neutral"}]}}}]}
     },
     {
       "id": 776,
       "question": "Provide the hero name and race of Charles Chandler.",
       "sql": "SELECT T1.superhero_name, T2.race FROM superhero AS T1 INNER JOIN race AS T2 ON T1.race_id = T2.id WHERE T1.full_name = 'Charles Chandler'",
       "compare": {"columns": ["superhero_name", "race"], "mode": "set"},
-      "plan": {"disposition": "retrieve", "readings": [{"label": "hero_and_race", "plan": {"SELECT": [{"expr": {"col": "superhero.superhero_name"}, "as": "superhero_name"}, {"expr": {"col": "race.race"}, "as": "race"}], "FROM": "superhero", "JOIN": [{"rel": "superhero_race", "type": "INNER"}], "WHERE": {"EQ": [{"col": "superhero.full_name"}, {"value": "Charles Chandler"}]}}}]}
+      "plan": {"disposition": "retrieve", "readings": [{"label": "hero_and_race", "asked": "Provide the hero name and race of Charles Chandler.", "plan": {"SELECT": [{"expr": {"col": "superhero.superhero_name"}, "as": "superhero_name"}, {"expr": {"col": "race.race"}, "as": "race"}], "FROM": "superhero", "JOIN": [{"rel": "superhero_race", "type": "INNER"}], "WHERE": {"EQ": [{"col": "superhero.full_name"}, {"value": "Charles Chandler"}]}}}]}
     },
     {
       "id": 784,
       "question": "Provide the full names of vampire heroes.",
       "sql": "SELECT T1.full_name FROM superhero AS T1 INNER JOIN race AS T2 ON T1.race_id = T2.id WHERE T2.race = 'Vampire'",
       "compare": {"columns": ["full_name"], "mode": "bag"},
-      "plan": {"disposition": "retrieve", "readings": [{"label": "vampire_names", "plan": {"SELECT": [{"expr": {"col": "superhero.superhero_name"}, "as": "superhero_name"}, {"expr": {"col": "superhero.full_name"}, "as": "full_name"}], "FROM": "superhero", "JOIN": [{"rel": "superhero_race", "type": "INNER"}], "WHERE": {"EQ": [{"col": "race.race"}, {"value": "Vampire"}]}}}]}
+      "plan": {"disposition": "retrieve", "readings": [{"label": "vampire_names", "asked": "Provide the full names of vampire heroes.", "plan": {"SELECT": [{"expr": {"col": "superhero.superhero_name"}, "as": "superhero_name"}, {"expr": {"col": "superhero.full_name"}, "as": "full_name"}], "FROM": "superhero", "JOIN": [{"rel": "superhero_race", "type": "INNER"}], "WHERE": {"EQ": [{"col": "race.race"}, {"value": "Vampire"}]}}}]}
     },
     {
       "id": 771,
       "question": "List the name of superheroes with flight power.",
       "sql": "SELECT T1.superhero_name FROM superhero AS T1 INNER JOIN hero_power AS T2 ON T1.id = T2.hero_id INNER JOIN superpower AS T3 ON T2.power_id = T3.id WHERE T3.power_name = 'Flight'",
       "compare": {"columns": ["superhero_name"], "mode": "bag"},
-      "plan": {"disposition": "retrieve", "readings": [{"label": "flight", "plan": {"SELECT": [{"expr": {"col": "superhero.superhero_name"}, "as": "superhero_name"}], "FROM": "hero_power", "JOIN": [{"rel": "hero_power_hero", "type": "INNER"}, {"rel": "hero_power_power", "type": "INNER"}], "WHERE": {"EQ": [{"col": "superpower.power_name"}, {"value": "Flight"}]}}}]}
+      "plan": {"disposition": "retrieve", "readings": [{"label": "flight", "asked": "List the name of superheroes with flight power.", "plan": {"SELECT": [{"expr": {"col": "superhero.superhero_name"}, "as": "superhero_name"}], "FROM": "hero_power", "JOIN": [{"rel": "hero_power_hero", "type": "INNER"}, {"rel": "hero_power_power", "type": "INNER"}], "WHERE": {"EQ": [{"col": "superpower.power_name"}, {"value": "Flight"}]}}}]}
     },
     {
       "id": 737,
       "question": "What is Copycat's race?",
       "sql": "SELECT T2.race FROM superhero AS T1 INNER JOIN race AS T2 ON T1.race_id = T2.id WHERE T1.superhero_name = 'Copycat'",
       "compare": {"columns": ["race"], "mode": "set"},
-      "plan": {"disposition": "retrieve", "readings": [{"label": "race", "plan": {"SELECT": [{"expr": {"col": "superhero.superhero_name"}, "as": "superhero_name"}, {"expr": {"col": "race.race"}, "as": "race"}], "FROM": "superhero", "JOIN": [{"rel": "superhero_race", "type": "INNER"}], "WHERE": {"EQ": [{"col": "superhero.superhero_name"}, {"value": "Copycat"}]}}}]}
+      "plan": {"disposition": "retrieve", "readings": [{"label": "race", "asked": "What is Copycat's race?", "plan": {"SELECT": [{"expr": {"col": "superhero.superhero_name"}, "as": "superhero_name"}, {"expr": {"col": "race.race"}, "as": "race"}], "FROM": "superhero", "JOIN": [{"rel": "superhero_race", "type": "INNER"}], "WHERE": {"EQ": [{"col": "superhero.superhero_name"}, {"value": "Copycat"}]}}}]}
     },
     {
       "id": 731,
       "question": "How many superheroes did DC Comics publish?",
       "sql": "SELECT COUNT(T1.id) FROM superhero AS T1 INNER JOIN publisher AS T2 ON T1.publisher_id = T2.id WHERE T2.publisher_name = 'DC Comics'",
       "compare": {"columns": ["dc_heroes"], "mode": "value"},
-      "plan": {"disposition": "retrieve", "readings": [{"label": "dc", "plan": {"SELECT": [{"expr": {"func": "COUNT", "arg": "*"}, "as": "dc_heroes"}], "FROM": "superhero", "JOIN": [{"rel": "superhero_publisher", "type": "INNER"}], "WHERE": {"EQ": [{"col": "publisher.publisher_name"}, {"value": "DC Comics"}]}}}]}
+      "plan": {"disposition": "retrieve", "readings": [{"label": "dc", "asked": "How many superheroes did DC Comics publish?", "plan": {"SELECT": [{"expr": {"func": "COUNT", "arg": "*"}, "as": "dc_heroes"}], "FROM": "superhero", "JOIN": [{"rel": "superhero_publisher", "type": "INNER"}], "WHERE": {"EQ": [{"col": "publisher.publisher_name"}, {"value": "DC Comics"}]}}}]}
     },
     {
       "id": 734,
       "question": "What is the publisher's name of Blue Beetle II?",
       "sql": "SELECT T2.publisher_name FROM superhero AS T1 INNER JOIN publisher AS T2 ON T1.publisher_id = T2.id WHERE T1.superhero_name = 'Blue Beetle II'",
       "compare": {"columns": ["publisher_name"], "mode": "set"},
-      "plan": {"disposition": "retrieve", "readings": [{"label": "publisher", "plan": {"SELECT": [{"expr": {"col": "superhero.superhero_name"}, "as": "superhero_name"}, {"expr": {"col": "publisher.publisher_name"}, "as": "publisher_name"}], "FROM": "superhero", "JOIN": [{"rel": "superhero_publisher", "type": "INNER"}], "WHERE": {"EQ": [{"col": "superhero.superhero_name"}, {"value": "Blue Beetle II"}]}}}]}
+      "plan": {"disposition": "retrieve", "readings": [{"label": "publisher", "asked": "What is the publisher's name of Blue Beetle II?", "plan": {"SELECT": [{"expr": {"col": "superhero.superhero_name"}, "as": "superhero_name"}, {"expr": {"col": "publisher.publisher_name"}, "as": "publisher_name"}], "FROM": "superhero", "JOIN": [{"rel": "superhero_publisher", "type": "INNER"}], "WHERE": {"EQ": [{"col": "superhero.superhero_name"}, {"value": "Blue Beetle II"}]}}}]}
     }
   ]
 }

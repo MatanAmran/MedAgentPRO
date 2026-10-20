@@ -48,7 +48,7 @@ def scripted(db_path):
 
 def fake(db_path, tmp_path, monkeypatch, **override):
     monkeypatch.setenv("MEDAGENTPRO_CHAIN_KEY", "test-chain-key")
-    # the demo's per-exchange cap; build_app's own (0.148) stops question 3 on purpose, for another test
+    # the demo's per-exchange cap; build_app's own (0.187) stops question 3 on purpose, for another test
     app, _ = build_app(db_path, tmp_path, panel=True, **{"MODEL_MAX_USD_PER_EXCHANGE": "0.25", **override})
     return TestClient(app)
 
@@ -86,16 +86,19 @@ def test_a_row_holds_the_whitelisted_fields_only(scripted):
     out, cid = ask(scripted, TWO)
     t = out["trace"]
     assert scripted.get("/api/health").json()["panel"] is True
-    assert [c["stage"] for c in t["calls"]] == ["intent_analysis", "synthesis", "support_gate"]
+    # task 4: the classification runs beside retrieval and synthesis, and is recorded when joined, after the gate
+    assert [c["stage"] for c in t["calls"]] == ["intent_analysis", "synthesis", "support_gate",
+                                                "question_classification"]
     assert all(set(c) == set(panel_trace.FIELDS) for c in t["calls"])
     assert set(t) == {"calls", "total", "unpriced_usd", "not_sent", "note"}
     assert scripted.get(f"/api/conversations/{cid}", headers=AP).json()["exchanges"][0]["trace"] == t
 
 
 def test_the_gate_row_counts_its_claims(scripted):
-    gate = ask(scripted, TWO)[0]["trace"]["calls"][-1]
-    assert gate["stage"] == "support_gate" and gate["claims"] >= 1
-    assert all(c["claims"] is None for c in ask(scripted, TWO)[0]["trace"]["calls"][:-1])
+    calls = ask(scripted, TWO)[0]["trace"]["calls"]
+    gate, = [c for c in calls if c["stage"] == "support_gate"]
+    assert gate["claims"] >= 1
+    assert all(c["claims"] is None for c in calls if c["stage"] != "support_gate")
 
 
 def test_no_question_model_text_record_value_or_key_in_the_trace(db_path, tmp_path, monkeypatch):
@@ -140,7 +143,7 @@ def test_a_rejection_shows_its_check_never_its_message(db_path):
 
     audit = AuditRepository(MemoryStorage(), CircuitBreaker("system_store", MemoryStore()), b"k")
     deps = pl.Deps(ScriptedModelGateway(answer), "demo", CAT, lambda: sqlite3.connect(db_path), audit,
-                   p.load(seed.HERE / "intent_analysis.md"))
+                   p.load(seed.HERE / "intent_analysis.md"), coverage=False)
     calls: list[CallTrace] = []
     outcome = pl.run(TWO, [], {"role": "APPROVER", "user_id": "AP-01"}, deps, on_call=calls.append)
     t = panel_trace.build(calls, outcome.response, outcome.cost)
@@ -157,7 +160,7 @@ def test_a_rejection_shows_its_check_never_its_message(db_path):
 
 def test_scripted_calls_cost_zero_not_unknown(scripted):
     t = ask(scripted, TWO)[0]["trace"]
-    assert [c["cost_usd"] for c in t["calls"]] == [0.0, 0.0, 0.0]
+    assert [c["cost_usd"] for c in t["calls"]] == [0.0, 0.0, 0.0, 0.0]
     assert t["total"]["usd"] == 0.0 and t["unpriced_usd"] is None
 
 
@@ -180,7 +183,7 @@ def test_real_path_rows_cost_what_the_exchange_cost(db_path, tmp_path, monkeypat
     assert sum(c["cost_usd"] for c in t["calls"]) == pytest.approx(out["cost"]["exchange_usd"], abs=2e-6)
     assert t["total"]["usd"] == out["cost"]["exchange_usd"] and t["unpriced_usd"] is None
     assert {c["stage"]: c["max_tokens"] for c in t["calls"]} == {
-        "intent_analysis": 3000, "synthesis": 2000, "support_gate": 2500}
+        "intent_analysis": 3000, "synthesis": 2000, "support_gate": 2500, "question_classification": 2000}
     assert t["total"]["input_tokens"] == sum(c["input_tokens"] for c in t["calls"])
 
 
@@ -201,8 +204,10 @@ def test_a_charge_with_no_priced_row_is_shown_as_unpriced():
 def test_a_note_says_why_no_answer_was_drafted(scripted, question, note):
     t = ask(scripted, question)[0]["trace"]
     assert t["note"] == note and t["not_sent"] is None
-    if note:
+    if note == "plan_decided":
         assert [c["stage"] for c in t["calls"]] == ["intent_analysis"]
+    elif note:   # task 4: a question that retrieves is classified, records or none
+        assert [c["stage"] for c in t["calls"]] == ["intent_analysis", "question_classification"]
 
 
 def test_the_note_is_keyed_by_outcome_not_by_question():

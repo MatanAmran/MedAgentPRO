@@ -157,7 +157,8 @@ def test_scripted_run_passes_its_checks(db_path, conn):
     assert by["S5"].examined["not_held"] is True
     assert by["S2"].response["understood_as"] and by["S2"].examined["forbid"] is True
     assert by["S4"].status == "action_declined" and not by["S4"].calls[1:]
-    assert [c["stage"] for c in by["S1"].calls] == ["intent_analysis", "synthesis", "support_gate"]
+    assert [c["stage"] for c in by["S1"].calls] == ["intent_analysis", "synthesis", "support_gate",
+                                                    "question_classification"]
     assert [s["stage"] for s in by["S1"].stages][:2] == ["intent", "retrieval"]
     assert run.spent == 0 and run.stopped is None
 

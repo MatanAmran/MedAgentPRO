@@ -73,6 +73,7 @@ from tools.book_tests import BOOK_TESTS
 
 SET_FILE = seed.HERE / "offscript_set.json"
 STAGE_SET_FILE = seed.HERE / "stage_set.json"
+PROBE_SET_FILE = seed.HERE / "probe_set.json"   # task 4: H4 enters the stage set by ref (chat 20.10, 22:30)
 REPO = Path(__file__).resolve().parents[2]
 DEFAULT_MAX_USD = 2.0
 MAX_RATE_WAITS = 5
@@ -113,7 +114,8 @@ def load_stage_set(path: Path = STAGE_SET_FILE, catalog: Catalog | None = None) 
     too, so the question it follows must be in this set as well."""
     raw = json.loads(Path(path).read_text(encoding="utf-8"))["exchanges"]
     sources = {"offscript": {it["id"]: it for it in load_set(SET_FILE, catalog)},
-               "demo": {it["id"]: it for it in demo_set()}}
+               "demo": {it["id"]: it for it in demo_set()},
+               "probe": {it["id"]: it for it in load_set(PROBE_SET_FILE, catalog)}}
     here: dict[str, str] = {}   # "offscript:A1" -> this set's id
     items = []
     for e in raw:
@@ -395,6 +397,7 @@ class Result:
     seconds: float = 0.0
     rate_waits: list[int] = field(default_factory=list)
     book_test: list[int] = field(default_factory=list)   # L13: the book tests this question checks
+    coverage: dict = field(default_factory=dict)   # task 4: coverage_counts() of the response
 
     @property
     def verdict(self) -> str:
@@ -479,6 +482,7 @@ def run_set(items: list[dict], deps: pipeline.Deps, gateway_for: Callable[[str],
         res.counts_ok, res.counts = check_counts(it, outcome.response, conn)
         res.forbidden_ok, res.leaked = check_forbidden(it, outcome.response, conn)
         res.examined = {**check_examined(it, outcome.response, deps.catalog), **check_parts(it, outcome.response)}
+        res.coverage = coverage_counts(outcome.response)
         res.calls = [_call_row(t, gateway) for t in calls]
         res.stages = [{"stage": name, "seconds": round(((marks[i + 1][1] if i + 1 < len(marks) else ended) - at), 2)}
                       for i, (name, at) in enumerate(marks)]
@@ -706,6 +710,41 @@ def by_book_test(results: list[Result]) -> dict[int, dict[str, list[str]]]:
     return dict(sorted(out.items()))
 
 
+def coverage_counts(response: dict) -> dict:
+    """Task 4 (chat 20.10, 22:50, 3): per question, the parts said not answered, how many of their lines fell
+    back to the template where the coverage check worded one, and how many follow-ups fell back to the part as
+    written. A line counts as worded only where the check completed (no coverage_notice)."""
+    parts = response.get("unanswered_parts") or []
+    worded = not response.get("coverage_notice")
+    return {"unanswered": len(parts),
+            "message_template": sum(p["text"] == contract.UNANSWERED.format(span=p["asked"]) for p in parts)
+            if worded else 0,
+            "worded": len(parts) if worded else 0,
+            "follow_up_part": sum(p["follow_up"] == p["asked"] for p in parts),
+            "referred": len(response.get("referred_parts") or []),
+            "replaced": bool(response.get("replaced")), "notice": response.get("coverage_notice")}
+
+
+def coverage_table(run: Run) -> str:
+    """Task 4: the questions where the coverage check said something, and the rate of lines that fell back to
+    the template. Above 20%, Evyatar decides whether to keep the template only (chat 22:50, R-7)."""
+    rows = ["| # | not answered | template | follow-up as written | referred | replaced | notice |",
+            "|---|---|---|---|---|---|---|"]
+    worded = template = 0
+    for r in run.results:
+        c = r.coverage
+        if not c or not (c["unanswered"] or c["referred"] or c["replaced"] or c["notice"]):
+            continue
+        worded, template = worded + c["worded"], template + c["message_template"]
+        rows.append(f"| {r.id} | {c['unanswered']} | {c['message_template']} | {c['follow_up_part']} | "
+                    f"{c['referred']} | {OK if c['replaced'] else NONE} | {_cell(c['notice']) or NONE} |")
+    if len(rows) == 2:
+        return "The coverage check said nothing in this run."
+    rate = f"{template} of {worded} lines fell back to the template ({100 * template / worded:.0f}%)" if worded \
+        else "no line was worded by the coverage check"
+    return "\n".join(rows) + f"\n\n{rate}; the threshold is 20% (chat 20.10, 22:50)."
+
+
 def book_table(run: Run) -> str:
     """L13: the run by book test. A test passes on this run only if every question checking it passed."""
     rows = ["| book test | | questions | failed |", "|---|---|---|---|"]
@@ -791,7 +830,7 @@ def report(run: Run) -> str:
         out += [f"**Skipped (their conversation did not run):** {', '.join(run.skipped)}", ""]
     out += ["auto is code's checks only (status, counts, forbidden). ⚠️ is a hint to read, not a failure. "
             "The judgement is the chat's.", "", summary_table(run), "", "## By book test (L13)", "",
-            book_table(run), ""]
+            book_table(run), "", "## The coverage check (task 4)", "", coverage_table(run), ""]
     for r in run.results:
         out += _detail(r)
     return "\n".join(out)
@@ -1019,6 +1058,7 @@ def main(argv: list[str] | None = None, *, build: Callable[..., tuple] | None = 
         print(f"recorded to {args.cache}; manifest {path.name}")
     print(summary_table(run))
     print("\n" + book_table(run))
+    print("\n" + coverage_table(run))
     if replaying is not None:
         try:
             replaying.assert_complete()

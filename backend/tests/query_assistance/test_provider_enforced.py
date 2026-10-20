@@ -65,11 +65,12 @@ def outputs() -> list[tuple[str, str, dict]]:
         for k, d in enumerate(_listed(e.get("synthesis")) + _listed(e.get("redraft"))):
             out.append(("synthesis", f"script {k}: {q}", d))
     for path, name in ((seed.HERE / "intent_analysis.md", "intent_analysis"),
-                       (seed.HERE / "intent_analysis_demo_v10.md", "intent_analysis"),   # MATCHES, chat 20.10
+                       ("generic", "intent_analysis"),   # MATCHES (chat 20.10), and asked (task 4)
                        ("rewrite.md", "question_rewriting"),
                        ("synthesis.md", "synthesis"), ("synthesis_redraft.md", "synthesis"),
                        ("gate.md", "support_scoring")):
-        for i, (_, o) in enumerate(examples(p.load(path))):
+        prompt = p.for_catalog("intent_analysis.md", seed.HERE) if path == "generic" else p.load(path)
+        for i, (_, o) in enumerate(examples(prompt)):
             out.append((name, f"example {i + 1} of {getattr(path, 'name', path)}", o))
     return out
 

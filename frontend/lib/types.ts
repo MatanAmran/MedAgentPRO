@@ -51,6 +51,26 @@ export interface ExchangeResponse {
   withheld?: string;
   ambiguous_terms?: string[]; // [demo extension] Q4
   request_for_input?: { text: string; readings: { label: string; checked: string }[] };
+  // task 4, the coverage check [proposal, not in the book]: every text here is code's, or the model's with
+  // code's facts after code's checks; ask is the person's own words, follow_up is never shown
+  unanswered_parts?: UnansweredPart[];
+  referred_parts?: ReferredPart[];
+  replaced?: string;
+  coverage_notice?: string;
+}
+
+export interface UnansweredPart {
+  asked: string;
+  text: string;
+  ask: string;
+  follow_up: string;
+}
+
+export interface ReferredPart {
+  asked: string;
+  asks: "cause" | "judgement" | "action";
+  text: string;
+  show_recorded: string[];
 }
 
 export interface AnswerSegment {
@@ -151,6 +171,7 @@ export type Stage =
   | "synthesis"
   | "gate"
   | "regeneration"
+  | "coverage" // task 4: the coverage check after the last gate, where it runs
   | "contract";
 
 export const DEMO_USERS = [

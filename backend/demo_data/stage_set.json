@@ -46,6 +46,7 @@
           "readings": [
             {
               "label": "late_by_promise",
+              "asked": "Which lines were late by promise in week 5?",
               "plan": {
                 "SELECT": [
                   {
@@ -115,6 +116,7 @@
           "readings": [
             {
               "label": "on_time",
+              "asked": "Which lines in week 5 were not delivered late?",
               "plan": {
                 "SELECT": [
                   {
@@ -197,6 +199,7 @@
           "readings": [
             {
               "label": "apex_september",
+              "asked": "What did apex deliver in September?",
               "plan": {
                 "SELECT": [
                   {
@@ -274,6 +277,7 @@
           "readings": [
             {
               "label": "on_hand",
+              "asked": "What is on hand for Strain relief?",
               "plan": {
                 "SELECT": [
                   {
@@ -331,6 +335,7 @@
           "readings": [
             {
               "label": "open_orders",
+              "asked": "Which purchase orders with S-014 are Open?",
               "plan": {
                 "SELECT": [
                   {
@@ -401,6 +406,7 @@
           "readings": [
             {
               "label": "s001_week6",
+              "asked": "What did s-001 supply in week 6?",
               "plan": {
                 "SELECT": [
                   {
@@ -506,6 +512,7 @@
           "readings": [
             {
               "label": "late_suppliers",
+              "asked": "Which suppliers had more than five late lines in weeks 1 to 13?",
               "plan": {
                 "SELECT": [
                   {
@@ -623,6 +630,7 @@
           "readings": [
             {
               "label": "carrier",
+              "asked": "Which lines from S-001 came with a carrier?",
               "plan": {
                 "SELECT": [
                   {
@@ -674,6 +682,7 @@
           "readings": [
             {
               "label": "either",
+              "asked": "What did Apex or S-002 supply?",
               "plan": {
                 "SELECT": [
                   {
@@ -748,6 +757,7 @@
           "readings": [
             {
               "label": "late_by_delivery",
+              "asked": "Which suppliers were late in week 2?",
               "plan": {
                 "SELECT": [
                   {
@@ -822,6 +832,7 @@
           "readings": [
             {
               "label": "mine",
+              "asked": "Which lines does my supplier S-001 have?",
               "plan": {
                 "SELECT": [
                   {
@@ -924,6 +935,7 @@
     },
     {
       "id": "MP3",
+      "book_test": [47],
       "category": "multi_part",
       "user": "AP-01",
       "question": "Which suppliers delivered late in week 7, and which parts are below their reorder point?",
@@ -961,6 +973,7 @@
           "readings": [
             {
               "label": "late_week7",
+              "asked": "Which suppliers delivered late in week 7",
               "plan": {
                 "SELECT": [
                   {
@@ -1009,6 +1022,7 @@
             },
             {
               "label": "below_reorder",
+              "asked": "which parts are below their reorder point",
               "plan": {
                 "SELECT": [
                   {
@@ -1040,6 +1054,12 @@
           ]
         }
       ]
+    },
+    {
+      "id": "MP4",
+      "book_test": [47],
+      "category": "multi_part",
+      "ref": "probe:H4"
     },
     {
       "id": "AV1",
@@ -1114,6 +1134,7 @@
           "readings": [
             {
               "label": "september",
+              "asked": "Which lines were delivered in September?",
               "plan": {
                 "SELECT": [
                   {

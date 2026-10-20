@@ -24,7 +24,7 @@ def intent(where=None, **plan) -> dict:
     if where is not None:
         p["WHERE"] = where
     p.update(plan)
-    return {"disposition": "retrieve", "readings": [{"label": "x", "plan": p}]}
+    return {"disposition": "retrieve", "readings": [{"label": "x", "asked": "q", "plan": p}]}
 
 
 GOOD = intent(LEAF)

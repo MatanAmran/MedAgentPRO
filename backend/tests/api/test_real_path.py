@@ -58,7 +58,8 @@ def test_the_exchange_cap_stops_the_largest_question_before_synthesis(real):
     out = ask(c, LARGE)
     assert out["response"]["outcome"] == "request_not_completed"
     assert out["response"]["notice"] == contract.EXCHANGE_CAP
-    assert [r["stage"] for r in provider.requests] == ["intent_analysis_demo"]   # nothing after intent
+    # nothing of the answer's path: intent, and the classification that starts beside retrieval (task 4)
+    assert [r["stage"] for r in provider.requests] == ["intent_analysis_demo", "question_classification"]
 
 
 def test_the_fake_run_never_touches_the_demo_spend_file_or_the_key(db_path, tmp_path, monkeypatch):

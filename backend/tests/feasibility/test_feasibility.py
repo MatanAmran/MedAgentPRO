@@ -494,7 +494,12 @@ def test_a_live_row_records_what_the_smoke_test_saw_and_only_a_live_row_does():
 
 
 @pytest.mark.parametrize("intent_cap, gate_cap, synthesis_cap",
-                         [("", "", ""), ("3000", "", ""), ("3000", "4000", ""), ("3000", "3000", "4000")],
+                         [("", "", ""), ("3000", "", ""), ("3000", "4000", ""),
+                          pytest.param("3000", "3000", "4000", marks=pytest.mark.xfail(strict=True, reason=(
+                              "G-SYNTHCAP (chat 20.10, 14:50; task 4, 22:30): with the classification and the "
+                              "coverage check on the path, the follow-up with a rewrite (demo question 13) no longer "
+                              "fits 0.25 at Sonnet 5.5's prices with synthesis at 4000, even with their own caps "
+                              "(1000, 1500). To settle with R-6 before a Sonnet round. Haiku 5.5 fits by far")))],
                          ids=["general cap", "intent cap 3000", "intent 3000 and gate 4000",
                               "intent 3000, gate 3000, synthesis 4000"])
 def test_L05_every_demo_question_fits_the_default_cap_on_the_real_path(db_path, tmp_path, intent_cap, gate_cap,

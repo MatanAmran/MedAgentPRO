@@ -48,6 +48,8 @@ BOOK_TESTS = [
     BookTest(45, "NFR 27", "An identifier from outside the conversation is not retrieved"),
     BookTest(46, "NFR 28", "A question posed shows that it is in progress until its response",
              queued="Playwright, with a delay in the scripted server (chat 20.10, 17:35)"),
+    BookTest(47, "FR 11, FR 14", "A part of a question not answered is said, and a part that asks for a cause is "
+             "referred [proposal, not in the book: task 4, 91_COVERAGE_PLAN; the chat writes it after the build]"),
 ]
 
 SOURCES = [("backend/tests", "*.py"), ("frontend/e2e", "*.ts"), ("frontend/app", "*.test.tsx"),

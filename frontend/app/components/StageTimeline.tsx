@@ -14,6 +14,7 @@ export const STAGE_STEP: Record<Stage, { title: string; detail: string }> = {
   synthesis: { title: "Drafting", detail: "Text with references; code fills every value" },
   gate: { title: "Checking", detail: "Every sentence against its records" },
   regeneration: { title: "Redrafting", detail: "Without the statements the records do not support" },
+  coverage: { title: "Checking coverage", detail: "Every part of the question answered, and no recorded value given as a cause" },
   contract: { title: "Presenting", detail: "Only what the check supports" },
 };
 

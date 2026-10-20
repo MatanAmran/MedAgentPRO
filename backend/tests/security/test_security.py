@@ -208,7 +208,7 @@ def test_record_text_is_shown_but_never_steers_the_next_retrieval(db_path, tmp_p
     storage = MemoryStorage()
     d = pl.Deps(gw, "m", CAT, pl.connect_readonly(copy),
                 AuditRepository(storage, CircuitBreaker("s", MemoryStore()), b"k"),
-                p.load(seed.HERE / "intent_analysis.md"))
+                p.load(seed.HERE / "intent_analysis.md"), coverage=False)
 
     first = pl.run(f"What does the note on {po} say?", [], APPROVER, d)
     assert INJECTED in first.response["readings"][0]["answer"]        # the person sees what is recorded
@@ -259,7 +259,7 @@ def test_no_secret_reaches_a_log_a_record_or_an_answer(db_path, caplog):
     storage = MemoryStorage()
     d = pl.Deps(gw, "m", CAT, pl.connect_readonly(db_path),
                 AuditRepository(storage, CircuitBreaker("s", MemoryStore()), FAKE_CHAIN.encode()),
-                p.load(seed.HERE / "intent_analysis.md"))
+                p.load(seed.HERE / "intent_analysis.md"), coverage=False)
     with caplog.at_level(logging.DEBUG):
         for name in ("LiteLLM", "LiteLLM Router", "LiteLLM Proxy"):
             caplog.set_level(logging.DEBUG, logger=name)

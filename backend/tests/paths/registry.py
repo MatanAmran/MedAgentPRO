@@ -26,6 +26,7 @@ class Path:
 A = "test_paths.py::test_path"
 P = "test_paths.py"
 B = "test_branches.py"
+K = "test_coverage.py"
 
 
 def _a(pid, covers, refs, note=""):
@@ -187,4 +188,38 @@ PATHS: list[Path] = [
          "Phase B task 5 · R1", "the viewing could not be recorded: 503, nothing shown"),
     Path("server_show_all_unreachable", f"{P}::test_server_show_all_unreachable",
          ("http:503",), "Phase B task 5 · FR 15", "the source could not be reached: 503, nothing recorded"),
+    # --- task 4, the coverage check (91_COVERAGE_PLAN; chat 20.10, 22:30 to 22:50) [proposal] ---------------
+    Path("coverage_part_left_out", f"{K}::test_a_part_left_out_is_said_in_the_models_words_with_codes_facts",
+         ("stage:question_classification", "stage:coverage_check"), "FR 11 · Test 47 [proposal] · GAP-03 · GAP-07",
+         "A sends the plan back once naming the person's words it left out, then takes it; B words the line, "
+         "code fills {part} and {reason}; no ending in not completed"),
+    Path("coverage_message_template", f"{K}::test_a_message_that_fails_a_check_falls_back_to_the_template",
+         ("notice:UNANSWERED",), "chat 22:40 · 22:50 · NFR 27",
+         "negation or a causal word outside {reason}, a slot missing, a follow-up with an unknown identifier: "
+         "the fixed template, and the part as written"),
+    Path("coverage_cause_referred", f"{K}::test_a_cause_part_is_referred_with_what_was_recorded_a_click_away",
+         ("notice:REFERRED",), "FR 14 · NFR 20 · Test 47 [proposal] · GAP-05 · E1",
+         "C, independent of the plan: the reading of a part asking for a cause is not answered"),
+    Path("coverage_cause_over_nothing", f"{K}::test_a_cause_part_over_records_that_hold_nothing_is_referred", (),
+         "FR 14 · Test 35", "an empty result to a cause question is referred, not a finding"),
+    Path("coverage_recorded_reason_kept", f"{K}::test_a_recorded_reason_asked_for_stays_answered", (),
+         "FR 14 · 89 section 3.5", "the other direction: Q06 and D4 stay answered, every sentence kept"),
+    Path("coverage_causal_replaced", f"{K}::test_a_causal_sentence_is_replaced_by_the_value_recorded",
+         ("notice:REPLACED",), "NFR 20 · decision 4", "B: a sentence presenting a recorded value as the cause"),
+    Path("coverage_classify_failed", f"{K}::test_classification_not_completed_states_recorded_reasons_as_recorded",
+         ("notice:CLASSIFY_FAILED", "handler:classified.StageRejected", "handler:classified.StageFailed",
+          "handler:classified.Exception"), "decision 8 · GAP-07", "the cautious side, and a notice"),
+    Path("coverage_check_failed", f"{K}::test_coverage_check_not_completed_keeps_the_answer_and_says_so",
+         ("notice:COVERAGE_FAILED", "handler:covered.StageRejected", "handler:covered.StageFailed",
+          "handler:covered.Exception"), "decision 8 · GAP-07", "the cautious side, and a notice"),
+    Path("coverage_cancelled", f"{K}::test_a_cancellation_during_either_check_ends_the_exchange",
+         ("handler:classified.ExchangeCancelled", "handler:covered.ExchangeCancelled"), "R8 · T7-B1"),
+    Path("coverage_skipped", f"{K}::test_one_plain_part_skips_the_coverage_check", (), "chat 21:01, decision 2",
+         "S1 to S4 all hold: no call"),
+    Path("coverage_server_part_on_its_own", f"{K}::test_server_part_asked_on_its_own_sends_the_checked_question",
+         ("http:404",), "chat 22:50 · FR 25 · NFR 27",
+         "the person's words posed, the checked question as Understood as, no rewriting call"),
+    Path("coverage_server_show_recorded", f"{K}::test_server_shows_what_was_recorded_for_a_referred_part",
+         ("notice:SHOW_RECORDED",), "chat 22:30, decision 2 · NFR 17 · NFR 21",
+         "the plan the server kept, no model, the records say they establish no cause"),
 ]

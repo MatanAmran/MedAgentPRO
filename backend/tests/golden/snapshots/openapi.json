@@ -3,6 +3,16 @@
   "schemas": {
    "AskBody": {
     "properties": {
+     "part_of": {
+      "anyOf": [
+       {
+        "$ref": "#/components/schemas/PartOf"
+       },
+       {
+        "type": "null"
+       }
+      ]
+     },
      "question": {
       "maxLength": 1000,
       "minLength": 1,
@@ -78,6 +88,30 @@
      }
     },
     "title": "HTTPValidationError",
+    "type": "object"
+   },
+   "PartOf": {
+    "additionalProperties": false,
+    "description": "Task 4 (chat 20.10, 22:50) [proposal, not in the book]: a part an earlier answer did not answer, asked on\nits own, by the exchange and the part's place. The server takes the part and its follow-up question from the\nresponse it holds, never from the client.",
+    "properties": {
+     "exchange_id": {
+      "maxLength": 40,
+      "minLength": 1,
+      "title": "Exchange Id",
+      "type": "string"
+     },
+     "part": {
+      "maximum": 5.0,
+      "minimum": 0.0,
+      "title": "Part",
+      "type": "integer"
+     }
+    },
+    "required": [
+     "exchange_id",
+     "part"
+    ],
+    "title": "PartOf",
     "type": "object"
    },
    "RatingBody": {

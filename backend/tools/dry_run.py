@@ -74,11 +74,27 @@ def _gate(*verdicts):
     return answer
 
 
+def _coverage_answer(name: str, prompt: str) -> dict | None:
+    """Task 4: what the stand-in model answers for C and B: the question asks for recorded values, as one part;
+    every part is answered by every sentence, each stating values (demo_data.scripted.coverage_output)."""
+    from demo_data.scripted import coverage_output
+    if name == "question_classification":
+        posed = [ln[len(k):] for k in ("Question as posed: ", "Question: ") for ln in prompt.splitlines()
+                 if ln.startswith(k)]
+        return {"parts": [{"asked": posed[-1], "asks": "recorded"}]}
+    if name == "coverage_check":
+        return coverage_output(prompt, None)
+    return None
+
+
 def _script(**by_prompt):
     queues = {k: list(v) for k, v in by_prompt.items()}
 
     def answer(prompt, cfg):
-        out = queues[cfg.prompt_identity.split("@")[0]].pop(0)
+        name = cfg.prompt_identity.split("@")[0]
+        if name not in queues and (got := _coverage_answer(name, prompt)) is not None:
+            return got
+        out = queues[name].pop(0)
         return out(prompt) if callable(out) else out
     return ScriptedModelGateway(answer)
 
@@ -147,6 +163,8 @@ def _config(env, argv) -> BudgetConfig:
     ap.add_argument("--max-output-gate", type=int, help="the gate's own output cap (with --model)")
     ap.add_argument("--max-output-synthesis", type=int, help="synthesis's own output cap (with --model)")
     ap.add_argument("--sets", help=f"price a round instead: {', '.join(SETS)}, comma separated")
+    ap.add_argument("--without-coverage", action="store_true",
+                    help="with --sets: price the round without the coverage check (task 4), to compare")
     args = ap.parse_args(argv or [])   # never the test runner's own arguments
     if not args.model:
         return BudgetConfig.from_env(env, need_key=False)
@@ -168,7 +186,9 @@ SETS = ("demo", "stage", "offscript", "bird")
 # (96 questions, 271 calls: intent 765, synthesis 1308, gate 1001, rewriting 444, redraft 882), rounded as the
 # chat set them (16:25)
 TYPICAL_OUT = {"question_rewriting": 450, "intent_analysis": 800, "intent_analysis_demo": 800, "synthesis": 1300,
-               "synthesis_redraft": 900, "support_scoring": 1000}
+               "synthesis_redraft": 900, "support_scoring": 1000,
+               # task 4: estimates, not yet measured (91_COVERAGE_PLAN, section 7); set from the next round
+               "question_classification": 350, "coverage_check": 600}
 # a question that reaches the gate may take the regeneration path once (NFR 19): these two calls more
 REGENERATION = ("synthesis_redraft", "support_scoring")
 
@@ -206,6 +226,8 @@ def _by_plan(item: dict) -> Callable[[str, ModelConfig], dict]:
 
     def answer(prompt: str, cfg: ModelConfig) -> dict:
         name = cfg.prompt_identity.split("@")[0]
+        if (got := _coverage_answer(name, prompt)) is not None:
+            return got
         if name == "question_rewriting":
             return {"question": item.get("rewritten") or item["question"], "carried_from_history": True}
         if name.startswith("intent_analysis"):
@@ -232,7 +254,7 @@ def _worst(rows: list[tuple], cfg: BudgetConfig) -> float:
     return min(total, cfg.max_usd_per_exchange)
 
 
-def _round_set(name: str, cfg: BudgetConfig, tmp: Path) -> SetPrice:
+def _round_set(name: str, cfg: BudgetConfig, tmp: Path, coverage: bool = True) -> SetPrice:
     from api.state import DEMO_USERS
     from tools import bird_eval, bird_fetch, real_eval
     catalog = Catalog.load(seed.HERE / "schema.json", seed.HERE / "relations.json")
@@ -252,7 +274,8 @@ def _round_set(name: str, cfg: BudgetConfig, tmp: Path) -> SetPrice:
               else prompts.load(seed.HERE / "intent_analysis.md"))
     deps = pipeline.Deps(ScriptedModelGateway(lambda p, c: {}), cfg.model_id, catalog, pipeline.connect_readonly(db),
                          AuditRepository(MemoryStorage(), CircuitBreaker("system_store", MemoryStore()), b"dry-run"),
-                         intent, prompt_set=prompts.PromptSet.generic(words) if generic else None)
+                         intent, prompt_set=prompts.PromptSet.generic(words) if generic else None,
+                         coverage=coverage)
     out: list[Priced] = []
     histories: dict[str, list] = {}
     for it in items:
@@ -264,12 +287,13 @@ def _round_set(name: str, cfg: BudgetConfig, tmp: Path) -> SetPrice:
         expected = sum(cfg.cost(r[1], TYPICAL_OUT[r[0].split("@")[0]]) for r in meter.rows)
         out.append(Priced(it["id"], real_eval.status_of(res.response), len(meter.rows),
                           sum(r[1] for r in meter.rows), expected, _worst(meter.rows, cfg)))
-    return SetPrice(name, f"{intent.identity}, {'generic' if generic else 'frozen'}", out)
+    return SetPrice(name, f"{intent.identity}, {'generic' if generic else 'frozen'}"
+                          + ("" if coverage else ", no coverage check"), out)
 
 
-def price_round(cfg: BudgetConfig, names: Sequence[str]) -> list[SetPrice]:
+def price_round(cfg: BudgetConfig, names: Sequence[str], coverage: bool = True) -> list[SetPrice]:
     with tempfile.TemporaryDirectory() as tmp:
-        return [_round_set(n, cfg, Path(tmp)) for n in names]
+        return [_round_set(n, cfg, Path(tmp), coverage) for n in names]
 
 
 def print_round(cfg: BudgetConfig, sets: list[SetPrice]) -> None:
@@ -303,7 +327,7 @@ def main(env=None, argv: list[str] | None = None) -> int:
         if unknown:
             print(f"unknown set {', '.join(unknown)}: {', '.join(SETS)}")
             return 2
-        print_round(cfg, price_round(cfg, names))
+        print_round(cfg, price_round(cfg, names, coverage="--without-coverage" not in argv))
         return 0
     with tempfile.TemporaryDirectory() as tmp:
         db = Path(tmp) / "demo.db"

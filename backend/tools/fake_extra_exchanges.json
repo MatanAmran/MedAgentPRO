@@ -9,6 +9,7 @@
         "readings": [
           {
             "label": "on_hand",
+            "asked": "What is on hand for Strain relief?",
             "plan": {
               "SELECT": [
                 {
@@ -51,6 +52,7 @@
         "readings": [
           {
             "label": "on_hand",
+            "asked": "What is on hand for Strain relief K77?",
             "plan": {
               "SELECT": [
                 {

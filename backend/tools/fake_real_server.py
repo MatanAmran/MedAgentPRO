@@ -33,21 +33,23 @@ from shared.circuit_breaker import CircuitBreaker, MemoryStore
 # The configuration of the fake run. MODEL_MAX_USD_PER_EXCHANGE is set so that every demo question passes
 # but the one with the largest records (question 3, 30 rows), which is stopped before synthesis (R7a): the
 # end-to-end test shows both the cost line and the cap's notice. With what intent analysis already spent,
-# that question needs about 0.151 of worst-case reservation and the next largest (question 5) about 0.145
-# (fix round prompts, 19.10: synthesis@11, gate@6 and the count line of D5; before them 0.140 and 0.134).
+# that question needs about 0.191 of worst-case reservation and the next largest (question 5) about 0.184, since
+# task 4 put the classification and the coverage check on the path (before: 0.151 and 0.145; before the fix
+# round prompts of 19.10, 0.140 and 0.134).
 # With the intent and gate output caps at 3000, as in the demo's .env, they are about 0.171 and 0.165.
 # tests/api/test_real_path.py pins both sides, and
 # feasibility row L05 that the demo's default cap (0.25) passes every question
 CONFIG = {
     "ANTHROPIC_API_KEY": "fake-key-never-sent", "MODEL_ID": "claude-sonnet-5-5",
     "MODEL_PRICE_IN": "2", "MODEL_PRICE_OUT": "10", "MODEL_BUDGET_USD": "5",
-    "MODEL_MAX_USD_PER_EXCHANGE": "0.148", "MODEL_MAX_OUTPUT_TOKENS": "2000",
+    "MODEL_MAX_USD_PER_EXCHANGE": "0.187", "MODEL_MAX_OUTPUT_TOKENS": "2000",
     "MODEL_MAX_EXCHANGES_PER_MINUTE": "30",
 }
 
 # the stage each request is for: the structured-output name LiteLLMGateway sends, and none for intent
 _BY_FORMAT = {"question_rewriting": "question_rewriting@1", "synthesis": "synthesis@1",
-              "synthesis_redraft": "synthesis_redraft@1", "support_scoring": "support_scoring@1"}
+              "synthesis_redraft": "synthesis_redraft@1", "support_scoring": "support_scoring@1",
+              "question_classification": "question_classification@1", "coverage_check": "coverage_check@1"}
 
 
 # Exchanges for the end-to-end tests only, beside the demo's scripts (chat 20.10: a name the user wrote)

@@ -83,7 +83,7 @@ def run(db_path, question, *plans):
 
     audit = AuditRepository(MemoryStorage(), CircuitBreaker("system_store", MemoryStore()), b"test-key")
     deps = pl.Deps(ScriptedModelGateway(answer), "demo", CAT, lambda: sqlite3.connect(db_path), audit,
-                   p.load(seed.HERE / "intent_analysis.md"))
+                   p.load(seed.HERE / "intent_analysis.md"), coverage=False)
     return pl.run(question, [], APPROVER, deps), audit
 
 
@@ -138,7 +138,7 @@ def test_a_rejected_value_gets_one_feedback_attempt_in_the_pipeline(db_path):
 
     audit = AuditRepository(MemoryStorage(), CircuitBreaker("system_store", MemoryStore()), b"test-key")
     deps = pl.Deps(ScriptedModelGateway(answer), "demo", CAT, lambda: sqlite3.connect(db_path), audit,
-                   p.load(seed.HERE / "intent_analysis.md"))
+                   p.load(seed.HERE / "intent_analysis.md"), coverage=False)
     q = "How many purchase orders are opened?"
     out = pl.run(q, [], APPROVER, deps)
     assert len(seen) == 2 and "is not a value purchase_orders.status takes" in seen[1]
@@ -175,7 +175,7 @@ def test_show_all_runs_the_plan_as_resolved(db_path):
     answer = scripted([intent(supplied("s-001"))])
     audit = AuditRepository(MemoryStorage(), CircuitBreaker("system_store", MemoryStore()), b"test-key")
     deps = pl.Deps(ScriptedModelGateway(answer), "demo", CAT, lambda: sqlite3.connect(db_path), audit,
-                   p.load(seed.HERE / "intent_analysis.md"))
+                   p.load(seed.HERE / "intent_analysis.md"), coverage=False)
     out = pl.run("What did s-001 supply?", [], APPROVER, deps)
     assert out.plans["r0"]["WHERE"] == {"EQ": [{"col": "commitments.supplier_id"}, {"value": "S-001"}]}
     shown = out.response["readings"][0]
