@@ -17,6 +17,7 @@ from __future__ import annotations
 
 import json
 import re
+from collections.abc import Collection
 from dataclasses import dataclass, field, replace
 from pathlib import Path
 from typing import Any
@@ -78,26 +79,45 @@ def load(file: str | Path) -> Prompt:
 
 GENERIC = PROMPTS / "generic"
 _MARK = re.compile(r"\[\[(\w+)\]\]")
+# [[if name]] ... [[end name]]: text kept only where the catalog holds what name says (chat 20.10, B1)
+_SECTION = re.compile(r"\[\[if (\w+)\]\](.*?)\[\[end \1\]\]", re.S)
+# what each condition asks of the catalog's columns: a date column; a column holding a user (who asks, "me");
+# a column a name is matched on (MATCHES)
+CONDITIONS = {"dates": lambda c: c.get("type") == "date", "users": lambda c: bool(c.get("user_column")),
+              "searchable": lambda c: bool(c.get("searchable"))}
 
 
-def specialize(template: Prompt, texts: dict[str, str], examples: str) -> Prompt:
-    """A generic template with the catalog's words in place: each [[name]] from texts, [[examples]] from
-    the catalog's examples for that prompt. One pass, as fill: a value is never scanned again. A mark the
+def specialize(template: Prompt, texts: dict[str, str], examples: str,
+               holds: Collection[str] = CONDITIONS) -> Prompt:
+    """A generic template with the catalog's words in place: each [[if name]] section kept where name is in
+    holds and dropped, its words with it, where not; then each [[name]] from texts, [[examples]] from the
+    catalog's examples for that prompt. One pass, as fill: a value is never scanned again. A mark the
     catalog does not fill is refused, so no prompt goes out with a hole in it."""
+    unknown = sorted({m.group(1) for m in _SECTION.finditer(template.body)} - set(CONDITIONS))
+    if unknown:
+        raise ValueError(f"{template.identity}: no condition {', '.join(unknown)}")
+    body = _SECTION.sub(lambda m: m.group(2) if m.group(1) in holds else "", template.body)
     values = {**texts, "examples": examples}
-    missing = sorted({k for k in _MARK.findall(template.body) if k not in values})
+    missing = sorted({k for k in _MARK.findall(body) if k not in values})
     if missing:
         raise ValueError(f"{template.identity}: the catalog gives no text for {', '.join(missing)}")
-    return replace(template, body=_MARK.sub(lambda m: values[m.group(1)], template.body))
+    return replace(template, body=_MARK.sub(lambda m: values[m.group(1)], body))
+
+
+def catalog_holds(catalog_dir: Path) -> set[str]:
+    """The conditions the catalog in catalog_dir meets, read from its schema.json."""
+    schema = json.loads((Path(catalog_dir) / "schema.json").read_text(encoding="utf-8"))
+    columns = [c for ent in schema.get("entities", {}).values() for c in ent.get("columns", {}).values()]
+    return {name for name, holds in CONDITIONS.items() if any(holds(c) for c in columns)}
 
 
 def for_catalog(file: str, catalog_dir: Path) -> Prompt:
     """The generic template `file` (templates/generic/) with the words of the catalog held in catalog_dir:
-    prompt_text.json and examples/<prompt name>.md."""
+    prompt_text.json and examples/<prompt name>.md, and its sections as the catalog's schema decides."""
     template = load(GENERIC / file)
     texts = json.loads((Path(catalog_dir) / "prompt_text.json").read_text(encoding="utf-8"))["texts"]
     examples = (Path(catalog_dir) / "examples" / f"{template.name}.md").read_text(encoding="utf-8")
-    return specialize(template, texts, examples)
+    return specialize(template, texts, examples, catalog_holds(catalog_dir))
 
 
 @dataclass(frozen=True)

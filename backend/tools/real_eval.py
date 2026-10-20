@@ -4,9 +4,17 @@ MedAgentPro - runs a question set through the pipeline in process and reports, f
 
     python -m tools.real_eval                                   the held-out set on the scripted model
     python -m tools.real_eval --real --confirm --out DIR        the same on the real model, paid
-        [--set PATH | --set demo | --set stage] [--only A1,F2] [--max-usd 2]
+        [--set PATH | --set demo | --set stage | --set bird] [--only A1,F2] [--max-usd 2]
                                                             demo: the demo questions; stage: the set by
-                                                            pipeline stage (task 14, 82_STAGE_SET.md)
+                                                            pipeline stage (task 14, 82_STAGE_SET.md); bird:
+                                                            BIRD superhero, on its own catalog and database
+        [--prompts generic]                                 the generic prompts filled from the catalog
+                                                            (intent@12); bird always runs on them
+        [--record | --replay] [--cache DIR]                 record: every call and its response into the
+                                                            cache (eval_cache/, not in git), and a manifest
+                                                            of the run; replay: the same report from the
+                                                            cache with no model behind it, failing on any
+                                                            call not stored (chat 20.10)
 
 Every exchange goes through pipeline.run with the dependencies the server builds (main.build_deps), so
 the budget, the rate across users, the per-exchange cap and the audit record all hold. On top of them:
@@ -54,6 +62,7 @@ from typing import Any, Callable
 from api.state import DEMO_USERS
 from demo_data import seed
 from model_client.client import ModelGateway
+from model_client.replay import DEFAULT_STORE, RecordReplayGateway, ReplayMiss
 from query_assistance import contract, pipeline, prompts
 from query_assistance.call_trace import CallTrace
 from query_assistance.compiler import Catalog, CompileError, RetrievalResult, compile_intent, execute, intent_validator
@@ -190,6 +199,26 @@ def demo_set(path: Path = seed.HERE / "scripted_exchanges.json") -> list[dict]:
         ids[e["question"]] = item["id"]
         out.append(item)
     return out
+
+
+def bird_set() -> list[dict]:
+    """BIRD superhero (task 11b, chat 20.10) in this tool's form: B<id>, as AP-01 (every role sees every
+    record there), BIRD's own SQL as the count to meet where it compares a number or every row, and its
+    hand-written plan (rule 1). A gap is expected to be answered or asked about, and watched for what it is."""
+    from tools import bird_eval
+    raw = bird_eval.load()
+    out = []
+    for q in raw["questions"]:
+        mode = q["compare"]["mode"]
+        sql = ([{"query": q["sql"], "compare": "value"}] if mode == "value" else
+               [{"query": q["sql"], "compare": "total"}] if mode in ("bag", "ordered") else [])
+        out.append({"id": f"B{q['id']}", "user": "AP-01", "question": q["question"], "sql": sql,
+                    "expect": {"status": ["answered"]}, "watch": q.get("evidence"), "plan": [q["plan"]]})
+    for g in raw["gaps"]:
+        out.append({"id": f"B{g['id']}", "user": "AP-01", "question": g["question"],
+                    "expect": {"status": ["answered", "needs_clarification", "request_not_completed"]},
+                    "watch": f"a gap: {g['reason']}", "plan": [g["plan"]] if g.get("plan") else []})
+    return check_items(out)
 
 
 def select(items: list[dict], only: list[str] | None) -> list[dict]:
@@ -717,6 +746,56 @@ def write(run: Run, out_dir: Path):
     (out_dir / "results.json").write_text(json.dumps(data, ensure_ascii=False, indent=1), encoding="utf-8")
 
 
+# --------------------------------------------------------------------------
+# record and replay (chat 20.10): the cache holds the calls, a manifest per run says what made them
+# --------------------------------------------------------------------------
+
+def prompt_identities(deps: pipeline.Deps) -> dict[str, str]:
+    ps = deps.prompts
+    return {"intent": deps.intent_prompt.identity if deps.intent_prompt else "", "rewrite": ps.rewrite.identity,
+            "synthesis": ps.synthesis.identity, "redraft": ps.redraft.identity, "gate": ps.gate.identity}
+
+
+def commit() -> str:
+    """The commit checked out, read from .git without running git; "" where there is none."""
+    git = REPO / ".git"
+    try:
+        head = (git / "HEAD").read_text(encoding="utf-8").strip()
+        if not head.startswith("ref: "):
+            return head
+        ref = head[5:]
+        if (git / ref).exists():
+            return (git / ref).read_text(encoding="utf-8").strip()
+        for line in (git / "packed-refs").read_text(encoding="utf-8").splitlines():
+            if line.endswith(" " + ref):
+                return line.split()[0]
+    except OSError:
+        pass
+    return ""
+
+
+def write_manifest(store: Path, run: Run, set_name: str, deps: pipeline.Deps, stamp: str) -> Path:
+    """What a recorded run was: the commit, the prompts, the model, the set, when and what it cost. Never a
+    record value, a question or the key: the calls themselves are in the store beside it."""
+    manifest = {"commit": commit(), "prompts": prompt_identities(deps), "model": run.model, "set": set_name,
+                "started": run.started, "mode": run.mode, "exchanges": len(run.results),
+                "calls": sum(len(r.calls) for r in run.results), "spent_usd": run.spent}
+    path = Path(store) / "manifests" / f"{stamp}-{Path(set_name).stem}.json"
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(json.dumps(manifest, indent=1), encoding="utf-8")
+    return path
+
+
+def latest_manifest(store: Path, set_name: str, identities: dict[str, str]) -> dict | None:
+    """The newest recorded run of this set on these prompts: its model is the one the replay keys on."""
+    found = sorted((Path(store) / "manifests").glob(f"*-{Path(set_name).stem}.json"), reverse=True)
+    for path in found:
+        m = json.loads(path.read_text(encoding="utf-8"))
+        if m.get("set") == set_name and m.get("prompts") == identities:
+            return m
+    return None
+
+
 def outside_repo(path: Path) -> Path:
     path = path.resolve()
     if path == REPO or REPO in path.parents:
@@ -740,19 +819,44 @@ def main(argv: list[str] | None = None, *, build: Callable[..., tuple] | None = 
     ap.add_argument("--db", type=Path, default=seed.DEFAULT_OUT)
     ap.add_argument("--plans", action="store_true",
                     help="rule 1: run each question's hand-written plan, with no model, and stop")
+    ap.add_argument("--prompts", choices=("frozen", "generic"),
+                    help="the prompts after the catalog's: frozen (the demo's, the default) or generic; bird: generic")
+    ap.add_argument("--record", action="store_true", help="store every call and its response in the cache")
+    ap.add_argument("--replay", action="store_true",
+                    help="the report again from the cache, with no model behind it; a call not stored fails the run")
+    ap.add_argument("--cache", type=Path, default=DEFAULT_STORE, help="the record and replay store")
     args = ap.parse_args(argv)
     reconfigure = getattr(sys.stdout, "reconfigure", None)
     if reconfigure is not None:   # ✅ and ❌ on a Windows console (as tools/preflight.py)
         reconfigure(encoding="utf-8")
-    mode = "real" if args.real else "scripted"
+    if args.record and args.replay:
+        print("--record or --replay, not both")
+        return 2
+    if args.replay and args.real:
+        print("--replay calls no model: it takes no --real")
+        return 2
+    mode = "replay" if args.replay else "real" if args.real else "scripted"
+    bird = args.set == "bird"
+    if bird and args.plans:
+        print("superhero's plans are checked by python -m tools.bird_eval --plans")
+        return 2
+    if bird and args.prompts == "frozen":
+        print("superhero has no frozen prompts: the generic ones, filled from its catalog")
+        return 2
+    generic = bird or args.prompts == "generic"
     try:
         catalog = Catalog.load(seed.HERE / "schema.json", seed.HERE / "relations.json")
-        loaded = (demo_set() if args.set == "demo" else load_stage_set(STAGE_SET_FILE, catalog)
-                  if args.set == "stage" else load_set(Path(args.set), catalog))
+        words = seed.HERE
+        if bird:
+            from tools import bird_eval, bird_fetch
+            catalog, words = bird_eval.catalog(), bird_eval.HERE
+            args.db = bird_fetch.superhero_db()
+        loaded = (demo_set() if args.set == "demo" else bird_set() if bird else
+                  load_stage_set(STAGE_SET_FILE, catalog) if args.set == "stage" else load_set(Path(args.set), catalog))
         items = select(loaded, args.only.split(",") if args.only else None)
         stamp = datetime.now().strftime("%Y%m%d-%H%M%S")
         out_dir = outside_repo(args.out or Path(tempfile.gettempdir()) / "medagentpro-eval" / f"{stamp}-{mode}")
-    except SetError as e:
+    except (SetError, FileNotFoundError, ValueError) as e:
         print(e)
         return 2
     if args.plans:
@@ -780,10 +884,26 @@ def main(argv: list[str] | None = None, *, build: Callable[..., tuple] | None = 
         import main as server
         build = server.build_deps
     try:
-        deps, gateway_for = build(mode, args.db)
+        deps, gateway_for = build("scripted" if mode == "replay" else mode, args.db)
     except Exception as e:   # BudgetConfigError and a missing database say what to do
         print(e)
         return 1
+    deps = replace(deps, catalog=catalog)
+    if generic:
+        deps = replace(deps, intent_prompt=prompts.for_catalog("intent_analysis.md", words),
+                       prompt_set=prompts.PromptSet.generic(words))
+    replaying: RecordReplayGateway | None = None
+    if mode == "replay":
+        recorded = latest_manifest(args.cache, args.set, prompt_identities(deps))
+        if recorded is None:
+            print(f"no recorded run of {args.set} on these prompts in {args.cache}: record one first")
+            return 1
+        replaying = RecordReplayGateway("replay", args.cache)
+        deps = replace(deps, gateway=replaying, model=recorded["model"])
+        gateway_for = lambda question: replaying   # noqa: E731  the whole gateway: nothing behind it
+    elif args.record:
+        inner_for = gateway_for
+        gateway_for = lambda question: RecordReplayGateway("record", args.cache, inner_for(question))   # noqa: E731
     out_dir.mkdir(parents=True, exist_ok=True)
     handler = logging.FileHandler(out_dir / "operational.log", encoding="utf-8")
     handler.setFormatter(logging.Formatter("%(asctime)s %(levelname)s %(message)s"))
@@ -803,7 +923,17 @@ def main(argv: list[str] | None = None, *, build: Callable[..., tuple] | None = 
         ledger = getattr(deps.gateway, "ledger", None)
         if ledger is not None:
             ledger.close()
+    if args.record:
+        path = write_manifest(args.cache, run, args.set, deps, stamp)
+        print(f"recorded to {args.cache}; manifest {path.name}")
     print(summary_table(run))
+    if replaying is not None:
+        try:
+            replaying.assert_complete()
+        except ReplayMiss as e:
+            print(f"\nreplay incomplete: {e}")
+            return 1
+        print(f"\nreplayed {replaying.served} calls from {args.cache}, none missing")
     if run.stopped:
         print(f"\nStopped: {run.stopped}")
     if run.skipped:

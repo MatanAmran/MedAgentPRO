@@ -38,6 +38,11 @@ def load() -> dict:
     return json.loads((HERE / "questions.json").read_text(encoding="utf-8"))
 
 
+def load_examples() -> list[dict]:
+    """The BIRD questions behind the catalog's prompt examples (chat 20.10, B1(b)), outside the set."""
+    return json.loads((HERE / "example_questions.json").read_text(encoding="utf-8"))["examples"]
+
+
 @dataclass
 class Checked:
     id: int
@@ -95,10 +100,11 @@ def main(argv: list[str] | None = None) -> int:
     reconfigure = getattr(sys.stdout, "reconfigure", None)
     if reconfigure is not None:
         reconfigure(encoding="utf-8")
-    cat, data = catalog(), load()
+    cat, data, examples = catalog(), load(), load_examples()
     conn = sqlite3.connect(f"file:{superhero_db().as_posix()}?mode=ro", uri=True)
     try:
         results = [check(q, cat, conn) for q in data["questions"]]
+        behind = [check(q, cat, conn) for q in examples]
     finally:
         conn.close()
     print("| BIRD id | question | result | ours | BIRD |\n|---|---|---|---|---|")
@@ -108,9 +114,13 @@ def main(argv: list[str] | None = None) -> int:
     print("\n| BIRD id | gap | holds |\n|---|---|---|")
     for g, r in zip(data["gaps"], gaps, strict=True):
         print(f"| {r.id} | {g['reason'][:90]} | {'✅' if r.ok else '❌'} {r.error or ''} |")
+    print("\n| BIRD id | behind a prompt example | result |\n|---|---|---|")
+    for q, r in zip(examples, behind, strict=True):
+        print(f"| {r.id} | {q['question'][:60]} | {'✅' if r.ok else '❌ ' + (r.error or str(r.ours))} |")
     passed = sum(r.ok for r in results)
-    print(f"\n{passed} of {len(results)} plans give BIRD's result; {len(gaps)} gaps recorded")
-    return 0 if passed == len(results) and all(r.ok for r in gaps) else 1
+    print(f"\n{passed} of {len(results)} plans give BIRD's result; {len(gaps)} gaps recorded; "
+          f"{sum(r.ok for r in behind)} of {len(behind)} example plans give BIRD's result")
+    return 0 if passed == len(results) and all(r.ok for r in gaps) and all(r.ok for r in behind) else 1
 
 
 if __name__ == "__main__":

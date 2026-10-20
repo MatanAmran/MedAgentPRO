@@ -185,7 +185,6 @@ class SetPrice:
     name: str
     prompts: str
     items: list[Priced]
-    note: str = ""
 
     @property
     def expected(self) -> float:
@@ -235,17 +234,10 @@ def _round_set(name: str, cfg: BudgetConfig, tmp: Path) -> SetPrice:
     from tools import bird_eval, bird_fetch, real_eval
     catalog = Catalog.load(seed.HERE / "schema.json", seed.HERE / "relations.json")
     generic = name != "demo"   # the round's plan (chat 20.10): the demo on @9 as the base, the rest on @11
-    note = ""
+    words = seed.HERE   # the catalog's own prompt words and examples
     if name == "bird":
-        catalog, db = bird_eval.catalog(), bird_fetch.superhero_db()
-        raw = bird_eval.load()
-        items = [{"id": f"B{q['id']}", "user": "AP-01", "question": q["question"],
-                  "plan": [q["plan"]] if q.get("plan") else []}   # a gap the plan language cannot state has none
-                 for q in raw["questions"] + raw["gaps"]]
-        # superhero holds no dates, but the generic intent prompt asks for one: a stand-in, a few tokens
-        catalog.data_as_of = catalog.data_as_of or "2026-10-09"
-        note = ("superhero has no prompt words, examples or data_as_of of its own yet: priced with the demo "
-                "catalog's, on its own schema and rows")
+        catalog, db, words = bird_eval.catalog(), bird_fetch.superhero_db(), bird_eval.HERE
+        items = real_eval.bird_set()
     else:
         db = tmp / "demo.db"
         if not db.exists():
@@ -253,11 +245,11 @@ def _round_set(name: str, cfg: BudgetConfig, tmp: Path) -> SetPrice:
         items = (real_eval.demo_set() if name == "demo" else
                  real_eval.load_stage_set(real_eval.STAGE_SET_FILE, catalog) if name == "stage" else
                  real_eval.load_set(real_eval.SET_FILE, catalog))
-    intent = (prompts.for_catalog("intent_analysis.md", seed.HERE) if generic
+    intent = (prompts.for_catalog("intent_analysis.md", words) if generic
               else prompts.load(seed.HERE / "intent_analysis.md"))
     deps = pipeline.Deps(ScriptedModelGateway(lambda p, c: {}), cfg.model_id, catalog, pipeline.connect_readonly(db),
                          AuditRepository(MemoryStorage(), CircuitBreaker("system_store", MemoryStore()), b"dry-run"),
-                         intent, prompt_set=prompts.PromptSet.generic(seed.HERE) if generic else None)
+                         intent, prompt_set=prompts.PromptSet.generic(words) if generic else None)
     out: list[Priced] = []
     histories: dict[str, list] = {}
     for it in items:
@@ -269,7 +261,7 @@ def _round_set(name: str, cfg: BudgetConfig, tmp: Path) -> SetPrice:
         expected = sum(cfg.cost(r[1], TYPICAL_OUT[r[0].split("@")[0]]) for r in meter.rows)
         out.append(Priced(it["id"], real_eval.status_of(res.response), len(meter.rows),
                           sum(r[1] for r in meter.rows), expected, _worst(meter.rows, cfg)))
-    return SetPrice(name, f"{intent.identity}, {'generic' if generic else 'frozen'}", out, note)
+    return SetPrice(name, f"{intent.identity}, {'generic' if generic else 'frozen'}", out)
 
 
 def price_round(cfg: BudgetConfig, names: Sequence[str]) -> list[SetPrice]:
@@ -293,8 +285,7 @@ def print_round(cfg: BudgetConfig, sets: list[SetPrice]) -> None:
         statuses: dict[str, int] = {}
         for p in s.items:
             statuses[p.status] = statuses.get(p.status, 0) + 1
-        print(f"\n{s.name}: " + ", ".join(f"{k} {v}" for k, v in sorted(statuses.items()))
-              + (f". {s.note}" if s.note else ""))
+        print(f"\n{s.name}: " + ", ".join(f"{k} {v}" for k, v in sorted(statuses.items())))
 
 
 def main(env=None, argv: list[str] | None = None) -> int:
