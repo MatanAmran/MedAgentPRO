@@ -34,7 +34,7 @@ def test_every_set_names_only_book_tests_of_the_table():
     tagged = {f"{name}:{it['id']}": ev.book_tests_of(it) for name, items in sets.items() for it in items
               if ev.book_tests_of(it)}
     assert tagged and all(set(v) <= known for v in tagged.values())
-    assert 22 in tagged["offscript:E1"] and {37, 17} <= set(tagged["stage:FU4"])
+    assert 22 in tagged["offscript:E1"] and tagged["stage:FU4"] == [44, 37]   # 19:52: not 17, F2 expects answered
     assert tagged["stage:FU4"] == tagged["offscript:F2"]   # a ref takes its source's
 
 
