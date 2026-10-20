@@ -69,6 +69,7 @@ from query_assistance.call_trace import CallTrace
 from query_assistance.compiler import Catalog, CompileError, RetrievalResult, compile_intent, execute, intent_validator
 from shared.circuit_breaker import CircuitBreaker, MemoryStore
 from shared.circuit_breaker import log as operational_log
+from tools.book_tests import BOOK_TESTS
 
 SET_FILE = seed.HERE / "offscript_set.json"
 STAGE_SET_FILE = seed.HERE / "stage_set.json"
@@ -135,6 +136,17 @@ def load_stage_set(path: Path = STAGE_SET_FILE, catalog: Catalog | None = None) 
     return check_items(items, catalog, staged=True)
 
 
+BOOK_NUMBERS = {t.number for t in BOOK_TESTS}
+
+
+def book_tests_of(item: dict) -> list[int]:
+    """L13 (chat 20.10, 17:35): the book tests a question checks, from its book_test (a number or a list).
+    Empty where it is absent or holds anything but whole numbers."""
+    v = item.get("book_test")
+    vs = v if isinstance(v, list) else [] if v is None else [v]
+    return vs if all(type(n) is int for n in vs) else []
+
+
 def check_items(items: list[dict], catalog: Catalog | None = None, staged: bool = False) -> list[dict]:
     """See load_set. staged: the stage set's own fields as well (category, the expectation of each stage,
     expected_gap)."""
@@ -167,6 +179,8 @@ def check_items(items: list[dict], catalog: Catalog | None = None, staged: bool 
                     raise SetError(f"{where}: no metric {m}")
         if exp.get("gap") and exp["gap"] not in contract.TEMPLATES:
             raise SetError(f"{where}: no gap kind {exp['gap']}")
+        if "book_test" in it and (not book_tests_of(it) or set(book_tests_of(it)) - BOOK_NUMBERS):
+            raise SetError(f"{where}: book_test {it['book_test']!r} names no test of tools/book_tests.py")
         if staged:
             if it.get("category") not in CATEGORIES:
                 raise SetError(f"{where}: category {it.get('category')!r} is not a row of the stage set")
@@ -195,6 +209,8 @@ def demo_set(path: Path = seed.HERE / "scripted_exchanges.json") -> list[dict]:
         item = {"id": f"Q{n:02d}", "user": exp.get("user", "AP-01"), "question": e["question"],
                 "expect": {"status": status}, "watch": exp.get("note"),
                 "plan": [e["intent"]] if e.get("intent") else []}
+        if "book_test" in e:
+            item["book_test"] = e["book_test"]
         if (e.get("rewrite") or {}).get("question"):
             item["rewritten"] = e["rewrite"]["question"]
         if exp.get("follows"):
@@ -378,6 +394,7 @@ class Result:
     cost: dict | None = None
     seconds: float = 0.0
     rate_waits: list[int] = field(default_factory=list)
+    book_test: list[int] = field(default_factory=list)   # L13: the book tests this question checks
 
     @property
     def verdict(self) -> str:
@@ -436,7 +453,8 @@ def run_set(items: list[dict], deps: pipeline.Deps, gateway_for: Callable[[str],
             break
         history = list(histories.get(it["after"], [])) if it.get("after") else []
         user = {"user_id": it["user"], "role": DEMO_USERS[it["user"]]}
-        res = Result(it["id"], it["user"], it["question"], it.get("after"), it["expect"], it.get("watch"))
+        res = Result(it["id"], it["user"], it["question"], it.get("after"), it["expect"], it.get("watch"),
+                     book_test=book_tests_of(it))
         started = clock()
         while True:
             calls: list[CallTrace] = []
@@ -679,6 +697,24 @@ def summary_table(run: Run) -> str:
     return "\n".join([head, *rows])
 
 
+def by_book_test(results: list[Result]) -> dict[int, dict[str, list[str]]]:
+    """L13: per book test, the questions that check it, passed (code's verdict ✅ or ⚠️) and failed (❌)."""
+    out: dict[int, dict[str, list[str]]] = {}
+    for r in results:
+        for n in r.book_test:
+            out.setdefault(n, {"passed": [], "failed": []})["failed" if r.verdict == FAIL else "passed"].append(r.id)
+    return dict(sorted(out.items()))
+
+
+def book_table(run: Run) -> str:
+    """L13: the run by book test. A test passes on this run only if every question checking it passed."""
+    rows = ["| book test | | questions | failed |", "|---|---|---|---|"]
+    for n, got in by_book_test(run.results).items():
+        rows.append(f"| {n} | {FAIL if got['failed'] else OK} | {', '.join(got['passed'] + got['failed'])} | "
+                    f"{', '.join(got['failed']) or NONE} |")
+    return "\n".join(rows) if len(rows) > 2 else "No question of this run names a book test."
+
+
 def _detail(r: Result) -> list[str]:
     resp = r.response
     out = [f"## {r.id} · {r.user} · {r.status} {r.verdict}", "", f"**Asked:** {r.question}"]
@@ -754,7 +790,8 @@ def report(run: Run) -> str:
     if run.skipped:
         out += [f"**Skipped (their conversation did not run):** {', '.join(run.skipped)}", ""]
     out += ["auto is code's checks only (status, counts, forbidden). ⚠️ is a hint to read, not a failure. "
-            "The judgement is the chat's.", "", summary_table(run), ""]
+            "The judgement is the chat's.", "", summary_table(run), "", "## By book test (L13)", "",
+            book_table(run), ""]
     for r in run.results:
         out += _detail(r)
     return "\n".join(out)
@@ -831,12 +868,15 @@ def write_manifest(store: Path, run: Run, set_name: str, deps: pipeline.Deps, st
     return path
 
 
-def latest_manifest(store: Path, set_name: str, identities: dict[str, str]) -> dict | None:
-    """The newest recorded run of this set on these prompts: its model is the one the replay keys on."""
+def latest_manifest(store: Path, set_name: str, identities: dict[str, str], at_least: int = 0) -> dict | None:
+    """The newest recorded run of this set on these prompts that holds at least as many exchanges as the replay
+    asks for: its model is the one the replay keys on. A run of a few questions again (--only, the repeats of
+    L6) does not hide the whole set's run from a replay of the whole set."""
     found = sorted((Path(store) / "manifests").glob(f"*-{Path(set_name).stem}.json"), reverse=True)
     for path in found:
         m = json.loads(path.read_text(encoding="utf-8"))
-        if m.get("set") == set_name and m.get("prompts") == identities and m.get("run"):
+        if (m.get("set") == set_name and m.get("prompts") == identities and m.get("run")
+                and m.get("exchanges", 0) >= at_least):
             return m   # a manifest without a run directory predates R-1: its calls are keyed otherwise
     return None
 
@@ -939,7 +979,7 @@ def main(argv: list[str] | None = None, *, build: Callable[..., tuple] | None = 
                        prompt_set=prompts.PromptSet.generic(words))
     replaying: RecordReplayGateway | None = None
     if mode == "replay":
-        recorded = latest_manifest(args.cache, args.set, prompt_identities(deps))
+        recorded = latest_manifest(args.cache, args.set, prompt_identities(deps), at_least=len(items))
         if recorded is None:
             print(f"no recorded run of {args.set} on these prompts in {args.cache}: record one first")
             return 1
@@ -978,6 +1018,7 @@ def main(argv: list[str] | None = None, *, build: Callable[..., tuple] | None = 
         path = write_manifest(args.cache, run, args.set, deps, stamp)
         print(f"recorded to {args.cache}; manifest {path.name}")
     print(summary_table(run))
+    print("\n" + book_table(run))
     if replaying is not None:
         try:
             replaying.assert_complete()

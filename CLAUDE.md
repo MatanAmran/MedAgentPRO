@@ -192,6 +192,17 @@ The remote is `MedAgentPRO` (`github.com/MatanAmran/MedAgentPRO`, Matan's reposi
 - **A change to a measure (R-7, chat 20.10, 16:40).** Any change to how the evaluation tools judge (`tools/bird_eval.py`, `tools/real_eval.py`: a comparison, a check, an expectation) is recorded with its reason and applied back to every set of the last round with `--replay` (no model, USD 0), with the results before and after in the report. A result is never re-judged by a rule the earlier rounds were not judged by.
 - **Record and replay (R-1, chat 20.10, 16:40).** The key is the whole request as sent (`client.build_request`): every parameter, a future one too, the API key alone aside. Each recorded run has a directory of its own under `eval_cache/`, and a request sent twice keeps both answers, in order. A manifest from before R-1 (no `run`) does not replay.
 
+## Lessons from the Haiku round (chat 20.10, 17:35; `docs/notes/84_ROUND_20_10.md` §7)
+
+- **L2, a test checks a kind, not a case.** A check asserts a property (an invariant over every slot, column or path), never the string of the case that was found. The check for the word "alignment" missed the next catalog; R-2 checks every slot against the catalog's marks.
+- **L3, a key comes from the whole object.** A cache key, a hash or a comparison is derived from the whole object as sent (`client.build_request`), never from a hand-picked list of fields. A hand-picked key missed the output cap and the temperature (R-1).
+- **L4, every number code gives the model says what it counts.** A count without its unit misleads (`{label.total}` of groups read as records, FU4). `contract.row_unit` is the pattern.
+- **L5, examples change with the input.** A change to the shape of what a prompt receives updates its examples in the same version, frozen prompts included. An example that no longer matches the input teaches the old wording.
+- **L9, check the head before a merge.** Before asking Evyatar to merge, the PR's head equals the last commit pushed; after a merge, `git log master..MedAgentPRO/<branch>` is empty before the branch is deleted (`057fa9e` missed #31).
+- **L12, decisions live in the repo.** Code cannot see Claude Docs. Every decision Code acts on is in `docs/notes/` or `SHARED_STATUS.md`; a decision only in a Claude Doc is asked for in Code's section.
+- **L1** is the table "principle → where it is enforced" in `docs/notes/40_CHAT.md`. A principle enforced only in a prompt gets a second line of defence (R-4).
+- **L13, a book test passes on the mechanism and on a model.** A question in an evaluation set names the book test it checks (`book_test`, a number or a list, checked against `tools/book_tests.py`). `real_eval` reports by book test; `path_map` shows beside the scripted column the same test on the latest recorded run, by `--replay` at USD 0. A test that depends on the model passes only where it passes in both.
+
 ## Decisions in force (details in `docs/notes/40_CHAT.md`)
 
 - **The model never writes a query.** It fills a plan (schema 1); `compiler.py` validates it, injects entitlement and LIMIT, and builds parameterised SQL.

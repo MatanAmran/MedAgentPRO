@@ -1,9 +1,10 @@
 {
-  "$comment": "Task 6 (S5) and task 8: what the scripted model answers in the server's default mode, in the order the demo presents them. Keyed by the question as posed. Each output replaces the model only: it goes through the schema, the compiler, the references, the gate and the contract like a real one. The gate's claims are built from the numbered sentences in the gate prompt, one per sentence, with the verdict and the cited aliases given here; a stage that runs twice (the gate before and after a redraft) takes a list. expect is what the exchange must end in (tests/feasibility L01, frontend e2e): outcome, what it shows, the question it follows, and whether the gate's verdicts are scripted to show the mechanism. A question with no entry ends as request_not_completed. Version 3 (fix round, 19.10): the answers state each reading's condition (D4) and a list gives {label.total} with a few rows (D5), as the real model now writes them. Version 4 (scripted demo, 19.10): two exchanges from the 19.10 real-run outputs, probes H1b (the cross_record_condition gap, a follow-up of question 1) and H11 (planner = you, asked as PL-02; expect.user names the demo user an exchange is shown as).",
+  "$comment": "Task 6 (S5) and task 8: what the scripted model answers in the server's default mode, in the order the demo presents them. Keyed by the question as posed. Each output replaces the model only: it goes through the schema, the compiler, the references, the gate and the contract like a real one. The gate's claims are built from the numbered sentences in the gate prompt, one per sentence, with the verdict and the cited aliases given here; a stage that runs twice (the gate before and after a redraft) takes a list. expect is what the exchange must end in (tests/feasibility L01, frontend e2e): outcome, what it shows, the question it follows, and whether the gate's verdicts are scripted to show the mechanism. A question with no entry ends as request_not_completed. Version 3 (fix round, 19.10): the answers state each reading's condition (D4) and a list gives {label.total} with a few rows (D5), as the real model now writes them. Version 4 (scripted demo, 19.10): two exchanges from the 19.10 real-run outputs, probes H1b (the cross_record_condition gap, a follow-up of question 1) and H11 (planner = you, asked as PL-02; expect.user names the demo user an exchange is shown as). book_test (L13, chat 20.10, 17:35): the book test or tests a question checks on a real model, for tools.real_eval and tools.path_map; the scripted model ignores it.",
   "version": 4,
   "exchanges": [
     {
       "question": "Which suppliers were late in weeks 1 to 13?",
+      "book_test": [32],
       "intent": {
         "disposition": "retrieve",
         "ambiguous": [
@@ -184,6 +185,7 @@
     },
     {
       "question": "And in weeks 14 to 26?",
+      "book_test": [44],
       "rewrite": {
         "question": "Which suppliers were late in weeks 14 to 26?",
         "carried_from_history": true
@@ -367,6 +369,7 @@
     },
     {
       "question": "Which purchase orders were delivered late in September?",
+      "book_test": [37],
       "intent": {
         "disposition": "retrieve",
         "readings": [
@@ -689,6 +692,7 @@
     },
     {
       "question": "What delay reasons were recorded for S-038's late lines?",
+      "book_test": [22],
       "intent": {
         "disposition": "retrieve",
         "readings": [
@@ -778,6 +782,7 @@
     },
     {
       "question": "Why is S-014 late so often?",
+      "book_test": [22],
       "intent": {
         "disposition": "refer_to_investigation"
       },
@@ -791,6 +796,7 @@
     },
     {
       "question": "What did S-040 supply?",
+      "book_test": [35],
       "intent": {
         "disposition": "retrieve",
         "readings": [
@@ -836,6 +842,7 @@
     },
     {
       "question": "What did S-099 supply?",
+      "book_test": [35],
       "intent": {
         "disposition": "retrieve",
         "readings": [
@@ -881,6 +888,7 @@
     },
     {
       "question": "Which parts are below their reorder point?",
+      "book_test": [16],
       "intent": {
         "disposition": "retrieve",
         "readings": [
@@ -1004,6 +1012,7 @@
     },
     {
       "question": "Which supplier delivered the most lines on time in weeks 1 to 13?",
+      "book_test": [17],
       "intent": {
         "disposition": "retrieve",
         "readings": [
@@ -1113,6 +1122,7 @@
     },
     {
       "question": "Update the promised date of PO-87213 to 20 October.",
+      "book_test": [22],
       "intent": {
         "disposition": "out_of_scope_action"
       },
@@ -1126,6 +1136,7 @@
     },
     {
       "question": "What is the total value of their open orders?",
+      "book_test": [44],
       "rewrite": {
         "question": "What is the total value of the open orders of the suppliers that were late in weeks 1 to 13, both those with lines delivered after the requested date and those that committed to a date after the requested date?",
         "carried_from_history": true

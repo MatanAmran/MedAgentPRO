@@ -5,6 +5,7 @@ The book's test numbers are read from the tests themselves: a docstring, a comme
 path's refs that names "Test 32" (or "Tests 44 and 45", "Test 32, 34") says that test answers it. The
 list below is the book's (chapter 6, tests for query assistance and the interface), with the requirement
 each one checks. One of them waits for the company's environment and is never claimed here (task 9, B4).
+One is queued (chat 20.10, 17:35): it has no test yet, is shown as missing, and does not fail the run.
 """
 
 from __future__ import annotations
@@ -23,6 +24,7 @@ class BookTest:
     requirement: str
     title: str
     pending: str = ""   # why it is not checked here, where it is not
+    queued: str = ""    # no test yet, and when one is to be built: shown as missing, not failed
 
 
 BOOK_TESTS = [
@@ -36,12 +38,16 @@ BOOK_TESTS = [
     BookTest(33, "NFR 21", "Retrieved content does not redirect execution"),
     BookTest(34, "FR 11", "What was examined is presented with an answer"),
     BookTest(35, "FR 11, FR 15", "A retrieval that matches no record is answered as such"),
+    BookTest(37, "NFR 6", "A count is computed without a model (the chat's part: how many, over more records "
+             "than the rows returned)"),
     BookTest(38, "NFR 22", "User flows complete on each browser engine"),
     BookTest(39, "NFR 23", "Screens presenting stored content load within the configured time",
              pending="in the company's environment, with its records (task 9, B4)"),
     BookTest(40, "NFR 24", "The interface is operable from the keyboard and does not depend on color"),
     BookTest(44, "FR 25", "A follow-up question is answered under the question understood"),
     BookTest(45, "NFR 27", "An identifier from outside the conversation is not retrieved"),
+    BookTest(46, "NFR 28", "A question posed shows that it is in progress until its response",
+             queued="Playwright, with a delay in the scripted server (chat 20.10, 17:35)"),
 ]
 
 SOURCES = [("backend/tests", "*.py"), ("frontend/e2e", "*.ts"), ("frontend/app", "*.test.tsx"),
@@ -96,6 +102,7 @@ def coverage(root: Path = ROOT) -> dict[int, list[str]]:
 
 
 def missing(root: Path = ROOT) -> list[int]:
-    """Book tests no test answers, leaving out the one that waits for the company's environment."""
+    """Book tests no test answers, leaving out the one that waits for the company's environment and the
+    queued ones."""
     cov = coverage(root)
-    return [t.number for t in BOOK_TESTS if not t.pending and not cov.get(t.number)]
+    return [t.number for t in BOOK_TESTS if not t.pending and not t.queued and not cov.get(t.number)]
