@@ -14,7 +14,10 @@
 name: tests
 
 on:
+  # push only on master (Evyatar, 20.10, 18:56): a branch with a pull request ran every job twice, once for
+  # push and once for pull_request. A branch is tested by its pull request
   push:
+    branches: [master]
   pull_request:
   # schedule and workflow_dispatch run only where this file is on the default branch. The default
   # branch is main, which holds only the README, so neither runs today; stress runs on every pull
@@ -25,6 +28,11 @@ on:
 
 permissions:
   contents: read
+
+# a new push to the same branch or pull request cancels the run still going for the old one
+concurrency:
+  group: tests-${{ github.ref }}
+  cancel-in-progress: true
 
 defaults:
   run:
