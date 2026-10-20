@@ -20,6 +20,14 @@ Run from backend/:
   python -m tools.dry_run                                 prices and caps from backend/.env
   python -m tools.dry_run --model claude-sonnet-5-5       map prices, no .env
       [--budget 3.5] [--cap 0.25] [--max-output 2000]                 what to report against
+  python -m tools.dry_run --sets demo,stage,offscript,bird   a round, per set and in total
+
+With --sets, a whole evaluation round instead (Phase B task 7, chat 20.10): every question of each set
+through the pipeline on its hand-written plan, with the prompts the round runs (the demo on the frozen
+prompts, the other sets on the generic ones). The input tokens are those of the prompts each question
+really sends, its records included. The expected output is TYPICAL_OUT, the size of real calls; the worst
+case prices every call the question can make (each attempt, the regeneration and its gate) at the high
+input estimate and its output cap, but never above the cap per exchange, which refuses beyond it.
 """
 
 from __future__ import annotations
@@ -28,7 +36,8 @@ import argparse
 import re
 import sys
 import tempfile
-from collections.abc import Sequence
+from collections.abc import Callable, Sequence
+from dataclasses import dataclass, replace
 from pathlib import Path
 
 from demo_data import seed
@@ -36,6 +45,7 @@ from model_client.budget import BudgetConfig, BudgetConfigError, estimate_input_
 from model_client.client import ModelConfig, ModelGateway, ModelResponse, ScriptedModelGateway
 from persistence.audit_repository import AuditRepository, MemoryStorage
 from query_assistance import pipeline, prompts
+from query_assistance.calls import MODEL_CALL_ATTEMPTS
 from query_assistance.compiler import Catalog
 from shared.circuit_breaker import CircuitBreaker, MemoryStore
 
@@ -135,6 +145,7 @@ def _config(env, argv) -> BudgetConfig:
     ap.add_argument("--max-output", type=int, default=2000, help="output tokens per call (with --model)")
     ap.add_argument("--max-output-intent", type=int, help="intent analysis's own output cap (with --model)")
     ap.add_argument("--max-output-gate", type=int, help="the gate's own output cap (with --model)")
+    ap.add_argument("--sets", help=f"price a round instead: {', '.join(SETS)}, comma separated")
     args = ap.parse_args(argv or [])   # never the test runner's own arguments
     if not args.model:
         return BudgetConfig.from_env(env, need_key=False)
@@ -146,12 +157,160 @@ def _config(env, argv) -> BudgetConfig:
                         max_output_tokens_intent=args.max_output_intent, max_output_tokens_gate=args.max_output_gate)
 
 
+# --------------------------------------------------------------------------
+# a round, per set (Phase B task 7, chat 20.10)
+# --------------------------------------------------------------------------
+
+SETS = ("demo", "stage", "offscript", "bird")
+# Output tokens of an accepted call, thinking included: the mean of the Sonnet 5.5 calls logged on 18-19.10
+# (docs/notes/05_LOG.md, the "model call" lines), rounded up. Haiku may think more or less: an estimate
+TYPICAL_OUT = {"question_rewriting": 150, "intent_analysis": 900, "intent_analysis_demo": 900, "synthesis": 500,
+               "synthesis_redraft": 400, "support_scoring": 1100}
+# a question that reaches the gate may take the regeneration path once (NFR 19): these two calls more
+REGENERATION = ("synthesis_redraft", "support_scoring")
+
+
+@dataclass
+class Priced:
+    id: str
+    status: str
+    calls: int
+    input_tokens: int
+    expected: float
+    worst: float
+
+
+@dataclass
+class SetPrice:
+    name: str
+    prompts: str
+    items: list[Priced]
+    note: str = ""
+
+    @property
+    def expected(self) -> float:
+        return sum(p.expected for p in self.items)
+
+    @property
+    def worst(self) -> float:
+        return sum(p.worst for p in self.items)
+
+
+def _by_plan(item: dict) -> Callable[[str, ModelConfig], dict]:
+    """The model a question's hand-written plan stands for: rewriting hands back the rewrite expected,
+    intent analysis the plan, synthesis one sentence per reading that reached records, the gate supports."""
+    plan = (item.get("plan") or [None])[0]
+    alias = {r["label"]: r["plan"]["SELECT"][0]["as"] for r in (plan or {}).get("readings", [])}
+
+    def answer(prompt: str, cfg: ModelConfig) -> dict:
+        name = cfg.prompt_identity.split("@")[0]
+        if name == "question_rewriting":
+            return {"question": item.get("rewritten") or item["question"], "carried_from_history": True}
+        if name.startswith("intent_analysis"):
+            return plan or {"disposition": "needs_clarification", "readings": []}
+        if name in ("synthesis", "synthesis_redraft"):
+            held = re.findall(r"^\[(\w+)\] examined:", prompt, re.M)
+            return {"readings": [{"label": lab, "sentences": [{"text": f"{{{lab}.{alias[lab]}#1}} is listed."}]}
+                                 for lab in dict.fromkeys(held) if lab in alias]}
+        body = prompt.split("Answer:\n")[-1].split("\nRecords:")[0]
+        return {"claims": [{"sentence": int(n), "text": t, "verdict": "supported", "evidence": [f"{lab}.{alias[lab]}"]}
+                           for n, lab, t in re.findall(r"^(\d+)\. \[(\w+)\] (.*)$", body, re.M)]}
+    return answer
+
+
+def _worst(rows: list[tuple], cfg: BudgetConfig) -> float:
+    """Every call the question made, in all its attempts, and the regeneration path where it reached the
+    gate, each at the high input estimate and its own output cap; never above the cap per exchange."""
+    per = {r[0].split("@")[0]: r for r in rows}
+    total = sum(MODEL_CALL_ATTEMPTS * cfg.worst_cost(r[2], cfg.output_cap(r[0])) for r in rows)
+    if "support_scoring" in per and "synthesis_redraft" not in per:
+        like = (per.get("synthesis", per["support_scoring"]), per["support_scoring"])
+        for name, row in zip(REGENERATION, like, strict=True):
+            total += MODEL_CALL_ATTEMPTS * cfg.worst_cost(row[2], cfg.output_cap(name))
+    return min(total, cfg.max_usd_per_exchange)
+
+
+def _round_set(name: str, cfg: BudgetConfig, tmp: Path) -> SetPrice:
+    from api.state import DEMO_USERS
+    from tools import bird_eval, bird_fetch, real_eval
+    catalog = Catalog.load(seed.HERE / "schema.json", seed.HERE / "relations.json")
+    generic = name != "demo"   # the round's plan (chat 20.10): the demo on @9 as the base, the rest on @11
+    note = ""
+    if name == "bird":
+        catalog, db = bird_eval.catalog(), bird_fetch.superhero_db()
+        raw = bird_eval.load()
+        items = [{"id": f"B{q['id']}", "user": "AP-01", "question": q["question"],
+                  "plan": [q["plan"]] if q.get("plan") else []}   # a gap the plan language cannot state has none
+                 for q in raw["questions"] + raw["gaps"]]
+        # superhero holds no dates, but the generic intent prompt asks for one: a stand-in, a few tokens
+        catalog.data_as_of = catalog.data_as_of or "2026-10-09"
+        note = ("superhero has no prompt words, examples or data_as_of of its own yet: priced with the demo "
+                "catalog's, on its own schema and rows")
+    else:
+        db = tmp / "demo.db"
+        if not db.exists():
+            seed.build(db)
+        items = (real_eval.demo_set() if name == "demo" else
+                 real_eval.load_stage_set(real_eval.STAGE_SET_FILE, catalog) if name == "stage" else
+                 real_eval.load_set(real_eval.SET_FILE, catalog))
+    intent = (prompts.for_catalog("intent_analysis.md", seed.HERE) if generic
+              else prompts.load(seed.HERE / "intent_analysis.md"))
+    deps = pipeline.Deps(ScriptedModelGateway(lambda p, c: {}), cfg.model_id, catalog, pipeline.connect_readonly(db),
+                         AuditRepository(MemoryStorage(), CircuitBreaker("system_store", MemoryStore()), b"dry-run"),
+                         intent, prompt_set=prompts.PromptSet.generic(seed.HERE) if generic else None)
+    out: list[Priced] = []
+    histories: dict[str, list] = {}
+    for it in items:
+        meter = _Meter(ScriptedModelGateway(_by_plan(it)), cfg)
+        history = list(histories.get(it["after"], [])) if it.get("after") else []
+        user = {"role": DEMO_USERS[it["user"]], "user_id": it["user"]}
+        res = pipeline.run(it["question"], history, user, replace(deps, gateway=meter))
+        histories[it["id"]] = history + [res.exchange]
+        expected = sum(cfg.cost(r[1], TYPICAL_OUT[r[0].split("@")[0]]) for r in meter.rows)
+        out.append(Priced(it["id"], real_eval.status_of(res.response), len(meter.rows),
+                          sum(r[1] for r in meter.rows), expected, _worst(meter.rows, cfg)))
+    return SetPrice(name, f"{intent.identity}, {'generic' if generic else 'frozen'}", out, note)
+
+
+def price_round(cfg: BudgetConfig, names: Sequence[str]) -> list[SetPrice]:
+    with tempfile.TemporaryDirectory() as tmp:
+        return [_round_set(n, cfg, Path(tmp)) for n in names]
+
+
+def print_round(cfg: BudgetConfig, sets: list[SetPrice]) -> None:
+    print(f"Model {cfg.model_id}: {cfg.price_in:g} in / {cfg.price_out:g} out per million. No model called.")
+    print("expected: the input each question sends, a typical real call's output (TYPICAL_OUT, thinking "
+          "included), no feedback attempt. worst: every attempt and the regeneration, at the high input "
+          "estimate and the output cap, at most the cap per exchange.")
+    print(f"\n  {'set':<10}{'prompts':<34}{'questions':>10}{'calls':>7}{'input ~':>10}{'expected':>10}{'worst':>9}")
+    for s in sets:
+        print(f"  {s.name:<10}{s.prompts:<34}{len(s.items):>10}{sum(p.calls for p in s.items):>7}"
+              f"{sum(p.input_tokens for p in s.items):>10}{s.expected:>10.4f}{s.worst:>9.4f}")
+    print(f"  {'total':<44}{sum(len(s.items) for s in sets):>10}{sum(p.calls for s in sets for p in s.items):>7}"
+          f"{sum(p.input_tokens for s in sets for p in s.items):>10}"
+          f"{sum(s.expected for s in sets):>10.4f}{sum(s.worst for s in sets):>9.4f}")
+    for s in sets:
+        statuses: dict[str, int] = {}
+        for p in s.items:
+            statuses[p.status] = statuses.get(p.status, 0) + 1
+        print(f"\n{s.name}: " + ", ".join(f"{k} {v}" for k, v in sorted(statuses.items()))
+              + (f". {s.note}" if s.note else ""))
+
+
 def main(env=None, argv: list[str] | None = None) -> int:
     try:
         cfg = _config(env, argv)
     except BudgetConfigError as e:
         print(e)
         return 1
+    if argv and "--sets" in argv:
+        names = argv[argv.index("--sets") + 1].split(",")
+        unknown = [n for n in names if n not in SETS]
+        if unknown:
+            print(f"unknown set {', '.join(unknown)}: {', '.join(SETS)}")
+            return 2
+        print_round(cfg, price_round(cfg, names))
+        return 0
     with tempfile.TemporaryDirectory() as tmp:
         db = Path(tmp) / "demo.db"
         seed.build(db)
