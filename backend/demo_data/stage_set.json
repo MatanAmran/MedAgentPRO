@@ -859,7 +859,6 @@
     },
     {
       "id": "TR2",
-      "book_test": [34],
       "category": "transparency",
       "ref": "offscript:A2",
       "expect": {

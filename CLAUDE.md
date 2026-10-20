@@ -265,7 +265,7 @@ python -m tools.real_eval --plans --set stage   # task 14: the set by pipeline s
 python -m tools.bird_fetch [--download]   # task 11b: BIRD dev (346 MB, CC BY-SA 4.0) outside the repo, SHA-256 checked; superhero only
 python -m tools.bird_eval --plans   # the superhero catalog: each hand plan's rows against BIRD's SQL, and the gaps
 python -m tools.real_eval --real --confirm --out DIR   # the held-out set (demo_data/offscript_set.json) on the real model, paid, only with Evyatar's approval; report outside the repo; without --real, the scripted model; --set demo for the 12 demo questions
-python -m tools.dry_run --sets demo,stage,offscript,bird   # Phase B task 7: a round priced per set and in total, no model
+python -m tools.dry_run --sets demo,stage,offscript,bird   # Phase B task 7: a round priced per set and in total, no model; a real Haiku round cost about 1.6 times its "expected" (20.10)
 python -m tools.real_eval --set bird --record   # also --prompts generic (intent@12), --replay (no model, from eval_cache/), --cache DIR
 python -m pytest -m stress        # load, concurrency, and the property tests at 2000 examples (not in the default run)
 UPDATE_GOLDEN=1 python -m pytest tests/golden   # rewrite golden snapshots, printing the diff for review
