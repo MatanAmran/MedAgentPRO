@@ -64,9 +64,11 @@ export function Chat() {
     return list;
   }, []);
 
-  const loadConversation = useCallback(async (u: DemoUserId, id: string) => {
+  // presented: called with the exchanges set, in the same render (a question's indication leaves with it)
+  const loadConversation = useCallback(async (u: DemoUserId, id: string, presented?: () => void) => {
     const c = await api.conversation(u, id);
     setItems(c.exchanges);
+    presented?.();
     const last = [...c.exchanges].reverse().find((x) => x.cost);
     if (last?.cost) setBudget(last.cost.remaining_usd);
     return c.exchanges;
@@ -147,7 +149,6 @@ export function Chat() {
           onStage: (stage) =>
             setPending((p) => (p ? { ...p, conversationId, seen: [...p.seen.filter((s) => s !== stage), stage] } : p)),
         });
-        setPending(null);
       } catch (e) {
         if (ac.signal.aborted) {
           setPending((p) => (p ? { ...p, error: STOPPED, stopping: false } : p));
@@ -161,7 +162,8 @@ export function Chat() {
         await loadConversations(user).catch(() => undefined);
         return;
       }
-      await loadConversation(user, conversationId);
+      // Test 46 (NFR 28): the indication goes in the render that presents the response, never before it
+      await loadConversation(user, conversationId, () => setPending(null));
       await loadConversations(user);
     } catch (e) {
       setPending({ conversationId: id ?? "", question, seen: [], followUp, error: message(e) });
