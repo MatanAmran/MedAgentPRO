@@ -223,3 +223,13 @@
 | [Vasquez Ferrer et al., When Can We Trust LLM Graders?, arXiv:2603.29559](https://arxiv.org/html/2603.29559v1) | מאמר ([39]) | דיווח עצמי מכויל יותר מעקביות, בדירוג |
 | [When LLMs Agree, Are They Right?, arXiv:2607.08065](https://arxiv.org/pdf/2607.08065) | מאמר | אף סימן לבדו לא אמין כסף להימנעות |
 | [LangGraph: Human-in-the-loop (interrupt)](https://docs.langchain.com/oss/python/langgraph/human-in-the-loop) | תיעוד | ‏interrupt ו-checkpointer עמיד |
+
+## 11. הודעות כשל: מה המשתמש רואה ומה המפתח רואה (הצ׳אט, 21.10 21:30, ל-`89` סעיף 4)
+
+| מקור | סוג | מה לקחנו |
+|---|---|---|
+| [Nielsen Norman Group: error message communication guidelines](https://www.nngroup.com/videos/error-message-communication-guidelines/) | מדריך | שפה פשוטה, תיאור מדויק, עצה בונה, בלי להאשים |
+| [Microsoft: error message guidelines (Win32)](https://learn.microsoft.com/en-us/windows/win32/debug/error-message-guidelines) | מדריך | הודעה נפרדת לכל סיבה ידועה. כללית רק כשהסיבה לא ידועה. קריטית ליומן |
+| [Microsoft: writing style (Fluent)](https://learn.microsoft.com/windows/uwp/design/style/writing-style) | מדריך | לא להאשים. המשתמש רוצה לחזור מהר למה שעשה |
+| [GOV.UK Design System: There is a problem with the service pages](https://design-system.service.gov.uk/patterns/problem-with-the-service-pages/) | מדריך, עם מחקר | הודעה אחת לתקלה לא צפויה. "Try again later". מה קרה למה שהוזן. דרך אחרת. בלי ז׳רגון. לרשום כל שגיאה |
+| [Google PAIR: Errors + Graceful Failure](https://pair.withgoogle.com/chapter/People%20+%20AI%20Guidebook%20-%20Errors%20+%20Graceful%20Failure.pdf) | מדריך | דרך להתקדם אחרי כשל. שגיאה של המשתמש, של המערכת ושל ההקשר |
