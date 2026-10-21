@@ -955,8 +955,8 @@
                         "type": "string",
                         "minLength": 1,
                         "maxLength": 400,
-                        "pattern": "\\{[a-z][a-z0-9_]*\\.[a-z][a-z0-9_]*#[0-9]+\\}",
-                        "$comment": "Text with symbolic references {label.alias#row}, filled in code. At least one."
+                        "pattern": "\\{[a-z][a-z0-9_]*\\.([a-z][a-z0-9_]*#[0-9]+|total)\\}",
+                        "$comment": "Text with symbolic references, filled in code: {label.alias#row} for a value in a row, or {label.total} for how many rows the reading matched (D5). At least one of either, as synthesis.check holds; the pattern says the same (G-SENTPAT, chat 21.10, 16:40: it required #row, so a sentence D5 allows was refused)."
                       }
                     }
                   }
