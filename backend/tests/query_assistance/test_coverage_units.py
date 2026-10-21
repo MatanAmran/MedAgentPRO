@@ -68,9 +68,17 @@ def test_an_entity_slot_is_filled_with_the_catalogs_label_and_its_raw_name_is_re
     assert coverage.message("{part} {reason}, as the " + table + " were read.", SPAN, "uncovered", CAT) is None
 
 
-@pytest.mark.parametrize("word", sorted(coverage.NEGATION) + ["isn't", "wasn't"])
+@pytest.mark.parametrize("word", sorted(coverage.NEGATION) + ["isn't", "wasn't", "isn’t", "doesn’t", "can’t"])
 def test_every_negation_outside_the_reason_slot_is_refused(word):
+    """F-B (chat 21.10, 11:10): n't with either apostrophe, straight or curly."""
     assert coverage.message(f"{{part}} {{reason}}, {word} more.", SPAN, "uncovered", CAT) is None
+
+
+@pytest.mark.parametrize("word", sorted(coverage.ABSENCE))
+def test_every_word_of_absence_outside_the_reason_slot_is_refused(word):
+    """F-C (chat 21.10, 11:10): absence said without a negation word is still a claim about the data."""
+    assert coverage.message(f"{{part}} {{reason}}; the records {word} more.", SPAN, "uncovered", CAT) is None
+    assert coverage.message(f"{{part}} {{reason}}; {word.capitalize()} here.", SPAN, "uncovered", CAT) is None
 
 
 @pytest.mark.parametrize("word", sorted(coverage.CAUSAL))
@@ -158,6 +166,23 @@ def test_a_cause_part_falls_on_the_part_it_overlaps_most_and_a_recorded_part_on_
     got = coverage.referred([{"asked": "why were they returned so late", "asks": "cause"},
                              {"asked": "Which loans were returned after their due date", "asks": "recorded"}], parts)
     assert [(r["asked"], r["labels"]) for r in got] == [("why were they returned so late", ["why"])]
+
+
+@pytest.mark.parametrize("asked, hidden", [
+    ("returned at the main branch office", ["late", "why"]),   # a quarter of its words in each part: both
+    ("loans at the main branch office", ["late"]),             # a quarter, in the first part only
+    ("at the main branch office", ["late", "why"]),            # touches none: every part
+])
+def test_a_cause_part_that_falls_on_no_part_is_hidden_from_every_part_it_might_mean(asked, hidden):
+    """F-A (chat 21.10, 11:10), a kind: a part that is not recorded and maps to no part under the rule hides every
+    part it overlaps at all, and every part where it overlaps none; never nothing."""
+    parts = [coverage.Part("Which loans were returned after their due date", ["late"]),
+             coverage.Part("why were they returned so late", ["why"])]
+    for asks in ("cause", "judgement", "action"):
+        r, = coverage.referred([{"asked": asked, "asks": asks}], parts)
+        assert r["unmapped"] and r["labels"] == hidden
+    mapped, = coverage.referred([{"asked": "why were they returned so late", "asks": "cause"}], parts)
+    assert not mapped["unmapped"]
 
 
 def test_a_causal_sentence_without_a_recorded_reason_is_removed_not_rewritten():

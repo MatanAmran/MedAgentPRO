@@ -1,10 +1,10 @@
 # MedAgentPro — מפת המסלולים וההיתכנות
 
-**נוצר אוטומטית** ב-`python -m tools.path_map` (מתוך `backend\`), 20.10.2026 23:40. **לא לערוך ידנית** — המקור הוא `backend\tests\paths\registry.py` ו-`backend\tests\feasibility\constraints.py`.
+**נוצר אוטומטית** ב-`python -m tools.path_map` (מתוך `backend\`), 21.10.2026 12:41. **לא לערוך ידנית** — המקור הוא `backend\tests\paths\registry.py` ו-`backend\tests\feasibility\constraints.py`.
 
 **איך זה גדל:** `tests\paths\branches.py` קורא מהקוד ומהסכמות כל הסתעפות (מצב סיום, שלב, סוג כשל, `except`, הודעה, נקודת קצה, קוד HTTP, סוג פער, תפקיד). **הסתעפות בלי מסלול מפילה את `pytest`.** מגבלה שמתגלה (כמו הטמפרטורה) נכנסת כשורה ב-`constraints.py`, ושורה בלי בדיקה מפילה את `pytest`.
 
-**תוצאות:** 94 עוברים · 0 נכשלים · 0 פער ידוע · 0 דולגו
+**תוצאות:** 96 עוברים · 0 נכשלים · 0 פער ידוע · 0 דולגו
 
 ## מסלולים
 
@@ -96,11 +96,13 @@
 | ✅ | `coverage_message_template` | `notice:UNANSWERED` | chat 22:40 · 22:50 · NFR 27 | negation or a causal word outside {reason}, a slot missing, a follow-up with an unknown identifier: the fixed template, and the part as written |
 | ✅ | `coverage_cause_referred` | `notice:REFERRED` | FR 14 · NFR 20 · Test 47 [proposal] · GAP-05 · E1 | C, independent of the plan: the reading of a part asking for a cause is not answered |
 | ✅ | `coverage_cause_over_nothing` | — | FR 14 · Test 35 | an empty result to a cause question is referred, not a finding |
+| ✅ | `coverage_cause_unmapped` | — | FR 14 · NFR 20 · E1 · F-A (chat 21.10, 11:10) | a cause part mapped to no part hides every reading it might mean; recorded as classification_unmapped |
 | ✅ | `coverage_recorded_reason_kept` | — | FR 14 · 89 section 3.5 | the other direction: Q06 and D4 stay answered, every sentence kept |
 | ✅ | `coverage_causal_replaced` | `notice:REPLACED` | NFR 20 · decision 4 | B: a sentence presenting a recorded value as the cause |
-| ✅ | `coverage_classify_failed` | `notice:CLASSIFY_FAILED`, `handler:classified.StageRejected`, `handler:classified.StageFailed`, `handler:classified.Exception` | decision 8 · GAP-07 | the cautious side, and a notice |
+| ✅ | `coverage_classify_failed` | `notice:CLASSIFY_FAILED`, `handler:join_classification.StageRejected`, `handler:join_classification.StageFailed`, `handler:join_classification.Exception` | decision 8 · GAP-07 | the cautious side, and a notice |
 | ✅ | `coverage_check_failed` | `notice:COVERAGE_FAILED`, `handler:covered.StageRejected`, `handler:covered.StageFailed`, `handler:covered.Exception` | decision 8 · GAP-07 | the cautious side, and a notice |
-| ✅ | `coverage_cancelled` | `handler:classified.ExchangeCancelled`, `handler:covered.ExchangeCancelled` | R8 · T7-B1 |  |
+| ✅ | `coverage_cancelled` | `handler:join_classification.ExchangeCancelled`, `handler:covered.ExchangeCancelled` | R8 · T7-B1 |  |
+| ✅ | `coverage_cost_on_early_stop` | — | task 5 · T3 · NFR 3 | C is joined before the cost is taken, whichever way the exchange ends |
 | ✅ | `coverage_skipped` | — | chat 21:01, decision 2 | S1 to S4 all hold: no call |
 | ✅ | `coverage_server_part_on_its_own` | `http:404` | chat 22:50 · FR 25 · NFR 27 | the person's words posed, the checked question as Understood as, no rewriting call |
 | ✅ | `coverage_server_show_recorded` | `notice:SHOW_RECORDED` | chat 22:30, decision 2 · NFR 17 · NFR 21 | the plan the server kept, no model, the records say they establish no cause |
@@ -119,7 +121,7 @@
 
 **stage** — `compilation` (answered_all_supported) · `coverage_check` (coverage_part_left_out) · `intent_analysis` (answered_all_supported) · `output_contract` (answered_all_supported) · `question_classification` (coverage_part_left_out) · `question_rewriting` (follow_up_rewritten) · `rating` (server_rating) · `regeneration` (redraft_from_kept) · `retrieval` (answered_all_supported) · `show_all_records` (server_show_all_records) · `support_gate` (answered_all_supported) · `synthesis` (answered_all_supported)
 
-**handler** — `classified.Exception` (coverage_classify_failed) · `classified.ExchangeCancelled` (coverage_cancelled) · `classified.StageFailed` (coverage_classify_failed) · `classified.StageRejected` (coverage_classify_failed) · `covered.Exception` (coverage_check_failed) · `covered.ExchangeCancelled` (coverage_cancelled) · `covered.StageFailed` (coverage_check_failed) · `covered.StageRejected` (coverage_check_failed) · `finish.Exception` (record_not_written) · `run.BudgetExceeded` (budget_used_up) · `run.Exception` (raw_exception) · `run.ExchangeCancelled` (cancelled_before_synthesis) · `run.RateLimited` (rate_limit) · `run._Rejected` (intent_rejected_twice) · `run._SystemFault` (retrieval_system_fault) · `run._Unreachable` (source_missing)
+**handler** — `covered.Exception` (coverage_check_failed) · `covered.ExchangeCancelled` (coverage_cancelled) · `covered.StageFailed` (coverage_check_failed) · `covered.StageRejected` (coverage_check_failed) · `finish.Exception` (record_not_written) · `join_classification.Exception` (coverage_classify_failed) · `join_classification.ExchangeCancelled` (coverage_cancelled) · `join_classification.StageFailed` (coverage_classify_failed) · `join_classification.StageRejected` (coverage_classify_failed) · `run.BudgetExceeded` (budget_used_up) · `run.Exception` (raw_exception) · `run.ExchangeCancelled` (cancelled_before_synthesis) · `run.RateLimited` (rate_limit) · `run._Rejected` (intent_rejected_twice) · `run._SystemFault` (retrieval_system_fault) · `run._Unreachable` (source_missing)
 
 **failure** — `client_error` (every_failure_kind) · `connection` (every_failure_kind) · `empty` (every_failure_kind) · `format` (every_failure_kind) · `rate_limited` (every_failure_kind) · `refusal` (every_failure_kind) · `server_error` (every_failure_kind) · `timeout` (every_failure_kind) · `truncated` (every_failure_kind) · `unexpected` (every_failure_kind)
 

@@ -506,6 +506,7 @@ def run(question: str, history: list[prompts.Exchange], user: dict, deps: Deps,
     stage = on_stage or (lambda name: None)
     ran: dict[str, dict] = {}   # the plans retrieved, for Outcome.plans (task 5)
     named: dict[str, list[dict]] = {}   # how each name was resolved, by label (chat 20.10)
+    notes: list[str] = []   # task 4: what the record says of the coverage check (F-A, chat 21.10, 11:10)
     eid = "EX-" + uuid.uuid4().hex[:12]
     rec = _Record(eid, user, context, on_call)
     cat, role = deps.catalog, user["role"]
@@ -569,6 +570,8 @@ def run(question: str, history: list[prompts.Exchange], user: dict, deps: Deps,
             doc["failure"] = redact(failure)   # G3: in depth, should provider text ever reach it
         if spent:
             doc["cost"] = spent
+        if notes:
+            doc["coverage_notes"] = list(notes)
         try:
             deps.audit.write_run(rec.entries, doc)
         except Exception as e:   # R1, decision 9: an answer that was not recorded is not presented
@@ -724,6 +727,8 @@ def run(question: str, history: list[prompts.Exchange], user: dict, deps: Deps,
             parts = coverage.parts_of(intent, compiled.uncovered)
             got, c_failed = classified()
             refs = coverage.referred(got, parts) if got else []
+            if any(r["unmapped"] for r in refs):   # F-A: hidden from every reading it might fall on
+                notes.append("classification_unmapped")
             hit = {id(p) for r in refs for p in r["parts"]}
             hidden = {lab for r in refs for lab in r["labels"]}
             ref_parts = [contract.referred_part(r["asked"], r["asks"], r["labels"]) for r in refs]

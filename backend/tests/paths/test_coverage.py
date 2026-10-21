@@ -143,6 +143,22 @@ def test_a_cause_part_over_records_that_hold_nothing_is_referred(db_path):
 
 
 @pytest.mark.asked_as_written
+def test_a_cause_part_that_falls_on_no_reading_leaves_no_sentence_from_the_readings(db_path):
+    """F-A (chat 21.10, 11:10): C names a part that overlaps no asked enough to be mapped. The cautious side: every
+    reading it might mean is hidden, so no answer from the records stands beside a question of cause; recorded as
+    classification_unmapped."""
+    gw = Script(intent_analysis_demo=[REASONS_INTENT],
+                question_classification=[{"parts": [{"asked": "What", "asks": "cause"}]}],
+                synthesis=[REASONS_SYN], support_scoring=[reason_gate])
+    d = covering(gw, db_path)
+    out = pl.run(REASONS_Q, [], APPROVER, d)
+    r = out.response
+    assert r["outcome"] == "referred_to_investigation" and r["readings"] == []
+    assert r["referred_parts"][0]["show_recorded"] == ["recorded_reasons"]
+    assert d.audit.storage.get_investigation(out.exchange_id)["coverage_notes"] == ["classification_unmapped"]
+
+
+@pytest.mark.asked_as_written
 def test_a_recorded_reason_asked_for_stays_answered(db_path):
     """The other direction (89, section 3.5): a question that asks what reason was recorded is answered, every
     sentence kept. Q06 and D4 are the measured cases."""
