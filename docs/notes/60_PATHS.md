@@ -1,6 +1,6 @@
 # MedAgentPro — מפת המסלולים וההיתכנות
 
-**נוצר אוטומטית** ב-`python -m tools.path_map` (מתוך `backend\`), 21.10.2026 20:28. **לא לערוך ידנית** — המקור הוא `backend\tests\paths\registry.py` ו-`backend\tests\feasibility\constraints.py`.
+**נוצר אוטומטית** ב-`python -m tools.path_map` (מתוך `backend\`), 21.10.2026 20:51. **לא לערוך ידנית** — המקור הוא `backend\tests\paths\registry.py` ו-`backend\tests\feasibility\constraints.py`.
 
 **איך זה גדל:** `tests\paths\branches.py` קורא מהקוד ומהסכמות כל הסתעפות (מצב סיום, שלב, סוג כשל, `except`, הודעה, נקודת קצה, קוד HTTP, סוג פער, תפקיד). **הסתעפות בלי מסלול מפילה את `pytest`.** מגבלה שמתגלה (כמו הטמפרטורה) נכנסת כשורה ב-`constraints.py`, ושורה בלי בדיקה מפילה את `pytest`.
 
@@ -195,7 +195,7 @@
 | ✅ | 17 | NFR 19, NFR 20 | An answer with no supported assertion is regenerated once and then replaced | `backend/tests/paths/registry.py: fresh_draft_then_nothing`<br>`backend/tests/paths/registry.py: redraft_then_nothing`<br>`backend/tests/query_assistance/test_contract.py: test_no_supported_assertion_replaces_the_records_and_names_the_readings`<br>`backend/tests/query_assistance/test_pipeline.py: test_no_supported_assertion_is_regenerated_once_then_replaced` | לא נמדד |
 | ✅ | 21 | FR 13, NFR 3, NFR 4 | Traceability of an answered question | `backend/tests/paths/registry.py: answered_all_supported`<br>`backend/tests/query_assistance/test_pipeline.py: test_exchange_record_follows_the_declared_stage_order` | לא נמדד |
 | ✅ | 22 | FR 14, NFR 20 | A question requiring interpretation is routed rather than answered | `backend/tests/paths/registry.py: referred`<br>`backend/tests/query_assistance/test_pipeline.py: test_question_asking_for_a_cause_is_referred`<br>`backend/tests/query_assistance/test_schemas.py: (the file)` | לא נמדד |
-| ✅ | 23 | FR 15 | An unreachable source ends the exchange | `backend/tests/paths/registry.py: source_missing`<br>`backend/tests/query_assistance/test_pipeline.py: test_unreachable_source_is_not_recorded_but_is_logged_without_the_question`<br>`frontend/e2e/progress.spec.ts: Test 46: with the store unreachable, the indication stays until the failure is presented` | לא נמדד |
+| ✅ | 23 | FR 15 | An unreachable source ends the exchange | `backend/tests/paths/registry.py: source_missing`<br>`backend/tests/query_assistance/test_pipeline.py: test_unreachable_source_is_not_recorded_but_is_logged_without_the_question` | לא נמדד |
 | ✅ | 32 | FR 11, NFR 6 | A question carrying more than one reading is not answered by selecting one | `backend/tests/paths/registry.py: answered_two_readings`<br>`backend/tests/query_assistance/test_schemas.py: (the file)` | לא נמדד |
 | ✅ | 33 | NFR 21 | Retrieved content does not redirect execution | `backend/tests/security/test_security.py: test_record_text_is_shown_but_never_steers_the_next_retrieval` | לא נמדד |
 | ✅ | 34 | FR 11 | What was examined is presented with an answer | `backend/tests/paths/registry.py: answered_two_readings`<br>`backend/tests/paths/registry.py: task3_examined_phrases`<br>`backend/tests/query_assistance/test_contract.py: test_checked_reads_the_metric_as_its_business_term` | לא נמדד |

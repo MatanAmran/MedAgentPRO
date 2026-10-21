@@ -72,7 +72,8 @@ test("Test 46: with the store unreachable, the indication stays until the failur
         + `event: result\ndata: ${JSON.stringify({ exchange_id: "EX-T46", recorded: false, response, cost: null })}\n\n`,
     });
   });
-  // the screen reads the conversation back from the server, which holds the exchange as not recorded (Test 23)
+  // the screen reads the conversation back from the server, which holds the exchange as not recorded; the
+  // response here comes from the route, not the server, so this checks NFR 28 only, never FR 15 (chat 20:31)
   await page.route(/\/api\/conversations\/CV-[^/?]+$/, async (route) => {
     if (route.request().method() !== "GET" || !posed) return route.fallback();
     const id = route.request().url().split("/").pop();
