@@ -500,3 +500,7 @@ unspecified            "על {asked} לא הצלחתי לאתר נתונים"
 - **כשל של C או של B:** החלפה שמרנית של משפטים שמצטטים `records_reason`, ושורה (`CLASSIFY_FAILED`, ‏`COVERAGE_FAILED`). אף פעם לא "not completed".
 - **הכפתור לחלק שלא נענה:** מציג `Ask: "<הקטע>"`. בלחיצה, השרת לוקח את הקטע ואת ה-follow_up מהתגובה ששמר (`part_of`), ו-`pipeline.run(follow_up=…)` מציג אותו כ-Understood as, בלי קריאת שכתוב.
 - **`Deps.coverage`:** דולק בכל מקום ששרת או כלי בונה. כבוי רק בבדיקות של שלבים אחרים.
+- **תיקונים אחרי סקירת הצ׳אט (21.10, 11:10), ענף `phaseb/coverage-fixes`:**
+  - **F-A:** חלק לא-`recorded` של C שלא מופה לאף חלק (פחות מחצי מהמילים בכל אחד) מוסתר מכל קריאה שהוא חופף לה במשהו. אם הוא לא חופף לאף אחת, הוא מוסתר מכולן. ביומן: `coverage_notes: ["classification_unmapped"]`.
+  - **F-B:** ‏`message()` מנרמל ’ ל-' לפני הבדיקה, ולכן "doesn’t" נדחה כמו "doesn't".
+  - **F-C:** רשימה סגורה של היעדר, `coverage.ABSENCE` (lack, ‏missing, ‏absent, ‏unavailable, ‏empty, ‏zero, ‏exist ועוד). מילה ממנה מחוץ למשבצת נדחית, והמשפט נופל לתבנית.

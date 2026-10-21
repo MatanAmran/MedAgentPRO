@@ -61,6 +61,10 @@ REASONS = {
 # they constrain the shape of a sentence code shows in its own frame, a class and not a case (L2)
 NEGATION = frozenset({"no", "not", "none", "never", "nothing", "neither", "nor", "without", "cannot"})
 CAUSAL = frozenset({"because", "cause", "caused", "causes", "causing", "due", "reason", "reasons", "why"})
+# F-C (chat 21.10, 11:10): absence said without a negation word is still a claim about the data (Test 35). A
+# sentence about a part not answered needs none of these: {reason} says what is missing
+ABSENCE = frozenset({"lack", "lacks", "lacking", "missing", "absent", "unavailable", "empty", "zero", "exist",
+                     "exists", "existing", "nobody", "nowhere"})
 MAX_MESSAGE = 240
 MAX_FOLLOW_UP = 200
 _SLOT = re.compile(r"\{(part|reason|entity:[a-z][a-z0-9_]*)\}")
@@ -162,7 +166,10 @@ def _overlap(a: str, b: str) -> float:
 
 def referred(classified: list[dict], parts: list[Part]) -> list[dict]:
     """Each part C says asks for a cause, a judgement or an action, with the parts of A it falls on: the one it
-    overlaps most, at least half of its words, all of them where several tie (the cautious side)."""
+    overlaps most, at least half of its words, all of them where several tie (the cautious side). A part that
+    falls on none of them (F-A, chat 21.10, 11:10) falls on every part it overlaps at all, and where it overlaps
+    none, on every part: an answer from the records never stands beside a question of cause it could not be
+    told apart from. Such a part is marked unmapped, for the record."""
     out = []
     for c in classified:
         if c["asks"] == "recorded":
@@ -170,8 +177,11 @@ def referred(classified: list[dict], parts: list[Part]) -> list[dict]:
         scores = [(_overlap(c["asked"], p.asked), p) for p in parts]
         best = max((s for s, _ in scores), default=0.0)
         hit = [p for s, p in scores if best >= 0.5 and s == best]
+        unmapped = not hit
+        if unmapped:
+            hit = [p for s, p in scores if s > 0] or list(parts)
         out.append({"asked": c["asked"], "asks": c["asks"], "parts": hit,
-                    "labels": [lab for p in hit for lab in p.labels]})
+                    "labels": [lab for p in hit for lab in p.labels], "unmapped": unmapped})
     return out
 
 
@@ -230,7 +240,8 @@ def _plain_words(text: str) -> list[str]:
 def message(text: str | None, span: str, reason: str, cat: Catalog) -> str | None:
     """The model's sentence about a part not answered, with its slots filled, or None where it fails a check:
     {part} and {reason} once each; every {entity:<table>} a table of the catalog; outside the slots no digit, no
-    catalog name (table or column), no causal word and no negation; at most MAX_MESSAGE characters."""
+    catalog name (table or column), no causal word, no negation and no word of absence; at most MAX_MESSAGE
+    characters."""
     if not text or len(text) > MAX_MESSAGE or reason not in REASONS:
         return None
     slots = _SLOT.findall(text)
@@ -246,8 +257,8 @@ def message(text: str | None, span: str, reason: str, cat: Catalog) -> str | Non
         return None
     names = {t.casefold() for t in cat.entities} | {c.casefold() for e in cat.entities.values()
                                                      for c in e.get("columns", {})}
-    words = _plain_words(outside)
-    if any(w in NEGATION or w.endswith("n't") or w in CAUSAL or w in names for w in words):
+    words = [w.replace("’", "'") for w in _plain_words(outside)]   # F-B: doesn’t is doesn't
+    if any(w in NEGATION or w.endswith("n't") or w in CAUSAL or w in ABSENCE or w in names for w in words):
         return None
     if any("_" in w for w in outside.split()):
         return None   # a raw catalog name the word pattern splits
