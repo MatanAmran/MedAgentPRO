@@ -1,0 +1,197 @@
+{
+ "$comment": "tests/test_code_rules.py: what the code held when the code rules were made (21.10). Shrinks only.",
+ "entries": [
+  {
+   "file": "api/routes.py",
+   "function": "ConversationChange.something_and_a_real_title",
+   "kind": "builtin_raise:ValueError",
+   "count": 3
+  },
+  {
+   "file": "api/state.py",
+   "function": "AppState.conversation",
+   "kind": "builtin_raise:LookupError",
+   "count": 1
+  },
+  {
+   "file": "api/state.py",
+   "function": "AppState.conversation",
+   "kind": "builtin_raise:PermissionError",
+   "count": 1
+  },
+  {
+   "file": "api/state.py",
+   "function": "AppState.plan_of",
+   "kind": "builtin_raise:LookupError",
+   "count": 1
+  },
+  {
+   "file": "api/state.py",
+   "function": "AppState.plan_of",
+   "kind": "builtin_raise:PermissionError",
+   "count": 1
+  },
+  {
+   "file": "model_client/budget.py",
+   "function": "map_entry",
+   "kind": "builtin_raise:KeyError",
+   "count": 1
+  },
+  {
+   "file": "model_client/budget.py",
+   "function": "map_prices",
+   "kind": "builtin_raise:KeyError",
+   "count": 1
+  },
+  {
+   "file": "model_client/client.py",
+   "function": "ModelResponse.json",
+   "kind": "builtin_raise:ValueError",
+   "count": 1
+  },
+  {
+   "file": "model_client/replay.py",
+   "function": "RecordReplayGateway.__getattr__",
+   "kind": "builtin_raise:AttributeError",
+   "count": 1
+  },
+  {
+   "file": "model_client/replay.py",
+   "function": "RecordReplayGateway.__init__",
+   "kind": "builtin_raise:ValueError",
+   "count": 3
+  },
+  {
+   "file": "model_client/replay.py",
+   "function": "RecordReplayGateway.invoke",
+   "kind": "builtin_raise:RuntimeError",
+   "count": 1
+  },
+  {
+   "file": "persistence/audit_repository.py",
+   "function": "AuditEntry.to_record",
+   "kind": "builtin_raise:ValueError",
+   "count": 1
+  },
+  {
+   "file": "persistence/audit_repository.py",
+   "function": "AuditRepository.__init__",
+   "kind": "builtin_raise:ValueError",
+   "count": 1
+  },
+  {
+   "file": "persistence/audit_repository.py",
+   "function": "AuditRepository.write_run",
+   "kind": "builtin_raise:ValueError",
+   "count": 1
+  },
+  {
+   "file": "query_assistance/calls.py",
+   "function": "_provider_validator",
+   "kind": "builtin_raise:RuntimeError",
+   "count": 1
+  },
+  {
+   "file": "query_assistance/compiler.py",
+   "function": "Catalog.__init__",
+   "kind": "builtin_raise:ValueError",
+   "count": 2
+  },
+  {
+   "file": "query_assistance/compiler.py",
+   "function": "_ReadingCompiler._metric_expr",
+   "kind": "builtin_raise:ValueError",
+   "count": 1
+  },
+  {
+   "file": "query_assistance/compiler.py",
+   "function": "_ReadingCompiler.predicate",
+   "kind": "builtin_raise:AssertionError",
+   "count": 1
+  },
+  {
+   "file": "query_assistance/contract.py",
+   "function": "_predicate",
+   "kind": "builtin_raise:AssertionError",
+   "count": 1
+  },
+  {
+   "file": "query_assistance/coverage.py",
+   "function": "skip_conditions",
+   "kind": "builtin_raise:RuntimeError",
+   "count": 1
+  },
+  {
+   "file": "query_assistance/pipeline.py",
+   "function": "rate",
+   "kind": "builtin_raise:LookupError",
+   "count": 1
+  },
+  {
+   "file": "query_assistance/pipeline.py",
+   "function": "rate",
+   "kind": "builtin_raise:PermissionError",
+   "count": 1
+  },
+  {
+   "file": "query_assistance/pipeline.py",
+   "function": "rate",
+   "kind": "builtin_raise:ValueError",
+   "count": 3
+  },
+  {
+   "file": "query_assistance/pipeline.py",
+   "function": "run",
+   "kind": "builtin_raise:ValueError",
+   "count": 1
+  },
+  {
+   "file": "query_assistance/prompts.py",
+   "function": "check_prompt_text",
+   "kind": "builtin_raise:ValueError",
+   "count": 5
+  },
+  {
+   "file": "query_assistance/prompts.py",
+   "function": "fill",
+   "kind": "builtin_raise:ValueError",
+   "count": 1
+  },
+  {
+   "file": "query_assistance/prompts.py",
+   "function": "load",
+   "kind": "builtin_raise:ValueError",
+   "count": 3
+  },
+  {
+   "file": "query_assistance/prompts.py",
+   "function": "render_intent",
+   "kind": "builtin_raise:ValueError",
+   "count": 2
+  },
+  {
+   "file": "query_assistance/prompts.py",
+   "function": "specialize",
+   "kind": "builtin_raise:ValueError",
+   "count": 2
+  },
+  {
+   "file": "tools/bird_fetch.py",
+   "function": "superhero_db",
+   "kind": "builtin_raise:FileNotFoundError",
+   "count": 1
+  },
+  {
+   "file": "tools/bird_fetch.py",
+   "function": "superhero_db",
+   "kind": "builtin_raise:ValueError",
+   "count": 1
+  },
+  {
+   "file": "tools/real_eval.py",
+   "function": "main",
+   "kind": "silent_broad_except",
+   "count": 1
+  }
+ ]
+}
