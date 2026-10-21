@@ -1,10 +1,10 @@
 # MedAgentPro — מפת המסלולים וההיתכנות
 
-**נוצר אוטומטית** ב-`python -m tools.path_map` (מתוך `backend\`), 21.10.2026 12:41. **לא לערוך ידנית** — המקור הוא `backend\tests\paths\registry.py` ו-`backend\tests\feasibility\constraints.py`.
+**נוצר אוטומטית** ב-`python -m tools.path_map` (מתוך `backend\`), 21.10.2026 15:27. **לא לערוך ידנית** — המקור הוא `backend\tests\paths\registry.py` ו-`backend\tests\feasibility\constraints.py`.
 
 **איך זה גדל:** `tests\paths\branches.py` קורא מהקוד ומהסכמות כל הסתעפות (מצב סיום, שלב, סוג כשל, `except`, הודעה, נקודת קצה, קוד HTTP, סוג פער, תפקיד). **הסתעפות בלי מסלול מפילה את `pytest`.** מגבלה שמתגלה (כמו הטמפרטורה) נכנסת כשורה ב-`constraints.py`, ושורה בלי בדיקה מפילה את `pytest`.
 
-**תוצאות:** 96 עוברים · 0 נכשלים · 0 פער ידוע · 0 דולגו
+**תוצאות:** 106 עוברים · 0 נכשלים · 0 פער ידוע · 0 דולגו
 
 ## מסלולים
 
@@ -106,6 +106,16 @@
 | ✅ | `coverage_skipped` | — | chat 21:01, decision 2 | S1 to S4 all hold: no call |
 | ✅ | `coverage_server_part_on_its_own` | `http:404` | chat 22:50 · FR 25 · NFR 27 | the person's words posed, the checked question as Understood as, no rewriting call |
 | ✅ | `coverage_server_show_recorded` | `notice:SHOW_RECORDED` | chat 22:30, decision 2 · NFR 17 · NFR 21 | the plan the server kept, no model, the records say they establish no cause |
+| ✅ | `task3_h4_whole` | — | Test 48 [proposal] · GAP-02 · GAP-04 · QPL | their is what the first reading found, said in Examined |
+| ✅ | `task3_examined_phrases` | — | Test 34 · 92 section 4 | one of those, one of all those, none of |
+| ✅ | `task3_inner_not_run` | `notice:DEPENDS_NOT_RUN` | 92 2e · V2 | a name the inner reading holds matched nothing, or several: neither runs; candidates stay on the inner |
+| ✅ | `task3_inner_empty` | `notice:NONE_MATCHED_INNER` | 92 2e · Test 35 · L4 | empty because the inner reading is |
+| ✅ | `task3_absence` | `notice:LIMITED_ABSENCE` | chat 12:50, Q2 · NFR 17 · Test 35 · F-C | none of those over what this user holds is said in the answer; with no restriction, nothing is |
+| ✅ | `task3_limits_listed` | — | GAP-07 · L2 | every code in compiler.LANGUAGE_LIMITS has a case |
+| ✅ | `task3_language_limits` | `notice:UNEXPRESSIBLE` | GAP-07 · H7 · Table 15 · BIRD 724, 726 · chat 12:50, Q5 and Q6 | each of LANGUAGE_LIMITS: its reading left out on the last attempt, its part said; a button only for the values and readings limits; never an outer reading without its inner |
+| ✅ | `task3_other_fault` | — | Test 13 | only the limits of the language are said; a wrong comparison is the plan's fault |
+| ✅ | `task3_show_all` | — | task 5 · NFR 17 | the inner reading as it ran, entitlement afresh |
+| ✅ | `task3_last_attempt` | — | task 4, A · GAP-07 | found building task 3: the last attempt is the last prompt sent |
 
 ## הסתעפויות בקוד, ומי מכסה כל אחת
 
@@ -127,7 +137,7 @@
 
 **budget** — `exchange` (exchange_cap) · `model` (budget_model) · `provider` (budget_provider) · `total` (budget_used_up)
 
-**notice** — `ACTION_DECLINED` (action_declined) · `BUDGET_USED_UP` (budget_used_up) · `CLASSIFY_FAILED` (coverage_classify_failed) · `COVERAGE_FAILED` (coverage_check_failed) · `EXCHANGE_CAP` (exchange_cap) · `MODEL_UNAVAILABLE` (every_failure_kind) · `NEEDS_CLARIFICATION` (needs_clarification) · `NOT_COMPLETED` (intent_rejected_twice) · `PLAN_LIMIT` (plan_limit) · `RATE_LIMITED` (rate_limit) · `REFERRED` (coverage_cause_referred) · `REPLACED` (coverage_causal_replaced) · `SHOW_RECORDED` (coverage_server_show_recorded) · `UNANSWERED` (coverage_message_template) · `WITHHELD` (redraft_from_kept)
+**notice** — `ACTION_DECLINED` (action_declined) · `BUDGET_USED_UP` (budget_used_up) · `CLASSIFY_FAILED` (coverage_classify_failed) · `COVERAGE_FAILED` (coverage_check_failed) · `DEPENDS_NOT_RUN` (task3_inner_not_run) · `EXCHANGE_CAP` (exchange_cap) · `LIMITED_ABSENCE` (task3_absence) · `MODEL_UNAVAILABLE` (every_failure_kind) · `NEEDS_CLARIFICATION` (needs_clarification) · `NONE_MATCHED_INNER` (task3_inner_empty) · `NOT_COMPLETED` (intent_rejected_twice) · `PLAN_LIMIT` (plan_limit) · `RATE_LIMITED` (rate_limit) · `REFERRED` (coverage_cause_referred) · `REPLACED` (coverage_causal_replaced) · `SHOW_RECORDED` (coverage_server_show_recorded) · `UNANSWERED` (coverage_message_template) · `UNEXPRESSIBLE` (task3_language_limits) · `WITHHELD` (redraft_from_kept)
 
 **endpoint** — `GET /api/conversations` (server_archived_listing, server_listing_and_health) · `GET /api/conversations/{conversation_id}` (server_each_ending_then_goes_on) · `GET /api/examples` (server_examples) · `GET /api/exchanges/{exchange_id}/readings/{label}/records` (server_show_all_records) · `GET /api/health` (server_listing_and_health) · `PATCH /api/conversations/{conversation_id}` (server_conversation_update) · `POST /api/conversations` (server_each_ending_then_goes_on) · `POST /api/conversations/{conversation_id}/exchanges` (server_each_ending_then_goes_on) · `POST /api/exchanges/{exchange_id}/rating` (server_rating)
 
@@ -180,7 +190,7 @@
 
 | | מבחן | דרישה | מה הספר בודק | הבדיקות | על מודל אמיתי |
 |---|---|---|---|---|---|
-| ✅ | 13 | NFR 6 | Retrieval parameters are validated before execution | `backend/tests/paths/registry.py: intent_fixed_by_feedback`<br>`backend/tests/paths/registry.py: intent_rejected_twice`<br>`backend/tests/query_assistance/test_compiler.py: test_limit_above_range_is_rejected_not_clamped`<br>`backend/tests/query_assistance/test_pipeline.py: test_rejected_plan_is_not_run_and_ends_as_request_not_completed`<br>`backend/tests/query_assistance/test_schemas.py: (the file)` | לא נמדד |
+| ✅ | 13 | NFR 6 | Retrieval parameters are validated before execution | `backend/tests/paths/registry.py: intent_fixed_by_feedback`<br>`backend/tests/paths/registry.py: intent_rejected_twice`<br>`backend/tests/paths/registry.py: task3_other_fault`<br>`backend/tests/paths/test_task3.py: test_any_other_fault_of_the_plan_still_ends_as_not_completed`<br>`backend/tests/query_assistance/test_compiler.py: test_limit_above_range_is_rejected_not_clamped`<br>`backend/tests/query_assistance/test_pipeline.py: test_rejected_plan_is_not_run_and_ends_as_request_not_completed`<br>`backend/tests/query_assistance/test_schemas.py: (the file)` | לא נמדד |
 | ✅ | 16 | FR 11, FR 12, FR 13, NFR 4 | Answer from retrieved material, with attribution and rating | `backend/tests/paths/registry.py: server_rating`<br>`backend/tests/query_assistance/test_pipeline.py: test_rating_is_held_with_the_recorded_exchange`<br>`backend/tests/query_assistance/test_pipeline.py: test_rating_again_the_last_one_counts_and_each_stays_in_the_trail` | לא נמדד |
 | ✅ | 17 | NFR 19, NFR 20 | An answer with no supported assertion is regenerated once and then replaced | `backend/tests/paths/registry.py: fresh_draft_then_nothing`<br>`backend/tests/paths/registry.py: redraft_then_nothing`<br>`backend/tests/query_assistance/test_contract.py: test_no_supported_assertion_replaces_the_records_and_names_the_readings`<br>`backend/tests/query_assistance/test_pipeline.py: test_no_supported_assertion_is_regenerated_once_then_replaced` | לא נמדד |
 | ✅ | 21 | FR 13, NFR 3, NFR 4 | Traceability of an answered question | `backend/tests/paths/registry.py: answered_all_supported`<br>`backend/tests/query_assistance/test_pipeline.py: test_exchange_record_follows_the_declared_stage_order` | לא נמדד |
@@ -188,8 +198,8 @@
 | ✅ | 23 | FR 15 | An unreachable source ends the exchange | `backend/tests/paths/registry.py: source_missing`<br>`backend/tests/query_assistance/test_pipeline.py: test_unreachable_source_is_not_recorded_but_is_logged_without_the_question` | לא נמדד |
 | ✅ | 32 | FR 11, NFR 6 | A question carrying more than one reading is not answered by selecting one | `backend/tests/paths/registry.py: answered_two_readings`<br>`backend/tests/query_assistance/test_schemas.py: (the file)` | לא נמדד |
 | ✅ | 33 | NFR 21 | Retrieved content does not redirect execution | `backend/tests/security/test_security.py: test_record_text_is_shown_but_never_steers_the_next_retrieval` | לא נמדד |
-| ✅ | 34 | FR 11 | What was examined is presented with an answer | `backend/tests/paths/registry.py: answered_two_readings`<br>`backend/tests/query_assistance/test_contract.py: test_checked_reads_the_metric_as_its_business_term` | לא נמדד |
-| ✅ | 35 | FR 11, FR 15 | A retrieval that matches no record is answered as such | `backend/tests/paths/registry.py: empty_result_no_synthesis`<br>`backend/tests/paths/registry.py: identifier_not_held`<br>`backend/tests/paths/registry.py: coverage_cause_over_nothing`<br>`backend/tests/query_assistance/test_compiler.py: test_empty_with_known_identifier_is_no_match`<br>`backend/tests/query_assistance/test_pipeline.py: test_empty_result_is_an_answer_without_a_model_call`<br>`backend/tests/query_assistance/test_schemas.py: (the file)`<br>`backend/tests/query_assistance/test_value_checks.py: (the file)` | לא נמדד |
+| ✅ | 34 | FR 11 | What was examined is presented with an answer | `backend/tests/paths/registry.py: answered_two_readings`<br>`backend/tests/paths/registry.py: task3_examined_phrases`<br>`backend/tests/query_assistance/test_contract.py: test_checked_reads_the_metric_as_its_business_term` | לא נמדד |
+| ✅ | 35 | FR 11, FR 15 | A retrieval that matches no record is answered as such | `backend/tests/paths/registry.py: empty_result_no_synthesis`<br>`backend/tests/paths/registry.py: identifier_not_held`<br>`backend/tests/paths/registry.py: coverage_cause_over_nothing`<br>`backend/tests/paths/registry.py: task3_inner_empty`<br>`backend/tests/paths/registry.py: task3_absence`<br>`backend/tests/paths/test_task3.py: test_an_absence_over_records_the_user_holds_says_so_in_the_answer`<br>`backend/tests/query_assistance/test_compiler.py: test_empty_with_known_identifier_is_no_match`<br>`backend/tests/query_assistance/test_pipeline.py: test_empty_result_is_an_answer_without_a_model_call`<br>`backend/tests/query_assistance/test_schemas.py: (the file)`<br>`backend/tests/query_assistance/test_value_checks.py: (the file)` | לא נמדד |
 | ✅ | 37 | NFR 6 | A count is computed without a model (the chat's part: how many, over more records than the rows returned) | `backend/tests/query_assistance/test_book_37.py: (the file)`<br>`backend/tests/query_assistance/test_book_37.py: test_how_many_over_a_cut_list_counts_the_records_not_the_rows_returned`<br>`backend/tests/query_assistance/test_book_37.py: test_each_cut_demo_reading_states_its_whole_count` | לא נמדד |
 | ✅ | 38 | NFR 22 | User flows complete on each browser engine | `frontend/e2e/demo-set.spec.ts: (the file)` | לא נמדד |
 | ⏳ | 39 | NFR 23 | Screens presenting stored content load within the configured time | ממתין: in the company's environment, with its records (task 9, B4) | לא נמדד |
@@ -198,5 +208,6 @@
 | ✅ | 45 | NFR 27 | An identifier from outside the conversation is not retrieved | `backend/tests/paths/registry.py: follow_up_identifier_not_in_conversation`<br>`backend/tests/query_assistance/test_pipeline.py: test_follow_up_is_rewritten_and_shown_as_understood`<br>`backend/tests/query_assistance/test_pipeline.py: test_identifier_introduced_by_the_rewrite_is_rejected` | לא נמדד |
 | ❌ | 46 | NFR 28 | A question posed shows that it is in progress until its response | **אין.** בתור: Playwright, with a delay in the scripted server (chat 20.10, 17:35) | לא נמדד |
 | ✅ | 47 | FR 11, FR 14 | A part of a question not answered is said, and a part that asks for a cause is referred [proposal, not in the book: task 4, 91_COVERAGE_PLAN; the chat writes it after the build] | `backend/tests/paths/registry.py: coverage_part_left_out`<br>`backend/tests/paths/registry.py: coverage_cause_referred`<br>`backend/tests/paths/test_coverage.py: (the file)` | לא נמדד |
+| ✅ | 48 | FR 11, 3.1.6 | A question whose second part depends on the result of its first is answered over that result, and Examined states it [proposal, not in the book: task 3, 92_TASK3_PLAN; the chat writes it after the build] | `backend/tests/paths/registry.py: task3_h4_whole`<br>`backend/tests/paths/test_task3.py: (the file)`<br>`backend/tests/paths/test_task3.py: test_h4_is_answered_whole_with_examined_in_the_persons_words`<br>`backend/tests/query_assistance/test_reading_refs.py: (the file)` | לא נמדד |
 
 ✅ יש בדיקה שעונה עליו · ⏳ ממתין, ומה חסר · ❌ אין בדיקה. בטור האמיתי: ✅ כל השאלות שבודקות אותו עברו (בדיקות הקוד של `real_eval`; ⚠️ נספר כעובר) · ❌ השאלות שנכשלו · לא נמדד: אין שאלה מסומנת בסט שנמדד

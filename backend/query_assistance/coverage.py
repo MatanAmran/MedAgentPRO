@@ -54,7 +54,18 @@ REASONS = {
     "uncovered": "was not covered by the records retrieved for this answer",
     "declared": "was declared as data this assistant does not hold",
     "cause": "asks for a cause, which an investigation determines",
+    # task 3, GAP-07 (92 section 7; chat 21.10, 12:50): a part the plan language cannot express, by the limit
+    "not_expressible:reading_ref_depth": "depends on the result of another result. Ask it in two steps",
+    "not_expressible:in_reading_under_or": "joins a condition on another result with or, which cannot be asked "
+                                           "in one question yet. Ask each on its own",
+    "not_expressible:duplicate_table": "compares records of one kind with each other, which cannot be asked yet",
+    "not_expressible:in_values_limit": "names more than 30 values. Ask about up to 30 at a time, or by something "
+                                       "they share",
+    "not_expressible:readings_limit": "needs more than 3 retrievals, more than one question holds. Ask about part "
+                                      "of it",
 }
+# Task 3: the limits where asking the part on its own can work, so its line carries a button
+ASKABLE_LIMITS = frozenset({"in_values_limit", "readings_limit"})
 
 # Closed classes of the language (chat 22:40, 22:50): a message about what is missing explains nothing and
 # negates nothing outside {reason}, where code writes the negation. Lists over model text: allowed here because
@@ -88,22 +99,34 @@ class Part:
     labels: list[str] = field(default_factory=list)   # the readings that answer it
     declared: bool = False                             # an unresolved entry: the records do not hold it
     uncovered: bool = False                            # A: no reading or unresolved quotes it
+    limit: str | None = None                           # task 3: the language limit its reading met (LANGUAGE_LIMITS)
 
 
 def _key(text: str) -> str:
     return " ".join(m.group().casefold() for m in _words(text))
 
 
-def parts_of(intent: dict, uncovered: list[str]) -> list[Part]:
+def parts_of(intent: dict, uncovered: list[str], dropped: list[dict] | None = None) -> list[Part]:
     """One part per distinct asked of the readings, in order; one per unresolved entry; one per part A found
-    uncovered. Readings that are alternatives of an ambiguous term share their asked, so they are one part."""
+    uncovered; one per reading left out for a limit of the language (task 3), as not answered, with the limit.
+    Readings that are alternatives of an ambiguous term share their asked, so they are one part."""
     parts: dict[str, Part] = {}
     for r in intent.get("readings", []):
         parts.setdefault(_key(r["asked"]), Part(r["asked"])).labels.append(r["label"])
     out = list(parts.values())
     out += [Part(u["asked"], declared=True) for u in intent.get("unresolved", [])]
     out += [Part(span, uncovered=True) for span in uncovered]
+    seen = {_key(p.asked) for p in out}
+    for d in dropped or []:
+        if _key(d["asked"]) not in seen:
+            seen.add(_key(d["asked"]))
+            out.append(Part(d["asked"], uncovered=True, limit=d["code"]))
     return out
+
+
+def reason_of(part: Part) -> str:
+    """The reason code writes in the line about a part not answered."""
+    return f"not_expressible:{part.limit}" if part.limit else "uncovered"
 
 
 def reason_aliases(draft: Draft, cat: Catalog) -> set[tuple[str, str]]:

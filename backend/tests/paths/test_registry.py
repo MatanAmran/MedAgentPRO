@@ -14,7 +14,7 @@ import inspect
 import branches
 from registry import PATHS
 
-SUITES = ("test_paths", "test_branches", "test_coverage")
+SUITES = ("test_paths", "test_branches", "test_coverage", "test_task3")
 
 
 def test_every_branch_in_the_code_has_a_path():

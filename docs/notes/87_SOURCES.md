@@ -172,3 +172,54 @@
 | [Implementing Row-Level Security in Snowflake (Galaxy)](https://www.getgalaxy.io/learn/glossary/implementing-row-level-security-in-snowflake) | מדריך משני | מדיניות על טבלת הבסיס חלה על views | GAP-10 |
 | [AI/BI release notes 2025 (Databricks)](https://learn.microsoft.com/en-us/Azure/databricks/ai-bi/release-notes/2025) | תיעוד | התאמת ישויות, והסבר לתוצאה ריקה | GAP-07, ‏GAP-11 |
 | [Snowflake Cortex Analyst launch (AIM Research)](https://aimresearch.co/?p=10421) | כתבה משנית | בקשה לנסח מחדש עם הצעות, בשאלה עמומה | GAP-07 |
+
+## 8. משימה 2, פלט מובנה (הצ׳אט, 21.10 13:10)
+
+נפתחו ב-21.10.2026. ההקשר: `93_TASK2_RESEARCH.md`.
+
+| מקור | סוג | מה הוא תומך בו |
+|---|---|---|
+| [Anthropic: Structured outputs, JSON Schema limitations](https://platform.claude.com/docs/en/build-with-claude/structured-outputs) | תיעוד | מה נאכף (`anyOf`, ‏`pattern`, ‏`minItems` 0 או 1), מה לא (`oneOf`, רקורסיה, `maxItems`), מגבלות של 24 ו-16, והדקדוק חל רק על הפלט ולא על החשיבה |
+| [dottxt: Provider comparison](https://docs.dottxt.ai/providers-comparison.md) | השוואה משנית | ‏Anthropic, ‏OpenAI ו-Gemini זה מול זה. אף אחד לא תומך ב-`oneOf` |
+| [Azure OpenAI: Structured outputs](https://learn.microsoft.com/en-au/azure/ai-services/openai/how-to/structured-outputs) | תיעוד | תת-הקבוצה של OpenAI |
+| [Tam et al., Let Me Speak Freely?, EMNLP 2024 Industry](https://preview.aclanthology.org/credits/2024.emnlp-industry.91) | מאמר | אילוץ פורמט פוגע בהסקה, ועוזר לפעמים בסיווג |
+| [Geng et al., JSONSchemaBench](https://arxiv.org/abs/2501.10868) | מאמר | (כבר בסעיף 7) כיסוי שקורס בסכמות מורכבות |
+
+## 9. משימות 6 ו-12, שכבת המשמעות (הצ׳אט, 21.10 13:40)
+
+נפתחו ב-21.10.2026. ההקשר: `94_SEMANTIC_LAYER.md`.
+
+| מקור | סוג | מה הוא תומך בו |
+|---|---|---|
+| [Snowflake: Cortex Analyst semantic model specification](https://docs.snowflake.com/user-guide/snowflake-cortex/cortex-analyst/semantic-model-spec) | תיעוד | מימדים, מדדים, מילים נרדפות, ערכים לדוגמה, והוראות |
+| [Atlan: Context repository YAML schema (Cortex)](https://docs.atlan.com/product/capabilities/governance/context-engineering-studio/references/context-repo-yaml-schema) | תיעוד משני | ערכים לדוגמה לעמודות עם מעט ערכים. מילים נרדפות גנריות לא עוזרות |
+| [Databricks: Genie concepts](https://docs.databricks.com/aws/en/genie/concepts) | תיעוד | Example SQL, ‏Trusted assets, ‏benchmarks להערכה בלבד |
+| [Databricks: Genie (Trusted)](https://docs.databricks.com/gcp/genie) | תיעוד | סימון Trusted כשנעשה שימוש בנכס מאומת |
+| [dbt Labs: Semantic Layer vs. Text-to-SQL, 2026 Benchmark Update](https://docs.getdbt.com/blog/semantic-layer-vs-text-to-sql-2026) | מחקר של ספק | עלייה בדיוק, וכשל שנראה כמו "לא יכול לענות" במקום מספר שגוי |
+| [Semantic Layers for Reliable LLM-Powered Data Analytics, arXiv:2604.25149](https://arxiv.org/pdf/2604.25149) | מאמר | מבחן מזווג. כשל שקט מול כשל מפורש |
+| [Li et al., BIRD, arXiv:2305.03111](https://arxiv.org/pdf/2305.03111) | מאמר ([20] בספר) | ‏evidence מעלה דיוק בכ-20 נקודות |
+| [SEED, arXiv:2506.07423](https://arxiv.org/html/2506.07423v1) | מאמר | בלי evidence יש ירידה. יצירה אוטומטית |
+| [DIVER, arXiv:2602.12064](https://arxiv.org/html/2602.12064) | מאמר | ירידה של יותר מ-10% בלי evidence של מומחה |
+| [Gao et al., DAIL-SQL, arXiv:2308.15363](https://ar5iv.labs.arxiv.org/html/2308.15363) | מאמר | בחירת דוגמאות לפי דמיון אחרי מיסוך |
+| [dbt: Model contracts](https://docs.getdbt.com/docs/mesh/govern/model-contracts) | תיעוד | בדיקה שהמבנה בפועל תואם למוצהר. שינוי שובר מול שינוי שלא (94, 8ב) |
+| [Elementary: Data contract test](https://docs.elementary-data.com/cloud/features/data-tests/data-contract-test.md) | תיעוד | זיהוי עמודה שנוספה, נמחקה או ששינתה סוג, מול baseline (94, 8ב) |
+
+## 10. משימה 10, צינור החקירה (הצ׳אט, 21.10 15:50)
+
+נפתחו ב-21.10.2026. ההקשר: `97_INVESTIGATION_RESEARCH.md`. ‏[5], ‏[8], ‏[39], ‏[40], ‏[44] ו-[45] כבר בספר.
+
+| מקור | סוג | מה הוא תומך בו |
+|---|---|---|
+| [Anthropic: Building effective agents](https://www.anthropic.com/research/building-effective-agents) | מאמר של ספק | workflow מול agent, הדפוסים, ו-ACI. בסיס ל-`95` ו-`97` |
+| [Datadog: Investigate issues with Bits AI SRE](https://docs.datadoghq.com/bits_ai/bits_ai_sre/investigate_issues.md) | תיעוד | השערות שנבדקות בשאילתות, ותוצאה inconclusive כשאין מספיק נתונים |
+| [Datadog: Building Bits AI SRE](https://www.datadoghq.com/blog/building-bits-ai-sre.md) | בלוג של ספק | פירוק להשערות משנה |
+| [SAP: Exception Management Agent](https://www.sap.com/products/scm/exception-management-agent.html) | תיעוד | סוכן חריגות למתכנני אספקה |
+| [Blue Yonder: Inventory Ops Agent](https://blueyonder.com/blog/2025/optimizing-inventory-operations-with-generative-AI) | בלוג של ספק | ניתוח שורש למתכננים |
+| [RELEX: agentic AI for supply planning](https://www.relexsolutions.com/resources/relex-agentic-ai-for-supply-planning/) | בלוג של ספק | חקירת חריגות לילית |
+| [OpenRCA, ICLR 2025 (poster page)](https://iclr.cc/virtual/2025/poster/32093) | מאמר ([8]) | ‏Claude 3.5 פתר 11.34% |
+| [Riddell et al., Stalled, Biased, and Confused, arXiv:2601.22208](https://arxiv.org/abs/2601.22208v1) | מאמר | 16 כשלי הסקה בניתוח שורש |
+| [Kim et al., Why Do AI Agents Systematically Fail at Cloud RCA?, arXiv:2602.09937](https://arxiv.org/pdf/2602.09937v1) | מאמר | כשל שיטתי של סוכנים |
+| [Xiong et al., Can LLMs Express Their Uncertainty?, arXiv:2306.13063](https://arxiv.org/html/2306.13063v1) | מאמר | ביטחון יתר בדיווח עצמי. עקביות עדיפה. היברידי הכי טוב |
+| [Vasquez Ferrer et al., When Can We Trust LLM Graders?, arXiv:2603.29559](https://arxiv.org/html/2603.29559v1) | מאמר ([39]) | דיווח עצמי מכויל יותר מעקביות, בדירוג |
+| [When LLMs Agree, Are They Right?, arXiv:2607.08065](https://arxiv.org/pdf/2607.08065) | מאמר | אף סימן לבדו לא אמין כסף להימנעות |
+| [LangGraph: Human-in-the-loop (interrupt)](https://docs.langchain.com/oss/python/langgraph/human-in-the-loop) | תיעוד | ‏interrupt ו-checkpointer עמיד |

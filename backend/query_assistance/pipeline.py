@@ -61,6 +61,7 @@ from .compiler import (
     compile_intent,
     execute,
     intent_validator,
+    language_limit,
     resolve_identifiers,
     resolve_names,
     with_identifiers,
@@ -132,6 +133,8 @@ class Outcome:
     # chat 20.10: how each name a reading matched was resolved, by label. Kept by the server for Examined
     # in "Show all records"; never in a prompt, the history or the record as it is (V4, V5)
     matched: dict[str, list[dict]] = field(default_factory=dict)
+    # task 3: each reading's asked, by label, for Examined of a reading that reads another in "Show all records"
+    asked: dict[str, str] = field(default_factory=dict)
 
 
 class _Rejected(Exception):
@@ -237,6 +240,20 @@ def _recorded(rec: _Record, ordinal: int, deps: Deps, run: Callable[[], tuple[An
         raise
     rec.calls(ordinal, made, deps.model)
     return result
+
+
+class _LimitsOnLastAttempt:
+    """Task 3, GAP-07: the intent validator, less the breaches that are limits of the plan language
+    (compiler.language_limit) once last() holds. Only iter_errors is read (calls.ask)."""
+
+    def __init__(self, validator: Draft202012Validator, last: Callable[[], bool]):
+        self.validator, self.last, self.schema = validator, last, validator.schema
+
+    def iter_errors(self, instance: Any):
+        last = self.last()
+        for e in self.validator.iter_errors(instance):
+            if not (last and language_limit(e)):
+                yield e
 
 
 def _ask(deps: Deps, rec: _Record, ordinal: int, prompt: prompts.Prompt, render: Callable[[str | None], str],
@@ -423,22 +440,23 @@ class NotShowable(Exception):
 
 
 def show_all(exchange_id: str, label: str, plan: dict, user: dict, deps: Deps, shown: list[dict],
-             matched: list[dict] | None = None, referred: bool = False) -> dict:
+             matched: list[dict] | None = None, referred: bool = False, inner: dict[str, dict] | None = None) -> dict:
     """Phase B task 5: every record of a reading that was cut, up to SHOW_ALL_LIMIT, as reading_view
     presents it, with no answer. No model call, nothing added to the conversation's history (NFR 21): the
     rows go to the screen only. The rows the exchange showed come first, in their order, so a reference in
     the answer still points at its row; the rest follow in the query's order.
     The viewing is recorded on the exchange as a records_viewed event (chat 19.10): its label, the user and
-    the row count, never record content. Records that cannot be recorded as viewed are not shown (as R1)."""
+    the row count, never record content. Records that cannot be recorded as viewed are not shown (as R1).
+    inner (task 3): the exchange's readings as {label: {"asked", "plan"}}, for one that reads another."""
     cat = deps.catalog
-    reading = compile_all(label, plan, user, cat)
+    reading = compile_all(label, plan, user, cat, others={k: v["plan"] for k, v in (inner or {}).items()})
     if reading.names:   # chat 20.10, A: nothing to show; execute would refuse it too
         raise NotShowable(label)
     try:
         ((res, _, _),) = _retrieve([reading], deps.connect, deps.source_breaker)
     except (_Unreachable, _SystemFault) as e:
         raise SourceUnavailable(str(e)) from e
-    view = contract.reading_view(label, plan, res, cat, user["role"], matched=matched)
+    view = contract.reading_view(label, plan, res, cat, user["role"], matched=matched, inner=inner)
     rest = list(view["rows"])
     for row in shown:
         if row in rest:
@@ -507,6 +525,7 @@ def run(question: str, history: list[prompts.Exchange], user: dict, deps: Deps,
     ran: dict[str, dict] = {}   # the plans retrieved, for Outcome.plans (task 5)
     named: dict[str, list[dict]] = {}   # how each name was resolved, by label (chat 20.10)
     notes: list[str] = []   # task 4: what the record says of the coverage check (F-A, chat 21.10, 11:10)
+    inner: dict[str, dict] = {}   # task 3: every reading as {"asked", "plan"}, for Examined of one that reads another
     eid = "EX-" + uuid.uuid4().hex[:12]
     rec = _Record(eid, user, context, on_call)
     cat, role = deps.catalog, user["role"]
@@ -583,7 +602,7 @@ def run(question: str, history: list[prompts.Exchange], user: dict, deps: Deps,
         if response["readings"]:   # D2, D1 (fix round): the condition of each reading, and what was cut
             # chat 20.10: a name resolved to one entity is named in the history by its identifier (NFR 21)
             ex.readings = [prompts.ReadingNote(r["label"], contract.examined_line(plans[r["label"]], cat, role,
-                                                                                named.get(r["label"]), True)
+                                                                                named.get(r["label"]), True, inner)
                                                if r["label"] in named else r["checked"].removeprefix("Examined: "),
                                                r.get("row_count", 0), r.get("total", r.get("row_count", 0)),
                                                contract.row_unit(plans[r["label"]], cat))
@@ -593,7 +612,8 @@ def run(question: str, history: list[prompts.Exchange], user: dict, deps: Deps,
         if answer is not None and answer.sentences:
             ex.answer = "\n".join(f"[{label}] {answer.answer(label, cat, for_history=True)}"
                                   for label in answer.sentences)
-        return Outcome(response, ex, eid, recorded=True, cost=spent, plans=dict(ran), matched=dict(named))
+        return Outcome(response, ex, eid, recorded=True, cost=spent, plans=dict(ran), matched=dict(named),
+                       asked={label: r["asked"] for label, r in inner.items()})
 
     try:
         # task 5: the rate across users, and this exchange's own cap, before any model call
@@ -624,15 +644,19 @@ def run(question: str, history: list[prompts.Exchange], user: dict, deps: Deps,
         conv = prompts.compiler_conversation(history, question, rewritten)
         pr = deps.intent_prompt
         validator = intent_validator()
-        tries = [0]
+        # the attempts sent, counted where the prompt is rendered: a plan the schema refused never reaches
+        # accept_intent, so counting there would take the last attempt for an earlier one (task 3)
+        sent = [0]
 
         def accept_intent(out):
             """Task 4, A: a plan that leaves a part of the question unquoted is sent back once, naming the
             person's words it left out; on the last attempt it is taken, and those parts are said not answered
             (chat 20.10, 22:30: no new ending in "not completed")."""
-            tries[0] += 1
-            compiled_ = compile_intent(out, conv, user, cat, validator)
-            if deps.coverage and compiled_.uncovered and tries[0] < deps.attempts:
+            last = sent[0] >= deps.attempts
+            # task 3, GAP-07: on the last attempt a reading at a limit of the language is left out and its part
+            # said, rather than the whole question ending in "not completed"
+            compiled_ = compile_intent(out, conv, user, cat, validator, drop_limits=last)
+            if deps.coverage and compiled_.uncovered and not last:
                 raise CompileError("uncovered_part",
                                    "These parts of the question are quoted by no reading's asked and by no "
                                    "unresolved entry: " + "; ".join(f'"{u}"' for u in compiled_.uncovered)
@@ -640,9 +664,15 @@ def run(question: str, history: list[prompts.Exchange], user: dict, deps: Deps,
                                      "asked quotes it.")
             return out, compiled_
 
-        intent, compiled = _ask(deps, rec, INTENT, pr,
-                                lambda fb: prompts.render_intent(cat, role, question, rewritten, pr, fb),
-                                accept_intent, validator=validator, rejected=(CompileError,))
+        def render_intent(fb):
+            sent[0] += 1
+            return prompts.render_intent(cat, role, question, rewritten, pr, fb)
+
+        # task 3, GAP-07: on the last attempt a breach that is a limit of the language reaches the compiler, which
+        # leaves its reading out; on any earlier one it is a breach like any other, sent back with feedback
+        intent, compiled = _ask(deps, rec, INTENT, pr, render_intent, accept_intent,
+                                validator=_LimitsOnLastAttempt(validator, lambda: sent[0] >= deps.attempts),
+                                rejected=(CompileError,))
         rec.step(COMPILATION, [{"label": r.label, "sql": r.sql, "params": r.params} for r in compiled.readings])
         if compiled.disposition == "refer_to_investigation":
             return finish(contract.referred(understood))
@@ -693,14 +723,34 @@ def run(question: str, history: list[prompts.Exchange], user: dict, deps: Deps,
 
         intent = compiled.intent   # values as compiled: declared forms (A2), identifiers as held (A1)
         plans = {r["label"]: r["plan"] for r in intent["readings"]}
+        inner.update({r["label"]: {"asked": r["asked"], "plan": r["plan"]} for r in intent["readings"]})
         ran.update(plans)
         terms = ambiguous_terms(intent, question)
         results = {res.label: res for res, _, _ in retrieved}
         materials = [synthesis.material(label, plans[label], res.rows, res.truncated, cat,
-                                        contract.examined_line(plans[label], cat, role, names.get(label), True),
+                                        contract.examined_line(plans[label], cat, role, names.get(label), True,
+                                                               inner),
                                         res.total, contract.row_unit(plans[label], cat))
                      for label, res in results.items()]
         gaps = compiled.unresolved
+
+        def _depends(view: dict, plan: dict):
+            """Task 3, 2e and 2d: what code says of a reading that reads another, from that reading's result."""
+            for x in contract.reads(plan):
+                res_x, asked_x = results.get(x), inner.get(x, {}).get("asked", x)
+                if res_x is None:
+                    continue
+                if res_x.outcome in ("name_not_matched", "name_ambiguous"):   # neither ran
+                    view["notice"] = contract.DEPENDS_NOT_RUN.format(asked=asked_x)
+                    view.pop("candidates", None)   # they are the other reading's, shown there
+                elif res_x.outcome == "empty_no_match" and not view["rows"]:
+                    view["notice"] = contract.NONE_MATCHED_INNER.format(asked=asked_x)
+                elif res_x.outcome == "empty_unknown_entity" and not view["rows"]:
+                    view["notice"] = contract.reading_view(x, plans[x], res_x, cat, role)["notice"]
+            for x in contract.negates(plan):   # an absence over what this user holds says so (chat 12:50, Q2)
+                if x in plans and contract.is_restricted(plans[x], cat, role):
+                    line = contract.LIMITED_ABSENCE.format(asked=inner.get(x, {}).get("asked", x))
+                    view["notice"] = f"{view['notice']} {line}" if view.get("notice") else line
 
         def views(d: Draft | None = None, hidden: set[str] | frozenset = frozenset()) -> list[dict]:
             out = []
@@ -710,9 +760,12 @@ def run(question: str, history: list[prompts.Exchange], user: dict, deps: Deps,
                 if d is not None and label in d.sentences:
                     evidence = list(dict.fromkeys(e for s in d.sentences[label] for e in s.evidence))
                     out.append(contract.reading_view(label, plans[label], res, cat, role, d.answer(label), evidence,
-                                                     d.segments(label, cat), names.get(label)))   # UI refresh C
+                                                     d.segments(label, cat), names.get(label),
+                                                     inner))   # UI refresh C
                 else:
-                    out.append(contract.reading_view(label, plans[label], res, cat, role, matched=names.get(label)))
+                    out.append(contract.reading_view(label, plans[label], res, cat, role, matched=names.get(label),
+                                                     inner=inner))
+                _depends(out[-1], plans[label])
             return out
 
         def classified() -> tuple[list[dict] | None, bool]:
@@ -724,7 +777,7 @@ def run(question: str, history: list[prompts.Exchange], user: dict, deps: Deps,
 
         def covered(draft: Draft | None, withheld_: bool) -> Outcome:
             """Task 4: what C and B found, applied to the answer (91_COVERAGE_PLAN, section 3)."""
-            parts = coverage.parts_of(intent, compiled.uncovered)
+            parts = coverage.parts_of(intent, compiled.uncovered, compiled.dropped)
             got, c_failed = classified()
             refs = coverage.referred(got, parts) if got else []
             if any(r["unmapped"] for r in refs):   # F-A: hidden from every reading it might fall on
@@ -770,10 +823,13 @@ def run(question: str, history: list[prompts.Exchange], user: dict, deps: Deps,
                         if o["status"] == "not_answered" or p.uncovered:
                             if p.declared:
                                 continue
-                            texts[n] = (coverage.message(o.get("message"), p.asked, "uncovered", cat),
+                            texts[n] = (coverage.message(o.get("message"), p.asked, coverage.reason_of(p), cat),
                                         coverage.follow_up(o.get("follow_up"), question, conv))
-            unanswered = [contract.unanswered_part(p.asked, *texts.get(n, (None, None)))
-                          for n, p in enumerate(left) if p.uncovered or n in texts]
+            unanswered = [contract.unanswered_part(
+                p.asked, *texts.get(n, (None, None)),
+                fallback=contract.UNEXPRESSIBLE.format(span=p.asked, reason=coverage.REASONS[coverage.reason_of(p)])
+                if p.limit else None, ask=p.limit is None or p.limit in coverage.ASKABLE_LIMITS)
+                for n, p in enumerate(left) if p.uncovered or n in texts]
             if d is None or not d.sentences:
                 if ref_parts:
                     return finish(contract.referred_in_part(ref_parts, understood, unanswered or None))

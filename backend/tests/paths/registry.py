@@ -27,6 +27,7 @@ A = "test_paths.py::test_path"
 P = "test_paths.py"
 B = "test_branches.py"
 K = "test_coverage.py"
+T = "test_task3.py"
 
 
 def _a(pid, covers, refs, note=""):
@@ -230,4 +231,30 @@ PATHS: list[Path] = [
     Path("coverage_server_show_recorded", f"{K}::test_server_shows_what_was_recorded_for_a_referred_part",
          ("notice:SHOW_RECORDED",), "chat 22:30, decision 2 · NFR 17 · NFR 21",
          "the plan the server kept, no model, the records say they establish no cause"),
+    # task 3, the round of the plan language (92_TASK3_PLAN; chat 21.10, 12:50) [proposal, not in the book]
+    Path("task3_h4_whole", f"{T}::test_h4_is_answered_whole_with_examined_in_the_persons_words", (),
+         "Test 48 [proposal] · GAP-02 · GAP-04 · QPL", "their is what the first reading found, said in Examined"),
+    Path("task3_examined_phrases",
+         f"{T}::test_examined_says_those_where_the_plan_wrote_a_limit_and_none_of_for_the_negation",
+         (), "Test 34 · 92 section 4", "one of those, one of all those, none of"),
+    Path("task3_inner_not_run", f"{T}::test_an_outer_reading_whose_inner_was_not_run_says_so",
+         ("notice:DEPENDS_NOT_RUN",), "92 2e · V2",
+         "a name the inner reading holds matched nothing, or several: neither runs; candidates stay on the inner"),
+    Path("task3_inner_empty", f"{T}::test_an_outer_reading_over_an_empty_inner_says_why_it_is_empty",
+         ("notice:NONE_MATCHED_INNER",), "92 2e · Test 35 · L4", "empty because the inner reading is"),
+    Path("task3_absence", f"{T}::test_an_absence_over_records_the_user_holds_says_so_in_the_answer",
+         ("notice:LIMITED_ABSENCE",), "chat 12:50, Q2 · NFR 17 · Test 35 · F-C",
+         "none of those over what this user holds is said in the answer; with no restriction, nothing is"),
+    Path("task3_limits_listed", f"{T}::test_every_language_limit_has_a_case_here", (), "GAP-07 · L2",
+         "every code in compiler.LANGUAGE_LIMITS has a case"),
+    Path("task3_language_limits", f"{T}::test_a_reading_at_a_limit_of_the_language_is_said_not_answered_and_the_rest"
+         "_is_answered", ("notice:UNEXPRESSIBLE",), "GAP-07 · H7 · Table 15 · BIRD 724, 726 · chat 12:50, Q5 and Q6",
+         "each of LANGUAGE_LIMITS: its reading left out on the last attempt, its part said; a button only for the "
+         "values and readings limits; never an outer reading without its inner"),
+    Path("task3_other_fault", f"{T}::test_any_other_fault_of_the_plan_still_ends_as_not_completed", (),
+         "Test 13", "only the limits of the language are said; a wrong comparison is the plan's fault"),
+    Path("task3_show_all", f"{T}::test_show_all_of_a_reading_that_reads_another", (), "task 5 · NFR 17",
+         "the inner reading as it ran, entitlement afresh"),
+    Path("task3_last_attempt", f"{T}::test_the_last_attempt_is_the_last_sent_even_after_a_plan_the_schema_refused",
+         (), "task 4, A · GAP-07", "found building task 3: the last attempt is the last prompt sent"),
 ]

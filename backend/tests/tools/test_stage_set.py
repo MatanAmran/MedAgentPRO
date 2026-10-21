@@ -47,8 +47,10 @@ def write(tmp_path, exchanges):
 
 def test_every_row_holds_about_three_questions(items):
     counts = {c: sum(it["category"] == c for it in items) for c in ev.CATEGORIES}
-    assert all(3 <= n <= 4 for n in counts.values()), counts
-    assert len(items) == 39   # MP4 (H4 by ref) joined in task 4 (chat 20.10, 22:30)
+    assert all(3 <= n <= 7 for n in counts.values()), counts
+    # MP4 (H4 by ref) joined in task 4 (chat 20.10, 22:30); MP5, MP6 (H1a, H1b) and QB4 (H7) in task 3 (chat 21.10,
+    # 12:50), and MP7 (H4 with no ambiguous term, chat 15:50), so the measurement runs them
+    assert len(items) == 43
 
 
 def test_a_reference_takes_its_question_plan_and_expectations_from_its_own_set(items):
@@ -106,7 +108,7 @@ def test_every_question_has_a_plan_that_passes_but_the_known_plan_gap(items, con
     results = ev.check_plans(items, CATALOG, conn)
     assert ev.without_plan(items, results) == [], ev.plans_table(results)
     failing = sorted({r.id for r in results} - {r.id for r in results if r.passed})
-    assert failing == ["QB3"]   # task 3: NOT EXISTS, a known gap in the plan language
+    assert failing == []   # task 3 closed the last known gap in the plan language, QB3 (NOT_IN_READING)
 
 
 def test_a_plan_written_to_meet_a_rejection_passes_when_it_meets_it(items, conn):
@@ -141,12 +143,12 @@ def test_the_report_goes_by_category(items, conn):
     table = ev.category_table(items, ev.check_plans(items, CATALOG, conn))
     row = {line.split(" | ")[0].strip("| "): line for line in table.splitlines()[2:]}
     assert set(row) == set(ev.CATEGORIES)
-    assert "| QB3 |" in row["query_building"] and "VM1, VM2" in row["value_mapping"]
+    assert "QB3" not in row["query_building"] and "VM1, VM2" in row["value_mapping"]   # task 3 closed QB3
     assert "MP3" in row["multi_part"]
 
 
 def test_the_plans_command_on_the_stage_set(db_path, capsys):
     assert ev.main(["--plans", "--set", "stage", "--db", str(db_path)]) == 0
     out = capsys.readouterr().out
-    assert "38 of 39 questions have a plan that passes; known gaps in the plan language (expected_gap): QB3" in out
+    assert "43 of 43 questions have a plan that passes" in out
     assert "| category | questions | pass |" in out

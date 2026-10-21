@@ -100,14 +100,18 @@
    "rewritten": "What is the total value of the open orders of the suppliers that were late in weeks 1 to 13?",
    "expect": {
     "status": [
-     "answered"
-    ],
-    "gap": "cross_record_condition"
+     "answered",
+     "needs_clarification"
+    ]
    },
    "sql": [
     {
      "query": "SELECT DISTINCT supplier_id FROM commitments WHERE week BETWEEN 1 AND 13 AND delivered_at > due_date",
      "compare": "total"
+    },
+    {
+     "query": "SELECT SUM(line_value) FROM commitments WHERE delivered_at IS NULL AND supplier_id IN (SELECT supplier_id FROM commitments WHERE week BETWEEN 1 AND 13 AND delivered_at > due_date)",
+     "compare": "value"
     }
    ],
    "plan": [
@@ -115,8 +119,8 @@
      "disposition": "retrieve",
      "readings": [
       {
-       "label": "late_by_delivery",
-       "asked": "What is the total value of the open orders of the suppliers that were late in weeks 1 to 13?",
+       "label": "late_weeks",
+       "asked": "the suppliers that were late in weeks 1 to 13",
        "plan": {
         "SELECT": [
          {
@@ -169,20 +173,45 @@
          }
         ]
        }
-      }
-     ],
-     "unresolved": [
+      },
       {
-       "asked": "What is the total value of the open orders of the suppliers that were late in weeks 1 to 13?",
-       "needs": {
-        "kind": "cross_record_condition",
-        "entity": "suppliers"
+       "label": "open_value",
+       "asked": "What is the total value of their open orders?",
+       "plan": {
+        "SELECT": [
+         {
+          "expr": {
+           "func": "SUM",
+           "arg": {
+            "col": "commitments.line_value"
+           }
+          },
+          "as": "open_value"
+         }
+        ],
+        "FROM": "commitments",
+        "WHERE": {
+         "AND": [
+          {
+           "IS_NULL": {
+            "col": "commitments.delivered_at"
+           }
+          },
+          {
+           "IN_READING": {
+            "col": "commitments.supplier_id",
+            "reading": "late_weeks",
+            "as": "supplier_id"
+           }
+          }
+         ]
+        }
        }
       }
      ]
     }
    ],
-   "watch": "D1 (סבב תיקונים): 28 ספקים, כולם הוצגו, אבל 28 > 20. השכתוב אומר את התנאי. התוכנית מוצאת אותם (קריאה) ומחזירה פער cross_record_condition על הערך של ההזמנות הפתוחות שלהם: 'first find them, then ask about them by name'. לפני D1: request_not_completed."
+   "watch": "D1 (סבב תיקונים): 28 ספקים, כולם הוצגו, אבל 28 > 20. השכתוב אומר את התנאי. התוכנית מוצאת אותם (קריאה) ומחזירה פער cross_record_condition על הערך של ההזמנות הפתוחות שלהם: 'first find them, then ask about them by name'. לפני D1: request_not_completed. Task 3 (21.10): the rewrite carries the condition in words; intent reads it again and the open orders over it (IN_READING). A clarification is right too, as H4."
   },
   {
    "id": "H2",
@@ -366,17 +395,21 @@
    "question": "Which suppliers were late in September, and what is the value of their open orders?",
    "expect": {
     "status": [
-     "answered"
+     "answered",
+     "needs_clarification"
     ],
     "metric": [
      "late_by_delivery"
-    ],
-    "gap": "cross_record_condition"
+    ]
    },
    "sql": [
     {
      "query": "SELECT DISTINCT supplier_id FROM commitments WHERE delivered_at BETWEEN '2026-09-01' AND '2026-09-30' AND delivered_at > due_date",
      "compare": "total"
+    },
+    {
+     "query": "SELECT SUM(line_value) FROM commitments WHERE delivered_at IS NULL AND supplier_id IN (SELECT supplier_id FROM commitments WHERE delivered_at BETWEEN '2026-09-01' AND '2026-09-30' AND delivered_at > due_date)",
+     "compare": "value"
     }
    ],
    "plan": [
@@ -438,20 +471,45 @@
          }
         ]
        }
-      }
-     ],
-     "unresolved": [
+      },
       {
+       "label": "open_value",
        "asked": "what is the value of their open orders",
-       "needs": {
-        "kind": "cross_record_condition",
-        "entity": "suppliers"
+       "plan": {
+        "SELECT": [
+         {
+          "expr": {
+           "func": "SUM",
+           "arg": {
+            "col": "commitments.line_value"
+           }
+          },
+          "as": "open_value"
+         }
+        ],
+        "FROM": "commitments",
+        "WHERE": {
+         "AND": [
+          {
+           "IS_NULL": {
+            "col": "commitments.delivered_at"
+           }
+          },
+          {
+           "IN_READING": {
+            "col": "commitments.supplier_id",
+            "reading": "late_sep",
+            "as": "supplier_id"
+           }
+          }
+         ]
+        }
        }
       }
      ]
     }
    ],
-   "watch": "D1: קריאה אחת (המאחרים בספטמבר) ופער cross_record_condition על 'their open orders'. לפני D1: קריאה שלישית על כל 39 הספקים, ו-S-031 ו-S-035, שלא איחרו, הוצגו."
+   "watch": "D1: קריאה אחת (המאחרים בספטמבר) ופער cross_record_condition על 'their open orders'. לפני D1: קריאה שלישית על כל 39 הספקים, ו-S-031 ו-S-035, שלא איחרו, הוצגו. Task 3 (21.10): their open orders are those of the suppliers the first reading found (IN_READING). late is ambiguous in this catalog (delivery or promise): by the chat's rule of 12:50, question 1, a term another reading reads asks which was meant, so needs_clarification is expected too."
   },
   {
    "id": "H5",

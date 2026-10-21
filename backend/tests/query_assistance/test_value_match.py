@@ -97,14 +97,54 @@ def test_matches_on_a_column_not_searchable_is_rejected_with_its_path():
     assert e.value.code == "match_not_searchable" and e.value.detail["path"] == "WHERE"
 
 
-def test_matches_under_or_is_rejected_with_its_path():
-    """V1: a name is a condition every record meets, never one alternative of several."""
+def apex_or(other: dict) -> dict:
+    """VR2: "What did Apex or S-002 supply?", a name and another condition under OR."""
     plan = by_name("Apex")
-    plan["WHERE"] = {"OR": [{"MATCHES": {"col": "suppliers.name", "term": "Apex"}},
-                            {"EQ": [{"col": "commitments.week"}, {"value": 3}]}]}
+    plan["WHERE"] = {"OR": [{"MATCHES": {"col": "suppliers.name", "term": "Apex"}}, other]}
+    return plan
+
+
+S002 = {"EQ": [{"col": "commitments.supplier_id"}, {"value": "S-002"}]}
+
+
+def test_matches_under_or_is_resolved_and_written_as_eq_under_or(db_path):
+    """VR2, option 2 (40_CHAT section 17; task 3): MATCHES may stand under OR. A name resolved to one entity is
+    written as EQ on its identifier where it stood, and the OR runs; NFR 27 exempts that node only."""
+    q = "What did Apex or S-002 supply?"
+    ci = compile_(q, apex_or(S002))
+    assert [(n.term, n.path) for n in ci.readings[0].names] == [("Apex", "WHERE/OR/0")]
+    single = {k: ("suppliers.supplier_id", v.candidates[0][0]) for k, v in resolve(db_path, ci).items()}
+    written: set = set()
+    again = c.with_names(ci.intent, single, written)
+    assert written == {("r0", "WHERE/OR/0")}
+    assert again["readings"][0]["plan"]["WHERE"]["OR"][0] == {"EQ": [{"col": "suppliers.supplier_id"},
+                                                                     {"value": "S-001"}]}
+    out, _, _ = run(db_path, q, apex_or(S002))
+    reading = out.response["readings"][0]
+    assert out.response["outcome"] == "answered" and reading["result"] == "rows_returned"
+    with sqlite3.connect(db_path) as conn:
+        want = conn.execute("SELECT COUNT(*) FROM commitments WHERE supplier_id IN ('S-001', 'S-002')").fetchone()[0]
+    assert reading["total"] == want
+
+
+@pytest.mark.parametrize("term, outcome", [("Zephyr", "name_not_matched"), ("Halcyon", "name_ambiguous")])
+def test_a_name_under_or_not_resolved_to_one_entity_stops_the_whole_reading(tmp_path, db_path, term, outcome):
+    """As V2, for the whole reading: the other branch is not answered alone, since the person asked about both."""
+    path = store(tmp_path, db_path, ("S-903", "Halcyon Wire", "AMER"), ("S-904", "Halcyon Steel", "AMER"))
+    plan = apex_or(S002)
+    plan["WHERE"]["OR"][0]["MATCHES"]["term"] = term
+    out, _, _ = run(path, f"What did {term} or S-002 supply?", plan)
+    reading = out.response["readings"][0]
+    assert reading["result"] == outcome and reading["rows"] == []
+
+
+def test_an_identifier_the_model_wrote_in_the_same_or_is_checked_as_any_other(db_path):
+    """NFR 27 under OR: the EQ the model wrote beside the name is not exempt. S-003 is in no part of the
+    question, so the plan is refused, though the name beside it resolves."""
+    plan = apex_or({"EQ": [{"col": "commitments.supplier_id"}, {"value": "S-003"}]})
     with pytest.raises(c.CompileError) as e:
-        compile_("What did Apex supply in week 3?", plan)
-    assert e.value.code == "match_not_top_level" and e.value.detail["path"] == "WHERE/OR/0"
+        compile_("What did Apex or S-002 supply?", plan)
+    assert e.value.code == "identifier_not_in_conversation" and e.value.detail["value"] == "S-003"
 
 
 def test_matches_nested_under_and_from_the_root_is_allowed():

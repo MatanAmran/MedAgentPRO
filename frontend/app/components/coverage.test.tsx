@@ -41,6 +41,19 @@ describe("a part not answered", () => {
     expect(onAskPart).toHaveBeenCalledWith(0, "value of their open orders");
   });
 
+  it("offers no button for a part the plan language cannot express (task 3)", () => {
+    view(
+      {
+        unanswered_parts: [
+          { asked: "what is the value of their open orders", text: '"what is the value of their open orders" depends on the result of another result. Ask it in two steps.' },
+        ],
+      },
+      { onAskPart: vi.fn() },
+    );
+    expect(screen.getByTestId("unanswered-part").textContent).toContain("Ask it in two steps.");
+    expect(screen.queryByRole("button")).toBeNull();
+  });
+
   it("offers no button while a question runs", () => {
     view({ unanswered_parts: [{ asked: "x", text: "Part of your question was not answered from the records: \"x\".", ask: 'Ask: "x"', follow_up: "x" }] });
     expect(screen.queryByRole("button", { name: 'Ask: "x"' })).toBeNull();
