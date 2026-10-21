@@ -47,10 +47,10 @@ def write(tmp_path, exchanges):
 
 def test_every_row_holds_about_three_questions(items):
     counts = {c: sum(it["category"] == c for it in items) for c in ev.CATEGORIES}
-    assert all(3 <= n <= 6 for n in counts.values()), counts
+    assert all(3 <= n <= 7 for n in counts.values()), counts
     # MP4 (H4 by ref) joined in task 4 (chat 20.10, 22:30); MP5, MP6 (H1a, H1b) and QB4 (H7) in task 3 (chat 21.10,
-    # 12:50), so the measurement runs them
-    assert len(items) == 42
+    # 12:50), and MP7 (H4 with no ambiguous term, chat 15:50), so the measurement runs them
+    assert len(items) == 43
 
 
 def test_a_reference_takes_its_question_plan_and_expectations_from_its_own_set(items):
@@ -150,5 +150,5 @@ def test_the_report_goes_by_category(items, conn):
 def test_the_plans_command_on_the_stage_set(db_path, capsys):
     assert ev.main(["--plans", "--set", "stage", "--db", str(db_path)]) == 0
     out = capsys.readouterr().out
-    assert "42 of 42 questions have a plan that passes" in out
+    assert "43 of 43 questions have a plan that passes" in out
     assert "| category | questions | pass |" in out

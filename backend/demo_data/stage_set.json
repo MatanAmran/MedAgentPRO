@@ -1097,6 +1097,133 @@
       "ref": "probe:H7"
     },
     {
+      "id": "MP7",
+      "book_test": [
+        48
+      ],
+      "category": "multi_part",
+      "user": "AP-01",
+      "question": "Which suppliers delivered after the requested date in September, and what is the value of their open orders?",
+      "expect": {
+        "status": [
+          "answered"
+        ],
+        "disposition": "retrieve",
+        "readings": 2,
+        "metric": [
+          "late_by_delivery"
+        ]
+      },
+      "sql": [
+        {
+          "query": "SELECT DISTINCT supplier_id FROM commitments WHERE delivered_at BETWEEN '2026-09-01' AND '2026-09-30' AND delivered_at > due_date",
+          "compare": "total"
+        },
+        {
+          "query": "SELECT SUM(line_value) FROM commitments WHERE delivered_at IS NULL AND supplier_id IN (SELECT supplier_id FROM commitments WHERE delivered_at BETWEEN '2026-09-01' AND '2026-09-30' AND delivered_at > due_date)",
+          "compare": "value"
+        }
+      ],
+      "watch": "משימה 3 (הצ׳אט 15:50): H4 עם מונח לא עמום, כדי שהמסלול של IN_READING יימדד גם בלי עמימות. 'delivered after the requested date' ולא 'delivered late', כי דוגמת אפריל מצהירה ש-'delivered late' עמום",
+      "plan": [
+        {
+          "disposition": "retrieve",
+          "readings": [
+            {
+              "label": "late_sep",
+              "asked": "Which suppliers delivered after the requested date in September",
+              "plan": {
+                "SELECT": [
+                  {
+                    "expr": {
+                      "col": "commitments.supplier_id"
+                    },
+                    "as": "supplier_id"
+                  },
+                  {
+                    "expr": {
+                      "func": "COUNT",
+                      "arg": "*"
+                    },
+                    "as": "late_lines"
+                  }
+                ],
+                "FROM": "commitments",
+                "WHERE": {
+                  "AND": [
+                    {
+                      "BETWEEN": {
+                        "col": "commitments.delivered_at",
+                        "from": {
+                          "value": "2026-09-01"
+                        },
+                        "to": {
+                          "value": "2026-09-30"
+                        }
+                      }
+                    },
+                    {
+                      "EQ": [
+                        {
+                          "metric": "late_by_delivery"
+                        },
+                        {
+                          "value": true
+                        }
+                      ]
+                    }
+                  ]
+                },
+                "GROUP_BY": [
+                  "supplier_id"
+                ],
+                "ORDER_BY": [
+                  {
+                    "by": "late_lines",
+                    "dir": "DESC"
+                  }
+                ]
+              }
+            },
+            {
+              "label": "open_value",
+              "asked": "what is the value of their open orders",
+              "plan": {
+                "SELECT": [
+                  {
+                    "expr": {
+                      "func": "SUM",
+                      "arg": {
+                        "col": "commitments.line_value"
+                      }
+                    },
+                    "as": "open_value"
+                  }
+                ],
+                "FROM": "commitments",
+                "WHERE": {
+                  "AND": [
+                    {
+                      "IS_NULL": {
+                        "col": "commitments.delivered_at"
+                      }
+                    },
+                    {
+                      "IN_READING": {
+                        "col": "commitments.supplier_id",
+                        "reading": "late_sep",
+                        "as": "supplier_id"
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
       "id": "AV1",
       "category": "answer_verification",
       "ref": "demo:Q10",
