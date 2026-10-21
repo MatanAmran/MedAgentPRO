@@ -23,7 +23,7 @@ from typing import Any
 
 from jsonschema import Draft202012Validator
 
-from .compiler import HERE, Catalog, RetrievalResult
+from .compiler import HERE, ROW_LIMIT, Catalog, RetrievalResult
 from .prompts import RowUnit
 from .synthesis import format_value
 
@@ -152,10 +152,10 @@ def matched_phrases(matched: list[dict] | None, cat: Catalog, by_identifier: boo
     return out
 
 
-def _predicate(node: dict, cat: Catalog, phrases: dict | None = None) -> str:
+def _predicate(node: dict, cat: Catalog, phrases: dict | None = None, inner: dict | None = None) -> str:
     (op, arg), = node.items()
     if op in ("AND", "OR"):
-        parts = [_predicate(p, cat, phrases) for p in arg]
+        parts = [_predicate(p, cat, phrases, inner) for p in arg]
         joined = f" {op.lower()} ".join(parts)
         return f"({joined})" if op == "OR" else joined
     if op in CMP:
@@ -178,7 +178,40 @@ def _predicate(node: dict, cat: Catalog, phrases: dict | None = None) -> str:
         return f"{_column(arg['col'], cat)} recorded"
     if op == "MATCHES":   # a name not resolved to one entity (chat 20.10)
         return f"{_column(arg['col'], cat)} matches '{arg['term']}'"
+    if op in ("IN_READING", "NOT_IN_READING"):   # task 3: quoted in the person's own words, never the label
+        read = (inner or {}).get(arg["reading"], {})
+        source = f"“{read['asked']}”" if read.get("asked") else f"reading {arg['reading']}"
+        which = "all those" if "LIMIT" not in read.get("plan", {}) else "those"
+        if op == "NOT_IN_READING":
+            return f"{_column(arg['col'], cat)} is none of {which} in {source}"
+        return f"{_column(arg['col'], cat)} is one of {which} in {source}"
     raise AssertionError(op)
+
+
+def reads(plan: dict) -> list[str]:
+    """Task 3: the labels of the readings a plan's conditions read, in order."""
+    out: list[str] = []
+    stack: list[dict] = [plan["WHERE"]] if plan.get("WHERE") else []
+    while stack:
+        (op, arg), = stack.pop(0).items()
+        if op in ("AND", "OR"):
+            stack += arg
+        elif op in ("IN_READING", "NOT_IN_READING") and arg["reading"] not in out:
+            out.append(arg["reading"])
+    return out
+
+
+def negates(plan: dict) -> list[str]:
+    """Task 3: the labels a plan's conditions read under NOT_IN_READING."""
+    out: list[str] = []
+    stack: list[dict] = [plan["WHERE"]] if plan.get("WHERE") else []
+    while stack:
+        (op, arg), = stack.pop(0).items()
+        if op in ("AND", "OR"):
+            stack += arg
+        elif op == "NOT_IN_READING":
+            out.append(arg["reading"])
+    return out
 
 
 def _restricted(plan: dict, cat: Catalog, role: str) -> bool:
@@ -195,8 +228,9 @@ def _restricted(plan: dict, cat: Catalog, role: str) -> bool:
 
 
 def render_checked(plan: dict, cat: Catalog, role: str, matched: list[dict] | None = None,
-                   by_identifier: bool = False) -> str:
-    """Fixed mapping from clause to phrase. No model writes it (exchange_response assembly rules)."""
+                   by_identifier: bool = False, inner: dict | None = None) -> str:
+    """Fixed mapping from clause to phrase. No model writes it (exchange_response assembly rules).
+    inner (task 3): the other readings of the exchange, {label: {"asked", "plan"}}, for a condition on one."""
     named = headers(plan, cat)
     parts = [f"Examined: {_table(plan['FROM'], cat)}"]
     scope = {plan["FROM"]}
@@ -207,7 +241,7 @@ def render_checked(plan: dict, cat: Catalog, role: str, matched: list[dict] | No
         other_name = _table(other, cat) + _join_role(j["rel"], cat)
         parts[0] += f" with {other_name}" if j["type"] == "INNER" else f" with {other_name} where held"
     if "WHERE" in plan:
-        parts[0] += f" where {_predicate(plan['WHERE'], cat, matched_phrases(matched, cat, by_identifier))}"
+        parts[0] += f" where {_predicate(plan['WHERE'], cat, matched_phrases(matched, cat, by_identifier), inner)}"
     if plan.get("GROUP_BY"):
         parts.append("grouped by " + ", ".join(group_names(plan, cat)))
     aggs = [_func(i["expr"], cat, examined=True) for i in plan["SELECT"] if "func" in i["expr"]]
@@ -215,7 +249,8 @@ def render_checked(plan: dict, cat: Catalog, role: str, matched: list[dict] | No
         parts.append("computed the " + ", the ".join(aggs))
     for h in plan.get("HAVING", []):
         parts.append(f"kept where {named.get(h['agg'], h['agg'])} {CMP[h['op']]} {format_value(h['value'])}")
-    if _restricted(plan, cat, role):
+    read = [(inner or {}).get(label, {}).get("plan") for label in reads(plan)]
+    if _restricted(plan, cat, role) or any(p and _restricted(p, cat, role) for p in read):   # task 3, 2d
         parts.append("limited to the records you hold")
     return " · ".join(parts)
 
@@ -234,10 +269,22 @@ def _join_role(name: str, cat: Catalog) -> str:
 
 
 def examined_line(plan: dict, cat: Catalog, role: str, matched: list[dict] | None = None,
-                  by_identifier: bool = False) -> str:
+                  by_identifier: bool = False, inner: dict | None = None) -> str:
     """What a reading examined, without the "Examined: " the screen shows: the line synthesis and the
     gate get above the reading's rows (chat, 18.10, 09:40). The same text, from the same code."""
-    return render_checked(plan, cat, role, matched, by_identifier).removeprefix("Examined: ")
+    return render_checked(plan, cat, role, matched, by_identifier, inner).removeprefix("Examined: ")
+
+
+# Task 3 (92_TASK3_PLAN, 2e and 2d; chat 21.10 12:50): what code says of a reading that reads another. Wording
+# from the plan, Evyatar's to change
+DEPENDS_NOT_RUN = "Depends on “{asked}”, which was not run."
+NONE_MATCHED_INNER = "No records matched, since none matched “{asked}”."
+LIMITED_ABSENCE = ("Limited to the records you hold: what “{asked}” found was read over those only, so a record "
+                   "you do not hold is not counted.")
+
+
+def is_restricted(plan: dict, cat: Catalog, role: str) -> bool:
+    return _restricted(plan, cat, role)
 
 
 def render_order(plan: dict, cat: Catalog | None = None) -> str | None:
@@ -333,10 +380,11 @@ def reading_entity(plan: dict, cat: Catalog) -> str | None:
 
 def reading_view(label: str, plan: dict, result: RetrievalResult, cat: Catalog, role: str,
                  answer: str | None = None, evidence: list[str] | None = None,
-                 answer_segments: list[dict] | None = None, matched: list[dict] | None = None) -> dict:
+                 answer_segments: list[dict] | None = None, matched: list[dict] | None = None,
+                 inner: dict | None = None) -> dict:
     view: dict[str, Any] = {
         "label": label,
-        "checked": render_checked(plan, cat, role, matched),
+        "checked": render_checked(plan, cat, role, matched, inner=inner),
         "result": result.outcome,
         "columns": [i["as"] for i in plan["SELECT"]],
         "headers": headers(plan, cat),   # task 7 review, item 2 [demo extension]
@@ -477,11 +525,21 @@ CLASSIFY_FAILED = ("The check of what each part of the question asks could not b
 COVERAGE_FAILED = "The check that every part of the question was answered could not be completed."
 
 
-def unanswered_part(span: str, text: str | None, follow_up: str | None) -> dict:
-    """A part no reading answered: the model's sentence where coverage.message() accepted it, else the template;
-    the person's own words on the button; what a click sends, the model's question or else the part."""
-    return {"asked": span, "text": text or UNANSWERED.format(span=span), "ask": ASK_LABEL.format(span=span),
-            "follow_up": follow_up or span}
+# Task 3, GAP-07 (chat 21.10, 12:50): a part the plan language cannot express, where the model's sentence about
+# it did not pass. {reason} is code's, from coverage.REASONS
+UNEXPRESSIBLE = '"{span}" {reason}.'
+
+
+def unanswered_part(span: str, text: str | None, follow_up: str | None, fallback: str | None = None,
+                    ask: bool = True) -> dict:
+    """A part no reading answered: the model's sentence where coverage.message() accepted it, else the template
+    (fallback, where code knows more than that it was not covered); the person's own words on the button; what a
+    click sends, the model's question or else the part. ask False (task 3): no button, where asking the part on
+    its own would meet the same limit."""
+    out = {"asked": span, "text": text or fallback or UNANSWERED.format(span=span)}
+    if ask:
+        out |= {"ask": ASK_LABEL.format(span=span), "follow_up": follow_up or span}
+    return out
 
 
 def referred_part(span: str, asks: str, labels: list[str]) -> dict:
@@ -602,8 +660,8 @@ EXCHANGE_CAP = ("This question needs more of the model than one answer may use. 
 # no retry, counted by the model breaker (R4, P9); only the sentence says what happened
 MODEL_UNAVAILABLE = "The model did not respond. Nothing was answered; try again in a moment."
 # D3 (fix round): every intent attempt broke a size limit of the plan language. The limits are the schema's
-PLAN_LIMIT = ("The question names more values or conditions than one plan may hold (at most 20 values in a list, "
-              "6 conditions in a group). Ask it in smaller parts.")
+PLAN_LIMIT = ("The question names more values or conditions than one plan may hold (at most "
+              f"{ROW_LIMIT} values in a list, 6 conditions in a group). Ask it in smaller parts.")   # task 3: H7
 
 
 _RATE_NOTICE = re.compile("^" + r"(\d+)".join(re.escape(p) for p in RATE_LIMITED.split("{seconds}")) + "$")

@@ -201,7 +201,7 @@ export function ExchangeView({
           data-testid="unanswered-part"
         >
           <p className="text-ink">{part.text}</p>
-          {onAskPart && item.recorded && (
+          {onAskPart && item.recorded && part.ask && (
             <button
               type="button"
               onClick={() => onAskPart(i, part.asked)}

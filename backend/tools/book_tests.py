@@ -50,6 +50,9 @@ BOOK_TESTS = [
              queued="Playwright, with a delay in the scripted server (chat 20.10, 17:35)"),
     BookTest(47, "FR 11, FR 14", "A part of a question not answered is said, and a part that asks for a cause is "
              "referred [proposal, not in the book: task 4, 91_COVERAGE_PLAN; the chat writes it after the build]"),
+    BookTest(48, "FR 11, 3.1.6", "A question whose second part depends on the result of its first is answered over "
+             "that result, and Examined states it [proposal, not in the book: task 3, 92_TASK3_PLAN; the chat writes "
+             "it after the build]"),
 ]
 
 SOURCES = [("backend/tests", "*.py"), ("frontend/e2e", "*.ts"), ("frontend/app", "*.test.tsx"),

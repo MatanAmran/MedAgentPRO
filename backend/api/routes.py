@@ -215,7 +215,8 @@ def router(state: AppState) -> APIRouter:
         if body.part_of is not None:   # task 4: the part as the person wrote it; the follow-up as the server holds it
             item = next((i for i in conv.items if i.get("exchange_id") == body.part_of.exchange_id), None)
             parts = ((item or {}).get("response") or {}).get("unanswered_parts") or []
-            if body.part_of.part >= len(parts):
+            # task 3: a part the plan language cannot express carries no button, and is not asked on its own
+            if body.part_of.part >= len(parts) or "follow_up" not in parts[body.part_of.part]:
                 raise HTTPException(404, "no such part")
             part = parts[body.part_of.part]
             question = part["asked"]
@@ -295,7 +296,8 @@ def router(state: AppState) -> APIRouter:
         # task 4: a reading of a part referred to an investigation shows its records with that said
         referred = any(label in p.get("show_recorded", []) for p in item["response"].get("referred_parts") or [])
         try:
-            return pipeline.show_all(exchange_id, label, plan, user, state.deps, shown, matched, referred)
+            return pipeline.show_all(exchange_id, label, plan, user, state.deps, shown, matched, referred,
+                                     state.inner_of(exchange_id))
         except CompileError:
             raise HTTPException(403, "these records are not readable for this user") from None
         except pipeline.NotShowable:   # chat 20.10, A: a name not resolved to one entity

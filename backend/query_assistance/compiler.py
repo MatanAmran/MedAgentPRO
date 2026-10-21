@@ -55,6 +55,13 @@ DATE_RE = re.compile(r"^\d{4}-\d{2}-\d{2}$")
 MATCH_CONTAINS_MIN = 3
 MAX_CANDIDATES_DEFAULT = 5
 CMP_SQL = {"EQ": "=", "NE": "<>", "GT": ">", "GTE": ">=", "LT": "<", "LTE": "<="}
+# Task 3 (92_TASK3_PLAN, chat 21.10 12:50) [proposal, not in the book]: a condition on another reading's result,
+# through a declared relation, compiled over that reading's own query (QPL: each reading runs on its own)
+READING_REFS = {"IN_READING": "EXISTS", "NOT_IN_READING": "NOT EXISTS"}
+# Task 3, GAP-07: what the plan language cannot express. A reading that fails on one of these on the last attempt
+# is left out and its part said, with what it asks for; any other code is a fault of the plan (Test 13)
+LANGUAGE_LIMITS = ("reading_ref_depth", "in_reading_under_or", "duplicate_table", "in_values_limit",
+                   "readings_limit")
 
 # Task 4, A (91_COVERAGE_PLAN, chat 20.10, 22:30) [proposal, not in the book]: the words of a question that no part
 # has to quote, connecting and question words, English and Hebrew (decision 7). A closed list over the question
@@ -159,6 +166,12 @@ class CompiledReading:
     limit_injected: bool
     probes: list[Probe] = field(default_factory=list)
     names: list[NameProbe] = field(default_factory=list)   # MATCHES not yet resolved: never run (chat 20.10, A)
+    # task 3: this reading's query as another reading's condition reads it, the LIMIT kept only where the plan
+    # wrote one ("the five ... and their ..."); and the column behind each plain alias
+    inner_sql: str = ""
+    inner_params: list = field(default_factory=list)
+    columns: dict[str, str | None] = field(default_factory=dict)
+    depends_on: list[str] = field(default_factory=list)   # task 3: the readings its conditions read
 
 
 @dataclass
@@ -168,6 +181,8 @@ class CompiledIntent:
     unresolved: list = field(default_factory=list)
     intent: dict = field(default_factory=dict)   # the intent compiled, values normalised (A2)
     uncovered: list[str] = field(default_factory=list)   # task 4, A: parts of the question no asked quotes
+    # task 3, GAP-07: readings left out on the last attempt for a limit of the language: {label, asked, code}
+    dropped: list[dict] = field(default_factory=list)
 
 
 @dataclass
@@ -305,12 +320,17 @@ class Expr:
 # --------------------------------------------------------------------------
 
 class _ReadingCompiler:
-    def __init__(self, cat: Catalog, user: dict, reading: dict, row_limit: int):
+    def __init__(self, cat: Catalog, user: dict, reading: dict, row_limit: int,
+                 inner: dict[str, CompiledReading] | None = None, others: frozenset[str] = frozenset()):
         self.cat = cat
         self.user = user
         self.label = reading["label"]
         self.plan = reading["plan"]
         self.row_limit = row_limit
+        self.inner = inner or {}          # task 3: the readings this one may read, compiled
+        self.others = others              # task 3: every other label of the plan
+        self.depends_on: list[str] = []
+        self.inner_names: list[NameProbe] = []
         self.scope: dict[str, str] = {}          # table -> FROM | INNER | LEFT
         self.join_sql: list[tuple[str, list]] = []
         self.aliases: dict[str, Expr] = {}
@@ -494,13 +514,13 @@ class _ReadingCompiler:
                 self.fail("match_not_searchable",
                           f"MATCHES at {path} is on '{arg['col']}', which schema.json does not mark searchable. "
                           f"A name may be matched only on a searchable column.", path=path, col=arg["col"])
-            if not top:   # V1: a positive condition every record must meet, never under OR
-                self.fail("match_not_top_level",
-                          f"MATCHES at {path} is not under AND from the root of WHERE. A name may be matched "
-                          f"only as a condition every record meets, never under OR.", path=path)
+            # V1 relaxed (task 3, 40_CHAT section 17): anywhere in WHERE. A name resolved to one entity is
+            # written as EQ on its identifier, under OR too; one not resolved stops the whole reading
             self.names.append((arg["col"], arg["term"], path))
             # never run as written: execute refuses a reading whose names are not resolved (A)
             return f"{c.sql} = ?", [arg["term"]]
+        if op in READING_REFS:
+            return self.reading_ref(op, arg, top, path)
         if op in ("IS_NULL", "IS_NOT_NULL"):
             c = self.col(arg["col"])
             if arg["col"].split(".")[0] != self.plan["FROM"]:
@@ -508,6 +528,52 @@ class _ReadingCompiler:
                           f"{op} on '{c.column}', which is not a column of the FROM table.", col=c.column)
             return f"{c.sql} {'IS NULL' if op == 'IS_NULL' else 'IS NOT NULL'}", []
         raise AssertionError(op)  # schema 1 admits no other operator
+
+    def _entity(self, qualified: str) -> str | None:
+        """The entity a column identifies: the identifier it declares references to, or its own table's
+        identifier where it is that. None for any other column."""
+        spec = self.cat.column(qualified) or {}
+        if spec.get("references"):
+            return spec["references"]
+        table = qualified.partition(".")[0]
+        if spec.get("identifier") and self.cat._own_ids(table) and self.cat.entity_id(table) == qualified:
+            return qualified
+        return None
+
+    def reading_ref(self, op: str, arg: dict, top: bool, path: str) -> tuple[str, list]:
+        """Task 3: the record's column against the rows of another reading of the plan, through a declared
+        relation (both columns identify the same entity), over that reading's own query: its entitlement, its
+        parameters, and its LIMIT where the plan wrote one. Depth 1, under AND from the root only."""
+        label, alias = arg["reading"], arg["as"]
+        if label == self.label:
+            self.fail("reading_self", f"{op} at {path} names this reading itself.", path=path)
+        if label not in self.others:
+            self.fail("unknown_reading", f"{op} at {path} names '{label}', which is not a reading of this plan.",
+                      path=path, reading=label)
+        inner = self.inner.get(label)
+        if inner is None:
+            self.fail("reading_ref_depth", f"{op} at {path} names '{label}', which itself reads another reading. "
+                      f"A reading may read only a reading that reads none.", path=path, reading=label)
+        if not top:
+            self.fail("in_reading_under_or", f"{op} at {path} is not under AND from the root of WHERE. A condition "
+                      f"on another reading may be only one every record meets.", path=path)
+        source = inner.columns.get(alias)
+        if source is None:
+            self.fail("reading_ref_alias", f"{op} at {path}: '{alias}' is not a plain column of reading '{label}'. "
+                      f"Name an alias of '{label}' that selects a column, not an aggregate or a metric.",
+                      path=path, reading=label)
+        c = self.col(arg["col"])
+        mine, theirs = self._entity(arg["col"]), self._entity(source)
+        if mine is None or mine != theirs:
+            self.fail("reading_ref_relation", f"{op} at {path} compares '{arg['col']}' with '{alias}' of "
+                      f"'{label}', which do not identify the same record. Compare columns that hold the same "
+                      f"identifier.", path=path, reading=label)
+        if label not in self.depends_on:
+            self.depends_on.append(label)
+            self.inner_names += inner.names   # a name the reading read has not resolved: neither runs (2e)
+        # bandit B608: catalog names, quoted; every value a bound parameter (tests/security, tests/property)
+        sub = f'SELECT 1 FROM ({inner.inner_sql}) AS "r" WHERE "r".{_q(alias)} = {c.sql}'  # nosec B608
+        return f"{READING_REFS[op]} ({sub})", list(inner.inner_params)
 
     # --- entitlement (NFR 17) --------------------------------------------
 
@@ -629,8 +695,12 @@ class _ReadingCompiler:
         # bandit B608: identifiers from the catalog, quoted; every value is a bound parameter
         # (tests/security, tests/property)
         count_sql = f"SELECT COUNT(*) FROM ({body})"  # nosec B608
+        # task 3: as another reading reads it. An injected LIMIT is what fits on the screen, not what was asked
+        inner_sql, inner_params = (body, list(params)) if limit_injected else (sql, params + [limit])
+        columns = {a: (e.column if not e.is_agg else None) for a, e in self.aliases.items()}
         return CompiledReading(self.label, sql, params + [limit], count_sql, list(params),
-                               limit, limit_injected, self._probes(), self._name_probes())
+                               limit, limit_injected, self._probes(), self._name_probes() + self.inner_names,
+                               inner_sql, inner_params, columns, list(self.depends_on))
 
     def _name_probes(self) -> list[NameProbe]:
         """For each MATCHES, the three stages, each counting and naming entities by the table's own
@@ -775,12 +845,81 @@ def _check_gap_entity(cat: Catalog, needs: dict):
                            kind=kind, entity=entity)
 
 
+def language_limit(error) -> tuple[str, int | None] | None:
+    """Task 3, GAP-07: a schema breach that is a limit of the language, with the reading it falls on: more
+    values in an IN than one question holds, or more readings. Looked for inside oneOf and anyOf too."""
+    stack = [error]
+    while stack:
+        e = stack.pop()
+        path = list(e.absolute_path)
+        if e.validator == "maxItems":
+            if path == ["readings"]:
+                return "readings_limit", None
+            if len(path) > 2 and path[0] == "readings" and path[-2:] == ["IN", "values"]:
+                return "in_values_limit", path[1]
+        stack += list(e.context or [])
+    return None
+
+
+def _refs(node: dict | None):
+    """Every IN_READING and NOT_IN_READING in a WHERE tree, wherever it stands."""
+    if not node:
+        return
+    (op, arg), = node.items()
+    if op in ("AND", "OR"):
+        for p in arg:
+            yield from _refs(p)
+    elif op in READING_REFS:
+        yield arg
+
+
+def _keep_within(readings: list[dict], limit: int) -> list[dict]:
+    """Task 3 (chat 21.10, 12:50): at most limit readings, by order, never keeping one without a reading it
+    reads: such a reading is kept only together with that one, where both fit."""
+    by_label = {r["label"]: r for r in readings}
+    kept: list[str] = []
+    for r in readings:
+        if r["label"] in kept:
+            continue
+        need = [r["label"]] + [a["reading"] for a in _refs(r["plan"].get("WHERE"))
+                               if a["reading"] in by_label and a["reading"] not in kept]
+        need = list(dict.fromkeys(need))
+        if len(kept) + len(need) <= limit:
+            kept += need
+    return [r for r in readings if r["label"] in kept]
+
+
 def compile_intent(intent: dict, question: "str | Conversation", user: dict, cat: Catalog,
                    validator: Draft202012Validator | None = None,
-                   row_limit: int = ROW_LIMIT, exempt: set[tuple[str, str]] | None = None) -> CompiledIntent:
+                   row_limit: int = ROW_LIMIT, exempt: set[tuple[str, str]] | None = None,
+                   drop_limits: bool = False) -> CompiledIntent:
+    """drop_limits (task 3, GAP-07; the last attempt only): a reading that breaks a limit of the language
+    (LANGUAGE_LIMITS) is left out, with every reading that reads it, and named in dropped; the rest compile as
+    usual. Without it, as without any other fault, the plan is rejected whole."""
     conv = question if isinstance(question, Conversation) else Conversation(question)
     validator = validator or intent_validator(row_limit=row_limit)
+    dropped: list[dict] = []
     errors = sorted(validator.iter_errors(intent), key=lambda e: list(e.path))
+    if errors and drop_limits and intent.get("disposition") == "retrieve":
+        found = [language_limit(e) for e in errors]
+        limits = [x for x in found if x is not None]
+        if len(limits) == len(found):
+            readings = list(intent.get("readings", []))
+            out_idx = {i for code, i in limits if code == "in_values_limit" and i is not None}
+            for i in sorted(out_idx):
+                dropped.append({"label": readings[i]["label"], "asked": readings[i].get("asked", ""),
+                                "code": "in_values_limit"})
+            readings = [r for i, r in enumerate(readings) if i not in out_idx]
+            if any(code == "readings_limit" for code, _ in limits):
+                within = _keep_within(readings, validator.schema["properties"]["readings"].get("maxItems", 3))
+                dropped += [{"label": r["label"], "asked": r.get("asked", ""), "code": "readings_limit"}
+                            for r in readings if r not in within]
+                readings = within
+            intent = {**intent, "readings": readings}
+            # every reading left out: no reading is a finding here, said part by part, not a breach
+            errors = sorted((e for e in validator.iter_errors(intent)
+                             if not (readings == [] and list(e.absolute_path) == ["readings"]
+                                     and e.validator == "minItems")), key=lambda e: list(e.path))
     if errors:
         e = errors[0]
         raise CompileError("schema_violation", e.message, path="/".join(map(str, e.path)))
@@ -814,14 +953,76 @@ def compile_intent(intent: dict, question: "str | Conversation", user: dict, cat
     labels = [r["label"] for r in readings]
     if len(labels) != len(set(labels)):
         raise CompileError("duplicate_label", "Two readings share a label.")
+    _check_ambiguous_refs(intent)
 
-    compiled = []
-    for r in readings:
-        rc = _ReadingCompiler(cat, user, r, row_limit)
-        compiled.append(rc.compile())
-        _check_provenance(rc.named_ids, conv, r["label"], exempt)
-    spans = [r["asked"] for r in readings] + [u["asked"] for u in intent.get("unresolved", [])]
-    return CompiledIntent("retrieve", compiled, intent.get("unresolved", []), intent, uncovered(conv.question, spans))
+    # task 3: a reading another reads is compiled first, so its query is there to read; depth 1, so two passes
+    reads = {r["label"]: [a["reading"] for a in _refs(r["plan"].get("WHERE"))] for r in readings}
+    order = [r for r in readings if not reads[r["label"]]] + [r for r in readings if reads[r["label"]]]
+    done: dict[str, CompiledReading] = {}
+    out_labels = {d["label"] for d in dropped}
+    for r in order:
+        lost = [x for x in reads[r["label"]] if x in out_labels]
+        if lost:   # it reads a reading left out: left out too, for the same reason
+            code = next(d["code"] for d in dropped if d["label"] == lost[0])
+            dropped.append({"label": r["label"], "asked": r["asked"], "code": code})
+            out_labels.add(r["label"])
+            continue
+        inner = {k: v for k, v in done.items() if not v.depends_on}
+        rc = _ReadingCompiler(cat, user, r, row_limit, inner, frozenset(labels) - {r["label"]})
+        try:
+            done[r["label"]] = rc.compile()
+            _check_provenance(rc.named_ids, conv, r["label"], exempt)
+        except CompileError as e:
+            if not (drop_limits and e.code in LANGUAGE_LIMITS):
+                raise
+            dropped.append({"label": r["label"], "asked": r["asked"], "code": e.code})
+            out_labels.add(r["label"])
+    for r in readings:   # one that read a reading left out after it was compiled
+        if r["label"] in done and any(x in out_labels for x in reads[r["label"]]):
+            code = next(d["code"] for d in dropped if d["label"] in reads[r["label"]])
+            dropped.append({"label": r["label"], "asked": r["asked"], "code": code})
+            out_labels.add(r["label"])
+            del done[r["label"]]
+    compiled = [done[r["label"]] for r in readings if r["label"] in done]
+    kept = {**intent, "readings": [r for r in readings if r["label"] in done]}
+    spans = ([r["asked"] for r in readings] + [d["asked"] for d in dropped]
+             + [u["asked"] for u in intent.get("unresolved", [])])
+    return CompiledIntent("retrieve", compiled, intent.get("unresolved", []), kept, uncovered(conv.question, spans),
+                          dropped)
+
+
+def _named(node: Any):
+    """Every column and metric a plan names, as ("col", name) or ("metric", name), wherever it stands."""
+    if isinstance(node, dict):
+        for k, v in node.items():
+            if k in ("col", "metric") and isinstance(v, str):
+                yield k, v
+            else:
+                yield from _named(v)
+    elif isinstance(node, list):
+        for v in node:
+            yield from _named(v)
+
+
+def _check_ambiguous_refs(intent: dict):
+    """Task 3 (chat 21.10, 12:50, question 1): a reading another reading reads is never one of the alternatives
+    of an ambiguous term. The plan asks which was meant instead (needs_clarification), so no answer multiplies its
+    readings for a term the person did not mean in two ways."""
+    alternatives = [(alt.get("col"), alt.get("metric"))
+                    for a in intent.get("ambiguous", []) for alt in a["alternatives"]]
+    if not alternatives:
+        return
+    read = {a["reading"] for r in intent.get("readings", []) for a in _refs(r["plan"].get("WHERE"))}
+    for r in intent.get("readings", []):
+        if r["label"] not in read:
+            continue
+        used = set(_named(r["plan"]))
+        for col, metric in alternatives:
+            if ("col", col) in used or ("metric", metric) in used:
+                raise CompileError("reading_ref_ambiguous",
+                                   f"Reading '{r['label']}' is read by another reading and uses an alternative of "
+                                   f"an ambiguous term. A term another reading depends on is not answered in two "
+                                   f"ways: set disposition to needs_clarification instead.", label=r["label"])
 
 
 # --------------------------------------------------------------------------
@@ -962,13 +1163,21 @@ def with_names(intent: dict, single: dict[tuple[str, str, str], tuple[str, Any]]
 SHOW_ALL_LIMIT = 1000
 
 
-def compile_all(label: str, plan: dict, user: dict, cat: Catalog, limit: int = SHOW_ALL_LIMIT) -> CompiledReading:
+def compile_all(label: str, plan: dict, user: dict, cat: Catalog, limit: int = SHOW_ALL_LIMIT,
+                others: dict[str, dict] | None = None) -> CompiledReading:
     """A plan already compiled and run in an exchange, compiled again to show all its records: the plan's
     own LIMIT left out and SHOW_ALL_LIMIT injected. Entitlement is injected afresh for the user asking now
     (NFR 17), from the catalog, as on every compilation. The plan is the server's record of the exchange,
-    never one a client sent; it passed the schema and NFR 27 when the exchange ran. No model."""
+    never one a client sent; it passed the schema and NFR 27 when the exchange ran. No model.
+    others (task 3): the exchange's other plans, by label. A reading another reads is compiled as it ran, its
+    own LIMIT kept where the plan wrote one, since that is part of what the condition means."""
+    others = others or {}
+    read = [a["reading"] for a in _refs(plan.get("WHERE")) if a["reading"] in others]
+    inner = {x: _ReadingCompiler(cat, user, {"label": x, "plan": copy.deepcopy(others[x])}, ROW_LIMIT).compile()
+             for x in dict.fromkeys(read)}
     whole = {k: v for k, v in copy.deepcopy(plan).items() if k != "LIMIT"}
-    return _ReadingCompiler(cat, user, {"label": label, "plan": whole}, limit).compile()
+    return _ReadingCompiler(cat, user, {"label": label, "plan": whole}, limit, inner,
+                            frozenset(others) - {label}).compile()
 
 
 def execute(reading: CompiledReading, conn: sqlite3.Connection) -> RetrievalResult:

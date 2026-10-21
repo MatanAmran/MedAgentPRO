@@ -6,6 +6,7 @@ for character, so the model reads the same prompt. The server and the demo still
 No model.
 """
 
+import json
 import re
 import sqlite3
 
@@ -24,7 +25,7 @@ CAT = Catalog.load(seed.HERE / "schema.json", seed.HERE / "relations.json")
 
 # generic file -> (the frozen prompt it follows, the identity it carries)
 LINEAGE = {
-    "intent_analysis.md": (seed.HERE / "intent_analysis_demo_v10.md", "intent_analysis@15"),
+    "intent_analysis.md": (seed.HERE / "intent_analysis_demo_v10.md", "intent_analysis@16"),
     "rewrite.md": ("rewrite.md", "question_rewriting@8"),
     "synthesis.md": ("synthesis.md", "synthesis@17"),
     "synthesis_redraft.md": ("synthesis_redraft.md", "synthesis_redraft@14"),
@@ -53,7 +54,32 @@ INTENT_14 = [
      'Question: Why is S-014 late so often?\nOutput: {"disposition": "refer_to_investigation"}\n\n'
      'Question: What caused PO-87006 to arrive late?\nOutput: {"disposition": "refer_to_investigation"}\n'),
 ]
-CHANGED = {"intent_analysis.md": INTENT_14}
+
+# intent@16 (task 3, 92_TASK3_PLAN; chat 21.10, 12:50): rule 9b reads another reading instead of declaring a gap, rule
+# 18 says how and when not (an ambiguous term another reading reads asks which was meant), the April example follows
+# that rule (L5), and two examples show IN_READING and NOT_IN_READING. Their asked fields are compared away below
+_EXAMPLES = (seed.HERE / "examples" / "intent_analysis.md").read_text(encoding="utf-8").replace("\r\n", "\n")
+_APRIL = "Question: Which suppliers delivered late in April"
+_V10 = (seed.HERE / "intent_analysis_demo_v10.md").read_text(encoding="utf-8").replace("\r\n", "\n")
+_TEMPLATE = (p.HERE / "templates" / "generic" / "intent_analysis.md").read_text(encoding="utf-8").replace("\r\n",
+                                                                                                        "\n")
+_RULE_18 = next(ln for ln in _TEMPLATE.split("\n") if "18. IN_READING" in ln).split("]]", 1)[1]
+_CROSS = json.loads((seed.HERE / "prompt_text.json").read_text(encoding="utf-8"))["texts"]["cross_record_example"]
+INTENT_16 = [
+    ("9b. A part of the question that needs a condition on other records of the same entity, such as " + _CROSS
+     + ", cannot be one reading. Put that part in unresolved with needs kind cross_record_condition and entity the "
+     "table of that entity. Never answer it with a separate reading over all the entity's records.",
+     "9b. A part of the question that needs a condition on other records of the same entity, such as " + _CROSS
+     + ", is two readings: one that finds the records the condition names, and one that reads its result with "
+     "IN_READING, or NOT_IN_READING for those it did not find (rule 18). Never answer it with a separate reading "
+     "over all the entity's records. Put it in unresolved with needs kind cross_record_condition and entity the "
+     "table of that entity only where rule 18 cannot express it."),
+    ("\n\nTables, relations and metrics:", "\n" + _RULE_18 + "\n\nTables, relations and metrics:"),
+    ("\n".join(_V10[_V10.index(_APRIL):].split("\n")[:2]),
+     re.sub(r'("label": "[a-z0-9_]{1,40}", )"asked": "[^"]*", ', r"\1",   # asked aside, as ASKED below
+            _EXAMPLES[_EXAMPLES.index(_APRIL):_EXAMPLES.index("\n\nQuestion: Which of my open lines")])),
+]
+CHANGED = {"intent_analysis.md": INTENT_14 + INTENT_16}
 
 # intent@15 (task 4, A, chat 20.10, 22:30): rule 9c after 9a, and every reading of every example says the part it
 # answers. Nothing else changes, which the comparison checks with the asked fields taken out
@@ -146,7 +172,7 @@ def test_a_run_on_the_generic_prompts_sends_the_same_prompts(db_path, question):
     def as_changed(identity, text):   # the intent call carries @14's listed changes, and only them
         text = text.replace("\r\n", "\n")
         if identity.startswith("intent_analysis"):
-            for old, new in INTENT_14:
+            for old, new in INTENT_14 + INTENT_16:
                 text = text.replace(old, new)
             line = next(ln for ln in text.split("\n") if ln.startswith("9a. "))
             text = text.replace(line + "\n", line + "\n" + RULE_9C + "\n")   # @15: rule 9c, and asked aside
@@ -156,6 +182,6 @@ def test_a_run_on_the_generic_prompts_sends_the_same_prompts(db_path, question):
         return ASKED.sub(r"\1", text) if identity.startswith("intent_analysis") else text
     assert [as_sent(i, t) for i, t in sent_generic] == [as_changed(i, t) for i, t in sent_frozen]
     assert len(sent_frozen) >= 3
-    assert {i for i, _ in sent_generic} <= {"intent_analysis@15", "synthesis@17", "synthesis_redraft@14",
+    assert {i for i, _ in sent_generic} <= {"intent_analysis@16", "synthesis@17", "synthesis_redraft@14",
                                            "support_scoring@9", "question_classification@1", "coverage_check@1"}
     assert generic.response == frozen.response

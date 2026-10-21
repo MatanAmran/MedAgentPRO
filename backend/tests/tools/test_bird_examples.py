@@ -113,7 +113,7 @@ def test_the_pipeline_runs_on_superhero_without_data_as_of(tmp_path):
                          coverage=False)
     out = pipeline.run("What is the name of Sauron?", [], be.USER, deps)
     assert out.response["outcome"] == "answered", out.response
-    assert sent[0] == "intent_analysis@15"
+    assert sent[0] == "intent_analysis@16"
 
 
 def test_superhero_is_taught_no_value_as_a_reason():

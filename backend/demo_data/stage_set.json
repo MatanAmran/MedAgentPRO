@@ -579,32 +579,46 @@
     },
     {
       "id": "QB3",
+      "book_test": [48],
       "category": "query_building",
       "user": "AP-01",
       "question": "Which suppliers had no late lines in weeks 1 to 13?",
       "expect": {
         "status": [
-          "answered"
+          "answered",
+          "needs_clarification"
         ],
-        "disposition": "retrieve",
-        "gap": "cross_record_condition"
+        "disposition": "retrieve"
       },
-      "expected_gap": {
-        "id": "task3-EXISTS",
-        "where": "plan",
-        "note": "a condition on the other records of a supplier (NOT EXISTS): no reading states it, and a plan holds at least one reading, so not even the honest gap alone is a valid plan; the plan here is the gap alone, which schema 1 refuses (task 3)"
-      },
-      "watch": "תנאי בין רשומות: פער כנה, לא רשימה שגויה",
+      "sql": [
+        {
+          "query": "SELECT DISTINCT supplier_id FROM commitments WHERE week BETWEEN 1 AND 13 AND supplier_id NOT IN (SELECT supplier_id FROM commitments WHERE week BETWEEN 1 AND 13 AND delivered_at > due_date)",
+          "compare": "total"
+        }
+      ],
+      "watch": "משימה 3: NOT_IN_READING. הספקים שהיו להם שורות בשבועות 1 עד 13, ואף אחת מהן לא איחרה. late עמום בקטלוג הזה, ולכן גם בקשת בירור נכונה (הצ׳אט 12:50, שאלה 1)",
       "plan": [
         {
           "disposition": "retrieve",
-          "readings": [],
-          "unresolved": [
+          "readings": [
             {
-              "asked": "Which suppliers had no late lines in weeks 1 to 13?",
-              "needs": {
-                "kind": "cross_record_condition",
-                "entity": "commitments"
+              "label": "late_lines",
+              "asked": "late lines in weeks 1 to 13",
+              "plan": {
+                "SELECT": [{"expr": {"col": "commitments.supplier_id"}, "as": "supplier_id"}],
+                "FROM": "commitments",
+                "WHERE": {"AND": [{"BETWEEN": {"col": "commitments.week", "from": {"value": 1}, "to": {"value": 13}}}, {"EQ": [{"metric": "late_by_delivery"}, {"value": true}]}]}
+              }
+            },
+            {
+              "label": "none_late",
+              "asked": "Which suppliers had no",
+              "plan": {
+                "SELECT": [{"expr": {"col": "commitments.supplier_id"}, "as": "supplier_id"}, {"expr": {"func": "COUNT", "arg": "*"}, "as": "lines"}],
+                "FROM": "commitments",
+                "WHERE": {"AND": [{"BETWEEN": {"col": "commitments.week", "from": {"value": 1}, "to": {"value": 13}}}, {"NOT_IN_READING": {"col": "commitments.supplier_id", "reading": "late_lines", "as": "supplier_id"}}]},
+                "GROUP_BY": ["supplier_id"],
+                "ORDER_BY": [{"by": "supplier_id", "dir": "ASC"}]
               }
             }
           ]
@@ -672,10 +686,15 @@
       "expect": {
         "status": [
           "answered"
-        ],
-        "compile": "match_not_top_level"
+        ]
       },
-      "watch": "MATCHES תחת OR (V1): נדחה עם הנתיב",
+      "sql": [
+        {
+          "query": "SELECT commitment_id FROM commitments WHERE supplier_id IN ('S-001', 'S-002')",
+          "compare": "total"
+        }
+      ],
+      "watch": "MATCHES תחת OR: מאז משימה 3 (אפשרות 2) השם נפתר ל-S-001, ה-OR רץ על שניהם",
       "plan": [
         {
           "disposition": "retrieve",
@@ -1057,9 +1076,25 @@
     },
     {
       "id": "MP4",
-      "book_test": [47],
+      "book_test": [47, 48],
       "category": "multi_part",
       "ref": "probe:H4"
+    },
+    {
+      "id": "MP5",
+      "category": "multi_part",
+      "ref": "probe:H1a"
+    },
+    {
+      "id": "MP6",
+      "book_test": [48],
+      "category": "multi_part",
+      "ref": "probe:H1b"
+    },
+    {
+      "id": "QB4",
+      "category": "query_building",
+      "ref": "probe:H7"
     },
     {
       "id": "AV1",

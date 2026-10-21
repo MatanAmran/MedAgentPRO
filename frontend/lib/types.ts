@@ -62,8 +62,9 @@ export interface ExchangeResponse {
 export interface UnansweredPart {
   asked: string;
   text: string;
-  ask: string;
-  follow_up: string;
+  // task 3: absent on a part the plan language cannot express, where asking it alone meets the same limit
+  ask?: string;
+  follow_up?: string;
 }
 
 export interface ReferredPart {

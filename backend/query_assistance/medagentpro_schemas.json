@@ -24,9 +24,9 @@
       "book": "not in Table 15. A prompt-width value with no reader-facing effect"
     },
     {
-      "pointer": "/schemas/intent_analysis/schema/$defs/comparison/oneOf/1/properties/IN/prefixItems/1/maxItems",
-      "value": 20,
-      "book": "not in Table 15. Same"
+      "pointer": "/schemas/intent_analysis/schema/$defs/comparison/oneOf/1/properties/IN/properties/values/maxItems",
+      "value": 30,
+      "book": "not in Table 15. Equal to compiler.ROW_LIMIT, the most identifiers one reading presents (task 3, H7); checked in a test"
     },
     {
       "pointer": "/schemas/support_scoring/schema/properties/claims/maxItems",
@@ -552,7 +552,7 @@
                       "values": {
                         "type": "array",
                         "minItems": 1,
-                        "maxItems": 20,
+                        "maxItems": 30,
                         "items": {
                           "$ref": "#/$defs/value"
                         }
@@ -616,7 +616,7 @@
                         "maxLength": 100
                       }
                     },
-                    "$comment": "[proposal, not in the book; chat 20.10, V7] A name the user wrote, passed as written. Only on a column schema.json marks searchable, only as a positive condition under AND from the root of WHERE (V1); term is a span of the question. Resolved in code against the entity's identifier, within the user's entitlement (81_VALUE_MATCH). An object, not a tuple."
+                    "$comment": "[proposal, not in the book; chat 20.10, V7] A name the user wrote, passed as written. Only on a column schema.json marks searchable, anywhere in WHERE, a positive condition (V1 relaxed in task 3, 40_CHAT section 17: a name resolved to one entity becomes EQ on its identifier, under OR too; one not resolved stops the whole reading); term is a span of the question. Resolved in code against the entity's identifier, within the user's entitlement (81_VALUE_MATCH). An object, not a tuple."
                   }
                 }
               },
@@ -645,6 +645,66 @@
                   }
                 },
                 "$comment": "Unary. Same restriction as IS_NULL."
+              },
+              {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "IN_READING"
+                ],
+                "properties": {
+                  "IN_READING": {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "required": [
+                      "col",
+                      "reading",
+                      "as"
+                    ],
+                    "properties": {
+                      "col": {
+                        "$ref": "#/$defs/qualified"
+                      },
+                      "reading": {
+                        "$ref": "#/$defs/name"
+                      },
+                      "as": {
+                        "$ref": "#/$defs/name"
+                      }
+                    },
+                    "$comment": "[proposal, not in the book; task 3, 92_TASK3_PLAN, chat 21.10 12:50] The record's col equals the value of alias as in some row of the reading named. col and the column behind as must identify the same entity (its identifier, or a column that declares references to it), checked in code. reading is another reading of the same plan that holds no reference itself (depth 1); only under AND from the root of WHERE. Compiled to EXISTS over that reading's own query, entitlement included. An object, not a tuple."
+                  }
+                }
+              },
+              {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "NOT_IN_READING"
+                ],
+                "properties": {
+                  "NOT_IN_READING": {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "required": [
+                      "col",
+                      "reading",
+                      "as"
+                    ],
+                    "properties": {
+                      "col": {
+                        "$ref": "#/$defs/qualified"
+                      },
+                      "reading": {
+                        "$ref": "#/$defs/name"
+                      },
+                      "as": {
+                        "$ref": "#/$defs/name"
+                      }
+                    },
+                    "$comment": "[proposal, not in the book; task 3, 92_TASK3_PLAN, chat 21.10 12:50] The record's col equals the value of alias as in no row of the reading named. col and the column behind as must identify the same entity (its identifier, or a column that declares references to it), checked in code. reading is another reading of the same plan that holds no reference itself (depth 1); only under AND from the root of WHERE. Compiled to NOT EXISTS over that reading's own query, entitlement included. An object, not a tuple."
+                  }
+                }
               }
             ]
           },
@@ -1303,15 +1363,13 @@
           "unanswered_parts": {
             "type": "array",
             "maxItems": 6,
-            "$comment": "[proposal, not in the book] Task 4 (91_COVERAGE_PLAN): a part of the question no reading answered. text is the model's sentence with code's slots filled, where it passed coverage.message(), else contract.UNANSWERED. ask shows the person's own words; follow_up is what a click sends, where coverage.follow_up() accepted it, else the part as written.",
+            "$comment": "[proposal, not in the book] Task 4 (91_COVERAGE_PLAN): a part of the question no reading answered. text is the model's sentence with code's slots filled, where it passed coverage.message(), else contract.UNANSWERED. ask shows the person's own words; follow_up is what a click sends, where coverage.follow_up() accepted it, else the part as written. Task 3 (chat 21.10, 12:50): a part the plan language cannot express carries code's reason (coverage.REASONS, not_expressible) and, where asking it on its own would meet the same limit, no ask and no follow_up.",
             "items": {
               "type": "object",
               "additionalProperties": false,
               "required": [
                 "asked",
-                "text",
-                "ask",
-                "follow_up"
+                "text"
               ],
               "properties": {
                 "asked": {
