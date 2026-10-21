@@ -8,6 +8,7 @@ values here are made up for the tests.
 import json
 import sys
 import threading
+from pathlib import Path
 
 import pytest
 
@@ -529,3 +530,72 @@ def test_the_dry_run_prices_the_gate_and_the_path_at_the_gate_cap(db_path):
     assert round(meter.rows[0][-1], 6) == round(cfg.cost(1, 4000), 6)
     meter.ensure_path([1, 1, 1, 1], ("synthesis", "support_scoring", "synthesis_redraft", "support_scoring"))
     assert meter.path_worst == pytest.approx(cfg.cost(4, 10000))
+
+
+# --------------------------------------------------------------------------
+# every stage's own output cap, as a kind (L2): R-6 added the rewrite's (chat 21.10, 22:10)
+# --------------------------------------------------------------------------
+
+STAGE_CAPS = {"MODEL_MAX_OUTPUT_TOKENS_INTENT": b.INTENT_PROMPTS, "MODEL_MAX_OUTPUT_TOKENS_GATE": b.GATE_PROMPTS,
+              "MODEL_MAX_OUTPUT_TOKENS_SYNTHESIS": b.SYNTHESIS_PROMPTS,
+              "MODEL_MAX_OUTPUT_TOKENS_CLASSIFY": b.CLASSIFY_PROMPTS,
+              "MODEL_MAX_OUTPUT_TOKENS_COVERAGE": b.COVERAGE_PROMPTS,
+              "MODEL_MAX_OUTPUT_TOKENS_REWRITE": b.REWRITE_PROMPTS}
+EVERY_PROMPT = sorted({p for ps in STAGE_CAPS.values() for p in ps})
+
+
+def test_every_optional_stage_cap_has_its_prompts_here():
+    assert set(STAGE_CAPS) == {v for v in b.OPTIONAL if v.startswith("MODEL_MAX_OUTPUT_TOKENS_")}
+
+
+@pytest.mark.parametrize("var", sorted(STAGE_CAPS))
+def test_a_stage_cap_applies_to_its_own_prompts_and_no_other(var):
+    """Set alone, each cap is what its prompts are sent, and every other prompt keeps the general cap."""
+    cfg = config(**{var: "1234"})
+    for prompt in EVERY_PROMPT:
+        assert cfg.output_cap(f"{prompt}@9") == (1234 if prompt in STAGE_CAPS[var] else cfg.max_output_tokens)
+
+
+@pytest.mark.parametrize("var", sorted(STAGE_CAPS))
+def test_a_stage_cap_above_the_models_own_limit_is_refused(var, monkeypatch):
+    monkeypatch.setattr(b, "map_entry", lambda model: {"input_cost_per_token": 1e-6, "output_cost_per_token": 1e-5,
+                                                       "max_output_tokens": 5000})
+    cfg = config(**{var: "6000", "MODEL_PRICE_IN": "1", "MODEL_PRICE_OUT": "10"})
+    with pytest.raises(b.BudgetConfigError, match=var):
+        b.check_against_provider_map(cfg)
+
+
+@pytest.mark.parametrize("var", sorted(STAGE_CAPS))
+@pytest.mark.parametrize("value", ["abc", "0", "-5", "2.5"])
+def test_a_stage_cap_that_is_set_must_be_a_positive_integer(var, value):
+    with pytest.raises(b.BudgetConfigError, match=var):
+        config(**{var: value})
+
+
+def _profiles() -> dict[str, dict]:
+    """backend/.env.example's two profiles, each as the env it gives (the shared part, then its own lines).
+    Reads the example only, never backend/.env (R9)."""
+    text = (Path(__file__).resolve().parents[2] / ".env.example").read_text(encoding="utf-8")
+    head, _, second = text.partition("# --- profile 2")
+    shared, _, first = head.partition("# --- profile 1")
+
+    def env(lines: str) -> dict:
+        out = {}
+        for line in lines.splitlines():
+            line = line.strip()
+            if line and not line.startswith("#") and "=" in line:
+                key, value = line.split("=", 1)
+                out[key] = value
+        return out
+    return {"haiku": env(shared + first),
+            "sonnet": env(shared + "\n".join(x[2:] if x.startswith("# MODEL_") else x for x in second.splitlines()))}
+
+
+@pytest.mark.parametrize("profile", ["haiku", "sonnet"])
+def test_every_profile_of_the_env_example_is_accepted_and_holds_t12(profile):
+    """R-6 (chat 21.10, 22:10): each profile loads, passes the check against LiteLLM's map, and its budget covers
+    at least 10 exchanges each spending its whole cap (T12). Haiku 5.5's entry comes from MANUAL_MODELS through
+    map_entry, never by registering it with LiteLLM: that would change the global map for every later test."""
+    cfg = b.BudgetConfig.from_env(_profiles()[profile])
+    b.check_against_provider_map(cfg)
+    assert cfg.budget_usd >= 10 * cfg.max_usd_per_exchange - 1e-9

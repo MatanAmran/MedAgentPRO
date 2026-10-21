@@ -52,7 +52,7 @@ REQUIRED = ("ANTHROPIC_API_KEY", "MODEL_ID", "MODEL_PRICE_IN", "MODEL_PRICE_OUT"
             "MODEL_MAX_USD_PER_EXCHANGE", "MODEL_MAX_OUTPUT_TOKENS", "MODEL_MAX_EXCHANGES_PER_MINUTE")
 OPTIONAL = ("MODEL_PRICE_CACHE_READ", "MODEL_PRICE_CACHE_WRITE", "MODEL_TEMPERATURE", "MODEL_MAX_OUTPUT_TOKENS_INTENT",
             "MODEL_MAX_OUTPUT_TOKENS_GATE", "MODEL_MAX_OUTPUT_TOKENS_SYNTHESIS", "MODEL_MAX_OUTPUT_TOKENS_CLASSIFY",
-            "MODEL_MAX_OUTPUT_TOKENS_COVERAGE")
+            "MODEL_MAX_OUTPUT_TOKENS_COVERAGE", "MODEL_MAX_OUTPUT_TOKENS_REWRITE")
 # The stage MODEL_MAX_OUTPUT_TOKENS_INTENT applies to, by the prompt identity's name
 INTENT_PROMPTS = ("intent_analysis", "intent_analysis_demo")
 # The stage MODEL_MAX_OUTPUT_TOKENS_GATE applies to: the support gate, first and second
@@ -62,6 +62,10 @@ SYNTHESIS_PROMPTS = ("synthesis", "synthesis_redraft")
 # Task 4 (chat 20.10, 22:30): the classification (C) and the coverage check (B), each its own cap where set
 CLASSIFY_PROMPTS = ("question_classification",)
 COVERAGE_PROMPTS = ("coverage_check",)
+# R-6 (chat 21.10, 22:10): the rewriting call, its own cap where set. The rewrite is the shortest output of the
+# pipeline (the most measured on 20.10: 711 tokens, thinking included), so the general cap gave it room it never
+# used, and every reservation for it was priced at that room
+REWRITE_PROMPTS = ("question_rewriting",)
 
 
 class BudgetConfigError(Exception):
@@ -93,6 +97,9 @@ class BudgetConfig:
     # Task 4 (chat 20.10, 22:30): C and B, where set. Unset, the general cap
     max_output_tokens_classify: int | None = None
     max_output_tokens_coverage: int | None = None
+    # R-6 (chat 21.10, 22:10): the rewriting call, where set. Unset, the general cap. The rule for every stage's
+    # cap (L10): about 1.4 times the most a model was measured to use, rounded up to 500, set again per model
+    max_output_tokens_rewrite: int | None = None
     # Phase B task 7: the stable prefix of each prompt marked for Anthropic's cache. Off unless
     # MODEL_PROMPT_CACHE is set: a cache write costs more than a plain input token and lives about five
     # minutes, so spread-out questions pay more with it (T1); evaluation rounds, asked back to back, less
@@ -142,11 +149,14 @@ class BudgetConfig:
                    max_output_tokens_synthesis=number("MODEL_MAX_OUTPUT_TOKENS_SYNTHESIS", int, required=False),
                    max_output_tokens_classify=number("MODEL_MAX_OUTPUT_TOKENS_CLASSIFY", int, required=False),
                    max_output_tokens_coverage=number("MODEL_MAX_OUTPUT_TOKENS_COVERAGE", int, required=False),
+                   max_output_tokens_rewrite=number("MODEL_MAX_OUTPUT_TOKENS_REWRITE", int, required=False),
                    prompt_cache=_flag(env, "MODEL_PROMPT_CACHE"))
 
     def output_cap(self, prompt_identity: str = "") -> int:
         """The max_tokens a call of this prompt is sent: the intent cap for intent analysis, the gate cap for
-        the gate and the synthesis cap for the draft and the redraft, each where set, else the general one."""
+        the gate, the synthesis cap for the draft and the redraft, the rewrite cap for the rewriting call (R-6),
+        and C's and B's, each where set, else the general one. The reservation before a call, the dry run and
+        the record-and-replay key all take the cap from here, so they agree with what is sent."""
         name = prompt_identity.split("@")[0]
         if self.max_output_tokens_intent and name in INTENT_PROMPTS:
             return self.max_output_tokens_intent
@@ -158,6 +168,8 @@ class BudgetConfig:
             return self.max_output_tokens_classify
         if self.max_output_tokens_coverage and name in COVERAGE_PROMPTS:
             return self.max_output_tokens_coverage
+        if self.max_output_tokens_rewrite and name in REWRITE_PROMPTS:
+            return self.max_output_tokens_rewrite
         return self.max_output_tokens
 
     def worst_cost(self, input_tokens: int, output_tokens: int) -> float:
@@ -537,6 +549,7 @@ def check_against_provider_map(cfg: BudgetConfig, model_info: Callable[[str], di
                      ("MODEL_MAX_OUTPUT_TOKENS_GATE", cfg.max_output_tokens_gate),
                      ("MODEL_MAX_OUTPUT_TOKENS_SYNTHESIS", cfg.max_output_tokens_synthesis),
                      ("MODEL_MAX_OUTPUT_TOKENS_CLASSIFY", cfg.max_output_tokens_classify),
-                     ("MODEL_MAX_OUTPUT_TOKENS_COVERAGE", cfg.max_output_tokens_coverage)):
+                     ("MODEL_MAX_OUTPUT_TOKENS_COVERAGE", cfg.max_output_tokens_coverage),
+                     ("MODEL_MAX_OUTPUT_TOKENS_REWRITE", cfg.max_output_tokens_rewrite)):
         if limit and cap and cap > limit:
             raise BudgetConfigError(f"{var} in backend/.env is above this model's own output limit")

@@ -43,14 +43,18 @@ ANTHROPIC_MAX_OPTIONAL = 24
 ANTHROPIC_MAX_UNION = 16
 MIN_WORST_CASE_EXCHANGES = 10
 
-DEFAULTS = {"MODEL_ID": "claude-sonnet-5-5", "MODEL_MAX_OUTPUT_TOKENS": "2000", "MODEL_MAX_USD_PER_EXCHANGE": "0.25",
+# R-6 and G-SYNTHCAP (chat 21.10, 22:10, the values Evyatar approved): Sonnet 5.5's cap per exchange is 0.35, so the
+# worst path with synthesis at 4000 fits; the budget stays at 10 such exchanges (T12), 3.5
+DEFAULTS = {"MODEL_ID": "claude-sonnet-5-5", "MODEL_MAX_OUTPUT_TOKENS": "2000", "MODEL_MAX_USD_PER_EXCHANGE": "0.35",
             "MODEL_BUDGET_USD": "3.5", "MODEL_TEMPERATURE": "",
             # intent analysis's own cap, the value Evyatar sets (task 10a, chat 23:35)
             "MODEL_MAX_OUTPUT_TOKENS_INTENT": "3000",
             # the gate's own cap, the value Evyatar sets (chat, 18.10, 14:40: 3000, so T11 holds)
             "MODEL_MAX_OUTPUT_TOKENS_GATE": "3000",
             # synthesis's own cap, the value Evyatar sets (chat 20.10, 14:50)
-            "MODEL_MAX_OUTPUT_TOKENS_SYNTHESIS": "4000"}
+            "MODEL_MAX_OUTPUT_TOKENS_SYNTHESIS": "4000",
+            # the rewriting call's own cap (R-6, chat 21.10, 22:10): 711 measured, times 1.4, up to 500 (L10)
+            "MODEL_MAX_OUTPUT_TOKENS_REWRITE": "1200"}
 
 
 def settings() -> dict:
@@ -275,11 +279,10 @@ def test_T10_litellm_pinned_and_local_map():
     assert installed == pinned.group(1)
 
 
-@pytest.mark.xfail(strict=True, reason="G-SYNTHCAP (chat 20.10, 14:50): at Sonnet 5.5's prices, with synthesis's "
-                   "own cap at 4000 beside the gate's 3000, the worst path needs ~0.290 of the 0.25 cap (0.2496 at "
-                   "the general 2000: no room). Haiku 5.5's path is ~0.0145 of its 0.05. For the chat, before a "
-                   "Sonnet round")
 def test_T11_worst_path_fits_the_exchange_cap(db_path):
+    """R7a's path, synthesis to the second gate, for the largest material the pipeline can retrieve, priced at each
+    call's own cap, fits the cap per exchange. G-SYNTHCAP was closed by raising Sonnet 5.5's cap to 0.35 (chat 21.10,
+    22:10): with synthesis at 4000 beside the gate's 3000 the path needs about 0.290."""
     e = model_entry()
     s = settings()
     price_in, price_out = e["input_cost_per_token"], e["output_cost_per_token"]
@@ -495,11 +498,8 @@ def test_a_live_row_records_what_the_smoke_test_saw_and_only_a_live_row_does():
 
 @pytest.mark.parametrize("intent_cap, gate_cap, synthesis_cap",
                          [("", "", ""), ("3000", "", ""), ("3000", "4000", ""),
-                          pytest.param("3000", "3000", "4000", marks=pytest.mark.xfail(strict=True, reason=(
-                              "G-SYNTHCAP (chat 20.10, 14:50; task 4, 22:30): with the classification and the "
-                              "coverage check on the path, the follow-up with a rewrite (demo question 13) no longer "
-                              "fits 0.25 at Sonnet 5.5's prices with synthesis at 4000, even with their own caps "
-                              "(1000, 1500). To settle with R-6 before a Sonnet round. Haiku 5.5 fits by far")))],
+                          # G-SYNTHCAP closed (chat 21.10, 22:10): fits at 0.35, the follow-up of question 13 too
+                          ("3000", "3000", "4000")],
                          ids=["general cap", "intent cap 3000", "intent 3000 and gate 4000",
                               "intent 3000, gate 3000, synthesis 4000"])
 def test_L05_every_demo_question_fits_the_default_cap_on_the_real_path(db_path, tmp_path, intent_cap, gate_cap,
@@ -516,9 +516,12 @@ def test_L05_every_demo_question_fits_the_default_cap_on_the_real_path(db_path, 
     from fastapi.testclient import TestClient
 
     from tools.fake_real_server import build_app
-    app, _ = build_app(db_path, tmp_path, MODEL_MAX_USD_PER_EXCHANGE="0.25",
+    # the cap per exchange and the rewrite's own cap from the demo defaults (R-6, chat 21.10, 22:10), never written
+    # here again, so this checks what the defaults hold
+    app, _ = build_app(db_path, tmp_path, MODEL_MAX_USD_PER_EXCHANGE=settings()["MODEL_MAX_USD_PER_EXCHANGE"],
                        MODEL_MAX_OUTPUT_TOKENS_INTENT=intent_cap, MODEL_MAX_OUTPUT_TOKENS_GATE=gate_cap,
-                       MODEL_MAX_OUTPUT_TOKENS_SYNTHESIS=synthesis_cap)
+                       MODEL_MAX_OUTPUT_TOKENS_SYNTHESIS=synthesis_cap,
+                       MODEL_MAX_OUTPUT_TOKENS_REWRITE=settings()["MODEL_MAX_OUTPUT_TOKENS_REWRITE"])
     ap = {"X-Demo-User": "AP-01"}
     with TestClient(app) as c:
         cid = None

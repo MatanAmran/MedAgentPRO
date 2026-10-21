@@ -142,3 +142,10 @@ def test_the_real_setup_shows_the_output_caps(db_path, tmp_path):
     checks = pf.run("real", fetch_for(app), env={**CONFIG, "MEDAGENTPRO_CHAIN_KEY": "k",
                                                   "MODEL_MAX_OUTPUT_TOKENS_INTENT": "3000"}, db_path=db_path)
     assert any("intent analysis: 3000 tokens" in c.text for c in checks)
+
+
+@pytest.mark.parametrize("rewrite, says", [("", "rewriting: the same"), ("1200", "rewriting: 1200 tokens")])
+def test_the_rewrite_cap_is_shown_as_a_number(rewrite, says):
+    """R-6 (chat 21.10, 22:10): preflight shows the rewriting call's own cap, a number only."""
+    _, cfg = pf.check_env({**CONFIG, "MODEL_MAX_OUTPUT_TOKENS_REWRITE": rewrite})
+    assert says in pf.check_output_caps(cfg).text

@@ -151,16 +151,18 @@ def check_output_caps(cfg) -> Check:
     MODEL_MAX_OUTPUT_TOKENS_INTENT is set (task 10a, chat 23:35), and the gate's where
     MODEL_MAX_OUTPUT_TOKENS_GATE is (chat, 18.10, 13:50), and synthesis's where
     MODEL_MAX_OUTPUT_TOKENS_SYNTHESIS is (chat 20.10, 14:50), and the classification's and the coverage check's
-    where MODEL_MAX_OUTPUT_TOKENS_CLASSIFY and _COVERAGE are (task 4, chat 20.10, 22:30)."""
+    where MODEL_MAX_OUTPUT_TOKENS_CLASSIFY and _COVERAGE are (task 4, chat 20.10, 22:30), and the rewriting
+    call's where MODEL_MAX_OUTPUT_TOKENS_REWRITE is (R-6, chat 21.10, 22:10)."""
     intent, gate = cfg.max_output_tokens_intent, cfg.max_output_tokens_gate
-    synthesis = cfg.max_output_tokens_synthesis
+    synthesis, rewrite = cfg.max_output_tokens_synthesis, cfg.max_output_tokens_rewrite
     classify, cover = cfg.max_output_tokens_classify, cfg.max_output_tokens_coverage
     return Check(True, f"output cap per call: {cfg.max_output_tokens} tokens; intent analysis: "
                  + (f"{intent} tokens" if intent else "the same")
                  + "; the gate: " + (f"{gate} tokens" if gate else "the same")
                  + "; synthesis: " + (f"{synthesis} tokens" if synthesis else "the same")
                  + "; classification: " + (f"{classify} tokens" if classify else "the same")
-                 + "; coverage check: " + (f"{cover} tokens" if cover else "the same"))
+                 + "; coverage check: " + (f"{cover} tokens" if cover else "the same")
+                 + "; rewriting: " + (f"{rewrite} tokens" if rewrite else "the same"))
 
 
 def check_chain_key(env: dict | None = None) -> Check:

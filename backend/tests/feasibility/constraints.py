@@ -66,8 +66,9 @@ CONSTRAINTS: list[Constraint] = [
                "at the model's prices, for the largest material the pipeline can retrieve. Each call is priced at "
                "its own output cap: with the gate's at 3000 the path needs about 0.244 of 0.25, so a gate cap "
                "above about 3300 breaks it, and raising the gate's cap needs a higher per-exchange cap. With "
-               "synthesis's own cap at 4000 (chat 20.10, 14:50) the path needs about 0.290 at Sonnet 5.5's prices: "
-               "a known gap, G-SYNTHCAP, to settle before a Sonnet round (Haiku 5.5: about 0.0145 of 0.05).",
+               "synthesis's own cap at 4000 (chat 20.10, 14:50) the path needs about 0.290 at Sonnet 5.5's prices, "
+               "so Sonnet's cap per exchange is 0.35 (G-SYNTHCAP closed, chat 21.10, 22:10; Haiku 5.5: about "
+               "0.0145 of 0.05).",
                "R7a · chat 18.10, 14:40 (G-GATECAP)", "map"),
     Constraint("T12", "technical", "The total budget covers at least 10 exchanges each spending its whole cap.",
                "Task 5 budget (USD 10 total)"),

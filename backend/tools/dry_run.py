@@ -162,6 +162,7 @@ def _config(env, argv) -> BudgetConfig:
     ap.add_argument("--max-output-intent", type=int, help="intent analysis's own output cap (with --model)")
     ap.add_argument("--max-output-gate", type=int, help="the gate's own output cap (with --model)")
     ap.add_argument("--max-output-synthesis", type=int, help="synthesis's own output cap (with --model)")
+    ap.add_argument("--max-output-rewrite", type=int, help="the rewriting call's own output cap (with --model, R-6)")
     ap.add_argument("--sets", help=f"price a round instead: {', '.join(SETS)}, comma separated")
     ap.add_argument("--without-coverage", action="store_true",
                     help="with --sets: price the round without the coverage check (task 4), to compare")
@@ -174,7 +175,8 @@ def _config(env, argv) -> BudgetConfig:
         raise BudgetConfigError(f"{args.model} is not priced in LiteLLM's local map") from None
     return BudgetConfig(args.model, price_in, price_out, args.budget, args.cap, args.max_output, 10,
                         max_output_tokens_intent=args.max_output_intent, max_output_tokens_gate=args.max_output_gate,
-                        max_output_tokens_synthesis=args.max_output_synthesis)
+                        max_output_tokens_synthesis=args.max_output_synthesis,
+                        max_output_tokens_rewrite=args.max_output_rewrite)
 
 
 # --------------------------------------------------------------------------
@@ -184,8 +186,9 @@ def _config(env, argv) -> BudgetConfig:
 SETS = ("demo", "stage", "offscript", "bird")
 # Output tokens of an accepted call, thinking included: the mean of Haiku 5.5's calls in the round of 20.10
 # (96 questions, 271 calls: intent 765, synthesis 1308, gate 1001, rewriting 444, redraft 882), rounded as the
-# chat set them (16:25)
-TYPICAL_OUT = {"question_rewriting": 450, "intent_analysis": 800, "intent_analysis_demo": 800, "synthesis": 1300,
+# chat set them (16:25). R-6 (chat 21.10, 22:10), from all 368 recorded calls of 20.10: intent 856, so 850; the
+# rewrite 455, so it stays 450 (the 634 of 20.10 was the demo set alone)
+TYPICAL_OUT = {"question_rewriting": 450, "intent_analysis": 850, "intent_analysis_demo": 850, "synthesis": 1300,
                "synthesis_redraft": 900, "support_scoring": 1000,
                # task 4: estimates, not yet measured (91_COVERAGE_PLAN, section 7); set from the next round
                "question_classification": 350, "coverage_check": 600}
